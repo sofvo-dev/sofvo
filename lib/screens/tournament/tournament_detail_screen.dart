@@ -697,17 +697,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                   Row(children: [
                     Text("主審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
-                    Container(
-                      padding: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1) : EdgeInsets.zero,
-                      decoration: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(3)) : null,
-                      child: Text(m['refereeTeamName'] ?? '未定', style: TextStyle(fontSize: 13, color: AppTheme.textHint, fontWeight: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
-                    ),
+                    Text(m['refereeTeamName'] ?? '未定', style: TextStyle(fontSize: 13, color: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint, fontWeight: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
                     Text(" / 副審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
-                    Container(
-                      padding: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1) : EdgeInsets.zero,
-                      decoration: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(3)) : null,
-                      child: Text(m['subRefereeTeamName'] ?? 'ー', style: TextStyle(fontSize: 13, color: AppTheme.textHint, fontWeight: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
-                    ),
+                    Text(m['subRefereeTeamName'] ?? 'ー', style: TextStyle(fontSize: 13, color: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint, fontWeight: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
                   ]),
                 ]),
               ),
@@ -715,10 +707,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Row(children: [
                   Expanded(flex: 3, child: Container(
-                    padding: _myTeamIds.contains(m['teamAId'] ?? '') ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : EdgeInsets.zero,
-                    decoration: _myTeamIds.contains(m['teamAId'] ?? '') ? BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(4)) : null,
                     child: Text(m['teamAName'] ?? '', style: TextStyle(fontSize: 16,
-                      fontWeight: status == 'completed' && result['winner'] == m['teamAId'] ? FontWeight.bold : FontWeight.normal),
+                      color: _myTeamIds.contains(m['teamAId'] ?? '') ? Colors.red : null,
+                      fontWeight: _myTeamIds.contains(m['teamAId'] ?? '') || (status == 'completed' && result['winner'] == m['teamAId']) ? FontWeight.bold : FontWeight.normal),
                       textAlign: TextAlign.right))),
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -732,10 +723,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           color: status == 'completed' ? AppTheme.success : AppTheme.textSecondary)),
                   ),
                   Expanded(flex: 3, child: Container(
-                    padding: _myTeamIds.contains(m['teamBId'] ?? '') ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : EdgeInsets.zero,
-                    decoration: _myTeamIds.contains(m['teamBId'] ?? '') ? BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(4)) : null,
                     child: Text(m['teamBName'] ?? '', style: TextStyle(fontSize: 16,
-                      fontWeight: status == 'completed' && result['winner'] == m['teamBId'] ? FontWeight.bold : FontWeight.normal)))),
+                      color: _myTeamIds.contains(m['teamBId'] ?? '') ? Colors.red : null,
+                      fontWeight: _myTeamIds.contains(m['teamBId'] ?? '') || (status == 'completed' && result['winner'] == m['teamBId']) ? FontWeight.bold : FontWeight.normal)))),
                   if (status == 'completed')
                     const Icon(Icons.check_circle, size: 16, color: AppTheme.success)
                   else
@@ -795,10 +785,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 child: Row(children: [
                   SizedBox(width: 24, child: Text('${i + 1}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
                       color: i == 0 ? Colors.amber : AppTheme.textPrimary))),
-                  Expanded(flex: 3, child: Container(
-                    padding: _myTeamIds.contains(t['teamId'] ?? '') ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : EdgeInsets.zero,
-                    decoration: _myTeamIds.contains(t['teamId'] ?? '') ? BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(4)) : null,
-                    child: Text(t['teamName'] ?? '', style: const TextStyle(fontSize: 15), overflow: TextOverflow.ellipsis))),
+                  Expanded(flex: 3, child: Text(t['teamName'] ?? '', style: TextStyle(fontSize: 15, color: _myTeamIds.contains(t['teamId'] ?? '') ? Colors.red : null, fontWeight: _myTeamIds.contains(t['teamId'] ?? '') ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
                   SizedBox(width: 40, child: Text('${t['matchPoints'] ?? 0}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
                   SizedBox(width: 40, child: Text('${t['pointDiff'] ?? 0}', style: TextStyle(fontSize: 13, color: (t['pointDiff'] ?? 0) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
                   SizedBox(width: 40, child: Text('${t['totalPoints'] ?? 0}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
