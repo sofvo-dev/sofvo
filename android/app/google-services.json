@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "584952056517",
+    "project_id": "sofvo-19d84",
+    "storage_bucket": "sofvo-19d84.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:584952056517:android:8a450aa9331e839b2afeac",
+        "android_client_info": {
+          "package_name": "com.example.sofvo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPJ1hZe5N4Q5FKQEVL8fNlRHDw0TpObYQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,268 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../config/app_theme.dart';
+
+class NotificationScreen extends StatefulWidget {
+  const NotificationScreen({super.key});
+
+  @override
+  State<NotificationScreen> createState() => _NotificationScreenState();
+}
+
+class _NotificationScreenState extends State<NotificationScreen> {
+  final _currentUser = FirebaseAuth.instance.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _markAllAsRead();
+  }
+
+  Future<void> _markAllAsRead() async {
+    if (_currentUser == null) return;
+    final unread = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('notifications')
+        .where('read', isEqualTo: false)
+        .get();
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in unread.docs) {
+      batch.update(doc.reference, {'read': true});
+    }
+    await batch.commit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_currentUser == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('通知')),
+        body: const Center(child: Text('ログインしてください')),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('通知'),
+        actions: [
+          TextButton(
+            onPressed: _deleteAllNotifications,
+            child: const Text('すべて削除',
+                style: TextStyle(fontSize: 13, color: AppTheme.error)),
+          ),
+        ],
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser!.uid)
+            .collection('notifications')
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+                child: CircularProgressIndicator(
+                    color: AppTheme.primaryColor));
+          }
+
+          final docs = snapshot.data?.docs ?? [];
+
+          if (docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_none,
+                      size: 64, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  Text('通知はありません',
+                      style: TextStyle(
+                          fontSize: 16, color: AppTheme.textSecondary)),
+                ],
+              ),
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(8),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) =>
+                Divider(height: 1, color: Colors.grey[100]),
+            itemBuilder: (context, index) {
+              final data = docs[index].data() as Map<String, dynamic>;
+              return _buildNotificationItem(data, docs[index].id);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(Map<String, dynamic> data, String docId) {
+    final type = data['type'] ?? '';
+    final senderName = data['senderName'] ?? '不明';
+    final senderAvatar = data['senderAvatar'] ?? '';
+    final message = data['message'] ?? '';
+    final bool isRead = data['read'] ?? true;
+    final createdAt = data['createdAt'] as Timestamp?;
+
+    IconData icon;
+    Color iconColor;
+
+    switch (type) {
+      case 'like':
+        icon = Icons.favorite;
+        iconColor = Colors.red;
+        break;
+      case 'comment':
+        icon = Icons.chat_bubble;
+        iconColor = AppTheme.primaryColor;
+        break;
+      case 'follow':
+        icon = Icons.person_add;
+        iconColor = AppTheme.accentColor;
+        break;
+      default:
+        icon = Icons.notifications;
+        iconColor = AppTheme.textSecondary;
+    }
+
+    return Dismissible(
+      key: Key(docId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: AppTheme.error,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser!.uid)
+            .collection('notifications')
+            .doc(docId)
+            .delete();
+      },
+      child: Container(
+        color: isRead
+            ? Colors.transparent
+            : AppTheme.primaryColor.withValues(alpha: 0.04),
+        child: ListTile(
+          leading: Stack(
+            children: [
+              senderAvatar.isNotEmpty
+                  ? CircleAvatar(
+                      radius: 22,
+                      backgroundImage: NetworkImage(senderAvatar),
+                    )
+                  : CircleAvatar(
+                      radius: 22,
+                      backgroundColor:
+                          AppTheme.primaryColor.withValues(alpha: 0.12),
+                      child: Text(
+                        senderName.isNotEmpty ? senderName[0] : '?',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor),
+                      ),
+                    ),
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 14, color: iconColor),
+                ),
+              ),
+            ],
+          ),
+          title: RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                  fontSize: 14, color: AppTheme.textPrimary),
+              children: [
+                TextSpan(
+                  text: senderName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: ' $message'),
+              ],
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              _formatTime(createdAt),
+              style: const TextStyle(
+                  fontSize: 12, color: AppTheme.textSecondary),
+            ),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+    final now = DateTime.now();
+    final date = timestamp.toDate();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) return 'たった今';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}分前';
+    if (diff.inHours < 24) return '${diff.inHours}時間前';
+    if (diff.inDays < 7) return '${diff.inDays}日前';
+    return '${date.month}/${date.day}';
+  }
+
+  Future<void> _deleteAllNotifications() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: const Text('通知をすべて削除',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('すべての通知を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('キャンセル',
+                style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final docs = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .collection('notifications')
+          .get();
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in docs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
+}
