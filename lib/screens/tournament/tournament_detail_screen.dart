@@ -29,7 +29,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   void initState() {
     super.initState();
     final status = widget.tournament['status'] as String;
-    _isEntryDeadlinePassed = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid;
+    _isEntryDeadlinePassed = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid;
     _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
     _tabController = TabController(
       length: _isEntryDeadlinePassed ? 4 : 3,
@@ -298,21 +298,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             _buildCard(
               title: '当日スケジュール',
               child: Column(children: [
-                _buildInfoRow(Icons.door_front_door, '開場', t['openTime'] as String? ?? '8:00'),
+                _buildInfoRow(Icons.door_front_door, '開場', live['openTime'] as String? ?? t['openTime'] as String? ?? '8:00'),
                 _buildDivider(),
-                _buildInfoRow(Icons.how_to_reg, '受付', t['receptionTime'] as String? ?? '8:30'),
+                _buildInfoRow(Icons.how_to_reg, '受付', live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '8:30'),
                 _buildDivider(),
-                _buildInfoRow(Icons.groups, '開会式', t['openingTime'] as String? ?? '9:00'),
+                _buildInfoRow(Icons.groups, '開会式', live['openingTime'] as String? ?? t['openingTime'] as String? ?? '9:00'),
                 _buildDivider(),
-                _buildInfoRow(Icons.sports_volleyball, '試合開始', t['matchStartTime'] as String? ?? '9:15'),
+                _buildInfoRow(Icons.sports_volleyball, '試合開始', live['matchStartTime'] as String? ?? t['matchStartTime'] as String? ?? '9:15'),
                 if ((t['lunchTime'] ?? '').toString().isNotEmpty) ...[
                   _buildDivider(),
                   _buildInfoRow(Icons.lunch_dining, '昼休憩', t['lunchTime'] as String? ?? ''),
                 ],
                 _buildDivider(),
-                _buildInfoRow(Icons.emoji_events, '決勝予定', t['finalTime'] as String? ?? '14:00'),
+                _buildInfoRow(Icons.emoji_events, '決勝予定', live['finalTime'] as String? ?? t['finalTime'] as String? ?? '14:00'),
                 _buildDivider(),
-                _buildInfoRow(Icons.celebration, '閉会式', t['closingTime'] as String? ?? '16:00'),
+                _buildInfoRow(Icons.celebration, '閉会式', live['closingTime'] as String? ?? t['closingTime'] as String? ?? '16:00'),
               ]),
             ),
             const SizedBox(height: 12),
@@ -1590,7 +1590,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   // ━━━ 下部ボタン ━━━
   Widget _buildBottomButtons() {
     final status = widget.tournament['status'] as String;
-    final isDisabled = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了';
+    final isDisabled = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || status.contains('完了');
 
     if (isDisabled) return const SizedBox.shrink();
     return Container(

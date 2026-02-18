@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'config/app_theme.dart';
@@ -14,6 +15,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
   runApp(const SofvoApp());
 }
 
@@ -56,7 +58,12 @@ class AuthGate extends StatelessWidget {
           );
         }
         if (!snapshot.hasData) {
-          return const LoginScreen();
+          // 開発用: 自動ログイン
+          FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: 'shusuke1027@gmail.com',
+            password: 'a4869a',
+          ).catchError((_) {});
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance

@@ -333,6 +333,12 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     String selectedDate = '';
     Map<String, dynamic>? tournamentRules;
     Map<String, dynamic>? selectedVenue;
+    String openTime = '8:00';
+    String receptionTime = '8:30';
+    String openingTime = '9:00';
+    String matchStartTime = '9:15';
+    String finalTime = '14:00';
+    String closingTime = '16:00';
 
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: Colors.white,
@@ -440,6 +446,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
                           'currentTeams': 0, 'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
                           'status': '募集中', 'organizerId': _currentUser!.uid, 'organizerName': nickname,
+                          'openTime': openTime, 'receptionTime': receptionTime, 'openingTime': openingTime,
+                          'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                           'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
                         });
                         if (mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text('「${titleCtrl.text.trim()}」を作成しました！'), backgroundColor: AppTheme.success)); }
