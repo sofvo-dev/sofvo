@@ -492,4 +492,55 @@ class MatchGenerator {
 
     await _firestore.collection('tournaments').doc(tournamentId).update({'status': '決勝中'});
   }
+
+  /// After a bracket semi-final is completed, update final/3rd place matches
+  Future<void> updateBracketProgression({
+    required String tournamentId,
+    required String bracketId,
+  }) async {
+    final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
+        .collection('brackets').doc(bracketId);
+    final matchesSnap = await bracketRef.collection('matches').orderBy('matchNumber').get();
+    
+    final semiMatches = matchesSnap.docs.where((d) => (d.data())['round'] == 'semi').toList();
+    final finalMatch = matchesSnap.docs.where((d) => (d.data())['round'] == 'final').firstOrNull;
+    final thirdMatch = matchesSnap.docs.where((d) => (d.data())['round'] == '3rd').firstOrNull;
+    
+    if (semiMatches.length < 2) return;
+    
+    final semi1 = semiMatches[0].data();
+    final semi2 = semiMatches[1].data();
+    
+    if (semi1['status'] != 'completed' || semi2['status'] != 'completed') return;
+    
+    final result1 = semi1['result'] as Map<String, dynamic>? ?? {};
+    final result2 = semi2['result'] as Map<String, dynamic>? ?? {};
+    
+    final winner1Id = result1['winner'] ?? '';
+    final winner1Name = winner1Id == semi1['teamAId'] ? semi1['teamAName'] : semi1['teamBName'];
+    final loser1Id = winner1Id == semi1['teamAId'] ? semi1['teamBId'] : semi1['teamAId'];
+    final loser1Name = winner1Id == semi1['teamAId'] ? semi1['teamBName'] : semi1['teamAName'];
+    
+    final winner2Id = result2['winner'] ?? '';
+    final winner2Name = winner2Id == semi2['teamAId'] ? semi2['teamAName'] : semi2['teamBName'];
+    final loser2Id = winner2Id == semi2['teamAId'] ? semi2['teamBId'] : semi2['teamAId'];
+    final loser2Name = winner2Id == semi2['teamAId'] ? semi2['teamBName'] : semi2['teamAName'];
+    
+    if (finalMatch != null) {
+      await finalMatch.reference.update({
+        'teamAId': winner1Id, 'teamAName': winner1Name,
+        'teamBId': winner2Id, 'teamBName': winner2Name,
+        'status': 'pending',
+      });
+    }
+    
+    if (thirdMatch != null) {
+      await thirdMatch.reference.update({
+        'teamAId': loser1Id, 'teamAName': loser1Name,
+        'teamBId': loser2Id, 'teamBName': loser2Name,
+        'status': 'pending',
+      });
+    }
+  }
+
 }

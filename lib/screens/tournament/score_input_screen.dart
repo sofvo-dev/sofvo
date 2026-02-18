@@ -172,7 +172,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       else if (b > a) setsB++;
     }
 
-    final winnerId = setsA > setsB ? _match!['teamAId'] : (setsB > setsA ? _match!['teamBId'] : (totalA > totalB ? _match!['teamAId'] : (totalB > totalA ? _match!['teamBId'] : '')));
+    final winnerId = setsA > setsB ? _match!['teamAId'] : (setsB > setsA ? _match!['teamBId'] : (totalA > totalB ? _match!['teamAId'] : (totalB > totalA ? _match!['teamBId'] : '引き分け')));
     final result = {
       'setsA': setsA, 'setsB': setsB,
       'totalPointsA': totalA, 'totalPointsB': totalB,
@@ -189,6 +189,9 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
         await _firestore.collection('tournaments').doc(widget.tournamentId)
             .collection('brackets').doc(widget.bracketId)
             .collection('matches').doc(widget.matchId).update(updateData);
+        // Update bracket progression (semi -> final)
+        await MatchGenerator().updateBracketProgression(
+          tournamentId: widget.tournamentId, bracketId: widget.bracketId!);
       } else {
         await _firestore.collection('tournaments').doc(widget.tournamentId)
             .collection('rounds').doc(widget.roundId)
