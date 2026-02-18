@@ -359,9 +359,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               child: Column(children: [
                 _buildInfoRow(Icons.sports_volleyball, '試合形式', '${t['format'] ?? '4人制'}（15点先取）'),
                 _buildDivider(),
-                _buildInfoRow(Icons.repeat, '予選セット数', '${livePrelim['sets'] ?? 2}セット制'),
+                _buildInfoRow(Icons.repeat, '予選', '${livePrelim['sets'] ?? 2}セットマッチ'),
                 _buildDivider(),
-                _buildInfoRow(Icons.swap_vert, 'ジュース', (livePrelim['deuce'] ?? false) ? 'あり（キャップ${livePrelim['deuceCap'] ?? 17}点）' : 'なし'),
+                _buildInfoRow(Icons.swap_vert, 'ジュース', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
                 if (liveScoring.isNotEmpty) ...[
                   _buildDivider(),
                   _buildInfoRow(Icons.emoji_events, '勝ち点制', 'あり'),
@@ -381,7 +381,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ],
                 if ((liveFinal['enabled'] ?? false) == true) ...[
                   _buildDivider(),
-                  _buildInfoRow(Icons.emoji_events, '決勝', '${liveFinal['sets'] ?? 3}セット制${(liveFinal['deuce'] ?? false) ? '（ジュースあり）' : ''}'),
+                  _buildInfoRow(Icons.emoji_events, '決勝', '${liveFinal['sets'] ?? 3}セットマッチ${(liveFinal['deuce'] ?? false) ? '（ジュースあり）' : ''}'),
                   if (liveFinal['thirdPlace'] == true) ...[
                     _buildDivider(),
                     _buildInfoRow(Icons.looks_3, '3位決定戦', 'あり'),
