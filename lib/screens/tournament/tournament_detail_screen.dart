@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import 'score_input_screen.dart';
 import '../../services/match_generator.dart';
+import '../../services/pdf_generator.dart';
+import 'package:printing/printing.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> tournament;
@@ -779,7 +781,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               final t = e.value.data() as Map<String, dynamic>;
               final isMyTeam = _myTeamIds.contains(t['teamId'] ?? '');
               return Container(
-                color: null,
+                color: isMyTeam ? Colors.red.withOpacity(0.08) : null,
                 child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 child: Row(children: [
@@ -1778,6 +1780,53 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   // ━━━ シェアシート ━━━
   void _showShareSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('PDF\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.description, color: AppTheme.primaryColor),
+              title: const Text('\u5927\u4f1a\u8981\u9805PDF'),
+              subtitle: const Text('\u57fa\u672c\u60c5\u5831\u30fb\u30eb\u30fc\u30eb\u30fb\u30b9\u30b1\u30b8\u30e5\u30fc\u30eb'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...')));
+                final bytes = await PdfGenerator().generateTournamentSummary(_tournamentId);
+                await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u8981\u9805');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.grid_on, color: AppTheme.success),
+              title: const Text('\u5bfe\u6226\u8868PDF'),
+              subtitle: const Text('\u30b3\u30fc\u30c8\u5225\u8a66\u5408\u4e00\u89a7\u30fb\u9806\u4f4d\u8868'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...')));
+                final bytes = await PdfGenerator().generateMatchTable(_tournamentId);
+                await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u5bfe\u6226\u8868');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.emoji_events, color: Colors.amber),
+              title: const Text('\u30c8\u30fc\u30ca\u30e1\u30f3\u30c8\u8868PDF'),
+              subtitle: const Text('\u6c7a\u52dd\u30d6\u30e9\u30b1\u30c3\u30c8\u30fb\u7d50\u679c'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...')));
+                final bytes = await PdfGenerator().generateBracketPdf(_tournamentId);
+                await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u30c8\u30fc\u30ca\u30e1\u30f3\u30c8');
+              },
+            ),
+          ]),
+        ),
+      ),
+    );
+    return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
