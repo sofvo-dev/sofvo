@@ -17,12 +17,14 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   final _currentUser = FirebaseAuth.instance.currentUser;
   final _searchController = TextEditingController();
   Set<String> _followingIds = {};
+  Set<String> _enteredTournamentIds = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadFollowing();
+    _loadEnteredTournaments();
   }
 
   Future<void> _loadFollowing() async {
@@ -35,6 +37,29 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     setState(() {
       _followingIds = snap.docs.map((d) => d.id).toSet();
     });
+  }
+
+  Future<void> _loadEnteredTournaments() async {
+    if (_currentUser == null) return;
+    final snap = await FirebaseFirestore.instance
+        .collection('tournaments')
+        .get();
+    final entered = <String>{};
+    for (final doc in snap.docs) {
+      final entriesSnap = await doc.reference
+          .collection('entries')
+          .where('enteredBy', isEqualTo: _currentUser!.uid)
+          .limit(1)
+          .get();
+      if (entriesSnap.docs.isNotEmpty) {
+        entered.add(doc.id);
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _enteredTournamentIds = entered;
+      });
+    }
   }
 
   @override
@@ -56,24 +81,28 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: AppTheme.accentColor,
           indicatorWeight: 3,
+          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontSize: 13),
           tabs: const [
-            Tab(text: 'すべての大会'),
+            Tab(text: '大会'),
             Tab(text: 'メンバー募集'),
+            Tab(text: 'みつける'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildTournamentTab(),
+          _buildTournamentList(followedOnly: true),
           _buildRecruitTab(),
+          _buildTournamentList(followedOnly: false),
         ],
       ),
     );
   }
 
-  // ━━━ 大会タブ ━━━
-  Widget _buildTournamentTab() {
+  // ━━━ 大会リスト（共通） ━━━
+  Widget _buildTournamentList({required bool followedOnly}) {
     return Column(
       children: [
         Container(
@@ -94,6 +123,19 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             onChanged: (_) => setState(() {}),
           ),
         ),
+        if (!followedOnly)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(children: [
+              Icon(Icons.info_outline, size: 14, color: AppTheme.textHint),
+              const SizedBox(width: 6),
+              Expanded(child: Text(
+                'フォローしていない主催者の大会です。エントリーにはフォローが必要です。',
+                style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+              )),
+            ]),
+          ),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
@@ -109,11 +151,31 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
               final filtered = allDocs.where((doc) {
                 final data = doc.data() as Map<String, dynamic>;
-                final title = (data['title'] ?? '').toString().toLowerCase();
-                final location = (data['location'] ?? '').toString().toLowerCase();
-                final type = (data['type'] ?? '').toString().toLowerCase();
-                if (query.isEmpty) return true;
-                return title.contains(query) || location.contains(query) || type.contains(query);
+                final organizerId = data['organizerId'] ?? '';
+                final status = data['status'] ?? '準備中';
+                final isFollowing = _followingIds.contains(organizerId) || organizerId == _currentUser?.uid;
+                final isEntered = _enteredTournamentIds.contains(doc.id);
+
+                // フォロー中タブ: フォロー中の主催者の大会のみ
+                // みつけるタブ: フォロー外の主催者で募集中 or 終了（結果閲覧）のみ
+                if (followedOnly) {
+                  if (!isFollowing) return false;
+                  // 開催中・決勝中はエントリー済みのみ表示
+                  if ((status == '開催中' || status == '決勝中') && !isEntered) return false;
+                } else {
+                  if (isFollowing) return false;
+                  // みつけるタブ: 募集中 or 終了のみ
+                  if (status != '募集中' && status != '終了') return false;
+                }
+
+                // テキスト検索
+                if (query.isNotEmpty) {
+                  final title = (data['title'] ?? '').toString().toLowerCase();
+                  final location = (data['location'] ?? '').toString().toLowerCase();
+                  final type = (data['type'] ?? '').toString().toLowerCase();
+                  return title.contains(query) || location.contains(query) || type.contains(query);
+                }
+                return true;
               }).toList();
 
               if (filtered.isEmpty) {
@@ -121,12 +183,23 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.emoji_events_outlined, size: 64, color: Colors.grey[300]),
+                      Icon(
+                        followedOnly ? Icons.emoji_events_outlined : Icons.explore_outlined,
+                        size: 64, color: Colors.grey[300],
+                      ),
                       const SizedBox(height: 16),
-                      const Text('大会が見つかりません', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+                      Text(
+                        followedOnly ? 'フォロー中の主催者の大会はありません' : '新しい大会が見つかりません',
+                        style: const TextStyle(fontSize: 16, color: AppTheme.textSecondary),
+                      ),
                       const SizedBox(height: 8),
-                      const Text('大会を作成するには\nマイページ → 大会管理から', textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                      Text(
+                        followedOnly
+                            ? '主催者をフォローすると\nここに大会が表示されます'
+                            : 'フォロー外の主催者の大会が\nここに表示されます',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textHint),
+                      ),
                     ],
                   ),
                 );
@@ -163,7 +236,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final courts = data['courts'] ?? 0;
     final organizerId = data['organizerId'] ?? '';
     final organizerName = data['organizerName'] ?? '不明';
-    final isFollowingOrganizer = _followingIds.contains(organizerId) || organizerId == _currentUser?.uid;
+    final isFollowing = _followingIds.contains(organizerId) || organizerId == _currentUser?.uid;
 
     Color statusColor;
     switch (status) {
@@ -171,6 +244,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       case '満員': statusColor = AppTheme.error; break;
       case '締切間近': statusColor = AppTheme.warning; break;
       case '開催中': statusColor = AppTheme.primaryColor; break;
+      case '決勝中': statusColor = AppTheme.primaryColor; break;
+      case '終了': statusColor = AppTheme.textSecondary; break;
       default: statusColor = AppTheme.textSecondary;
     }
 
@@ -205,7 +280,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                 Icon(Icons.person, size: 14, color: AppTheme.textSecondary),
                 const SizedBox(width: 4),
                 Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                if (!isFollowingOrganizer) ...[
+                if (!isFollowing) ...[
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -224,7 +299,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               _buildInfoRow(Icons.location_on, courts > 0 ? '$location（${courts}コート）' : location),
               const SizedBox(height: 6),
               _buildInfoRow(Icons.category, [type, format].where((s) => s.isNotEmpty).join(' ／ ')),
-              if (entryFee.isNotEmpty) ...[const SizedBox(height: 6), _buildInfoRow(Icons.payments, entryFee)],
+              if (entryFee.toString().isNotEmpty) ...[const SizedBox(height: 6), _buildInfoRow(Icons.payments, entryFee.toString())],
               const SizedBox(height: 12),
               Row(children: [
                 Icon(Icons.groups, size: 16, color: AppTheme.textSecondary),
@@ -255,17 +330,19 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                         'currentTeams': currentTeams, 'maxTeams': maxTeams,
                         'fee': entryFee, 'status': status, 'statusColor': statusColor,
                         'deadline': '', 'organizer': organizerName,
-                        'isFollowing': isFollowingOrganizer,
+                        'isFollowing': isFollowing,
                       }),
                     ));
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isFollowingOrganizer ? AppTheme.primaryColor : AppTheme.textSecondary,
+                    backgroundColor: isFollowing ? AppTheme.primaryColor : AppTheme.textSecondary,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: Text(isFollowingOrganizer ? '詳細を見る・エントリー' : '詳細を見る',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    status == '終了' ? '結果を見る' : (isFollowing ? '詳細を見る・エントリー' : '詳細を見る'),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ]),

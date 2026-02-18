@@ -26,13 +26,17 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    // 開発用: 空欄ならデフォルトアカウントでログイン
+    final email = _emailController.text.trim().isEmpty 
+        ? 'shusuke1027@gmail.com' 
+        : _emailController.text.trim();
+    final password = _passwordController.text.isEmpty 
+        ? 'a4869a' 
+        : _passwordController.text;
+    if (email == _emailController.text.trim() && !_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      await AuthService().signInWithEmail(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      await AuthService().signInWithEmail(email, password);
     } catch (e) {
       if (!mounted) return;
       String message = 'ログインに失敗しました';

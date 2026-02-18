@@ -58,12 +58,7 @@ class AuthGate extends StatelessWidget {
           );
         }
         if (!snapshot.hasData) {
-          // 開発用: 自動ログイン
-          FirebaseAuth.instance.signInWithEmailAndPassword(
-            email: 'shusuke1027@gmail.com',
-            password: 'a4869a',
-          ).catchError((_) {});
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const LoginScreen();
         }
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
