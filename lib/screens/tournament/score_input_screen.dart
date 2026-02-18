@@ -172,7 +172,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       else if (b > a) setsB++;
     }
 
-    final winnerId = setsA > setsB ? _match!['teamAId'] : (setsB > setsA ? _match!['teamBId'] : '');
+    final winnerId = setsA > setsB ? _match!['teamAId'] : (setsB > setsA ? _match!['teamBId'] : (totalA > totalB ? _match!['teamAId'] : (totalB > totalA ? _match!['teamBId'] : '')));
     final result = {
       'setsA': setsA, 'setsB': setsB,
       'totalPointsA': totalA, 'totalPointsB': totalB,
