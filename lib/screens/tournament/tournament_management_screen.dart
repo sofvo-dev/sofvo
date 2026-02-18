@@ -420,6 +420,22 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     selectedColor: AppTheme.primaryColor.withOpacity(0.15));
               }).toList()),
               const SizedBox(height: 24),
+              // ── スケジュール設定 ──
+              const Text('当日スケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                child: Column(children: [
+                  _buildTimeRow('開場', openTime, (v) => setSheetState(() => openTime = v), ctx),
+                  _buildTimeRow('受付', receptionTime, (v) => setSheetState(() => receptionTime = v), ctx),
+                  _buildTimeRow('開会式', openingTime, (v) => setSheetState(() => openingTime = v), ctx),
+                  _buildTimeRow('試合開始', matchStartTime, (v) => setSheetState(() => matchStartTime = v), ctx),
+                  _buildTimeRow('決勝予定', finalTime, (v) => setSheetState(() => finalTime = v), ctx),
+                  _buildTimeRow('閉会式', closingTime, (v) => setSheetState(() => closingTime = v), ctx),
+                ]),
+              ),
+              const SizedBox(height: 16),
               SizedBox(width: double.infinity, child: OutlinedButton.icon(
                 onPressed: () async {
                   final result = await Navigator.push<Map<String, dynamic>>(context,
@@ -480,6 +496,35 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
       decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
       child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)));
   }
+
+  Widget _buildTimeRow(String label, String value, Function(String) onChanged, BuildContext ctx) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+        Expanded(
+          child: GestureDetector(
+            onTap: () async {
+              final parts = value.split(':');
+              final h = int.tryParse(parts[0]) ?? 8;
+              final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+              final picked = await showTimePicker(context: ctx, initialTime: TimeOfDay(hour: h, minute: m));
+              if (picked != null) {
+                onChanged('${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}');
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey[200]!)),
+              child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  
 
   Widget _buildInfoChip(IconData icon, String text) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
