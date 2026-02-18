@@ -26,26 +26,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   DateTimeRange? _filterDateRange;
   bool _showPastTournaments = false;
 
-  // 月ごとの色
-  static const List<Color> _monthColors = [
-    Color(0xFFE53935), // 1月 赤
-    Color(0xFFEC407A), // 2月 ピンク
-    Color(0xFF66BB6A), // 3月 緑
-    Color(0xFFAB47BC), // 4月 紫
-    Color(0xFF42A5F5), // 5月 青
-    Color(0xFF26C6DA), // 6月 シアン
-    Color(0xFF29B6F6), // 7月 ライトブルー
-    Color(0xFFFF7043), // 8月 オレンジ
-    Color(0xFF8D6E63), // 9月 ブラウン
-    Color(0xFFEF6C00), // 10月 ダークオレンジ
-    Color(0xFFFFCA28), // 11月 イエロー
-    Color(0xFF5C6BC0), // 12月 インディゴ
-  ];
-
-  Color _getMonthColor(int month) {
-    if (month >= 1 && month <= 12) return _monthColors[month - 1];
-    return AppTheme.textSecondary;
-  }
 
   @override
   void initState() {
@@ -133,8 +113,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isFriends)
-                  Padding(
+                Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(children: [
                       _buildMiniToggle('大会をさがす', _showTournaments, () => setState(() => _showTournaments = true)),
@@ -507,20 +486,18 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     String day = '';
     String month = '';
     String weekday = '';
-    int monthNum = 0;
     try {
       final parts = date.split('/');
       if (parts.length >= 3) {
-        monthNum = int.parse(parts[1]);
-        month = '${monthNum}月';
+        month = '${int.parse(parts[1])}月';
         day = parts[2];
-        final d = DateTime(int.parse(parts[0]), monthNum, int.parse(parts[2]));
+        final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
         const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
         weekday = weekdays[d.weekday - 1];
       }
     } catch (_) {}
 
-    final monthColor = _getMonthColor(monthNum);
+    
     final typeColor = _typeColor(type);
     final progress = maxTeams > 0 ? currentTeams / maxTeams : 0.0;
     String formatDisplay = format.toString().replaceAll('4人制', '').trim();
@@ -545,11 +522,11 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             Column(children: [
               Container(
                 width: 52, padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(color: monthColor.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: statusColor.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
                 child: Column(children: [
-                  Text(month, style: TextStyle(fontSize: 10, color: monthColor, fontWeight: FontWeight.w600)),
-                  Text(day, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: monthColor)),
-                  if (weekday.isNotEmpty) Text('($weekday)', style: TextStyle(fontSize: 10, color: monthColor)),
+                  Text(month, style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.w600)),
+                  Text(day, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: statusColor)),
+                  if (weekday.isNotEmpty) Text('($weekday)', style: TextStyle(fontSize: 10, color: statusColor)),
                 ]),
               ),
               const SizedBox(height: 6),
