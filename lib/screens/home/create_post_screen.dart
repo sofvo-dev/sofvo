@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
-import '../../utils/web_file_picker.dart';
+// Web専用: dart:html を使うため条件付きimport
+// ignore: avoid_web_libraries_in_flutter
+import '../../utils/web_file_picker.dart' if (dart.library.io) '../../utils/mobile_file_picker_stub.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -27,8 +31,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _pickImages() async {
     try {
-      final files = await WebFilePicker.pickImages();
-      for (final file in files) {
+      List<({String name, Uint8List bytes})> picked = [];
+
+      if (kIsWeb) {
+        final files = await WebFilePicker.pickImages();
+        picked = files.map((f) => (name: f.name, bytes: f.bytes)).toList();
+      } else {
+        final picker = ImagePicker();
+        final images = await picker.pickMultiImage(imageQuality: 70);
+        for (final img in images) {
+          final bytes = await img.readAsBytes();
+          picked.add((name: img.name, bytes: bytes));
+        }
+      }
+
+      for (final file in picked) {
         if (_imageBytes.length >= 2) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -36,15 +53,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 content: const Text('無料プランでは画像は最大2枚までです'),
                 backgroundColor: AppTheme.warning,
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             );
           }
           break;
         }
-        // 500KB以上の画像は警告
         if (file.bytes.length > 500 * 1024) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -52,9 +66,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 content: const Text('画像サイズが大きいです。500KB以下を推奨します'),
                 backgroundColor: AppTheme.warning,
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             );
           }

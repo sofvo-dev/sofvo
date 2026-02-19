@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'score_input_screen.dart';
 import 'checkin_screen.dart';
 import '../../services/match_generator.dart';
@@ -725,6 +726,30 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
+  void _showMyTeamQR(String teamId, String teamName) {
+    final qrData = 'sofvo://checkin/$_tournamentId/$teamId';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(teamName,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 6),
+          Text('このQRを受付スタッフに見せてください',
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          QrImageView(data: qrData, version: QrVersions.auto, size: 200, backgroundColor: Colors.white),
+          const SizedBox(height: 12),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('閉じる')),
+        ]),
+      ),
+    );
+  }
+
   void _showEndTournamentDialog() {
     showDialog(
       context: context,
@@ -1186,12 +1211,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         Text('キャプテン: $leader / ${memberUids.length}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       ]),
                     ),
-                    if (isMyTeam)
+                    if (isMyTeam) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                         child: const Text('自分', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
                       ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _showMyTeamQR(data['teamId'] ?? '', teamName.toString()),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.qr_code, size: 14, color: AppTheme.primaryColor),
+                            const SizedBox(width: 4),
+                            Text('QR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                          ]),
+                        ),
+                      ),
+                    ],
                   ]),
                 ),
               );
