@@ -490,9 +490,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
-                        final data = messages[index].data() as Map<String, dynamic>;
+                        final doc = messages[index];
+                        final data = doc.data() as Map<String, dynamic>;
                         final isMe = data['senderId'] == _currentUser?.uid;
-                        return _buildMessageBubble(data, isMe);
+                        return _buildMessageBubble(data, isMe, messageId: doc.id);
                       },
                     );
                   },
@@ -586,7 +587,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
+  Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe, {String? messageId}) {
     final type = (data['type'] as String?) ?? 'text';
     final text = (data['text'] as String?) ?? '';
     final senderName = (data['senderName'] as String?) ?? '';
@@ -596,8 +597,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final fileSize = data['fileSize'] as int?;
     final createdAt = data['createdAt'] as Timestamp?;
     final timeText = _formatMessageTime(createdAt);
+    final isDeleted = data['deleted'] == true;
 
-    return Padding(
+    if (isDeleted) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.block, size: 14, color: AppTheme.textHint),
+              const SizedBox(width: 6),
+              Text('メッセージが削除されました',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textHint, fontStyle: FontStyle.italic)),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onLongPress: isMe && messageId != null ? () => _showDeleteMessageDialog(messageId) : null,
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment:
@@ -652,6 +679,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
                 ),
             ],
+          ),
+        ],
+      ),
+    ),
+    );
+  }
+
+  void _showDeleteMessageDialog(String messageId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('メッセージを削除', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('このメッセージを削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('chats').doc(widget.chatId)
+                  .collection('messages').doc(messageId)
+                  .update({'deleted': true, 'text': '', 'mediaUrl': ''});
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            child: const Text('削除'),
           ),
         ],
       ),
