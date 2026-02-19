@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import '../profile/user_profile_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -633,9 +634,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           if (!isMe && widget.chatType != 'dm')
             Padding(
               padding: const EdgeInsets.only(left: 40, bottom: 4),
-              child: Text(senderName,
-                  style: TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary)),
+              child: GestureDetector(
+                onTap: () {
+                  final senderId = data['senderId'] as String?;
+                  if (senderId != null && senderId.isNotEmpty) {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => UserProfileScreen(userId: senderId),
+                    ));
+                  }
+                },
+                child: Text(senderName,
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+              ),
             ),
           Row(
             mainAxisAlignment:
@@ -643,16 +653,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!isMe) ...[
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor:
-                      AppTheme.primaryColor.withValues(alpha: 0.12),
-                  child: Text(
-                    senderName.isNotEmpty ? senderName[0] : '?',
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor),
+                GestureDetector(
+                  onTap: () {
+                    final senderId = data['senderId'] as String?;
+                    if (senderId != null && senderId.isNotEmpty) {
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(userId: senderId),
+                      ));
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                    child: Text(
+                      senderName.isNotEmpty ? senderName[0] : '?',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

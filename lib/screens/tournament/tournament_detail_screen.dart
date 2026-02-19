@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'score_input_screen.dart';
 import 'checkin_screen.dart';
 import '../../services/match_generator.dart';
+import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
 
@@ -246,25 +247,35 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           padding: const EdgeInsets.all(16),
           children: [
             // ━━━ Organizer ━━━
-            _buildCard(
-              child: Row(children: [
-                CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
-                    child: const Text('主', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      Icon(Icons.star, size: 14, color: AppTheme.accentColor),
-                      const SizedBox(width: 4),
-                      Text('主催者', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            GestureDetector(
+              onTap: () {
+                final organizerId = t['organizerId'] as String?;
+                if (organizerId != null && organizerId.isNotEmpty) {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(userId: organizerId),
+                  ));
+                }
+              },
+              child: _buildCard(
+                child: Row(children: [
+                  CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
+                      child: const Text('主', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        Icon(Icons.star, size: 14, color: AppTheme.accentColor),
+                        const SizedBox(width: 4),
+                        Text('主催者', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      ]),
                     ]),
-                  ]),
-                ),
-                Icon(Icons.chevron_right, color: AppTheme.textHint),
-              ]),
+                  ),
+                  Icon(Icons.chevron_right, color: AppTheme.textHint),
+                ]),
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -1160,7 +1171,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Container(
+                child: GestureDetector(
+                  onTap: () {
+                    final enteredBy = data['enteredBy'] as String?;
+                    if (enteredBy != null && enteredBy.isNotEmpty) {
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(userId: enteredBy),
+                      ));
+                    }
+                  },
+                  child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isMyTeam ? Colors.red.withOpacity(0.06) : Colors.white,
@@ -1200,6 +1220,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       ),
                     ],
                   ]),
+                ),
                 ),
               );
             }),
