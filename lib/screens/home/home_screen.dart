@@ -136,8 +136,8 @@ class _HomeScreenState extends State<HomeScreen>
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
                 child: Row(children: [
-                  // 左: ユーザーアバター
-                  _buildUserAvatar(),
+                  // 中央寄せ用スペーサー（通知ベルと同じ幅）
+                  const SizedBox(width: 26),
                   const Spacer(),
                   // 中央: Sofvoロゴ
                   Text('Sofvo',
@@ -210,40 +210,6 @@ class _HomeScreenState extends State<HomeScreen>
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.edit, color: Colors.white),
       ),
-    );
-  }
-
-  Widget _buildUserAvatar() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      return CircleAvatar(
-        radius: 16,
-        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-        child: const Icon(Icons.person, size: 18, color: AppTheme.primaryColor),
-      );
-    }
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
-      builder: (context, snap) {
-        final data = snap.data?.data() as Map<String, dynamic>?;
-        final avatarUrl = (data?['avatarUrl'] as String?) ?? '';
-        final nickname = (data?['nickname'] as String?) ?? '';
-        return GestureDetector(
-          onTap: () {
-            if (uid.isNotEmpty) {
-              Navigator.push(context, MaterialPageRoute(
-                builder: (_) => UserProfileScreen(userId: uid),
-              ));
-            }
-          },
-          child: avatarUrl.isNotEmpty
-              ? CircleAvatar(radius: 16, backgroundImage: NetworkImage(avatarUrl),
-                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15))
-              : CircleAvatar(radius: 16, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                  child: Text(nickname.isNotEmpty ? nickname[0] : '?',
-                      style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 14))),
-        );
-      },
     );
   }
 
