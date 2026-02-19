@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import 'score_input_screen.dart';
+import 'checkin_screen.dart';
 import '../../services/match_generator.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
@@ -680,13 +681,31 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         const Text('主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 8, children: [
+          _actionChip('受付管理', Icons.qr_code_scanner, () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')))),
+          _actionChip('テストチーム追加', Icons.group_add, _addTestTeams),
           if (prelimRounds >= 2)
             _actionChip('予選2 生成', Icons.replay, () => _generateMatches(2)),
           if (finalEnabled)
-          _actionChip('テストチーム追加', Icons.group_add, _addTestTeams),
             _actionChip('決勝生成', Icons.emoji_events, _generateFinals),
           _actionChip('リセット', Icons.refresh, _resetRounds),
         ]),
+        if (tournData['status'] == '開催中' || tournData['status'] == '決勝中') ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showEndTournamentDialog(),
+              icon: const Icon(Icons.flag, size: 18),
+              label: const Text('大会を終了する', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
       ]),
     );
   }
@@ -702,6 +721,36 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           const SizedBox(width: 6),
           Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
         ]),
+      ),
+    );
+  }
+
+  void _showEndTournamentDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('大会を終了する', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('大会を終了しますか？\nステータスが「終了」に変わり、結果が表示されます。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _firestore.collection('tournaments').doc(_tournamentId).update({'status': '終了'});
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('大会を終了しました'), backgroundColor: AppTheme.success),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            child: const Text('終了する'),
+          ),
+        ],
       ),
     );
   }
@@ -786,11 +835,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             return (pd['matchOrder'] ?? 0) == matchOrd - 1;
           }).firstOrNull : null;
           final prevDone = matchOrd <= 1 || (prevMatch != null && (prevMatch.data() as Map<String, dynamic>)['status'] == 'completed');
+          final isReferee = _myTeamIds.contains(m['refereeTeamId'] ?? '') || _myTeamIds.contains(m['subRefereeTeamId'] ?? '');
+          final canInput = isOrganizer || isReferee;
           return InkWell(
-            onTap: prevDone ? () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId)));
-            } : () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: Colors.orange)); },
+            onTap: canInput
+              ? (prevDone ? () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+                    tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId)));
+                } : () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: Colors.orange)); })
+              : null,
             child: Column(children: [
               Padding(
                 padding: const EdgeInsets.only(left: 14, top: 8, bottom: 2),
@@ -927,7 +980,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withOpacity(0.3))),
               child: InkWell(
-                onTap: status != 'waiting' ? () {
+                onTap: (isOrganizer && status != 'waiting') ? () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
                     tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId)));
                 } : null,

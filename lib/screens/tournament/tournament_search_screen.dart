@@ -325,20 +325,20 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Widget _buildSavedTournamentCard(DocumentSnapshot bmDoc) {
     final bm = bmDoc.data() as Map<String, dynamic>;
     final alerts = (bm['alerts'] as List?)?.cast<String>() ?? [];
-    final date = bm['date'] ?? ''; final type = bm['type'] ?? '';
+    final date = bm['date'] ?? ''; final tournamentType = bm['tournamentType'] ?? '';
     String day = '', month = '', weekday = '';
     try { final p = date.toString().split('/'); if (p.length >= 3) { month = '${int.parse(p[1])}月'; day = p[2]; final d = DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2])); const w = ['月','火','水','木','金','土','日']; weekday = w[d.weekday-1]; } } catch (_) {}
     final sc = (bm['status']??'') == '募集中' ? AppTheme.success : AppTheme.textSecondary;
-    final tc = _typeColor(type);
+    final tc = _typeColor(tournamentType);
     return GestureDetector(
-      onTap: () { final tid = bm['targetId']??''; if (tid.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {'id': tid, 'name': bm['title']??'', 'date': date, 'venue': bm['location']??'', 'type': type, 'status': bm['status']??''}))); },
+      onTap: () { final tid = bm['targetId']??''; if (tid.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {'id': tid, 'name': bm['title']??'', 'date': date, 'venue': bm['location']??'', 'type': tournamentType, 'status': bm['status']??''}))); },
       child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: alerts.isNotEmpty ? AppTheme.warning.withOpacity(0.5) : Colors.grey[200]!)),
         child: Padding(padding: const EdgeInsets.all(14), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Column(children: [
             Container(width: 52, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: sc.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
               child: Column(children: [Text(month, style: TextStyle(fontSize: 10, color: sc, fontWeight: FontWeight.w600)), Text(day, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: sc)), if (weekday.isNotEmpty) Text('($weekday)', style: TextStyle(fontSize: 10, color: sc))])),
             const SizedBox(height: 6),
-            if (type.isNotEmpty) Container(width: 52, padding: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: tc.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(type, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: tc))),
+            if (tournamentType.isNotEmpty) Container(width: 52, padding: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: tc.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(tournamentType, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: tc))),
           ]),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -447,7 +447,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(value: progress, backgroundColor: Colors.grey[200], valueColor: AlwaysStoppedAnimation<Color>(progress >= 1.0 ? AppTheme.error : progress >= 0.8 ? AppTheme.warning : AppTheme.success), minHeight: 4))),
               const SizedBox(width: 12),
               GestureDetector(
-                onTap: () => _toggleTournamentBookmark(doc.id, {'title': title, 'date': date, 'location': location, 'type': type, 'status': status}),
+                onTap: () => _toggleTournamentBookmark(doc.id, {'title': title, 'date': date, 'location': location, 'tournamentType': type, 'status': status}),
                 child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border, size: 22, color: isSaved ? AppTheme.accentColor : Colors.grey[400]),
               ),
             ]),
