@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'services/bookmark_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'config/app_theme.dart';
@@ -80,7 +81,8 @@ class AuthGate extends StatelessWidget {
                 userSnapshot.data!.get('profileCompleted') != true) {
               return const ProfileSetupScreen();
             }
-            return MainTabScreen();
+            BookmarkNotificationService.checkAndNotify(snapshot.data!.uid);
+                    return MainTabScreen();
           },
         );
       },
