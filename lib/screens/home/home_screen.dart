@@ -25,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() { if (!_tabController.indexIsChanging) setState(() {}); });
   }
 
   @override
@@ -130,54 +129,69 @@ class _HomeScreenState extends State<HomeScreen>
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: Column(children: [
-          // ━━━ 統一ヘッダー ━━━
+          // ━━━ X風ヘッダー ━━━
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Text('Sofvo',
-                    style: GoogleFonts.montserrat(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 24,
-                        letterSpacing: 2,
-                        color: AppTheme.textPrimary)),
-                const Spacer(),
-                StreamBuilder<int>(
-                  stream: NotificationService.unreadCountStream(
-                      FirebaseAuth.instance.currentUser?.uid ?? ''),
-                  builder: (context, snap) {
-                    final count = snap.data ?? 0;
-                    return GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const NotificationScreen())),
-                      child: Stack(children: [
-                        const Icon(Icons.notifications_outlined, size: 26, color: AppTheme.textPrimary),
-                        if (count > 0)
-                          Positioned(
-                            right: 0, top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                              child: Text('$count',
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center),
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                child: Row(children: [
+                  // 左: ユーザーアバター
+                  _buildUserAvatar(),
+                  const Spacer(),
+                  // 中央: Sofvoロゴ
+                  Text('Sofvo',
+                      style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                          letterSpacing: 1.5,
+                          color: AppTheme.primaryColor)),
+                  const Spacer(),
+                  // 右: 通知ベル
+                  StreamBuilder<int>(
+                    stream: NotificationService.unreadCountStream(
+                        FirebaseAuth.instance.currentUser?.uid ?? ''),
+                    builder: (context, snap) {
+                      final count = snap.data ?? 0;
+                      return GestureDetector(
+                        onTap: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                        child: Stack(children: [
+                          const Icon(Icons.notifications_outlined, size: 26, color: AppTheme.textPrimary),
+                          if (count > 0)
+                            Positioned(
+                              right: 0, top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                child: Text('$count',
+                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center),
+                              ),
                             ),
-                          ),
-                      ]),
-                    );
-                  },
-                ),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                _buildHeaderTab('タイムライン', 0),
-                const SizedBox(width: 8),
-                _buildHeaderTab('お知らせ', 1),
-              ]),
-              const SizedBox(height: 1),
-              Container(height: 1, color: Colors.grey[100]),
+                        ]),
+                      );
+                    },
+                  ),
+                ]),
+              ),
+              // タブバー（X風アンダーライン）
+              TabBar(
+                controller: _tabController,
+                labelColor: AppTheme.textPrimary,
+                unselectedLabelColor: AppTheme.textSecondary,
+                labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal),
+                indicatorColor: AppTheme.primaryColor,
+                indicatorWeight: 3,
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.grey[200],
+                tabs: const [
+                  Tab(text: 'タイムライン'),
+                  Tab(text: 'お知らせ'),
+                ],
+              ),
             ]),
           ),
           Expanded(
@@ -199,22 +213,37 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildHeaderTab(String label, int index) {
-    final isSelected = _tabController.index == index;
-    return GestureDetector(
-      onTap: () { _tabController.animateTo(index); setState(() {}); },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
-        ),
-        child: Text(label, style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary)),
-      ),
+  Widget _buildUserAvatar() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+        child: const Icon(Icons.person, size: 18, color: AppTheme.primaryColor),
+      );
+    }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snap) {
+        final data = snap.data?.data() as Map<String, dynamic>?;
+        final avatarUrl = (data?['avatarUrl'] as String?) ?? '';
+        final nickname = (data?['nickname'] as String?) ?? '';
+        return GestureDetector(
+          onTap: () {
+            if (uid.isNotEmpty) {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => UserProfileScreen(userId: uid),
+              ));
+            }
+          },
+          child: avatarUrl.isNotEmpty
+              ? CircleAvatar(radius: 16, backgroundImage: NetworkImage(avatarUrl),
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15))
+              : CircleAvatar(radius: 16, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  child: Text(nickname.isNotEmpty ? nickname[0] : '?',
+                      style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 14))),
+        );
+      },
     );
   }
 
