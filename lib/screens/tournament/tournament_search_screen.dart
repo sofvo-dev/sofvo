@@ -111,24 +111,25 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('さがす'),
-        elevation: 0,
+      body: SafeArea(
+        child: Column(children: [
+          _buildHeader(),
+          if (_showFilter && _viewMode != 'saved') _buildFilterPanel(),
+          Expanded(child: _buildContent()),
+        ]),
       ),
-      body: Column(children: [
-        _buildHeader(),
-        if (_showFilter && _viewMode != 'saved') _buildFilterPanel(),
-        Expanded(child: _buildContent()),
-      ]),
     );
   }
 
-  // ━━━ ヘッダー（モード切替 + 検索バー） ━━━
+  // ━━━ ヘッダー（タイトル + モード切替 + 検索バー） ━━━
   Widget _buildHeader() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('さがす',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        const SizedBox(height: 12),
         // モード切替タブ
         Row(children: [
           Expanded(child: _buildModeTab('大会', Icons.emoji_events_outlined, 'tournament')),
@@ -191,6 +192,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             _buildTabToggle('みんなの${_viewMode == 'tournament' ? '大会' : 'メンバー'}', 1),
           ]),
         ],
+        Container(height: 1, color: Colors.grey[100]),
       ]),
     );
   }
