@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
@@ -6,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'score_input_screen.dart';
 import 'checkin_screen.dart';
 import '../../services/match_generator.dart';
+import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
 
@@ -107,6 +109,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildHeader(Map<String, dynamic> t, String status, Color statusColor) {
+    final currentTeams = t['currentTeams'] is int ? t['currentTeams'] as int : 0;
+    final maxTeams = t['maxTeams'] is int ? t['maxTeams'] as int : 0;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -119,26 +124,42 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-            ),
-            child: Text(status, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
-          const SizedBox(height: 8),
-          Text(t['name'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 6),
           Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+              ),
+              child: Text(status, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
               child: Text(t['type'] as String, style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
             ),
-            const SizedBox(width: 10),
+          ]),
+          const SizedBox(height: 10),
+          Text(t['name'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+          const SizedBox(height: 10),
+          Row(children: [
+            const Icon(Icons.calendar_today, size: 14, color: Colors.white70),
+            const SizedBox(width: 6),
             Text(t['date'] as String, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+            const SizedBox(width: 16),
+            const Icon(Icons.groups, size: 14, color: Colors.white70),
+            const SizedBox(width: 6),
+            Text('$currentTeams/$maxTeams チーム', style: const TextStyle(fontSize: 13, color: Colors.white70)),
+            const SizedBox(width: 16),
+            const Icon(Icons.location_on, size: 14, color: Colors.white70),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(t['location'] as String? ?? t['venue'] as String? ?? '',
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                  overflow: TextOverflow.ellipsis),
+            ),
           ]),
         ],
       ),
@@ -226,59 +247,43 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ━━━ Status banner ━━━
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  liveStatus == '募集中' ? AppTheme.success.withOpacity(0.15) :
-                  liveStatus == '開催中' ? AppTheme.primaryColor.withOpacity(0.15) :
-                  Colors.amber.withOpacity(0.15),
-                  Colors.white,
-                ]),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Row(children: [
-                Icon(
-                  liveStatus == '募集中' ? Icons.how_to_reg :
-                  liveStatus == '開催中' ? Icons.play_circle :
-                  liveStatus == '終了' ? Icons.check_circle : Icons.schedule,
-                  color: liveStatus == '募集中' ? AppTheme.success :
-                  liveStatus == '開催中' ? AppTheme.primaryColor : Colors.amber,
-                ),
-                const SizedBox(width: 10),
-                Text('現在のステータス：$liveStatus', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              ]),
-            ),
-            const SizedBox(height: 16),
-
             // ━━━ Organizer ━━━
-            _buildCard(
-              child: Row(children: [
-                CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
-                    child: const Text('主', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      Icon(Icons.star, size: 14, color: AppTheme.accentColor),
-                      const SizedBox(width: 4),
-                      Text('主催者', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            GestureDetector(
+              onTap: () {
+                final organizerId = t['organizerId'] as String?;
+                if (organizerId != null && organizerId.isNotEmpty) {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(userId: organizerId),
+                  ));
+                }
+              },
+              child: _buildCard(
+                child: Row(children: [
+                  CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
+                      child: const Text('主', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        Icon(Icons.star, size: 14, color: AppTheme.accentColor),
+                        const SizedBox(width: 4),
+                        Text('主催者', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      ]),
                     ]),
-                  ]),
-                ),
-                Icon(Icons.chevron_right, color: AppTheme.textHint),
-              ]),
+                  ),
+                  Icon(Icons.chevron_right, color: AppTheme.textHint),
+                ]),
+              ),
             ),
             const SizedBox(height: 12),
 
             // ━━━ Basic Info ━━━
             _buildCard(
               title: '基本情報',
+              titleIcon: Icons.info_outline,
               child: Column(children: [
                 _buildInfoRow(Icons.calendar_today, '開催日', t['date'] as String? ?? ''),
                 _buildDivider(),
@@ -301,6 +306,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // ━━━ Schedule ━━━
             _buildCard(
               title: '当日スケジュール',
+              titleIcon: Icons.schedule,
               child: Column(children: [
                 _buildInfoRow(Icons.door_front_door, '開場', live['openTime'] as String? ?? t['openTime'] as String? ?? '8:00'),
                 _buildDivider(),
@@ -324,6 +330,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // ━━━ Entry status ━━━
             _buildCard(
               title: '募集状況',
+              titleIcon: Icons.how_to_reg,
               child: Column(children: [
                 Row(children: [
                   Icon(Icons.groups, size: 20, color: AppTheme.primaryColor),
@@ -360,6 +367,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // ━━━ Rules Detail ━━━
             _buildCard(
               title: '大会ルール',
+              titleIcon: Icons.gavel,
               child: Column(children: [
                 _buildInfoRow(Icons.sports_volleyball, '試合形式', '${t['format'] ?? '4人制'}（15点先取）'),
                 _buildDivider(),
@@ -398,6 +406,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // ━━━ Management info ━━━
             if (liveManagement.isNotEmpty) _buildCard(
               title: '運営情報',
+              titleIcon: Icons.admin_panel_settings,
               child: Column(children: [
                 if (liveManagement['teamsPerCourt'] != null)
                   _buildInfoRow(Icons.people, '1コートあたり', '${liveManagement['teamsPerCourt']}チーム'),
@@ -416,6 +425,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // ━━━ Other settings ━━━
             if (liveOther.isNotEmpty) _buildCard(
               title: 'その他',
+              titleIcon: Icons.more_horiz,
               child: Column(children: [
                 if (liveOther['uniformNumber'] != null)
                   _buildInfoRow(Icons.format_list_numbered, 'ゼッケン', liveOther['uniformNumber'] == true ? '必須' : '不要'),
@@ -430,13 +440,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // ━━━ Tournament flow ━━━
             _buildCard(
               title: '大会の流れ',
+              titleIcon: Icons.timeline,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _buildFlowStep(1, 'エントリー受付', liveStatus == '募集中', liveCurrentTeams > 0),
                 _buildFlowStep(2, '予選リーグ（ラウンドロビン）', liveStatus == '開催中', false),
                 if ((livePrelim['rounds'] ?? 1) > 1)
                   _buildFlowStep(3, '予選2（ランク別再編成）', false, false),
                 _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 4 : 3, '決勝トーナメント', liveStatus == '決勝中', false),
-                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '結果発表・表彰', liveStatus == '終了', false),
+                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '結果発表・表彰', liveStatus == '終了', false, isLast: true),
               ]),
             ),
 
@@ -444,6 +455,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             if (liveStatus == '終了')
               _buildCard(
                 title: '大会結果',
+                titleIcon: Icons.emoji_events,
                 child: StreamBuilder<QuerySnapshot>(
                   stream: _firestore.collection('tournaments').doc(_tournamentId)
                       .collection('brackets').snapshots(),
@@ -472,47 +484,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                               _buildResultRow(Icons.military_tech, '優勝', champion ?? '', Colors.amber),
                               const SizedBox(height: 8),
                               _buildResultRow(Icons.star, '準優勝', runnerUp ?? '', AppTheme.primaryColor),
-                            ]);
-                          },
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ),
-
-            // ━━━ 結果（終了時のみ） ━━━
-            if (liveStatus == '終了')
-              _buildCard(
-                title: '大会結果',
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: _firestore.collection('tournaments').doc(_tournamentId)
-                      .collection('brackets').snapshots(),
-                  builder: (context, bracketSnap) {
-                    if (!bracketSnap.hasData || bracketSnap.data!.docs.isEmpty) {
-                      return const Text('決勝データがまだありません', style: TextStyle(color: AppTheme.textSecondary));
-                    }
-                    return Column(
-                      children: bracketSnap.data!.docs.map((bDoc) {
-                        return StreamBuilder<QuerySnapshot>(
-                          stream: bDoc.reference.collection('matches')
-                              .where('status', isEqualTo: 'completed').snapshots(),
-                          builder: (context, mSnap) {
-                            if (!mSnap.hasData) return const SizedBox();
-                            final matches = mSnap.data!.docs;
-                            final finalMatch = matches.where((m) =>
-                              (m.data() as Map<String, dynamic>)['round'] == 'final').firstOrNull;
-                            if (finalMatch == null) return const Text('決勝が完了していません');
-                            final fm = finalMatch.data() as Map<String, dynamic>;
-                            final result = fm['result'] as Map<String, dynamic>? ?? {};
-                            final winnerId = result['winner'] ?? '';
-                            final champion = winnerId == fm['teamAId'] ? fm['teamAName'] : fm['teamBName'];
-                            final runnerUp = winnerId == fm['teamAId'] ? fm['teamBName'] : fm['teamAName'];
-
-                            return Column(children: [
-                              _buildResultRow(Icons.military_tech, '優勝', champion ?? '', Colors.amber),
-                              const SizedBox(height: 8),
-                              _buildResultRow(Icons.star, '準優勝', runnerUp ?? '', AppTheme.primaryColor),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _shareResult(champion ?? '', runnerUp ?? ''),
+                                  icon: const Icon(Icons.share, size: 18),
+                                  label: const Text('結果をシェア'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    side: const BorderSide(color: AppTheme.primaryColor),
+                                  ),
+                                ),
+                              ),
                             ]);
                           },
                         );
@@ -526,6 +511,24 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           ],
         );
       },
+    );
+  }
+
+  void _shareResult(String champion, String runnerUp) {
+    final t = widget.tournament;
+    final text = '${t['name']}\n\n'
+        '優勝: $champion\n'
+        '準優勝: $runnerUp\n\n'
+        '日程: ${t['date']}\n'
+        '会場: ${t['location'] ?? t['venue'] ?? ''}\n\n'
+        '#Sofvo #バレーボール大会';
+
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('結果をコピーしました！SNSに貼り付けてシェアしましょう'),
+        backgroundColor: AppTheme.success,
+      ),
     );
   }
 
@@ -559,29 +562,38 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildFlowStep(int step, String label, bool isCurrent, bool isCompleted) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+  Widget _buildFlowStep(int step, String label, bool isCurrent, bool isCompleted, {bool isLast = false}) {
+    return IntrinsicHeight(
       child: Row(children: [
-        Container(
-          width: 28, height: 28,
-          decoration: BoxDecoration(
-            color: isCompleted ? AppTheme.success : isCurrent ? AppTheme.primaryColor : Colors.grey[200],
-            shape: BoxShape.circle,
+        Column(children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: isCompleted ? AppTheme.success : isCurrent ? AppTheme.primaryColor : Colors.grey[200],
+              shape: BoxShape.circle,
+              boxShadow: isCurrent ? [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.3), blurRadius: 6)] : [],
+            ),
+            child: Center(child: isCompleted
+                ? const Icon(Icons.check, size: 16, color: Colors.white)
+                : Text('$step', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                    color: isCurrent ? Colors.white : AppTheme.textSecondary))),
           ),
-          child: Center(child: isCompleted
-              ? const Icon(Icons.check, size: 16, color: Colors.white)
-              : Text('$step', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-                  color: isCurrent ? Colors.white : AppTheme.textSecondary))),
+          if (!isLast)
+            Expanded(child: Container(width: 2, color: isCompleted ? AppTheme.success.withValues(alpha: 0.3) : Colors.grey[200])),
+        ]),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(label, style: TextStyle(fontSize: 14,
+                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                color: isCurrent ? AppTheme.primaryColor : isCompleted ? AppTheme.success : AppTheme.textPrimary)),
+          ),
         ),
-        const SizedBox(width: 12),
-        Expanded(child: Text(label, style: TextStyle(fontSize: 14,
-            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-            color: isCurrent ? AppTheme.primaryColor : isCompleted ? AppTheme.success : AppTheme.textPrimary))),
         if (isCurrent)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: const Text('進行中', style: TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
           ),
       ]),
@@ -1192,7 +1204,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Container(
+                child: GestureDetector(
+                  onTap: () {
+                    final enteredBy = data['enteredBy'] as String?;
+                    if (enteredBy != null && enteredBy.isNotEmpty) {
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(userId: enteredBy),
+                      ));
+                    }
+                  },
+                  child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isMyTeam ? Colors.red.withOpacity(0.06) : Colors.white,
@@ -1232,6 +1253,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       ),
                     ],
                   ]),
+                ),
                 ),
               );
             }),
@@ -2060,7 +2082,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   // ━━━ 共通ウィジェット ━━━
-  Widget _buildCard({String? title, required Widget child}) {
+  Widget _buildCard({String? title, IconData? titleIcon, required Widget child}) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -2069,7 +2091,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (title != null) ...[
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+          Row(children: [
+            if (titleIcon != null) ...[
+              Icon(titleIcon, size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+            ],
+            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+          ]),
           const SizedBox(height: 12),
         ],
         child,
@@ -2079,12 +2107,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, size: 18, color: AppTheme.textSecondary),
-        const SizedBox(width: 10),
-        SizedBox(width: 70, child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500))),
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+          child: Icon(icon, size: 16, color: AppTheme.primaryColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
+        ])),
       ]),
     );
   }
