@@ -271,16 +271,21 @@ class _HomeScreenState extends State<HomeScreen>
               return _buildEmptyTimeline();
             }
 
-            return ListView.separated(
-              padding: const EdgeInsets.only(top: 4, bottom: 80),
-              itemCount: posts.length,
-              separatorBuilder: (_, __) =>
-                  Divider(height: 1, thickness: 1, color: Colors.grey[100]),
-              itemBuilder: (context, index) {
-                final data =
-                    posts[index].data() as Map<String, dynamic>;
-                return _buildPostItem(posts[index].id, data);
-              },
+            return RefreshIndicator(
+              color: AppTheme.primaryColor,
+              onRefresh: () async { setState(() {}); await Future.delayed(const Duration(milliseconds: 500)); },
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 4, bottom: 80),
+                itemCount: posts.length,
+                separatorBuilder: (_, __) =>
+                    Divider(height: 1, thickness: 1, color: Colors.grey[100]),
+                itemBuilder: (context, index) {
+                  final data =
+                      posts[index].data() as Map<String, dynamic>;
+                  return _buildPostItem(posts[index].id, data);
+                },
+              ),
             );
           },
         );

@@ -630,12 +630,17 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               friendsOnly ? 'フォロー中の大会はありません' : '大会が見つかりません', '');
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-          itemCount: filtered.length,
-          itemBuilder: (ctx, i) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _buildTournamentCard(filtered[i]),
+        return RefreshIndicator(
+          color: AppTheme.primaryColor,
+          onRefresh: () async { setState(() {}); await Future.delayed(const Duration(milliseconds: 500)); },
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            itemCount: filtered.length,
+            itemBuilder: (ctx, i) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildTournamentCard(filtered[i]),
+            ),
           ),
         );
       },
