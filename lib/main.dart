@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,6 +14,8 @@ import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
 
 final themeNotifier = ThemeNotifier();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +23,19 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+
+  // Firestoreオフラインキャッシュ（モバイルのみ）
+  if (!kIsWeb) {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
+
+  // プッシュ通知にグローバルキーを設定
+  PushNotificationService.navigatorKey = navigatorKey;
+  PushNotificationService.scaffoldMessengerKey = scaffoldMessengerKey;
+
   runApp(const SofvoApp());
 }
 
@@ -31,6 +47,8 @@ class SofvoApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: themeNotifier,
       builder: (context, _) => MaterialApp(
+        navigatorKey: navigatorKey,
+        scaffoldMessengerKey: scaffoldMessengerKey,
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,

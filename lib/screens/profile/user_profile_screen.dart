@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../chat/chat_screen.dart';
 import 'follow_list_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -68,6 +69,178 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     }
   }
 
+  Future<void> _startDmWith(String otherUid, String otherName) async {
+    final myUid = _currentUid;
+    if (myUid.isEmpty) return;
+
+    // 既存DMを検索
+    final existing = await _firestore
+        .collection('chats')
+        .where('type', isEqualTo: 'dm')
+        .where('members', arrayContains: myUid)
+        .get();
+
+    String? chatId;
+    for (final doc in existing.docs) {
+      final members = List<String>.from(doc['members'] ?? []);
+      if (members.contains(otherUid)) {
+        chatId = doc.id;
+        break;
+      }
+    }
+
+    // なければ新規作成
+    if (chatId == null) {
+      final myDoc = await _firestore.collection('users').doc(myUid).get();
+      final myName = (myDoc.data()?['nickname'] as String?) ?? '自分';
+
+      final ref = await _firestore.collection('chats').add({
+        'type': 'dm',
+        'members': [myUid, otherUid],
+        'memberNames': {myUid: myName, otherUid: otherName},
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      chatId = ref.id;
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            chatId: chatId!,
+            chatTitle: otherName,
+            chatType: 'dm',
+            otherUserId: otherUid,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showBlockReportSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.block, color: AppTheme.error),
+              title: const Text('このユーザーをブロック'),
+              subtitle: const Text('相手の投稿やメッセージが非表示になります', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmBlock();
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: AppTheme.warning),
+              title: const Text('通報する'),
+              subtitle: const Text('不適切なコンテンツや行為を報告します', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showReportDialog();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmBlock() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('ブロックしますか？', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('ブロックすると相手の投稿やメッセージが表示されなくなります。設定からいつでも解除できます。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _firestore.collection('users').doc(_currentUid).collection('blockedUsers').doc(widget.userId).set({
+                'blockedAt': FieldValue.serverTimestamp(),
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('ユーザーをブロックしました'), backgroundColor: AppTheme.success),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, minimumSize: const Size(100, 40)),
+            child: const Text('ブロック'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportDialog() {
+    String selectedReason = '';
+    final reasons = ['スパム・迷惑行為', '不適切なコンテンツ', 'なりすまし', 'ハラスメント', 'その他'];
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('通報理由を選択', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: reasons.map((reason) => RadioListTile<String>(
+              title: Text(reason, style: const TextStyle(fontSize: 14)),
+              value: reason,
+              groupValue: selectedReason,
+              activeColor: AppTheme.primaryColor,
+              onChanged: (v) => setDialogState(() => selectedReason = v ?? ''),
+            )).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: selectedReason.isEmpty ? null : () async {
+                await _firestore.collection('reports').add({
+                  'reporterId': _currentUid,
+                  'targetUserId': widget.userId,
+                  'reason': selectedReason,
+                  'status': 'pending',
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('通報を送信しました。ご協力ありがとうございます。'), backgroundColor: AppTheme.success),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(minimumSize: const Size(100, 40)),
+              child: const Text('送信'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _toggleFollow() async {
     if (_isMyProfile) return;
 
@@ -120,6 +293,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Text(nickname, style: const TextStyle(fontSize: 16)),
+        actions: [
+          if (!_isMyProfile)
+            IconButton(
+              icon: const Icon(Icons.more_horiz),
+              onPressed: _showBlockReportSheet,
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -219,9 +399,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       ),
                       const SizedBox(width: 10),
                       OutlinedButton(
-                        onPressed: () {
-                          // TODO: DMへ遷移
-                        },
+                        onPressed: () => _startDmWith(widget.userId, nickname),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryColor,
                           side: const BorderSide(color: AppTheme.primaryColor),

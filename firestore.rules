@@ -1,0 +1,151 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ━━━ 共通関数 ━━━
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isNotBlocked(targetUserId) {
+      return !exists(/databases/$(database)/documents/users/$(targetUserId)/blockedUsers/$(request.auth.uid));
+    }
+
+    // ━━━ ユーザー ━━━
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+
+      // フォロー
+      match /following/{followId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+
+      // フォロワー
+      match /followers/{followerId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isOwner(followerId);
+        allow delete: if isOwner(userId) || isOwner(followerId);
+      }
+
+      // 通知
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow create: if isAuthenticated();
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      // ブックマーク
+      match /bookmarks/{bookmarkId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ブロックリスト
+      match /blockedUsers/{blockedId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ━━━ 投稿 ━━━
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isAuthenticated() && isOwner(likeId);
+      }
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // ━━━ 大会 ━━━
+    match /tournaments/{tournamentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.organizerId == request.auth.uid;
+
+      // エントリー
+      match /entries/{entryId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+
+      // ラウンド
+      match /rounds/{roundId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+
+        match /{document=**} {
+          allow read: if isAuthenticated();
+          allow write: if isAuthenticated();
+        }
+      }
+
+      // ブラケット（決勝トーナメント）
+      match /brackets/{bracketId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+
+        match /{document=**} {
+          allow read: if isAuthenticated();
+          allow write: if isAuthenticated();
+        }
+      }
+    }
+
+    // ━━━ チーム ━━━
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ━━━ チャット ━━━
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.members;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.members;
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+      }
+    }
+
+    // ━━━ 会場 ━━━
+    match /venues/{venueId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ━━━ 通報 ━━━
+    match /reports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read: if false; // 管理者のみ（Cloud Functions経由）
+    }
+
+    // ━━━ メンバー募集 ━━━
+    match /recruitments/{recruitId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
