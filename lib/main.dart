@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'services/bookmark_notification_service.dart';
+import 'services/push_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'config/app_theme.dart';
@@ -89,6 +90,7 @@ class AuthGate extends StatelessWidget {
               return const ProfileSetupScreen();
             }
             BookmarkNotificationService.checkAndNotify(snapshot.data!.uid);
+            PushNotificationService.initialize();
                     return MainTabScreen();
           },
         );
