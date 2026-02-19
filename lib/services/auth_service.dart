@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -28,14 +29,19 @@ class AuthService {
 
   // Googleログイン（v7対応）
   Future<UserCredential?> signInWithGoogle() async {
-    final googleSignIn = GoogleSignIn();
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) return null; // ユーザーがキャンセル
+    if (kIsWeb) {
+      // Web: Firebase Auth のポップアップフローを使用
+      final provider = GoogleAuthProvider();
+      return await _auth.signInWithPopup(provider);
+    }
 
-    final googleAuth = await googleUser.authentication;
+    // Mobile: google_sign_in v7 API
+    final googleSignIn = GoogleSignIn.instance;
+    await googleSignIn.initialize();
+    final account = await googleSignIn.authenticate();
+    final auth = account.authentication;
     final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
+      idToken: auth.idToken,
     );
     return await _auth.signInWithCredential(credential);
   }
