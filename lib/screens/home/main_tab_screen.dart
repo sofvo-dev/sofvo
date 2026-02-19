@@ -65,6 +65,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
           return NavigationBar(
             selectedIndex: _currentIndex,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             onDestinationSelected: (index) {
               setState(() => _currentIndex = index);
             },
