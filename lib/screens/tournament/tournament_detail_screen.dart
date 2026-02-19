@@ -481,47 +481,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ),
               ),
 
-            // ━━━ 結果（終了時のみ） ━━━
-            if (liveStatus == '終了')
-              _buildCard(
-                title: '大会結果',
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: _firestore.collection('tournaments').doc(_tournamentId)
-                      .collection('brackets').snapshots(),
-                  builder: (context, bracketSnap) {
-                    if (!bracketSnap.hasData || bracketSnap.data!.docs.isEmpty) {
-                      return const Text('決勝データがまだありません', style: TextStyle(color: AppTheme.textSecondary));
-                    }
-                    return Column(
-                      children: bracketSnap.data!.docs.map((bDoc) {
-                        return StreamBuilder<QuerySnapshot>(
-                          stream: bDoc.reference.collection('matches')
-                              .where('status', isEqualTo: 'completed').snapshots(),
-                          builder: (context, mSnap) {
-                            if (!mSnap.hasData) return const SizedBox();
-                            final matches = mSnap.data!.docs;
-                            final finalMatch = matches.where((m) =>
-                              (m.data() as Map<String, dynamic>)['round'] == 'final').firstOrNull;
-                            if (finalMatch == null) return const Text('決勝が完了していません');
-                            final fm = finalMatch.data() as Map<String, dynamic>;
-                            final result = fm['result'] as Map<String, dynamic>? ?? {};
-                            final winnerId = result['winner'] ?? '';
-                            final champion = winnerId == fm['teamAId'] ? fm['teamAName'] : fm['teamBName'];
-                            final runnerUp = winnerId == fm['teamAId'] ? fm['teamBName'] : fm['teamAName'];
-
-                            return Column(children: [
-                              _buildResultRow(Icons.military_tech, '優勝', champion ?? '', Colors.amber),
-                              const SizedBox(height: 8),
-                              _buildResultRow(Icons.star, '準優勝', runnerUp ?? '', AppTheme.primaryColor),
-                            ]);
-                          },
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ),
-
             const SizedBox(height: 100),
           ],
         );

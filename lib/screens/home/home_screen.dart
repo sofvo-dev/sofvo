@@ -25,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() { if (!_tabController.indexIsChanging) setState(() {}); });
   }
 
   @override
@@ -127,74 +128,92 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: Text('Sofvo',
-            style: GoogleFonts.montserrat(
-                fontWeight: FontWeight.w900,
-                fontSize: 24,
-                letterSpacing: 2)),
-        actions: [
-          StreamBuilder<int>(
-            stream: NotificationService.unreadCountStream(
-                FirebaseAuth.instance.currentUser?.uid ?? ''),
-            builder: (context, snap) {
-              final count = snap.data ?? 0;
-              return IconButton(
-                icon: Stack(
-                  children: [
-                    const Icon(Icons.notifications_outlined),
-                    if (count > 0)
-                      Positioned(
-                        right: 0, top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.red, shape: BoxShape.circle),
-                          constraints: const BoxConstraints(
-                              minWidth: 16, minHeight: 16),
-                          child: Text('$count',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center),
-                        ),
-                      ),
-                  ],
+      body: SafeArea(
+        child: Column(children: [
+          // ━━━ 統一ヘッダー ━━━
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text('Sofvo',
+                    style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 24,
+                        letterSpacing: 2,
+                        color: AppTheme.textPrimary)),
+                const Spacer(),
+                StreamBuilder<int>(
+                  stream: NotificationService.unreadCountStream(
+                      FirebaseAuth.instance.currentUser?.uid ?? ''),
+                  builder: (context, snap) {
+                    final count = snap.data ?? 0;
+                    return GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                      child: Stack(children: [
+                        const Icon(Icons.notifications_outlined, size: 26, color: AppTheme.textPrimary),
+                        if (count > 0)
+                          Positioned(
+                            right: 0, top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                              child: Text('$count',
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center),
+                            ),
+                          ),
+                      ]),
+                    );
+                  },
                 ),
-                onPressed: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const NotificationScreen()));
-                },
-              );
-            },
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                _buildHeaderTab('タイムライン', 0),
+                const SizedBox(width: 8),
+                _buildHeaderTab('お知らせ', 1),
+              ]),
+              const SizedBox(height: 1),
+              Container(height: 1, color: Colors.grey[100]),
+            ]),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: AppTheme.accentColor,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600),
-          tabs: const [
-            Tab(text: 'タイムライン'),
-            Tab(text: 'お知らせ'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildTimelineTab(),
-          _buildNoticeTab(),
-        ],
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildTimelineTab(),
+                _buildNoticeTab(),
+              ],
+            ),
+          ),
+        ]),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openCreatePost,
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.edit, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildHeaderTab(String label, int index) {
+    final isSelected = _tabController.index == index;
+    return GestureDetector(
+      onTap: () { _tabController.animateTo(index); setState(() {}); },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+        ),
+        child: Text(label, style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary)),
       ),
     );
   }

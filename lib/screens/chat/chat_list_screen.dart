@@ -20,6 +20,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() { if (!_tabController.indexIsChanging) setState(() {}); });
   }
 
   @override
@@ -281,34 +282,64 @@ class _ChatListScreenState extends State<ChatListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('チャット'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_square),
-            onPressed: _showNewDmSheet,
+      body: SafeArea(
+        child: Column(children: [
+          // ━━━ 統一ヘッダー ━━━
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Text('チャット',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _showNewDmSheet,
+                  child: const Icon(Icons.edit_square, size: 24, color: AppTheme.textPrimary),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                _buildHeaderTab('DM', 0),
+                const SizedBox(width: 8),
+                _buildHeaderTab('チーム', 1),
+                const SizedBox(width: 8),
+                _buildHeaderTab('大会', 2),
+              ]),
+              const SizedBox(height: 1),
+              Container(height: 1, color: Colors.grey[100]),
+            ]),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: AppTheme.accentColor,
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(text: 'DM'),
-            Tab(text: 'チーム'),
-            Tab(text: '大会'),
-          ],
-        ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildChatTab('dm'),
+                _buildChatTab('team'),
+                _buildChatTab('tournament'),
+              ],
+            ),
+          ),
+        ]),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildChatTab('dm'),
-          _buildChatTab('team'),
-          _buildChatTab('tournament'),
-        ],
+    );
+  }
+
+  Widget _buildHeaderTab(String label, int index) {
+    final isSelected = _tabController.index == index;
+    return GestureDetector(
+      onTap: () { _tabController.animateTo(index); setState(() {}); },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+        ),
+        child: Text(label, style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary)),
       ),
     );
   }

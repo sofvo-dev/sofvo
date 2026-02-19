@@ -36,21 +36,27 @@ class MyPageScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('マイページ'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
+      body: SafeArea(
+        child: Column(children: [
+          // ━━━ 統一ヘッダー ━━━
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Text('マイページ',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                  child: const Icon(Icons.settings_outlined, size: 24, color: AppTheme.textPrimary),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              Container(height: 1, color: Colors.grey[100]),
+            ]),
           ),
-        ],
-      ),
-      body: user == null
+          Expanded(child: user == null
           ? const Center(child: Text('ログインしてください'))
           : StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
@@ -397,6 +403,9 @@ class MyPageScreen extends StatelessWidget {
                 );
               },
             ),
+          ),
+        ]),
+      ),
     );
   }
 

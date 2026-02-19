@@ -125,7 +125,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Widget _buildHeader() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('さがす',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
