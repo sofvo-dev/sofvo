@@ -26,18 +26,51 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   final _currentUser = FirebaseAuth.instance.currentUser;
   final _picker = ImagePicker();
   bool _isSending = false;
+  Map<String, dynamic> _lastReadMap = {};
+  List<String> _memberIds = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _markAsRead();
+    _loadChatMeta();
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _markAsRead();
+  }
+
+  void _markAsRead() {
+    if (_currentUser == null) return;
+    FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
+      'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _loadChatMeta() async {
+    final doc = await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).get();
+    final data = doc.data() ?? {};
+    if (mounted) {
+      setState(() {
+        _memberIds = List<String>.from(data['members'] ?? []);
+      });
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -422,41 +455,46 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .doc(widget.chatId)
-                  .collection('messages')
-                  .orderBy('createdAt', descending: false)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primaryColor));
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection('chats').doc(widget.chatId).snapshots(),
+              builder: (context, chatSnap) {
+                if (chatSnap.hasData && chatSnap.data!.exists) {
+                  final chatData = chatSnap.data!.data() as Map<String, dynamic>? ?? {};
+                  _lastReadMap = (chatData['lastRead'] as Map<String, dynamic>?) ?? {};
+                  _memberIds = List<String>.from(chatData['members'] ?? _memberIds);
+                  _markAsRead();
                 }
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('chats')
+                      .doc(widget.chatId)
+                      .collection('messages')
+                      .orderBy('createdAt', descending: false)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                          child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                    }
 
-                final messages = snapshot.data?.docs ?? [];
-                if (messages.isEmpty) {
-                  return Center(
-                    child: Text('メッセージを送ってみましょう！',
-                        style: TextStyle(
-                            color: AppTheme.textSecondary)),
-                  );
-                }
+                    final messages = snapshot.data?.docs ?? [];
+                    if (messages.isEmpty) {
+                      return Center(
+                        child: Text('メッセージを送ってみましょう！',
+                            style: TextStyle(color: AppTheme.textSecondary)),
+                      );
+                    }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final data = messages[index].data()
-                        as Map<String, dynamic>;
-                    final isMe =
-                        data['senderId'] == _currentUser?.uid;
-                    return _buildMessageBubble(data, isMe);
+                    return ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final data = messages[index].data() as Map<String, dynamic>;
+                        final isMe = data['senderId'] == _currentUser?.uid;
+                        return _buildMessageBubble(data, isMe);
+                      },
+                    );
                   },
                 );
               },
@@ -594,22 +632,24 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
               if (isMe)
                 Padding(
-                  padding:
-                      const EdgeInsets.only(right: 6, bottom: 2),
-                  child: Text(timeText,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppTheme.textHint)),
+                  padding: const EdgeInsets.only(right: 6, bottom: 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _buildReadReceipt(createdAt),
+                      Text(timeText, style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                    ],
+                  ),
                 ),
               Flexible(
                 child: _buildMessageContent(type, text, mediaUrl, fileName, fileExtension, fileSize, isMe),
               ),
               if (!isMe)
                 Padding(
-                  padding:
-                      const EdgeInsets.only(left: 6, bottom: 2),
+                  padding: const EdgeInsets.only(left: 6, bottom: 2),
                   child: Text(timeText,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppTheme.textHint)),
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
                 ),
             ],
           ),
@@ -795,6 +835,30 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildReadReceipt(Timestamp? messageTime) {
+    if (messageTime == null || _currentUser == null) return const SizedBox();
+
+    final msgDate = messageTime.toDate();
+    final otherMembers = _memberIds.where((id) => id != _currentUser!.uid).toList();
+    if (otherMembers.isEmpty) return const SizedBox();
+
+    int readCount = 0;
+    for (final memberId in otherMembers) {
+      final lastRead = _lastReadMap[memberId];
+      if (lastRead is Timestamp && lastRead.toDate().isAfter(msgDate)) {
+        readCount++;
+      }
+    }
+
+    if (readCount == 0) return const SizedBox();
+
+    if (widget.chatType == 'dm') {
+      return const Text('既読', style: TextStyle(fontSize: 10, color: AppTheme.primaryColor));
+    } else {
+      return Text('既読 $readCount', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor));
+    }
   }
 
   String _formatMessageTime(Timestamp? timestamp) {
