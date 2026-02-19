@@ -11,6 +11,8 @@ import 'screens/auth/login_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
 
+final themeNotifier = ThemeNotifier();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -25,18 +27,23 @@ class SofvoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('ja', 'JP')],
-      locale: const Locale('ja', 'JP'),
-      title: 'Sofvo',
-      theme: AppTheme.lightTheme,
-      debugShowCheckedModeBanner: false,
-      home: const AuthGate(),
+    return ListenableBuilder(
+      listenable: themeNotifier,
+      builder: (context, _) => MaterialApp(
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('ja', 'JP')],
+        locale: const Locale('ja', 'JP'),
+        title: 'Sofvo',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeNotifier.themeMode,
+        debugShowCheckedModeBanner: false,
+        home: const AuthGate(),
+      ),
     );
   }
 }
