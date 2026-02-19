@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
@@ -483,6 +484,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                               _buildResultRow(Icons.military_tech, '優勝', champion ?? '', Colors.amber),
                               const SizedBox(height: 8),
                               _buildResultRow(Icons.star, '準優勝', runnerUp ?? '', AppTheme.primaryColor),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _shareResult(champion ?? '', runnerUp ?? ''),
+                                  icon: const Icon(Icons.share, size: 18),
+                                  label: const Text('結果をシェア'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    side: const BorderSide(color: AppTheme.primaryColor),
+                                  ),
+                                ),
+                              ),
                             ]);
                           },
                         );
@@ -496,6 +511,24 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           ],
         );
       },
+    );
+  }
+
+  void _shareResult(String champion, String runnerUp) {
+    final t = widget.tournament;
+    final text = '${t['name']}\n\n'
+        '優勝: $champion\n'
+        '準優勝: $runnerUp\n\n'
+        '日程: ${t['date']}\n'
+        '会場: ${t['location'] ?? t['venue'] ?? ''}\n\n'
+        '#Sofvo #バレーボール大会';
+
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('結果をコピーしました！SNSに貼り付けてシェアしましょう'),
+        backgroundColor: AppTheme.success,
+      ),
     );
   }
 
