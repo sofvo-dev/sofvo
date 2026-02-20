@@ -17,13 +17,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase branch on latest main
+        run: |
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:${GITHUB_REF_NAME} --force-with-lease
+
       - name: Create PR and merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="${GITHUB_REF_NAME}"
 
-          # PRが既に存在するか確認
+          # 既存のオープンPRを確認
           EXISTING=$(gh pr list --head "${BRANCH}" --base main --json number --jq '.[0].number' 2>/dev/null || echo "")
 
           if [ -n "$EXISTING" ]; then
@@ -37,6 +48,9 @@ jobs:
               --base main \
               --head "${BRANCH}")
             echo "Created: ${PR_URL}"
+
+            # PR作成直後は少し待つ
+            sleep 3
 
             # マージ
             gh pr merge "${PR_URL}" --merge
