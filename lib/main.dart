@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'services/bookmark_notification_service.dart';
 import 'services/push_notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,9 +23,6 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-
-  // Google Sign-In 初期化（v7）
-  await GoogleSignIn.instance.initialize();
 
   // Firestoreオフラインキャッシュ（モバイルのみ）
   if (!kIsWeb) {
