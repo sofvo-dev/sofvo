@@ -25,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() { if (!_tabController.indexIsChanging) setState(() {}); });
   }
 
   @override
@@ -171,10 +170,20 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ]),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: _buildXTab('タイムライン', 0)),
-                Expanded(child: _buildXTab('お知らせ', 1)),
-              ]),
+              TabBar(
+                controller: _tabController,
+                labelColor: AppTheme.textPrimary,
+                unselectedLabelColor: AppTheme.textSecondary,
+                labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal),
+                indicatorColor: AppTheme.primaryColor,
+                indicatorWeight: 3,
+                dividerColor: Colors.grey[200],
+                tabs: const [
+                  Tab(text: 'タイムライン'),
+                  Tab(text: 'お知らせ'),
+                ],
+              ),
             ]),
           ),
           Expanded(
@@ -192,31 +201,6 @@ class _HomeScreenState extends State<HomeScreen>
         onPressed: _openCreatePost,
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.edit, color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _buildXTab(String label, int index) {
-    final isSelected = _tabController.index == index;
-    return GestureDetector(
-      onTap: () { _tabController.animateTo(index); setState(() {}); },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? AppTheme.primaryColor : Colors.grey[200]!,
-              width: isSelected ? 3 : 1,
-            ),
-          ),
-        ),
-        child: Center(
-          child: Text(label, style: TextStyle(
-            fontSize: 15,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
-          )),
-        ),
       ),
     );
   }
