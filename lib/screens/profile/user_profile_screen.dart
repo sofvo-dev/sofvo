@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../chat/chat_screen.dart';
+import '../tournament/tournament_detail_screen.dart';
 import 'follow_list_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -22,6 +24,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   int _followingCount = 0;
   int _followersCount = 0;
   int _postsCount = 0;
+  List<Map<String, dynamic>> _tournamentHistory = [];
+  List<Map<String, dynamic>> _gadgets = [];
 
   String get _currentUid => FirebaseAuth.instance.currentUser?.uid ?? '';
   bool get _isMyProfile => widget.userId == _currentUid;
@@ -29,8 +33,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadUserData();
+    _loadTournamentHistory();
+    _loadGadgets();
   }
 
   @override
@@ -65,6 +71,53 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         _postsCount = postsSnap.docs.length;
         _isFollowing = isFollowing;
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadTournamentHistory() async {
+    final tournSnap = await _firestore.collection('tournaments').get();
+    final history = <Map<String, dynamic>>[];
+
+    for (final doc in tournSnap.docs) {
+      final data = doc.data();
+      final isOrganizer = data['organizerId'] == widget.userId;
+      final entriesSnap = await doc.reference
+          .collection('entries')
+          .where('enteredBy', isEqualTo: widget.userId)
+          .limit(1)
+          .get();
+      final isEntered = entriesSnap.docs.isNotEmpty;
+      if (!isOrganizer && !isEntered) continue;
+
+      final status = data['status'] ?? '準備中';
+      if (status != '終了') continue;
+
+      history.add({
+        ...data,
+        'id': doc.id,
+        'teamName': isEntered
+            ? (entriesSnap.docs.first.data()['teamName'] ?? '')
+            : '主催者',
+        'isOrganizer': isOrganizer,
+      });
+    }
+    history.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    if (mounted) setState(() => _tournamentHistory = history.take(5).toList());
+  }
+
+  Future<void> _loadGadgets() async {
+    final snap = await _firestore
+        .collection('users')
+        .doc(widget.userId)
+        .collection('gadgets')
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    if (mounted) {
+      setState(() {
+        _gadgets = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
       });
     }
   }
@@ -413,6 +466,27 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ],
             ),
           ),
+          // ━━━ 戦績サマリー ━━━
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Row(children: [
+              _buildProfileStatCard(Icons.star, '通算Pt',
+                  '${_userData['totalPoints'] ?? 0}', AppTheme.accentColor),
+              const SizedBox(width: 8),
+              _buildProfileStatCard(
+                  Icons.emoji_events,
+                  '参加',
+                  '${(_userData['stats'] as Map<String, dynamic>?)?['tournamentsPlayed'] ?? 0}',
+                  AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              _buildProfileStatCard(
+                  Icons.military_tech,
+                  '優勝',
+                  '${(_userData['stats'] as Map<String, dynamic>?)?['championships'] ?? 0}',
+                  AppTheme.warning),
+            ]),
+          ),
           // タブバー
           Container(
             color: Colors.white,
@@ -425,6 +499,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               tabs: const [
                 Tab(text: '投稿'),
                 Tab(text: '所属チーム'),
+                Tab(text: '戦績'),
               ],
             ),
           ),
@@ -435,6 +510,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               children: [
                 _buildPostsTab(),
                 _buildTeamsTab(),
+                _buildStatsTab(),
               ],
             ),
           ),
@@ -634,5 +710,268 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     if (diff.inHours < 24) return '${diff.inHours}時間前';
     if (diff.inDays < 7) return '${diff.inDays}日前';
     return '${ts.toDate().month}/${ts.toDate().day}';
+  }
+
+  Widget _buildProfileStatCard(
+      IconData icon, String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
+        ),
+        child: Column(children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10, color: AppTheme.textSecondary)),
+        ]),
+      ),
+    );
+  }
+
+  // ━━━ 戦績タブ ━━━
+  Widget _buildStatsTab() {
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        // 過去の大会
+        if (_tournamentHistory.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text('過去の大会',
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary)),
+          ),
+          ..._tournamentHistory.map((t) => _buildHistoryCard(t)),
+          const SizedBox(height: 16),
+        ],
+        // 使用アイテム
+        if (_gadgets.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text('使用アイテム',
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary)),
+          ),
+          ..._gadgets.map((g) => _buildGadgetCard(g)),
+        ],
+        if (_tournamentHistory.isEmpty && _gadgets.isEmpty)
+          _buildEmptyState('戦績はまだありません', Icons.emoji_events_outlined),
+      ],
+    );
+  }
+
+  Widget _buildHistoryCard(Map<String, dynamic> t) {
+    final dateStr = t['date'] ?? '';
+    String dateDisplay = dateStr;
+    try {
+      final parts = dateStr.split('/');
+      if (parts.length >= 3) {
+        dateDisplay = '${int.parse(parts[1])}/${parts[2]}';
+      }
+    } catch (_) {}
+    final isOrganizer = t['isOrganizer'] == true;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TournamentDetailScreen(
+              tournament: {
+                'id': t['id'],
+                'name': t['title'] ?? '',
+                'date': t['date'] ?? '',
+                'venue': t['location'] ?? '',
+                'courts': t['courts'] ?? 0,
+                'type': t['type'] ?? '',
+                'format': t['format'] ?? '',
+                'currentTeams': t['currentTeams'] ?? 0,
+                'maxTeams': t['maxTeams'] ?? 8,
+                'fee': t['entryFee'] ?? '',
+                'status': t['status'] ?? '終了',
+                'statusColor': AppTheme.textSecondary,
+                'deadline': '',
+                'organizer': t['organizerName'] ?? '',
+                'isFollowing': true,
+                'organizerId': t['organizerId'] ?? '',
+                'rules': t['rules'] ?? {},
+                'venueAddress': t['venueAddress'] ?? '',
+                'location': t['location'] ?? '',
+              },
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text(dateDisplay,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t['title'] ?? '',
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Text(t['location'] ?? '',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isOrganizer
+                          ? AppTheme.accentColor.withValues(alpha: 0.1)
+                          : AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(isOrganizer ? '主催' : '出場',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isOrganizer
+                                ? AppTheme.accentColor
+                                : AppTheme.primaryColor)),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildGadgetCard(Map<String, dynamic> gadget) {
+    final name = gadget['name'] ?? '';
+    final category = gadget['category'] ?? '';
+    final imageUrl = gadget['imageUrl'] ?? '';
+    final amazonUrl = gadget['amazonUrl'] ?? '';
+    final rakutenUrl = gadget['rakutenUrl'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: imageUrl.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(
+                          Icons.shopping_bag_outlined,
+                          size: 24,
+                          color: Colors.grey[400])),
+                )
+              : Icon(Icons.shopping_bag_outlined,
+                  size: 24, color: Colors.grey[400]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+              if (category.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(category,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary)),
+              ],
+              const SizedBox(height: 6),
+              Row(children: [
+                if (amazonUrl.isNotEmpty)
+                  _buildShopBtn('Amazon', AppTheme.accentColor, amazonUrl),
+                if (amazonUrl.isNotEmpty && rakutenUrl.isNotEmpty)
+                  const SizedBox(width: 6),
+                if (rakutenUrl.isNotEmpty)
+                  _buildShopBtn('楽天', AppTheme.error, rakutenUrl),
+              ]),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildShopBtn(String label, Color color, String url) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+      ),
+    );
   }
 }

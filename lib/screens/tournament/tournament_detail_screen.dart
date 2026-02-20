@@ -79,9 +79,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text(t['name'] as String,
-            style: const TextStyle(fontSize: 16),
-            overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(icon: const Icon(Icons.share), onPressed: () => _showShareSheet(context)),
         ],
@@ -144,6 +141,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           const SizedBox(height: 10),
           Text(t['name'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 10),
+          // 日付 & チーム数
           Row(children: [
             const Icon(Icons.calendar_today, size: 14, color: Colors.white70),
             const SizedBox(width: 6),
@@ -152,7 +150,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             const Icon(Icons.groups, size: 14, color: Colors.white70),
             const SizedBox(width: 6),
             Text('$currentTeams/$maxTeams チーム', style: const TextStyle(fontSize: 13, color: Colors.white70)),
-            const SizedBox(width: 16),
+          ]),
+          const SizedBox(height: 6),
+          // 場所
+          Row(children: [
             const Icon(Icons.location_on, size: 14, color: Colors.white70),
             const SizedBox(width: 4),
             Expanded(
@@ -160,6 +161,27 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   style: const TextStyle(fontSize: 13, color: Colors.white70),
                   overflow: TextOverflow.ellipsis),
             ),
+          ]),
+          const SizedBox(height: 6),
+          // 形式 & 参加費 & 主催者
+          Row(children: [
+            if ((t['format'] as String? ?? '').isNotEmpty) ...[
+              const Icon(Icons.sports_volleyball, size: 14, color: Colors.white70),
+              const SizedBox(width: 6),
+              Text(t['format'] as String, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+              const SizedBox(width: 16),
+            ],
+            if ((t['fee'] as String? ?? '').isNotEmpty) ...[
+              const Icon(Icons.payments_outlined, size: 14, color: Colors.white70),
+              const SizedBox(width: 6),
+              Text(t['fee'] as String, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+              const SizedBox(width: 16),
+            ],
+            if ((t['organizer'] as String? ?? '').isNotEmpty) ...[
+              const Icon(Icons.person_outline, size: 14, color: Colors.white70),
+              const SizedBox(width: 6),
+              Text('主催: ${t['organizer']}', style: const TextStyle(fontSize: 13, color: Colors.white70)),
+            ],
           ]),
         ],
       ),

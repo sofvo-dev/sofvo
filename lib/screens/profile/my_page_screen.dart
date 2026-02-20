@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../../services/bookmark_notification_service.dart';
 import '../../services/notification_service.dart';
@@ -18,8 +19,83 @@ import '../recruitment/recruitment_management_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
 
-class MyPageScreen extends StatelessWidget {
+class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
+
+  @override
+  State<MyPageScreen> createState() => _MyPageScreenState();
+}
+
+class _MyPageScreenState extends State<MyPageScreen> {
+  List<Map<String, dynamic>> _tournamentHistory = [];
+  List<Map<String, dynamic>> _gadgets = [];
+  bool _historyLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTournamentHistory();
+    _loadGadgets();
+  }
+
+  Future<void> _loadTournamentHistory() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final tournSnap =
+        await FirebaseFirestore.instance.collection('tournaments').get();
+    final history = <Map<String, dynamic>>[];
+
+    for (final doc in tournSnap.docs) {
+      final data = doc.data();
+      final isOrganizer = data['organizerId'] == uid;
+      final entriesSnap = await doc.reference
+          .collection('entries')
+          .where('enteredBy', isEqualTo: uid)
+          .limit(1)
+          .get();
+      final isEntered = entriesSnap.docs.isNotEmpty;
+      if (!isOrganizer && !isEntered) continue;
+
+      final status = data['status'] ?? '準備中';
+      if (status != '終了') continue;
+
+      history.add({
+        ...data,
+        'id': doc.id,
+        'teamName': isEntered
+            ? (entriesSnap.docs.first.data()['teamName'] ?? '')
+            : '主催者',
+        'isOrganizer': isOrganizer,
+      });
+    }
+    history.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    if (mounted) {
+      setState(() {
+        _tournamentHistory = history.take(5).toList();
+        _historyLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadGadgets() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('gadgets')
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    if (mounted) {
+      setState(() {
+        _gadgets = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      });
+    }
+  }
 
   String _safeString(dynamic value) {
     if (value is String) return value;
@@ -297,6 +373,101 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
+                    // ── 過去の大会 ──
+                    _buildSectionLabel('過去の大会'),
+                    const SizedBox(height: 8),
+                    if (_historyLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                            child: CircularProgressIndicator(
+                                color: AppTheme.primaryColor,
+                                strokeWidth: 2)),
+                      )
+                    else if (_tournamentHistory.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(children: [
+                          Icon(Icons.emoji_events_outlined,
+                              size: 40, color: Colors.grey[300]),
+                          const SizedBox(height: 8),
+                          const Text('まだ大会の参加履歴がありません',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary)),
+                        ]),
+                      )
+                    else
+                      ...(_tournamentHistory.map((t) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _buildTournamentHistoryCard(context, t),
+                          ))),
+                    const SizedBox(height: 16),
+
+                    // ── 使用アイテム ──
+                    _buildSectionLabel('使用アイテム'),
+                    const SizedBox(height: 8),
+                    if (_gadgets.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(children: [
+                          Icon(Icons.shopping_bag_outlined,
+                              size: 40, color: Colors.grey[300]),
+                          const SizedBox(height: 8),
+                          const Text('使っているアイテムを登録しましょう',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary)),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: () => _showAddGadgetDialog(context, user!.uid),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('アイテムを追加'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                  color: AppTheme.primaryColor),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ]),
+                      )
+                    else
+                      Column(children: [
+                        ..._gadgets.map((g) =>
+                            _buildGadgetCard(context, g, user!.uid)),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                _showAddGadgetDialog(context, user!.uid),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('アイテムを追加'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                  color: AppTheme.primaryColor),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ]),
+                    const SizedBox(height: 16),
+
                     // ── 友達をさがす ──
                     Container(
                       decoration: BoxDecoration(
@@ -391,9 +562,6 @@ class MyPageScreen extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _buildMenuItem(
-                              Icons.history, '参加大会履歴', () => _showComingSoon(context)),
-                          _buildMenuDivider(),
                           _buildMenuItem(Icons.people_outline,
                               '対戦ヒストリー', () => _showComingSoon(context)),
                           _buildMenuDivider(),
@@ -438,6 +606,366 @@ class MyPageScreen extends StatelessWidget {
             ),
           ),
         ]),
+      ),
+    );
+  }
+
+  // ── 過去の大会カード ──
+  Widget _buildTournamentHistoryCard(
+      BuildContext context, Map<String, dynamic> t) {
+    final dateStr = t['date'] ?? '';
+    String dateDisplay = dateStr;
+    try {
+      final parts = dateStr.split('/');
+      if (parts.length >= 3) {
+        dateDisplay = '${int.parse(parts[1])}/${parts[2]}';
+      }
+    } catch (_) {}
+    final isOrganizer = t['isOrganizer'] == true;
+
+    return GestureDetector(
+      onTap: () {
+        final status = t['status'] ?? '終了';
+        Color statusColor = AppTheme.textSecondary;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TournamentDetailScreen(
+              tournament: {
+                'id': t['id'],
+                'name': t['title'] ?? '',
+                'date': t['date'] ?? '',
+                'venue': t['location'] ?? '',
+                'courts': t['courts'] ?? 0,
+                'type': t['type'] ?? '',
+                'format': t['format'] ?? '',
+                'currentTeams': t['currentTeams'] ?? 0,
+                'maxTeams': t['maxTeams'] ?? 8,
+                'fee': t['entryFee'] ?? '',
+                'status': status,
+                'statusColor': statusColor,
+                'deadline': '',
+                'organizer': t['organizerName'] ?? '',
+                'isFollowing': true,
+                'organizerId': t['organizerId'] ?? '',
+                'rules': t['rules'] ?? {},
+                'venueAddress': t['venueAddress'] ?? '',
+                'location': t['location'] ?? '',
+              },
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Row(children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(dateDisplay,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t['title'] ?? '',
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Text(t['location'] ?? '',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isOrganizer
+                          ? AppTheme.accentColor.withValues(alpha: 0.1)
+                          : AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(isOrganizer ? '主催' : '出場',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isOrganizer
+                                ? AppTheme.accentColor
+                                : AppTheme.primaryColor)),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+        ]),
+      ),
+    );
+  }
+
+  // ── ガジェットカード ──
+  Widget _buildGadgetCard(
+      BuildContext context, Map<String, dynamic> gadget, String uid) {
+    final name = gadget['name'] ?? '';
+    final category = gadget['category'] ?? '';
+    final imageUrl = gadget['imageUrl'] ?? '';
+    final amazonUrl = gadget['amazonUrl'] ?? '';
+    final rakutenUrl = gadget['rakutenUrl'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(children: [
+        // 商品画像
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: imageUrl.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Icon(
+                          Icons.shopping_bag_outlined,
+                          size: 24,
+                          color: Colors.grey[400])),
+                )
+              : Icon(Icons.shopping_bag_outlined,
+                  size: 24, color: Colors.grey[400]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+              if (category.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(category,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary)),
+              ],
+              const SizedBox(height: 6),
+              Row(children: [
+                if (amazonUrl.isNotEmpty)
+                  _buildShopButton('Amazon', AppTheme.accentColor, amazonUrl),
+                if (amazonUrl.isNotEmpty && rakutenUrl.isNotEmpty)
+                  const SizedBox(width: 6),
+                if (rakutenUrl.isNotEmpty)
+                  _buildShopButton('楽天', AppTheme.error, rakutenUrl),
+              ]),
+            ],
+          ),
+        ),
+        GestureDetector(
+          onTap: () => _showDeleteGadgetDialog(context, uid, gadget['id']),
+          child: Icon(Icons.more_vert, size: 20, color: Colors.grey[400]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildShopButton(String label, Color color, String url) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+      ),
+    );
+  }
+
+  void _showDeleteGadgetDialog(
+      BuildContext context, String uid, String gadgetId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('アイテムを削除',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('このアイテムを削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('キャンセル',
+                style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .collection('gadgets')
+                  .doc(gadgetId)
+                  .delete();
+              if (ctx.mounted) Navigator.pop(ctx);
+              _loadGadgets();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              minimumSize: const Size(80, 36),
+            ),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddGadgetDialog(BuildContext context, String uid) {
+    final nameCtrl = TextEditingController();
+    final categoryCtrl = TextEditingController();
+    final imageCtrl = TextEditingController();
+    final amazonCtrl = TextEditingController();
+    final rakutenCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('アイテムを追加',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: '商品名 *',
+                  hintText: 'ミカサ バレーボール V300W',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: categoryCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'カテゴリ',
+                  hintText: 'ボール / シューズ / サポーター',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: imageCtrl,
+                decoration: const InputDecoration(
+                  labelText: '画像URL',
+                  hintText: 'https://...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amazonCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Amazon URL',
+                  hintText: 'https://amzn.to/...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: rakutenCtrl,
+                decoration: const InputDecoration(
+                  labelText: '楽天 URL',
+                  hintText: 'https://a.r10.to/...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('キャンセル',
+                style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .collection('gadgets')
+                  .add({
+                'name': nameCtrl.text.trim(),
+                'category': categoryCtrl.text.trim(),
+                'imageUrl': imageCtrl.text.trim(),
+                'amazonUrl': amazonCtrl.text.trim(),
+                'rakutenUrl': rakutenCtrl.text.trim(),
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              _loadGadgets();
+            },
+            child: const Text('追加'),
+          ),
+        ],
       ),
     );
   }

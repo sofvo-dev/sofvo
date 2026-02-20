@@ -856,6 +856,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showChatMenu() {
+    final isGroup = widget.chatType != 'dm';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -880,7 +881,40 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ListTile(
                 leading: const Icon(Icons.person_outline),
                 title: const Text('プロフィールを見る'),
-                onTap: () => Navigator.pop(ctx),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (widget.otherUserId != null && widget.otherUserId!.isNotEmpty) {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => UserProfileScreen(userId: widget.otherUserId!),
+                    ));
+                  }
+                },
+              ),
+            ],
+            if (isGroup) ...[
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
+                title: const Text('グループ名を変更'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showEditGroupNameDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_add_outlined, color: AppTheme.primaryColor),
+                title: const Text('メンバーを追加'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAddMemberSheet();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.group_outlined),
+                title: Text('メンバー (${_memberIds.length}人)'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showMemberList();
+                },
               ),
             ],
             ListTile(
@@ -902,9 +936,311 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     style: TextStyle(color: AppTheme.error)),
                 onTap: () => Navigator.pop(ctx),
               ),
+            if (isGroup)
+              ListTile(
+                leading: const Icon(Icons.exit_to_app, color: AppTheme.error),
+                title: const Text('グループを退出',
+                    style: TextStyle(color: AppTheme.error)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmLeaveGroup();
+                },
+              ),
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditGroupNameDialog() {
+    final ctrl = TextEditingController(text: widget.chatTitle);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('グループ名を変更',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            hintText: 'グループ名を入力',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('キャンセル',
+                style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = ctrl.text.trim();
+              if (newName.isEmpty) return;
+              await FirebaseFirestore.instance
+                  .collection('chats')
+                  .doc(widget.chatId)
+                  .update({'name': newName});
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('グループ名を変更しました'),
+                      backgroundColor: AppTheme.success),
+                );
+              }
+            },
+            child: const Text('変更'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddMemberSheet() {
+    if (_currentUser == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('メンバーを追加',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary)),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(_currentUser!.uid)
+                        .collection('following')
+                        .snapshots(),
+                    builder: (context, followSnap) {
+                      if (followSnap.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(
+                            child: CircularProgressIndicator());
+                      }
+                      final followDocs = followSnap.data?.docs ?? [];
+                      // 既存メンバーを除外
+                      final candidates = followDocs.where((doc) =>
+                          !_memberIds.contains(doc.id)).toList();
+
+                      if (candidates.isEmpty) {
+                        return const Center(
+                          child: Text('追加できるフォロワーがいません',
+                              style: TextStyle(
+                                  color: AppTheme.textSecondary)),
+                        );
+                      }
+                      return ListView.separated(
+                        controller: scrollController,
+                        itemCount: candidates.length,
+                        separatorBuilder: (_, __) => Divider(
+                            height: 1, color: Colors.grey[100]),
+                        itemBuilder: (_, i) {
+                          final data = candidates[i].data()
+                              as Map<String, dynamic>?;
+                          final uid = candidates[i].id;
+                          final name =
+                              (data?['nickname'] as String?) ??
+                                  'ユーザー';
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: AppTheme.primaryColor
+                                  .withValues(alpha: 0.12),
+                              child: Text(
+                                name.isNotEmpty ? name[0] : '?',
+                                style: const TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            title: Text(name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600)),
+                            trailing: const Icon(Icons.person_add,
+                                color: AppTheme.primaryColor),
+                            onTap: () async {
+                              await FirebaseFirestore.instance
+                                  .collection('chats')
+                                  .doc(widget.chatId)
+                                  .update({
+                                'members': FieldValue.arrayUnion([uid]),
+                                'memberNames.$uid': name,
+                              });
+                              setState(() => _memberIds.add(uid));
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text('$nameを追加しました'),
+                                      backgroundColor: AppTheme.success),
+                                );
+                              }
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showMemberList() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('メンバー (${_memberIds.length}人)',
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary)),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 300,
+                child: StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('chats')
+                      .doc(widget.chatId)
+                      .snapshots(),
+                  builder: (context, snap) {
+                    if (!snap.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final data = snap.data!.data() as Map<String, dynamic>? ?? {};
+                    final names = data['memberNames'] as Map<String, dynamic>? ?? {};
+                    final members = List<String>.from(data['members'] ?? []);
+
+                    return ListView.separated(
+                      itemCount: members.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(height: 1, color: Colors.grey[100]),
+                      itemBuilder: (_, i) {
+                        final uid = members[i];
+                        final name = (names[uid] as String?) ?? 'ユーザー';
+                        final isMe = uid == _currentUser?.uid;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                AppTheme.primaryColor.withValues(alpha: 0.12),
+                            child: Text(
+                              name.isNotEmpty ? name[0] : '?',
+                              style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          title: Text('$name${isMe ? ' (自分)' : ''}',
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                          onTap: isMe
+                              ? null
+                              : () {
+                                  Navigator.pop(ctx);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          UserProfileScreen(userId: uid),
+                                    ),
+                                  );
+                                },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmLeaveGroup() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('グループを退出',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('このグループから退出しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('キャンセル',
+                style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (_currentUser == null) return;
+              await FirebaseFirestore.instance
+                  .collection('chats')
+                  .doc(widget.chatId)
+                  .update({
+                'members': FieldValue.arrayRemove([_currentUser!.uid]),
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              minimumSize: const Size(80, 36),
+            ),
+            child: const Text('退出'),
+          ),
+        ],
       ),
     );
   }
