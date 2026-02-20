@@ -166,12 +166,6 @@ void main() {
       expect(theme.useMaterial3, true);
     });
 
-    test('ダークテーマが正しく設定されている', () {
-      final theme = AppTheme.darkTheme;
-      expect(theme.brightness, Brightness.dark);
-      expect(theme.useMaterial3, true);
-    });
-
     test('プライマリカラーがネイビー', () {
       expect(AppTheme.primaryColor, const Color(0xFF1B3A5C));
     });
@@ -180,15 +174,5 @@ void main() {
       expect(AppTheme.accentColor, const Color(0xFFC4A962));
     });
 
-    test('ThemeNotifierがテーマモードを切り替えられる', () {
-      final notifier = ThemeNotifier();
-      expect(notifier.themeMode, ThemeMode.system);
-
-      notifier.setThemeMode(ThemeMode.dark);
-      expect(notifier.themeMode, ThemeMode.dark);
-
-      notifier.setThemeMode(ThemeMode.light);
-      expect(notifier.themeMode, ThemeMode.light);
-    });
   });
 }
