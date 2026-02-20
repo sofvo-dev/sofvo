@@ -17,6 +17,7 @@ import '../tournament/tournament_management_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
+import '../gadget/gadget_list_screen.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key});
@@ -374,6 +375,11 @@ class MyPageScreen extends StatelessWidget {
                           _buildMenuItem(Icons.location_city, '会場を登録・検索', () {
                             Navigator.push(context, MaterialPageRoute(
                               builder: (_) => const VenueSearchScreen()));
+                          }),
+                          _buildMenuDivider(),
+                          _buildMenuItem(Icons.devices_other, 'ガジェット管理', () {
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => const GadgetListScreen()));
                           }),
                         ],
                       ),
