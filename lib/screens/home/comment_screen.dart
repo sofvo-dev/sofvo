@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../services/notification_service.dart';
 
 class CommentScreen extends StatefulWidget {
   final String postId;
@@ -63,6 +64,25 @@ class _CommentScreenState extends State<CommentScreen> {
           .update({
         'commentsCount': FieldValue.increment(1),
       });
+
+      // コメント通知を送信
+      final postDoc = await FirebaseFirestore.instance
+          .collection('posts')
+          .doc(widget.postId)
+          .get();
+      final postData = postDoc.data();
+      if (postData != null) {
+        final senderAvatar =
+            (userDoc.data()?['avatarUrl'] as String?) ?? '';
+        NotificationService.sendCommentNotification(
+          postOwnerId: postData['userId'] ?? '',
+          senderId: _currentUser!.uid,
+          senderName: nickname,
+          senderAvatar: senderAvatar,
+          postId: widget.postId,
+          commentText: text,
+        );
+      }
 
       _scrollToBottom();
     } catch (e) {

@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import '../../config/app_theme.dart';
 import '../../services/bookmark_notification_service.dart';
 import '../../services/notification_service.dart';
@@ -18,6 +19,7 @@ import '../tournament/tournament_management_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
+import '../ranking/ranking_screen.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
@@ -592,7 +594,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
                               'バッジコレクション', () => _showComingSoon(context)),
                           _buildMenuDivider(),
                           _buildMenuItem(Icons.leaderboard_outlined,
-                              'ランキング', () => _showComingSoon(context)),
+                              'ランキング', () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const RankingScreen()),
+                            );
+                          }),
                           _buildMenuDivider(),
                           _buildMenuItem(Icons.save_outlined,
                               'テンプレート管理', () => _showComingSoon(context)),
@@ -875,98 +883,480 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
+  // ── Amazon URL解析 ──
+  Map<String, String> _parseAmazonUrl(String url) {
+    final result = <String, String>{};
+
+    // ASIN抽出
+    final asinMatch =
+        RegExp(r'/(?:dp|gp/product)/([A-Z0-9]{10})').firstMatch(url);
+    final asin = asinMatch?.group(1) ?? '';
+
+    if (asin.isNotEmpty) {
+      result['asin'] = asin;
+      result['amazonUrl'] = 'https://www.amazon.co.jp/dp/$asin';
+    }
+
+    // URL slugから商品名抽出
+    try {
+      final uri = Uri.parse(url);
+      final segments = uri.pathSegments;
+      final dpIndex = segments.indexOf('dp');
+      if (dpIndex > 0) {
+        final slug = Uri.decodeComponent(segments[dpIndex - 1]);
+        result['name'] = slug.replaceAll('-', ' ');
+      }
+    } catch (_) {}
+
+    return result;
+  }
+
+  // ── Amazon商品ページからOG情報取得 ──
+  Future<Map<String, String>> _fetchProductInfo(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url), headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept-Language': 'ja-JP,ja;q=0.9',
+      });
+      if (response.statusCode != 200) return {};
+
+      final html = response.body;
+      final result = <String, String>{};
+
+      final titleMatch = RegExp(
+                  r'<meta[^>]*property="og:title"[^>]*content="([^"]*)"',
+                  caseSensitive: false)
+              .firstMatch(html) ??
+          RegExp(r'<meta[^>]*content="([^"]*)"[^>]*property="og:title"',
+                  caseSensitive: false)
+              .firstMatch(html);
+      if (titleMatch != null) result['name'] = titleMatch.group(1) ?? '';
+
+      final imageMatch = RegExp(
+                  r'<meta[^>]*property="og:image"[^>]*content="([^"]*)"',
+                  caseSensitive: false)
+              .firstMatch(html) ??
+          RegExp(r'<meta[^>]*content="([^"]*)"[^>]*property="og:image"',
+                  caseSensitive: false)
+              .firstMatch(html);
+      if (imageMatch != null) result['imageUrl'] = imageMatch.group(1) ?? '';
+
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
   void _showAddGadgetDialog(BuildContext context, String uid) {
     final nameCtrl = TextEditingController();
-    final categoryCtrl = TextEditingController();
     final imageCtrl = TextEditingController();
     final amazonCtrl = TextEditingController();
     final rakutenCtrl = TextEditingController();
+    final urlPasteCtrl = TextEditingController();
+    bool isLoading = false;
+    String selectedCategory = '';
+    final categories = ['ボール', 'シューズ', 'ウェア', 'サポーター', 'バッグ', 'その他'];
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('アイテムを追加',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: '商品名 *',
-                  hintText: 'ミカサ バレーボール V300W',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: categoryCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'カテゴリ',
-                  hintText: 'ボール / シューズ / サポーター',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: imageCtrl,
-                decoration: const InputDecoration(
-                  labelText: '画像URL',
-                  hintText: 'https://...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amazonCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Amazon URL',
-                  hintText: 'https://amzn.to/...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: rakutenCtrl,
-                decoration: const InputDecoration(
-                  labelText: '楽天 URL',
-                  hintText: 'https://a.r10.to/...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('キャンセル',
-                style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(uid)
-                  .collection('gadgets')
-                  .add({
-                'name': nameCtrl.text.trim(),
-                'category': categoryCtrl.text.trim(),
-                'imageUrl': imageCtrl.text.trim(),
-                'amazonUrl': amazonCtrl.text.trim(),
-                'rakutenUrl': rakutenCtrl.text.trim(),
-                'createdAt': FieldValue.serverTimestamp(),
-              });
-              if (ctx.mounted) Navigator.pop(ctx);
-              _loadGadgets();
-            },
-            child: const Text('追加'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom),
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.85,
+                minChildSize: 0.4,
+                maxChildSize: 0.95,
+                expand: false,
+                builder: (_, scrollController) {
+                  return SingleChildScrollView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Center(
+                          child: Text('アイテムを追加',
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Amazon自動入力セクション ──
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentColor
+                                .withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: AppTheme.accentColor
+                                    .withValues(alpha: 0.2)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Icon(Icons.auto_awesome,
+                                    size: 18,
+                                    color: AppTheme.accentColor),
+                                const SizedBox(width: 6),
+                                const Text('Amazon URLから自動入力',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color:
+                                            AppTheme.accentColor)),
+                              ]),
+                              const SizedBox(height: 8),
+                              Text(
+                                  'Amazon商品ページのURLを貼り付けると商品名・画像が自動入力されます',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          AppTheme.textSecondary)),
+                              const SizedBox(height: 10),
+                              Row(children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: urlPasteCtrl,
+                                    decoration: InputDecoration(
+                                      hintText: 'Amazon URLを貼り付け',
+                                      hintStyle: const TextStyle(
+                                          fontSize: 13,
+                                          color:
+                                              AppTheme.textHint),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      contentPadding:
+                                          const EdgeInsets
+                                              .symmetric(
+                                              horizontal: 12,
+                                              vertical: 10),
+                                      border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                8),
+                                        borderSide: BorderSide(
+                                            color:
+                                                Colors.grey[200]!),
+                                      ),
+                                      enabledBorder:
+                                          OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                8),
+                                        borderSide: BorderSide(
+                                            color:
+                                                Colors.grey[200]!),
+                                      ),
+                                      focusedBorder:
+                                          OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                8),
+                                        borderSide:
+                                            const BorderSide(
+                                                color: AppTheme
+                                                    .accentColor,
+                                                width: 2),
+                                      ),
+                                    ),
+                                    style: const TextStyle(
+                                        fontSize: 13),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: isLoading
+                                      ? null
+                                      : () async {
+                                          final url = urlPasteCtrl
+                                              .text
+                                              .trim();
+                                          if (url.isEmpty) return;
+
+                                          setSheetState(() =>
+                                              isLoading = true);
+
+                                          // URL解析
+                                          final parsed =
+                                              _parseAmazonUrl(url);
+                                          if (parsed['name']
+                                                  ?.isNotEmpty ==
+                                              true) {
+                                            nameCtrl.text =
+                                                parsed['name']!;
+                                          }
+                                          amazonCtrl.text =
+                                              parsed['amazonUrl'] ??
+                                                  url;
+
+                                          // OG情報取得
+                                          try {
+                                            final info =
+                                                await _fetchProductInfo(
+                                                    parsed['amazonUrl'] ??
+                                                        url);
+                                            if (info['name']
+                                                    ?.isNotEmpty ==
+                                                true) {
+                                              nameCtrl.text =
+                                                  info['name']!;
+                                            }
+                                            if (info['imageUrl']
+                                                    ?.isNotEmpty ==
+                                                true) {
+                                              imageCtrl.text =
+                                                  info['imageUrl']!;
+                                            }
+                                          } catch (_) {}
+
+                                          setSheetState(() =>
+                                              isLoading = false);
+
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(
+                                                    context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    '商品情報を取得しました'),
+                                                backgroundColor:
+                                                    AppTheme
+                                                        .success,
+                                                duration: Duration(
+                                                    seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        AppTheme.accentColor,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(0, 42),
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 14),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                8)),
+                                  ),
+                                  child: isLoading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child:
+                                              CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color:
+                                                      Colors.white))
+                                      : const Text('自動入力',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight:
+                                                  FontWeight.bold)),
+                                ),
+                              ]),
+                              const SizedBox(height: 6),
+                              Center(
+                                child: TextButton.icon(
+                                  onPressed: () async {
+                                    final query =
+                                        nameCtrl.text.isNotEmpty
+                                            ? nameCtrl.text
+                                            : 'バレーボール';
+                                    final searchUrl = Uri.parse(
+                                        'https://www.amazon.co.jp/s?k=${Uri.encodeComponent(query)}&i=sporting');
+                                    if (await canLaunchUrl(
+                                        searchUrl)) {
+                                      await launchUrl(searchUrl,
+                                          mode: LaunchMode
+                                              .externalApplication);
+                                    }
+                                  },
+                                  icon: Icon(Icons.open_in_new,
+                                      size: 14,
+                                      color: AppTheme.accentColor),
+                                  label: Text('Amazonで検索して探す',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme
+                                              .accentColor)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── 商品名 ──
+                        TextField(
+                          controller: nameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: '商品名 *',
+                            hintText: 'ミカサ バレーボール V300W',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ── カテゴリ（ドロップダウン） ──
+                        DropdownButtonFormField<String>(
+                          value: selectedCategory.isEmpty
+                              ? null
+                              : selectedCategory,
+                          decoration: const InputDecoration(
+                            labelText: 'カテゴリ',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: categories
+                              .map((c) => DropdownMenuItem(
+                                  value: c, child: Text(c)))
+                              .toList(),
+                          onChanged: (v) => setSheetState(
+                              () => selectedCategory = v ?? ''),
+                          hint: const Text('カテゴリを選択'),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ── 画像URL + プレビュー ──
+                        TextField(
+                          controller: imageCtrl,
+                          onChanged: (_) => setSheetState(() {}),
+                          decoration: InputDecoration(
+                            labelText: '画像URL',
+                            hintText: 'https://...',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: imageCtrl.text
+                                    .trim()
+                                    .isNotEmpty
+                                ? Padding(
+                                    padding:
+                                        const EdgeInsets.all(4),
+                                    child: ClipRRect(
+                                      borderRadius:
+                                          BorderRadius.circular(4),
+                                      child: Image.network(
+                                        imageCtrl.text.trim(),
+                                        width: 40,
+                                        height: 40,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (_, __, ___) =>
+                                                const Icon(
+                                                    Icons
+                                                        .broken_image,
+                                                    size: 20),
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ── Amazon URL ──
+                        TextField(
+                          controller: amazonCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Amazon URL',
+                            hintText: 'https://amazon.co.jp/dp/...',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ── 楽天 URL ──
+                        TextField(
+                          controller: rakutenCtrl,
+                          decoration: const InputDecoration(
+                            labelText: '楽天 URL',
+                            hintText: 'https://a.r10.to/...',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── 追加ボタン ──
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              if (nameCtrl.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('商品名を入力してください')),
+                                );
+                                return;
+                              }
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(uid)
+                                  .collection('gadgets')
+                                  .add({
+                                'name': nameCtrl.text.trim(),
+                                'category': selectedCategory,
+                                'imageUrl': imageCtrl.text.trim(),
+                                'amazonUrl': amazonCtrl.text.trim(),
+                                'rakutenUrl':
+                                    rakutenCtrl.text.trim(),
+                                'createdAt':
+                                    FieldValue.serverTimestamp(),
+                              });
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              _loadGadgets();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(12)),
+                            ),
+                            child: const Text('追加',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

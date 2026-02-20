@@ -2,6 +2,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../screens/chat/chat_screen.dart';
+import '../screens/tournament/tournament_detail_screen.dart';
+import '../screens/profile/user_profile_screen.dart';
 
 class PushNotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -95,7 +98,7 @@ class PushNotificationService {
   }
 
   /// データに基づいて遷移
-  static void _navigateByData(Map<String, dynamic> data) {
+  static void _navigateByData(Map<String, dynamic> data) async {
     final navigator = navigatorKey?.currentState;
     if (navigator == null) return;
 
@@ -106,13 +109,71 @@ class PushNotificationService {
 
     switch (type) {
       case 'chat':
-        debugPrint('Navigate to chat: $targetId');
+        // チャット情報を取得して遷移
+        try {
+          final chatDoc = await _firestore.collection('chats').doc(targetId).get();
+          if (!chatDoc.exists) return;
+          final chatData = chatDoc.data() ?? {};
+          final chatType = chatData['type'] as String? ?? 'dm';
+          final chatName = chatData['name'] as String? ?? 'チャット';
+          final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+          String title = chatName;
+          String? otherUserId;
+          if (chatType == 'dm') {
+            final names = chatData['memberNames'] as Map<String, dynamic>? ?? {};
+            final other = names.entries.firstWhere((e) => e.key != uid,
+                orElse: () => MapEntry('', 'ユーザー'));
+            title = other.value as String;
+            final members = List<String>.from(chatData['members'] ?? []);
+            otherUserId = members.firstWhere((m) => m != uid, orElse: () => '');
+          }
+          navigator.push(MaterialPageRoute(
+            builder: (_) => ChatScreen(
+              chatId: targetId,
+              chatTitle: title,
+              chatType: chatType,
+              otherUserId: otherUserId,
+            ),
+          ));
+        } catch (_) {}
         break;
       case 'tournament':
-        debugPrint('Navigate to tournament: $targetId');
+        // 大会詳細画面に遷移
+        try {
+          final doc = await _firestore.collection('tournaments').doc(targetId).get();
+          if (!doc.exists) return;
+          final t = doc.data() ?? {};
+          navigator.push(MaterialPageRoute(
+            builder: (_) => TournamentDetailScreen(
+              tournament: {
+                'id': targetId,
+                'name': t['title'] ?? '',
+                'date': t['date'] ?? '',
+                'venue': t['location'] ?? '',
+                'courts': t['courts'] ?? 0,
+                'type': t['type'] ?? '',
+                'format': t['format'] ?? '',
+                'currentTeams': t['currentTeams'] ?? 0,
+                'maxTeams': t['maxTeams'] ?? 8,
+                'fee': t['entryFee'] ?? '',
+                'status': t['status'] ?? '準備中',
+                'statusColor': Colors.grey,
+                'deadline': '',
+                'organizer': t['organizerName'] ?? '',
+                'isFollowing': true,
+                'organizerId': t['organizerId'] ?? '',
+                'rules': t['rules'] ?? {},
+                'venueAddress': t['venueAddress'] ?? '',
+                'location': t['location'] ?? '',
+              },
+            ),
+          ));
+        } catch (_) {}
         break;
       case 'follow':
-        debugPrint('Navigate to user profile: $targetId');
+        navigator.push(MaterialPageRoute(
+          builder: (_) => UserProfileScreen(userId: targetId),
+        ));
         break;
       default:
         debugPrint('Unknown notification type: $type');

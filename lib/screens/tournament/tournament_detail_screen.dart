@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'score_input_screen.dart';
@@ -529,6 +531,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ),
               ),
 
+            // ━━━ MVP投票（終了時のみ） ━━━
+            if (liveStatus == '終了') ...[
+              const SizedBox(height: 12),
+              _buildMvpSection(),
+            ],
+
+            // ━━━ 写真ギャラリー ━━━
+            const SizedBox(height: 12),
+            _buildPhotoGallerySection(),
+
             const SizedBox(height: 100),
           ],
         );
@@ -1029,51 +1041,233 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             .collection('matches').orderBy('matchNumber').snapshots(),
         builder: (context, matchSnap) {
           if (!matchSnap.hasData) return const SizedBox();
-          return Column(children: matchSnap.data!.docs.map((mDoc) {
-            final m = mDoc.data() as Map<String, dynamic>;
-            final status = m['status'] ?? 'pending';
-            final result = m['result'] as Map<String, dynamic>? ?? {};
-            final roundLabel = m['round'] == 'semi' ? '準決勝' : (m['round'] == 'final' ? '決勝' : (m['round'] == '3rd' ? '3位決定戦' : ''));
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withOpacity(0.3))),
-              child: InkWell(
-                onTap: (isOrganizer && status != 'waiting') ? () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                    tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId)));
-                } : null,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    if (roundLabel.isNotEmpty)
-                      Padding(padding: const EdgeInsets.only(bottom: 6),
-                        child: Text(roundLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[800]))),
-                    Row(children: [
-                      Expanded(flex: 3, child: Text(m['teamAName'] ?? '', style: TextStyle(fontSize: 16,
-                          fontWeight: status == 'completed' && result['winner'] == m['teamAId'] ? FontWeight.bold : FontWeight.normal),
-                          textAlign: TextAlign.right)),
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: status == 'completed' ? Colors.amber.withOpacity(0.1) : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(6)),
-                        child: Text(
-                          status == 'completed' ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (status == 'waiting' ? '待機中' : 'vs'),
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: status == 'completed' ? Colors.amber[800] : AppTheme.textSecondary)),
-                      ),
-                      Expanded(flex: 3, child: Text(m['teamBName'] ?? '', style: TextStyle(fontSize: 16,
-                          fontWeight: status == 'completed' && result['winner'] == m['teamBId'] ? FontWeight.bold : FontWeight.normal))),
-                    ]),
-                  ]),
-                ),
-              ),
-            );
+          final allMatches = matchSnap.data!.docs;
+          final semis = allMatches.where((m) =>
+              (m.data() as Map<String, dynamic>)['round'] == 'semi').toList();
+          final finals = allMatches.where((m) =>
+              (m.data() as Map<String, dynamic>)['round'] == 'final').toList();
+          final thirds = allMatches.where((m) =>
+              (m.data() as Map<String, dynamic>)['round'] == '3rd').toList();
+
+          // ビジュアルブラケット表示
+          if (semis.length == 2 && finals.isNotEmpty) {
+            return _buildVisualBracket(semis, finals.first, thirds.isNotEmpty ? thirds.first : null, bracketId, isOrganizer);
+          }
+
+          // フォールバック: リスト表示
+          return Column(children: allMatches.map((mDoc) {
+            return _buildBracketMatchCard(mDoc, bracketId, isOrganizer);
           }).toList());
         },
       ),
     ]);
+  }
+
+  Widget _buildVisualBracket(
+      List<QueryDocumentSnapshot> semis,
+      QueryDocumentSnapshot finalMatch,
+      QueryDocumentSnapshot? thirdPlace,
+      String bracketId,
+      bool isOrganizer) {
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: 520,
+        child: Column(children: [
+          // ── ブラケット本体 ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 準決勝列
+              SizedBox(
+                width: 180,
+                child: Column(
+                  children: [
+                    _buildBracketMatchBox(semis[0], bracketId, isOrganizer),
+                    const SizedBox(height: 24),
+                    _buildBracketMatchBox(semis[1], bracketId, isOrganizer),
+                  ],
+                ),
+              ),
+              // 接続線
+              SizedBox(
+                width: 40,
+                height: 160,
+                child: CustomPaint(
+                  painter: _BracketLinePainter(),
+                ),
+              ),
+              // 決勝列
+              SizedBox(
+                width: 180,
+                child: _buildBracketMatchBox(finalMatch, bracketId, isOrganizer, isFinal: true),
+              ),
+              // 優勝者
+              SizedBox(
+                width: 120,
+                child: _buildWinnerBadge(finalMatch),
+              ),
+            ],
+          ),
+          // ── 3位決定戦 ──
+          if (thirdPlace != null) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: 200,
+              child: _buildBracketMatchCard(thirdPlace, bracketId, isOrganizer),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildBracketMatchBox(QueryDocumentSnapshot mDoc, String bracketId, bool isOrganizer, {bool isFinal = false}) {
+    final m = mDoc.data() as Map<String, dynamic>;
+    final status = m['status'] ?? 'pending';
+    final result = m['result'] as Map<String, dynamic>? ?? {};
+    final winnerId = result['winner'] ?? '';
+    final roundLabel = m['round'] == 'semi' ? '準決勝' : (m['round'] == 'final' ? '決勝' : '');
+
+    return GestureDetector(
+      onTap: (isOrganizer && status != 'waiting') ? () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+          tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId)));
+      } : null,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isFinal ? Colors.amber : Colors.amber.withValues(alpha: 0.3),
+            width: isFinal ? 2 : 1,
+          ),
+          boxShadow: isFinal ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.15), blurRadius: 8)] : [],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (roundLabel.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(roundLabel,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+            ),
+          _buildBracketTeamRow(m['teamAName'] ?? '---', status == 'completed' && winnerId == m['teamAId'], result['setsA']),
+          Divider(height: 8, color: Colors.grey[200]),
+          _buildBracketTeamRow(m['teamBName'] ?? '---', status == 'completed' && winnerId == m['teamBId'], result['setsB']),
+          if (status == 'completed')
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Center(
+                child: Text('${result['setsA'] ?? 0} - ${result['setsB'] ?? 0}',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+              ),
+            ),
+          if (status == 'waiting')
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Center(
+                child: Text('待機中', style: TextStyle(fontSize: 10, color: AppTheme.textHint)),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildBracketTeamRow(String name, bool isWinner, dynamic sets) {
+    return Row(children: [
+      if (isWinner) ...[
+        const Icon(Icons.arrow_right, size: 14, color: Colors.amber),
+      ] else ...[
+        const SizedBox(width: 14),
+      ],
+      Expanded(
+        child: Text(name,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isWinner ? FontWeight.bold : FontWeight.normal,
+              color: isWinner ? AppTheme.textPrimary : AppTheme.textSecondary,
+            ),
+            overflow: TextOverflow.ellipsis),
+      ),
+    ]);
+  }
+
+  Widget _buildWinnerBadge(QueryDocumentSnapshot finalDoc) {
+    final m = finalDoc.data() as Map<String, dynamic>;
+    final status = m['status'] ?? 'pending';
+    final result = m['result'] as Map<String, dynamic>? ?? {};
+    final winnerId = result['winner'] ?? '';
+
+    if (status != 'completed') {
+      return const Center(
+        child: Icon(Icons.emoji_events, size: 32, color: Colors.grey),
+      );
+    }
+
+    final champion =
+        winnerId == m['teamAId'] ? m['teamAName'] : m['teamBName'];
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.emoji_events, size: 28, color: Colors.amber),
+        const SizedBox(height: 4),
+        const Text('優勝',
+            style: TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(champion ?? '',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis),
+      ],
+    );
+  }
+
+  Widget _buildBracketMatchCard(QueryDocumentSnapshot mDoc, String bracketId, bool isOrganizer) {
+    final m = mDoc.data() as Map<String, dynamic>;
+    final status = m['status'] ?? 'pending';
+    final result = m['result'] as Map<String, dynamic>? ?? {};
+    final roundLabel = m['round'] == 'semi' ? '準決勝' : (m['round'] == 'final' ? '決勝' : (m['round'] == '3rd' ? '3位決定戦' : ''));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withValues(alpha: 0.3))),
+      child: InkWell(
+        onTap: (isOrganizer && status != 'waiting') ? () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+            tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId)));
+        } : null,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (roundLabel.isNotEmpty)
+              Padding(padding: const EdgeInsets.only(bottom: 6),
+                child: Text(roundLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[800]))),
+            Row(children: [
+              Expanded(flex: 3, child: Text(m['teamAName'] ?? '', style: TextStyle(fontSize: 16,
+                  fontWeight: status == 'completed' && result['winner'] == m['teamAId'] ? FontWeight.bold : FontWeight.normal),
+                  textAlign: TextAlign.right)),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: status == 'completed' ? Colors.amber.withValues(alpha: 0.1) : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(6)),
+                child: Text(
+                  status == 'completed' ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (status == 'waiting' ? '待機中' : 'vs'),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: status == 'completed' ? Colors.amber[800] : AppTheme.textSecondary)),
+              ),
+              Expanded(flex: 3, child: Text(m['teamBName'] ?? '', style: TextStyle(fontSize: 16,
+                  fontWeight: status == 'completed' && result['winner'] == m['teamBId'] ? FontWeight.bold : FontWeight.normal))),
+            ]),
+          ]),
+        ),
+      ),
+    );
   }
 
   Future<void> _generateMatches(int roundNumber) async {
@@ -2103,6 +2297,480 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
+  // ━━━ 写真ギャラリー ━━━
+  Widget _buildPhotoGallerySection() {
+    if (_tournamentId.isEmpty) return const SizedBox();
+
+    return _buildCard(
+      title: '写真ギャラリー',
+      titleIcon: Icons.photo_library,
+      child: Column(children: [
+        StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('tournaments')
+              .doc(_tournamentId)
+              .collection('photos')
+              .orderBy('createdAt', descending: true)
+              .limit(20)
+              .snapshots(),
+          builder: (context, snap) {
+            final photos = snap.data?.docs ?? [];
+
+            return Column(children: [
+              if (photos.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Column(children: [
+                    Icon(Icons.camera_alt_outlined,
+                        size: 40, color: Colors.grey[300]),
+                    const SizedBox(height: 8),
+                    Text('まだ写真がありません',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary)),
+                  ]),
+                ),
+              if (photos.isNotEmpty)
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 4,
+                  ),
+                  itemCount: photos.length,
+                  itemBuilder: (context, i) {
+                    final pData =
+                        photos[i].data() as Map<String, dynamic>;
+                    final url = pData['imageUrl'] as String? ?? '';
+                    final uploaderName =
+                        pData['uploaderName'] as String? ?? '';
+                    return GestureDetector(
+                      onTap: () => _showPhotoDetail(url, uploaderName,
+                          photos[i].id, pData['uploaderId'] as String? ?? ''),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.network(url,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                              color: Colors.grey[100],
+                              child: const Center(
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryColor)));
+                        }),
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _uploadPhoto,
+                  icon: const Icon(Icons.add_photo_alternate, size: 18),
+                  label: const Text('写真を追加'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                  ),
+                ),
+              ),
+            ]);
+          },
+        ),
+      ]),
+    );
+  }
+
+  void _showPhotoDetail(String url, String uploaderName, String photoId, String uploaderId) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (uploaderName.isNotEmpty)
+                Text('投稿: $uploaderName',
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 12)),
+              if (uploaderId == uid) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () async {
+                    await _firestore
+                        .collection('tournaments')
+                        .doc(_tournamentId)
+                        .collection('photos')
+                        .doc(photoId)
+                        .delete();
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  icon: const Icon(Icons.delete, color: Colors.red, size: 16),
+                  label: const Text('削除',
+                      style: TextStyle(color: Colors.red, fontSize: 12)),
+                ),
+              ],
+            ]),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(Icons.close,
+                      color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _uploadPhoto() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _tournamentId.isEmpty) return;
+
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+          source: ImageSource.gallery, imageQuality: 70);
+      if (picked == null) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('写真をアップロード中...'),
+            duration: Duration(seconds: 10)),
+      );
+
+      final bytes = await picked.readAsBytes();
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('tournament_photos')
+          .child(_tournamentId)
+          .child(fileName);
+
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      final downloadUrl = await ref.getDownloadURL();
+
+      final userDoc =
+          await _firestore.collection('users').doc(uid).get();
+      final nickname =
+          (userDoc.data()?['nickname'] as String?) ?? '匿名';
+
+      await _firestore
+          .collection('tournaments')
+          .doc(_tournamentId)
+          .collection('photos')
+          .add({
+        'imageUrl': downloadUrl,
+        'uploaderId': uid,
+        'uploaderName': nickname,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('写真を追加しました！'),
+              backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('アップロードに失敗しました: $e'),
+              backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  // ━━━ MVP投票 ━━━
+  Widget _buildMvpSection() {
+    if (_tournamentId.isEmpty) return const SizedBox();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    return _buildCard(
+      title: 'MVP投票',
+      titleIcon: Icons.how_to_vote,
+      child: StreamBuilder<QuerySnapshot>(
+        stream: _firestore
+            .collection('tournaments')
+            .doc(_tournamentId)
+            .collection('entries')
+            .snapshots(),
+        builder: (context, entrySnap) {
+          if (!entrySnap.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final entries = entrySnap.data!.docs;
+          if (entries.isEmpty) {
+            return const Text('参加チームがありません');
+          }
+
+          // 全選手リストを構築
+          final players = <Map<String, String>>[];
+          for (final entry in entries) {
+            final data = entry.data() as Map<String, dynamic>;
+            final teamName = data['teamName'] as String? ?? '';
+            final memberNames =
+                data['memberNames'] as Map<String, dynamic>? ?? {};
+            final enteredBy = data['enteredBy'] as String? ?? '';
+
+            if (enteredBy.isNotEmpty) {
+              players.add({
+                'uid': enteredBy,
+                'name': data['leaderName'] as String? ?? 'リーダー',
+                'team': teamName,
+              });
+            }
+            for (final entry in memberNames.entries) {
+              players.add({
+                'uid': entry.key,
+                'name': entry.value as String? ?? '',
+                'team': teamName,
+              });
+            }
+          }
+
+          return StreamBuilder<QuerySnapshot>(
+            stream: _firestore
+                .collection('tournaments')
+                .doc(_tournamentId)
+                .collection('mvpVotes')
+                .snapshots(),
+            builder: (context, voteSnap) {
+              final votes = voteSnap.data?.docs ?? [];
+              final myVote = votes
+                  .where((v) =>
+                      (v.data() as Map<String, dynamic>)['voterId'] ==
+                      uid)
+                  .firstOrNull;
+              final votedForId = myVote != null
+                  ? (myVote.data() as Map<String, dynamic>)['playerId']
+                      as String?
+                  : null;
+
+              // 投票集計
+              final tallies = <String, int>{};
+              for (final v in votes) {
+                final pid =
+                    (v.data() as Map<String, dynamic>)['playerId']
+                        as String? ??
+                        '';
+                tallies[pid] = (tallies[pid] ?? 0) + 1;
+              }
+
+              // ソート（投票数降順）
+              final sortedPlayers = List<Map<String, String>>.from(players);
+              sortedPlayers.sort((a, b) =>
+                  (tallies[b['uid']] ?? 0)
+                      .compareTo(tallies[a['uid']] ?? 0));
+
+              // 上位5人 + 投票ボタン
+              final topPlayers = sortedPlayers.take(10).toList();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (votedForId != null)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.success.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.check_circle,
+                            size: 16, color: AppTheme.success),
+                        const SizedBox(width: 6),
+                        const Text('投票済み',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.success,
+                                fontWeight: FontWeight.bold)),
+                      ]),
+                    ),
+                  Text(
+                      '${votes.length}票 / ${players.length}人中',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary)),
+                  const SizedBox(height: 8),
+                  ...topPlayers.map((p) {
+                    final count = tallies[p['uid']] ?? 0;
+                    final isVoted = votedForId == p['uid'];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isVoted
+                            ? AppTheme.primaryColor
+                                .withValues(alpha: 0.08)
+                            : Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: isVoted
+                            ? Border.all(
+                                color: AppTheme.primaryColor
+                                    .withValues(alpha: 0.3))
+                            : null,
+                      ),
+                      child: Row(children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: AppTheme.primaryColor
+                              .withValues(alpha: 0.12),
+                          child: Text(
+                            (p['name'] ?? '').isNotEmpty
+                                ? p['name']![0]
+                                : '?',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(p['name'] ?? '',
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600)),
+                              Text(p['team'] ?? '',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary)),
+                            ],
+                          ),
+                        ),
+                        if (count > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text('$count票',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.accentColor)),
+                          ),
+                        if (votedForId == null) ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _castMvpVote(
+                                p['uid'] ?? '', p['name'] ?? ''),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor,
+                                borderRadius:
+                                    BorderRadius.circular(6),
+                              ),
+                              child: const Text('投票',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ]),
+                    );
+                  }),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _castMvpVote(String playerId, String playerName) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _tournamentId.isEmpty) return;
+
+    // 既に投票していないか確認
+    final existing = await _firestore
+        .collection('tournaments')
+        .doc(_tournamentId)
+        .collection('mvpVotes')
+        .where('voterId', isEqualTo: uid)
+        .get();
+    if (existing.docs.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('既に投票済みです'),
+              backgroundColor: AppTheme.warning),
+        );
+      }
+      return;
+    }
+
+    await _firestore
+        .collection('tournaments')
+        .doc(_tournamentId)
+        .collection('mvpVotes')
+        .add({
+      'voterId': uid,
+      'playerId': playerId,
+      'playerName': playerName,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('$playerNameに投票しました！'),
+            backgroundColor: AppTheme.success),
+      );
+    }
+  }
+
   // ━━━ 共通ウィジェット ━━━
   Widget _buildCard({String? title, IconData? titleIcon, required Widget child}) {
     return Container(
@@ -2147,4 +2815,31 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildDivider() => Divider(height: 1, color: Colors.grey[100]);
+}
+
+// ── ブラケット接続線ペインター ──
+class _BracketLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.amber.withValues(alpha: 0.5)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final midY = size.height / 2;
+    final topMatchY = size.height * 0.25;
+    final bottomMatchY = size.height * 0.75;
+
+    // 上の準決勝から右へ
+    canvas.drawLine(Offset(0, topMatchY), Offset(size.width / 2, topMatchY), paint);
+    // 下の準決勝から右へ
+    canvas.drawLine(Offset(0, bottomMatchY), Offset(size.width / 2, bottomMatchY), paint);
+    // 縦線で接続
+    canvas.drawLine(Offset(size.width / 2, topMatchY), Offset(size.width / 2, bottomMatchY), paint);
+    // 中央から決勝へ
+    canvas.drawLine(Offset(size.width / 2, midY), Offset(size.width, midY), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
