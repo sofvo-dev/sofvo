@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../services/bookmark_notification_service.dart';
 import 'tournament_detail_screen.dart';
+import '../chat/chat_screen.dart';
 
 class TournamentSearchScreen extends StatefulWidget {
   const TournamentSearchScreen({super.key});
@@ -85,6 +86,75 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       if (_bookmarkedRecruits.contains(targetId)) { _bookmarkedRecruits.remove(targetId); }
       else { _bookmarkedRecruits.add(targetId); }
     });
+  }
+
+  Future<void> _applyToRecruitment(String recruiterId, String recruiterName, String tournamentName) async {
+    if (_currentUser == null || recruiterId == _currentUser!.uid) return;
+    final myUid = _currentUser!.uid;
+
+    // 既存のDMを探す
+    final existing = await FirebaseFirestore.instance
+        .collection('chats')
+        .where('type', isEqualTo: 'dm')
+        .where('members', arrayContains: myUid)
+        .get();
+
+    String? chatId;
+    for (final doc in existing.docs) {
+      final members = List<String>.from(doc['members'] ?? []);
+      if (members.contains(recruiterId)) {
+        chatId = doc.id;
+        break;
+      }
+    }
+
+    // DMが無ければ作成
+    if (chatId == null) {
+      final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+      final myName = (myDoc.data()?['nickname'] as String?) ?? '自分';
+
+      final ref = await FirebaseFirestore.instance.collection('chats').add({
+        'type': 'dm',
+        'members': [myUid, recruiterId],
+        'memberNames': {myUid: myName, recruiterId: recruiterName},
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      chatId = ref.id;
+    }
+
+    // 自動メッセージを送信
+    final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+    final myName = (myDoc.data()?['nickname'] as String?) ?? '自分';
+    final messageText = tournamentName.isNotEmpty
+        ? '「$tournamentName」のメンバー募集に応募します！よろしくお願いします。'
+        : 'メンバー募集に応募します！よろしくお願いします。';
+
+    await FirebaseFirestore.instance
+        .collection('chats').doc(chatId).collection('messages').add({
+      'senderId': myUid,
+      'senderName': myName,
+      'type': 'text',
+      'text': messageText,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
+      'lastMessage': messageText,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+    });
+
+    if (mounted) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          chatId: chatId!,
+          chatTitle: recruiterName,
+          chatType: 'dm',
+          otherUserId: recruiterId,
+        ),
+      ));
+    }
   }
 
   @override
@@ -951,7 +1021,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           const SizedBox(height: 12),
           Row(children: [
             Expanded(child: ElevatedButton.icon(
-              onPressed: isFollowing ? () {} : null,
+              onPressed: isFollowing ? () => _applyToRecruitment(recruiterId, nickname, tournamentName) : null,
               icon: Icon(isFollowing ? Icons.send : Icons.person_add, size: 15),
               label: Text(isFollowing ? '応募する' : 'フォローして応募',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
