@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../../services/amazon_search_service.dart';
 
@@ -54,36 +55,45 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
     super.dispose();
   }
 
+  bool _showEmptyHint = false;
+
   Future<void> _searchAmazon() async {
     if (_searchCtrl.text.trim().isEmpty) return;
     setState(() {
       _isSearching = true;
       _searchResults = [];
+      _showEmptyHint = false;
     });
     try {
       final results = await AmazonSearchService.searchProducts(
         _searchCtrl.text.trim(),
       );
-      setState(() => _searchResults = results);
-      if (results.isEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('商品が見つかりませんでした。Amazon URLを直接貼り付けてください。'),
-            backgroundColor: AppTheme.warning,
-          ),
-        );
-      }
+      setState(() {
+        _searchResults = results;
+        _showEmptyHint = results.isEmpty;
+      });
     } catch (_) {
+      setState(() => _showEmptyHint = true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('検索に失敗しました。Amazon URLを直接貼り付けてください。'),
+            content: Text('検索に失敗しました'),
             backgroundColor: AppTheme.error,
           ),
         );
       }
     } finally {
       setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _openAmazonSearch() async {
+    final keyword = _searchCtrl.text.trim();
+    if (keyword.isEmpty) return;
+    final url = Uri.parse(
+        'https://www.amazon.co.jp/s?k=${Uri.encodeComponent(keyword)}');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -332,6 +342,36 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                   const SizedBox(height: 12),
                   const Divider(),
                   ...(_searchResults.map((p) => _buildSearchResultTile(p))),
+                ],
+                if (_showEmptyHint) ...[
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '商品が見つかりませんでした',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _openAmazonSearch,
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: const Text('Amazonで検索して\nURLを貼り付け',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFFF9900),
+                            side: const BorderSide(color: Color(0xFFFF9900)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ],
             ),

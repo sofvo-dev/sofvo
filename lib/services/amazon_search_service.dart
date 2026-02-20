@@ -36,35 +36,47 @@ class AmazonProduct {
 }
 
 class AmazonSearchService {
+  static const _baseUrl =
+      'https://us-central1-sofvo-19d84.cloudfunctions.net';
+
   /// Amazon商品をキーワードで検索
-  /// Cloud Functions経由でAmazon PA-API v5を呼び出す
+  /// Cloud Functions経由（PA-API → スクレイピング フォールバック）
   static Future<List<AmazonProduct>> searchProducts(String keyword) async {
     if (keyword.trim().isEmpty) return [];
 
-    try {
-      // Cloud Functions のエンドポイント
-      // デプロイ後に実際のURLに変更してください
-      final uri = Uri.parse(
-        'https://us-central1-sofvo-19d84.cloudfunctions.net/amazonSearch',
-      ).replace(queryParameters: {'q': keyword});
+    final uri = Uri.parse('$_baseUrl/amazonSearch')
+        .replace(queryParameters: {'q': keyword});
 
-      final response = await http.get(uri).timeout(
-        const Duration(seconds: 10),
-      );
+    final response = await http.get(uri).timeout(
+      const Duration(seconds: 15),
+    );
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((item) => AmazonProduct.fromJson(item)).toList();
+    if (response.statusCode == 200) {
+      final body = json.decode(response.body);
+      if (body is List) {
+        return body
+            .map((item) => AmazonProduct.fromJson(item))
+            .toList();
       }
-    } catch (_) {
-      // Cloud Functions未デプロイの場合、Amazon検索URLからASINを使うフォールバック
     }
+
+    // エラーメッセージをパースして投げる
+    if (response.statusCode >= 400) {
+      String message = '検索に失敗しました';
+      try {
+        final err = json.decode(response.body);
+        if (err is Map && err['error'] != null) {
+          message = err['error'];
+        }
+      } catch (_) {}
+      throw Exception(message);
+    }
+
     return [];
   }
 
   /// Amazon URLからASINを抽出
   static String? extractAsin(String url) {
-    // パターン: /dp/ASIN, /gp/product/ASIN, /ASIN/
     final patterns = [
       RegExp(r'/dp/([A-Z0-9]{10})'),
       RegExp(r'/gp/product/([A-Z0-9]{10})'),
@@ -84,12 +96,11 @@ class AmazonSearchService {
     if (asin == null) return null;
 
     try {
-      final uri = Uri.parse(
-        'https://us-central1-sofvo-19d84.cloudfunctions.net/amazonProduct',
-      ).replace(queryParameters: {'asin': asin});
+      final uri = Uri.parse('$_baseUrl/amazonProduct')
+          .replace(queryParameters: {'asin': asin});
 
       final response = await http.get(uri).timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: 15),
       );
 
       if (response.statusCode == 200) {
@@ -98,13 +109,13 @@ class AmazonSearchService {
       }
     } catch (_) {
       // フォールバック: ASINから標準画像URLを生成
-      return AmazonProduct(
-        asin: asin,
-        title: '',
-        imageUrl: 'https://images-na.ssl-images-amazon.com/images/P/$asin.09.LZZZZZZZ.jpg',
-        detailPageUrl: 'https://www.amazon.co.jp/dp/$asin',
-      );
     }
-    return null;
+
+    return AmazonProduct(
+      asin: asin,
+      title: '',
+      imageUrl: 'https://images-na.ssl-images-amazon.com/images/P/$asin.09.LZZZZZZZ.jpg',
+      detailPageUrl: 'https://www.amazon.co.jp/dp/$asin',
+    );
   }
 }
