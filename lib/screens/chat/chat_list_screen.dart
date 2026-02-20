@@ -86,6 +86,7 @@ class _ChatListScreenState extends State<ChatListScreen>
         'memberNames': {myUid: myName, otherUid: otherName},
         'lastMessage': '',
         'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastRead': {myUid: FieldValue.serverTimestamp()},
         'createdAt': FieldValue.serverTimestamp(),
       });
       chatId = ref.id;
@@ -272,7 +273,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('chats')
-          .where('type', whereIn: ['team', 'group'])
+          .where('type', isEqualTo: 'group')
           .where('members', arrayContains: _currentUser!.uid)
           .orderBy('lastMessageAt', descending: true)
           .snapshots(),

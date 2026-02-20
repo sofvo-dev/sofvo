@@ -100,6 +100,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         'memberNames': {myUid: myName, otherUid: otherName},
         'lastMessage': '',
         'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastRead': {myUid: FieldValue.serverTimestamp()},
         'createdAt': FieldValue.serverTimestamp(),
       });
       chatId = ref.id;
@@ -257,10 +258,17 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         _followersCount--;
       });
     } else {
+      // 相手のニックネームを保存（チャット作成時に使用）
+      final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
+      final myDoc = await myRef.get();
+      final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+
       await myRef.collection('following').doc(widget.userId).set({
+        'nickname': targetNickname,
         'createdAt': FieldValue.serverTimestamp(),
       });
       await targetRef.collection('followers').doc(_currentUid).set({
+        'nickname': myNickname,
         'createdAt': FieldValue.serverTimestamp(),
       });
       await myRef.update({'followingCount': FieldValue.increment(1)});

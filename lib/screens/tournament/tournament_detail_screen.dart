@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'score_input_screen.dart';
@@ -39,7 +41,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     _isEntryDeadlinePassed = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid;
     _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
     _tabController = TabController(
-      length: _isEntryDeadlinePassed ? 4 : 3,
+      length: _isEntryDeadlinePassed ? 5 : 4,
       vsync: this,
     );
     _loadMyTeams();
@@ -157,6 +159,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 if (_isEntryDeadlinePassed) _buildMatchTableTab(),
                 _buildTeamsTab(),
                 _buildTimelineTab(),
+                _buildPhotoGalleryTab(),
               ],
             ),
           ),
@@ -272,6 +275,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           if (_isEntryDeadlinePassed) const Tab(text: '対戦表'),
           const Tab(text: 'チーム'),
           const Tab(text: '掲示板'),
+          const Tab(text: 'フォト'),
         ],
       ),
     );
@@ -1399,7 +1403,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: Icon(Icons.image, color: AppTheme.primaryColor, size: 24),
+                onPressed: () => _pickAndSendBoardImage(uid),
+              ),
+              const SizedBox(width: 4),
               Container(
                 decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(20)),
                 child: IconButton(icon: const Icon(Icons.send, color: Colors.white, size: 20),
@@ -1453,6 +1462,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final authorName = data['authorName'];
                   final authorAvatar = data['authorAvatar'];
                   final text = data['text'];
+                  final imageUrl = data['imageUrl'] as String? ?? '';
                   final isOrganizer = data['isOrganizer'] == true;
                   final isPinned = data['pinned'] == true;
                   final createdAt = data['createdAt'] as Timestamp?;
@@ -1509,7 +1519,24 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           Text(timeAgo, style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
                         ]),
                         const SizedBox(height: 8),
-                        Text(text.toString(), style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5)),
+                        if (text.toString().isNotEmpty)
+                          Text(text.toString(), style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5)),
+                        if (imageUrl.isNotEmpty) ...[
+                          if (text.toString().isNotEmpty) const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _showFullBoardImage(imageUrl),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(imageUrl, width: double.infinity, fit: BoxFit.cover,
+                                  loadingBuilder: (_, child, progress) {
+                                    if (progress == null) return child;
+                                    return Container(height: 180, color: Colors.grey[100],
+                                        child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2)));
+                                  },
+                                  errorBuilder: (_, __, ___) => const SizedBox()),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Row(children: [
                           if (!_isBoardTeam) ...[
@@ -1585,6 +1612,319 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     _postController.clear();
     FocusScope.of(context).unfocus();
+  }
+
+  // ── 掲示板に画像を投稿 ──
+  Future<void> _pickAndSendBoardImage(String uid) async {
+    if (_tournamentId.isEmpty) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+      if (picked == null) return;
+
+      // ローディング表示
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        );
+      }
+
+      final bytes = await picked.readAsBytes();
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('tournament_board')
+          .child(_tournamentId)
+          .child(fileName);
+
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      final downloadUrl = await ref.getDownloadURL();
+
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final userData = userDoc.data() ?? {};
+      final nickname = userData['nickname'] ?? '匿名';
+      final avatar = userData['avatarUrl'] ?? '';
+
+      if (_isBoardTeam && _myEntryTeamId.isNotEmpty) {
+        await _firestore.collection('tournaments').doc(_tournamentId)
+            .collection('team_board').doc(_myEntryTeamId).collection('posts').add({
+          'authorId': uid, 'authorName': nickname, 'authorAvatar': avatar,
+          'text': '', 'imageUrl': downloadUrl,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        final tournamentDoc = await _firestore.collection('tournaments').doc(_tournamentId).get();
+        final tournamentData = tournamentDoc.data() ?? {};
+        final isOrganizer = tournamentData['organizerId'] == uid;
+
+        await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add({
+          'authorId': uid, 'authorName': nickname, 'authorAvatar': avatar,
+          'text': '', 'imageUrl': downloadUrl,
+          'isOrganizer': isOrganizer, 'pinned': false,
+          'likesCount': 0, 'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (mounted) Navigator.pop(context); // ローディング閉じる
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // ローディング閉じる
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('画像の送信に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  // ── 掲示板画像フルスクリーン ──
+  void _showFullBoardImage(String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(url, fit: BoxFit.contain),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(18)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ━━━ フォトギャラリータブ ━━━
+  Widget _buildPhotoGalleryTab() {
+    if (_tournamentId.isEmpty) return const Center(child: Text('大会IDが見つかりません'));
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    return Column(
+      children: [
+        // 写真アップロードボタン
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: InkWell(
+            onTap: () => _uploadGalleryPhoto(uid),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate, color: AppTheme.primaryColor, size: 22),
+                  SizedBox(width: 8),
+                  Text('大会の写真をアップロード', style: TextStyle(
+                    fontSize: 14, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Divider(height: 1, color: Colors.grey[200]),
+        // 写真グリッド
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _firestore.collection('tournaments').doc(_tournamentId)
+                .collection('photos').orderBy('createdAt', descending: true).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+              }
+              final photos = snapshot.data?.docs ?? [];
+
+              if (photos.isEmpty) {
+                return Center(child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.photo_library_outlined, size: 56, color: AppTheme.textHint),
+                    const SizedBox(height: 12),
+                    const Text('まだ写真はありません', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 4),
+                    const Text('大会の思い出を共有しましょう！', style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                  ],
+                ));
+              }
+
+              return GridView.builder(
+                padding: const EdgeInsets.all(8),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 4,
+                  mainAxisSpacing: 4,
+                ),
+                itemCount: photos.length,
+                itemBuilder: (context, index) {
+                  final data = photos[index].data() as Map<String, dynamic>;
+                  final imageUrl = (data['imageUrl'] as String?) ?? '';
+                  final uploaderName = (data['uploaderName'] as String?) ?? '';
+                  return GestureDetector(
+                    onTap: () => _showGalleryPhoto(imageUrl, uploaderName, data['createdAt'] as Timestamp?),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(imageUrl, fit: BoxFit.cover,
+                        loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return Container(color: Colors.grey[100],
+                              child: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2)));
+                        },
+                        errorBuilder: (_, __, ___) => Container(color: Colors.grey[100],
+                            child: const Icon(Icons.broken_image, color: AppTheme.textHint)),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── 写真ギャラリーにアップロード ──
+  Future<void> _uploadGalleryPhoto(String uid) async {
+    if (_tournamentId.isEmpty) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+      if (picked == null) return;
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        );
+      }
+
+      final bytes = await picked.readAsBytes();
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('tournament_photos')
+          .child(_tournamentId)
+          .child(fileName);
+
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      final downloadUrl = await ref.getDownloadURL();
+
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final uploaderName = (userDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+
+      await _firestore.collection('tournaments').doc(_tournamentId).collection('photos').add({
+        'imageUrl': downloadUrl,
+        'uploadedBy': uid,
+        'uploaderName': uploaderName,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        Navigator.pop(context); // ローディング閉じる
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('写真をアップロードしました'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('アップロードに失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  // ── ギャラリー写真フルスクリーン ──
+  void _showGalleryPhoto(String url, String uploaderName, Timestamp? createdAt) {
+    String timeText = '';
+    if (createdAt != null) {
+      final date = createdAt.toDate();
+      timeText = '${date.year}/${date.month}/${date.day}';
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 閉じるボタン
+            Align(
+              alignment: Alignment.topRight,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(18)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // 画像
+            Flexible(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+              ),
+            ),
+            // 投稿者情報
+            if (uploaderName.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$uploaderName  $timeText',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleTimelineLike(String postId, String uid) async {
