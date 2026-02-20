@@ -283,6 +283,7 @@ class _ChatListScreenState extends State<ChatListScreen>
         }
 
         if (snapshot.hasError) {
+          debugPrint('Group chat query error: ${snapshot.error}');
           return _buildEmptyState('group');
         }
 
@@ -367,6 +368,7 @@ class _ChatListScreenState extends State<ChatListScreen>
         }
 
         if (snapshot.hasError) {
+          debugPrint('Chat query error ($type): ${snapshot.error}');
           return _buildEmptyState(type);
         }
 

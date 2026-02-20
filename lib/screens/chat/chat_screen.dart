@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -38,16 +39,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<String> _memberIds = [];
   String _groupIconUrl = '';
 
+  late final Stream<QuerySnapshot> _messagesStream;
+  StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _markAsRead();
     _loadChatMeta();
+
+    // メッセージストリームを一度だけ生成（再生成による無限ローディングを防止）
+    _messagesStream = FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chatId)
+        .collection('messages')
+        .orderBy('createdAt', descending: false)
+        .snapshots();
+
+    // チャットドキュメントの変更をリスナーで監視（StreamBuilder外で処理）
+    _chatDocSubscription = FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chatId)
+        .snapshots()
+        .listen((chatSnap) {
+      if (chatSnap.exists && mounted) {
+        final chatData = chatSnap.data() ?? {};
+        setState(() {
+          _lastReadMap = (chatData['lastRead'] as Map<String, dynamic>?) ?? {};
+          _memberIds = List<String>.from(chatData['members'] ?? _memberIds);
+          _groupIconUrl = (chatData['iconUrl'] as String?) ?? _groupIconUrl;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _chatDocSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
@@ -474,47 +503,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('chats').doc(widget.chatId).snapshots(),
-              builder: (context, chatSnap) {
-                if (chatSnap.hasData && chatSnap.data!.exists) {
-                  final chatData = chatSnap.data!.data() as Map<String, dynamic>? ?? {};
-                  _lastReadMap = (chatData['lastRead'] as Map<String, dynamic>?) ?? {};
-                  _memberIds = List<String>.from(chatData['members'] ?? _memberIds);
-                  _markAsRead();
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _messagesStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                      child: CircularProgressIndicator(color: AppTheme.primaryColor));
                 }
-                return StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('chats')
-                      .doc(widget.chatId)
-                      .collection('messages')
-                      .orderBy('createdAt', descending: false)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                          child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                    }
 
-                    final messages = snapshot.data?.docs ?? [];
-                    if (messages.isEmpty) {
-                      return Center(
-                        child: Text('メッセージを送ってみましょう！',
-                            style: TextStyle(color: AppTheme.textSecondary)),
-                      );
-                    }
+                final messages = snapshot.data?.docs ?? [];
+                if (messages.isEmpty) {
+                  return Center(
+                    child: Text('メッセージを送ってみましょう！',
+                        style: TextStyle(color: AppTheme.textSecondary)),
+                  );
+                }
 
-                    return ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final doc = messages[index];
-                        final data = doc.data() as Map<String, dynamic>;
-                        final isMe = data['senderId'] == _currentUser?.uid;
-                        return _buildMessageBubble(data, isMe, messageId: doc.id);
-                      },
-                    );
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final doc = messages[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final isMe = data['senderId'] == _currentUser?.uid;
+                    return _buildMessageBubble(data, isMe, messageId: doc.id);
                   },
                 );
               },
