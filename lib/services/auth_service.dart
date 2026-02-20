@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -26,22 +25,12 @@ class AuthService {
     );
   }
 
-  // Googleログイン（v7対応）
+  // Googleログイン（Firebase Auth のポップアップ認証を使用）
   Future<UserCredential?> signInWithGoogle() async {
-    try {
-      final googleUser = await GoogleSignIn.instance.authenticate();
-      final googleAuth = googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      return await _auth.signInWithCredential(credential);
-    } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled) {
-        return null; // ユーザーがキャンセル
-      }
-      rethrow;
-    }
+    final googleProvider = GoogleAuthProvider();
+    googleProvider.addScope('email');
+    googleProvider.addScope('profile');
+    return await _auth.signInWithPopup(googleProvider);
   }
 
   // Appleログイン
