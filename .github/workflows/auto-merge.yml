@@ -1,4 +1,4 @@
-name: Auto Merge Claude Branches
+name: Auto Merge & Deploy Claude Branches
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  auto-merge:
+  auto-merge-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -49,10 +49,36 @@ jobs:
               --head "${BRANCH}")
             echo "Created: ${PR_URL}"
 
-            # PR作成直後は少し待つ
             sleep 3
 
-            # マージ
             gh pr merge "${PR_URL}" --merge
             echo "Merged successfully"
           fi
+
+      # GITHUB_TOKENによるマージはfirebase-deploy.ymlをトリガーしないため
+      # ここで直接ビルド・デプロイを実行
+      - name: Checkout main after merge
+        run: |
+          git fetch origin main
+          git checkout origin/main
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web
+        run: flutter build web --release
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: sofvo-19d84
