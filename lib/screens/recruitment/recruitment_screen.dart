@@ -128,13 +128,15 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
 
   // ━━━ ヘッダー ━━━
   Widget _buildHeader() {
-    return Container(
+    return Material(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('マイ大会',
-            style:
-                TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Text('マイ大会',
+              style:
+                  TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        ),
         const SizedBox(height: 12),
         TabBar(
           controller: _tabController,

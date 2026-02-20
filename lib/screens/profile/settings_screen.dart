@@ -123,25 +123,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // ── 外観設定 ──
-          _buildSectionHeader('外観'),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: Column(children: [
-              _buildThemeOption(Icons.light_mode, 'ライトモード', ThemeMode.light),
-              _buildDivider(),
-              _buildThemeOption(Icons.dark_mode, 'ダークモード', ThemeMode.dark),
-              _buildDivider(),
-              _buildThemeOption(Icons.settings_suggest, 'システム設定に従う', ThemeMode.system),
-            ]),
-          ),
-          const SizedBox(height: 24),
-
           // ── アプリ情報 ──
           _buildSectionHeader('アプリ情報'),
           const SizedBox(height: 8),

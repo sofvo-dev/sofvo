@@ -204,19 +204,21 @@ class _ChatListScreenState extends State<ChatListScreen>
       body: SafeArea(
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
-          Container(
+          Material(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const Text('チャット',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                const Spacer(),
-                GestureDetector(
-                  onTap: _showNewDmSheet,
-                  child: const Icon(Icons.edit_square, size: 24, color: AppTheme.textPrimary),
-                ),
-              ]),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(children: [
+                  const Text('チャット',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _showNewDmSheet,
+                    child: const Icon(Icons.edit_square, size: 24, color: AppTheme.textPrimary),
+                  ),
+                ]),
+              ),
               const SizedBox(height: 12),
               TabBar(
                 controller: _tabController,
