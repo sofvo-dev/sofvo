@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../profile/user_profile_screen.dart';
+import 'group_chat_settings_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -35,6 +36,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isSending = false;
   Map<String, dynamic> _lastReadMap = {};
   List<String> _memberIds = [];
+  String _groupIconUrl = '';
 
   @override
   void initState() {
@@ -70,6 +72,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (mounted) {
       setState(() {
         _memberIds = List<String>.from(data['members'] ?? []);
+        _groupIconUrl = (data['iconUrl'] as String?) ?? '';
       });
     }
   }
@@ -427,24 +430,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor:
-                  AppTheme.primaryColor.withValues(alpha: 0.12),
-              child: Text(initial,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor)),
-            ),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(widget.chatTitle,
-                  overflow: TextOverflow.ellipsis),
-            ),
-          ],
+        title: GestureDetector(
+          onTap: widget.chatType == 'group' ? () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => GroupChatSettingsScreen(
+                chatId: widget.chatId,
+                chatName: widget.chatTitle,
+              ),
+            ));
+          } : null,
+          child: Row(
+            children: [
+              _groupIconUrl.isNotEmpty
+                  ? CircleAvatar(
+                      radius: 18,
+                      backgroundImage: NetworkImage(_groupIconUrl),
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                    )
+                  : CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                      child: Text(initial,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor)),
+                    ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(widget.chatTitle,
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -881,6 +899,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 leading: const Icon(Icons.person_outline),
                 title: const Text('プロフィールを見る'),
                 onTap: () => Navigator.pop(ctx),
+              ),
+            ],
+            if (widget.chatType == 'group') ...[
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('グループ設定'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => GroupChatSettingsScreen(
+                      chatId: widget.chatId,
+                      chatName: widget.chatTitle,
+                    ),
+                  ));
+                },
               ),
             ],
             ListTile(

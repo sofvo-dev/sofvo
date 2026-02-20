@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import 'chat_screen.dart';
+import 'create_group_chat_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -255,7 +256,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // グループチャット（チーム + 大会を統合）
+  // グループチャット（チーム + グループ）
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Widget _buildGroupChatTab() {
     if (_currentUser == null) {
@@ -265,7 +266,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('chats')
-          .where('type', whereIn: ['team', 'tournament'])
+          .where('type', whereIn: ['team', 'group'])
           .where('members', arrayContains: _currentUser!.uid)
           .orderBy('lastMessageAt', descending: true)
           .snapshots(),
@@ -386,6 +387,9 @@ class _ChatListScreenState extends State<ChatListScreen>
     if (type == 'team') {
       icon = Icons.groups;
       iconColor = AppTheme.success;
+    } else if (type == 'group') {
+      icon = Icons.group;
+      iconColor = AppTheme.primaryColor;
     } else if (type == 'tournament') {
       icon = Icons.emoji_events;
       iconColor = AppTheme.accentColor;
@@ -412,15 +416,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                         fontWeight: FontWeight.bold,
                         fontSize: 18)),
               )
-            : Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: iconColor, size: 24),
-              ),
+            : _buildGroupLeading(data, icon, iconColor),
         title: Text(title,
             style: TextStyle(
                 fontSize: 15,
@@ -482,6 +478,26 @@ class _ChatListScreenState extends State<ChatListScreen>
     );
   }
 
+  Widget _buildGroupLeading(Map<String, dynamic> data, IconData icon, Color iconColor) {
+    final iconUrl = data['iconUrl'] as String? ?? '';
+    if (iconUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 24,
+        backgroundImage: NetworkImage(iconUrl),
+        backgroundColor: iconColor.withValues(alpha: 0.15),
+      );
+    }
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: iconColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(icon, color: iconColor, size: 24),
+    );
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 空状態表示
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -498,9 +514,10 @@ class _ChatListScreenState extends State<ChatListScreen>
       onAction = _showNewDmSheet;
     } else if (type == 'group') {
       icon = Icons.groups_outlined;
-      message = 'グループチャットはありません\nチームや大会に参加するとここに表示されます';
-      actionLabel = '';
-      onAction = null;
+      message = 'グループチャットはありません';
+      actionLabel = 'グループを作成';
+      onAction = () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const CreateGroupChatScreen()));
     } else if (type == 'team') {
       icon = Icons.groups_outlined;
       message = 'チームチャットはありません\nチーム管理画面からチャットを開始できます';
