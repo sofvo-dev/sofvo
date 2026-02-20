@@ -19,7 +19,11 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      animationDuration: const Duration(milliseconds: 200),
+    );
   }
 
   @override

@@ -31,7 +31,11 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      animationDuration: const Duration(milliseconds: 200),
+    );
     _loadFollowing();
     _loadBookmarks();
   }
