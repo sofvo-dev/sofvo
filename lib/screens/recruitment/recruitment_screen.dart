@@ -22,9 +22,6 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) setState(() {});
-    });
     _loadMyTournaments();
   }
 
@@ -139,57 +136,51 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
             style:
                 TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: _buildXTab('これから', 0)),
-          Expanded(child: _buildXTab('これまで', 1)),
-        ]),
-      ]),
-    );
-  }
-
-  Widget _buildXTab(String label, int index) {
-    final isSelected = _tabController.index == index;
-    final count = index == 0 ? _upcoming.length : _past.length;
-    return GestureDetector(
-      onTap: () {
-        _tabController.animateTo(index);
-        setState(() {});
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? AppTheme.primaryColor : Colors.grey[200]!,
-              width: isSelected ? 3 : 1,
-            ),
-          ),
-        ),
-        child: Center(
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(label, style: TextStyle(
-              fontSize: 15,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
-            )),
-            if (!_loading) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primaryColor : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
+        TabBar(
+          controller: _tabController,
+          labelColor: AppTheme.textPrimary,
+          unselectedLabelColor: AppTheme.textSecondary,
+          labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal),
+          indicatorColor: AppTheme.primaryColor,
+          indicatorWeight: 3,
+          dividerColor: Colors.grey[200],
+          tabs: [
+            Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('これから'),
+              if (!_loading) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('${_upcoming.length}', style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white,
+                  )),
                 ),
-                child: Text('$count', style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : AppTheme.textSecondary,
-                )),
-              ),
-            ],
-          ]),
+              ],
+            ])),
+            Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('これまで'),
+              if (!_loading) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('${_past.length}', style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary,
+                  )),
+                ),
+              ],
+            ])),
+          ],
         ),
-      ),
+      ]),
     );
   }
 
