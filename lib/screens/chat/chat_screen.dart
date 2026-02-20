@@ -110,36 +110,50 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final text = _messageController.text.trim();
     if (text.isEmpty || _currentUser == null) return;
 
+    final savedText = text;
     _messageController.clear();
 
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUser!.uid)
-        .get();
-    final senderName =
-        (userDoc.data()?['nickname'] as String?) ?? '自分';
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .get();
+      final senderName =
+          (userDoc.data()?['nickname'] as String?) ?? '自分';
 
-    await FirebaseFirestore.instance
-        .collection('chats')
-        .doc(widget.chatId)
-        .collection('messages')
-        .add({
-      'senderId': _currentUser!.uid,
-      'senderName': senderName,
-      'type': 'text',
-      'text': text,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .collection('messages')
+          .add({
+        'senderId': _currentUser!.uid,
+        'senderName': senderName,
+        'type': 'text',
+        'text': savedText,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
-    await FirebaseFirestore.instance
-        .collection('chats')
-        .doc(widget.chatId)
-        .update({
-      'lastMessage': text,
-      'lastMessageAt': FieldValue.serverTimestamp(),
-    });
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .update({
+        'lastMessage': savedText,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      });
 
-    _scrollToBottom();
+      _scrollToBottom();
+    } catch (e) {
+      // 送信失敗時にテキストを復元
+      _messageController.text = savedText;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('メッセージの送信に失敗しました: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _sendImage() async {

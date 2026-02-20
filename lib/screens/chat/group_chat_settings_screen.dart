@@ -316,13 +316,13 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                                             NetworkImage(avatarUrl),
                                         backgroundColor: AppTheme
                                             .primaryColor
-                                            .withOpacity(0.1),
+                                            .withValues(alpha: 0.1),
                                       )
                                     : CircleAvatar(
                                         radius: 22,
                                         backgroundColor: AppTheme
                                             .primaryColor
-                                            .withOpacity(0.1),
+                                            .withValues(alpha: 0.1),
                                         child: Text(
                                           name.isNotEmpty ? name[0] : '?',
                                           style: const TextStyle(
@@ -1046,12 +1046,12 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                         radius: 40,
                         backgroundImage: NetworkImage(_groupIconUrl),
                         backgroundColor:
-                            AppTheme.primaryColor.withOpacity(0.1),
+                            AppTheme.primaryColor.withValues(alpha: 0.1),
                       )
                     : CircleAvatar(
                         radius: 40,
                         backgroundColor:
-                            AppTheme.primaryColor.withOpacity(0.1),
+                            AppTheme.primaryColor.withValues(alpha: 0.1),
                         child: Text(
                           initial,
                           style: const TextStyle(
@@ -1171,10 +1171,10 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.primaryColor.withOpacity(0.3),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
                         width: 1.5,
                         style: BorderStyle.solid,
                       ),
@@ -1239,12 +1239,12 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                               radius: 22,
                               backgroundImage: NetworkImage(avatarUrl),
                               backgroundColor:
-                                  AppTheme.primaryColor.withOpacity(0.1),
+                                  AppTheme.primaryColor.withValues(alpha: 0.1),
                             )
                           : CircleAvatar(
                               radius: 22,
                               backgroundColor:
-                                  AppTheme.primaryColor.withOpacity(0.1),
+                                  AppTheme.primaryColor.withValues(alpha: 0.1),
                               child: Text(
                                 nickname.isNotEmpty ? nickname[0] : '?',
                                 style: const TextStyle(
@@ -1272,7 +1272,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.accentColor.withOpacity(0.15),
+                            color: AppTheme.accentColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -1445,7 +1445,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3),
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1597,7 +1597,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.08),
+                              color: AppTheme.primaryColor.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(
@@ -1656,7 +1656,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3),
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),

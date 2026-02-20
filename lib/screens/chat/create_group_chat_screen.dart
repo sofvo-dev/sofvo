@@ -128,6 +128,7 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
         'createdBy': myUid,
         'lastMessage': '',
         'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastRead': {myUid: FieldValue.serverTimestamp()},
         'createdAt': FieldValue.serverTimestamp(),
       });
 

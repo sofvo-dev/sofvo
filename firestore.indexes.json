@@ -8,6 +8,13 @@
         { "fieldPath": "members", "arrayConfig": "CONTAINS" },
         { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
