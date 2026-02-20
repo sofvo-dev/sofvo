@@ -77,7 +77,7 @@ class MyPageScreen extends StatelessWidget {
 
           return CustomScrollView(
             slivers: [
-              // ━━━ ヒーローヘッダー（YAMAP風） ━━━
+              // ━━━ コンパクトヘッダー ━━━
               SliverToBoxAdapter(
                 child: Container(
                   decoration: const BoxDecoration(
@@ -89,128 +89,131 @@ class MyPageScreen extends StatelessWidget {
                   ),
                   child: SafeArea(
                     bottom: false,
-                    child: Column(
-                      children: [
-                        // ── トップバー ──
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-                          child: Row(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 8, 14),
+                      child: Column(
+                        children: [
+                          // ── トップバー ──
+                          Row(
                             children: [
                               const Text('マイページ',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                               const Spacer(),
                               StreamBuilder<int>(
                                 stream: NotificationService.unreadCountStream(user.uid),
                                 builder: (context, notifSnap) {
                                   final unread = notifSnap.data ?? 0;
                                   return IconButton(
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(8),
                                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
                                     icon: Badge(
                                       isLabelVisible: unread > 0,
                                       label: Text('$unread', style: const TextStyle(fontSize: 10, color: Colors.white)),
                                       backgroundColor: AppTheme.error,
-                                      child: const Icon(Icons.notifications_outlined, size: 22, color: Colors.white),
+                                      child: const Icon(Icons.notifications_outlined, size: 20, color: Colors.white),
                                     ),
                                   );
                                 },
                               ),
                               IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(8),
                                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                                icon: const Icon(Icons.settings_outlined, size: 22, color: Colors.white),
+                                icon: const Icon(Icons.settings_outlined, size: 20, color: Colors.white),
                               ),
                             ],
                           ),
-                        ),
-
-                        // ── アバター + 名前 ──
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () => Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data))),
-                          child: Stack(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 3),
-                                ),
-                                child: avatarUrl.isNotEmpty
-                                    ? CircleAvatar(
-                                        radius: 40,
-                                        backgroundImage: CachedNetworkImageProvider(avatarUrl),
-                                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                      )
-                                    : CircleAvatar(
-                                        radius: 40,
-                                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                        child: Text(
-                                          nickname.isNotEmpty ? nickname[0] : '?',
-                                          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
-                                        ),
-                                      ),
-                              ),
-                              Positioned(
-                                bottom: 0, right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.accentColor,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
-                                  ),
-                                  child: const Icon(Icons.edit, color: Colors.white, size: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(nickname,
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                        const SizedBox(height: 6),
-                        // ── タグ ──
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (experience.isNotEmpty)
-                              _buildHeaderTag('競技歴 $experience'),
-                            if (experience.isNotEmpty && area.isNotEmpty)
-                              const SizedBox(width: 6),
-                            if (area.isNotEmpty)
-                              _buildHeaderTag(area),
-                          ],
-                        ),
-                        if (bio.isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: Text(bio,
-                                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85), height: 1.4),
-                                textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          // ── プロフィール行（横レイアウト） ──
+                          Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data))),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2.5),
+                                  ),
+                                  child: avatarUrl.isNotEmpty
+                                      ? CircleAvatar(
+                                          radius: 30,
+                                          backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                        )
+                                      : CircleAvatar(
+                                          radius: 30,
+                                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                          child: Text(
+                                            nickname.isNotEmpty ? nickname[0] : '?',
+                                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(nickname,
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    const SizedBox(height: 4),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        if (experience.isNotEmpty) _buildHeaderTag('競技歴 $experience'),
+                                        if (area.isNotEmpty) _buildHeaderTag(area),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              OutlinedButton(
+                                onPressed: () => Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data))),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 32),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: const Text('編集', style: TextStyle(fontSize: 12, color: Colors.white)),
+                              ),
+                            ],
+                          ),
+                          if (bio.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(bio,
+                                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          // ── フォロー / フォロワー（横一列コンパクト） ──
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildFollowCount(context, '$followingCount', 'フォロー', () {
+                                Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => FollowListScreen(
+                                      userId: user.uid, title: 'フォロー中', isFollowers: false)));
+                              }),
+                              Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
+                                  color: Colors.white.withValues(alpha: 0.25)),
+                              _buildFollowCount(context, '$followersCount', 'フォロワー', () {
+                                Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => FollowListScreen(
+                                      userId: user.uid, title: 'フォロワー', isFollowers: true)));
+                              }),
+                            ],
                           ),
                         ],
-                        const SizedBox(height: 16),
-
-                        // ── フォロー / フォロワー ──
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildFollowCount(context, '$followingCount', 'フォロー', () {
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => FollowListScreen(
-                                    userId: user.uid, title: 'フォロー中', isFollowers: false)));
-                            }),
-                            Container(width: 1, height: 28, margin: const EdgeInsets.symmetric(horizontal: 28),
-                                color: Colors.white.withValues(alpha: 0.25)),
-                            _buildFollowCount(context, '$followersCount', 'フォロワー', () {
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => FollowListScreen(
-                                    userId: user.uid, title: 'フォロワー', isFollowers: true)));
-                            }),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -219,21 +222,21 @@ class MyPageScreen extends StatelessWidget {
               // ━━━ ダッシュボード（スタッツ） ━━━
               SliverToBoxAdapter(
                 child: Transform.translate(
-                  offset: const Offset(0, -14),
+                  offset: const Offset(0, -12),
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3))],
                     ),
                     child: Row(
                       children: [
                         Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.accentColor)),
-                        Container(width: 1, height: 36, color: Colors.grey[200]),
+                        Container(width: 1, height: 32, color: Colors.grey[200]),
                         Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
-                        Container(width: 1, height: 36, color: Colors.grey[200]),
+                        Container(width: 1, height: 32, color: Colors.grey[200]),
                         Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
                       ],
                     ),
@@ -243,58 +246,99 @@ class MyPageScreen extends StatelessWidget {
 
               // ━━━ コンテンツ ━━━
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
+                    // ━━━ 大会結果カードセクション ━━━
+                    _buildCardSection(
+                      context: context,
+                      title: '大会結果',
+                      icon: Icons.emoji_events_rounded,
+                      child: _TournamentCardsRow(userId: user.uid),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ━━━ マイガジェットカードセクション ━━━
+                    _buildCardSection(
+                      context: context,
+                      title: 'マイガジェット',
+                      icon: Icons.devices_other_rounded,
+                      seeAllTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const GadgetListScreen())),
+                      child: _GadgetCardsRow(userId: user.uid),
+                    ),
+                    const SizedBox(height: 16),
+
                     // ── 友達をさがす ──
-                    _buildActionCard(
-                      icon: Icons.person_add_rounded,
-                      title: '友達をさがす',
-                      subtitle: 'QRコード・ID検索・ユーザー検索',
-                      color: AppTheme.primaryColor,
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const FollowSearchScreen())),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildActionCard(
+                        icon: Icons.person_add_rounded,
+                        title: '友達をさがす',
+                        subtitle: 'QRコード・ID検索・ユーザー検索',
+                        color: AppTheme.primaryColor,
+                        onTap: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => const FollowSearchScreen())),
+                      ),
                     ),
                     const SizedBox(height: 20),
 
                     // ── 管理 ──
-                    _buildSectionLabel('管理'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSectionLabel('管理'),
+                    ),
                     const SizedBox(height: 8),
-                    _buildMenuGroup([
-                      _MenuItemData(Icons.emoji_events_outlined, '大会管理', () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentManagementScreen()));
-                      }),
-                      _MenuItemData(Icons.person_search_outlined, 'メンバー募集管理', () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const RecruitmentManagementScreen()));
-                      }),
-                      _MenuItemData(Icons.location_city_outlined, '会場を登録・検索', () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
-                      }),
-                      _MenuItemData(Icons.devices_other_outlined, 'ガジェット管理', () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const GadgetListScreen()));
-                      }),
-                    ]),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildMenuGroup([
+                        _MenuItemData(Icons.emoji_events_outlined, '大会管理', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentManagementScreen()));
+                        }),
+                        _MenuItemData(Icons.person_search_outlined, 'メンバー募集管理', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const RecruitmentManagementScreen()));
+                        }),
+                        _MenuItemData(Icons.location_city_outlined, '会場を登録・検索', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
+                        }),
+                        _MenuItemData(Icons.devices_other_outlined, 'ガジェット管理', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const GadgetListScreen()));
+                        }),
+                      ]),
+                    ),
                     const SizedBox(height: 20),
 
                     // ── 履歴・記録 ──
-                    _buildSectionLabel('履歴・記録'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSectionLabel('履歴・記録'),
+                    ),
                     const SizedBox(height: 8),
-                    _buildMenuGroup([
-                      _MenuItemData(Icons.history_rounded, '参加大会履歴', () => _showComingSoon(context)),
-                      _MenuItemData(Icons.people_outline_rounded, '対戦ヒストリー', () => _showComingSoon(context)),
-                      _MenuItemData(Icons.article_outlined, '自分の投稿', () => _showComingSoon(context)),
-                    ]),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildMenuGroup([
+                        _MenuItemData(Icons.history_rounded, '参加大会履歴', () => _showComingSoon(context)),
+                        _MenuItemData(Icons.people_outline_rounded, '対戦ヒストリー', () => _showComingSoon(context)),
+                        _MenuItemData(Icons.article_outlined, '自分の投稿', () => _showComingSoon(context)),
+                      ]),
+                    ),
                     const SizedBox(height: 20),
 
                     // ── その他 ──
-                    _buildSectionLabel('その他'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSectionLabel('その他'),
+                    ),
                     const SizedBox(height: 8),
-                    _buildMenuGroup([
-                      _MenuItemData(Icons.bookmark_outline_rounded, 'ブックマーク', () => _showComingSoon(context)),
-                      _MenuItemData(Icons.workspace_premium_outlined, 'バッジコレクション', () => _showComingSoon(context)),
-                      _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () => _showComingSoon(context)),
-                      _MenuItemData(Icons.save_outlined, 'テンプレート管理', () => _showComingSoon(context)),
-                    ]),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildMenuGroup([
+                        _MenuItemData(Icons.bookmark_outline_rounded, 'ブックマーク', () => _showComingSoon(context)),
+                        _MenuItemData(Icons.workspace_premium_outlined, 'バッジコレクション', () => _showComingSoon(context)),
+                        _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () => _showComingSoon(context)),
+                        _MenuItemData(Icons.save_outlined, 'テンプレート管理', () => _showComingSoon(context)),
+                      ]),
+                    ),
                   ]),
                 ),
               ),
@@ -432,6 +476,45 @@ class MyPageScreen extends StatelessWidget {
     );
   }
 
+  // ── カードセクション（タイトル + 横スクロール） ──
+  Widget _buildCardSection({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required Widget child,
+    VoidCallback? seeAllTap,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: AppTheme.primaryColor, size: 18),
+              const SizedBox(width: 6),
+              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const Spacer(),
+              if (seeAllTap != null)
+                GestureDetector(
+                  onTap: seeAllTap,
+                  child: Row(
+                    children: [
+                      Text('すべて見る', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
+                      const SizedBox(width: 2),
+                      Icon(Icons.chevron_right, size: 16, color: AppTheme.primaryColor),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
+  }
+
   void _showComingSoon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -451,6 +534,287 @@ class _MenuItemData {
   final String title;
   final VoidCallback onTap;
   const _MenuItemData(this.icon, this.title, this.onTap);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 大会結果カード（横スクロール）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _TournamentCardsRow extends StatelessWidget {
+  final String userId;
+  const _TournamentCardsRow({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('tournaments')
+          .where('status', isEqualTo: '終了')
+          .orderBy('date', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+
+        final allTournaments = snapshot.data?.docs ?? [];
+        // ユーザーが主催 or 参加した大会をフィルタ（クライアント側）
+        // organizerId でまずフィルタ、entries はサブコレクションなので主催大会のみ表示
+        final tournaments = allTournaments.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          return d['organizerId'] == userId;
+        }).take(10).toList();
+
+        if (tournaments.isEmpty) {
+          return SizedBox(
+            height: 100,
+            child: Center(
+              child: Text('まだ大会結果がありません', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 130,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: tournaments.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final doc = tournaments[index];
+              final d = doc.data() as Map<String, dynamic>;
+              final title = (d['title'] ?? d['name'] ?? '大会') as String;
+              final date = (d['date'] ?? '') as String;
+              final location = (d['location'] ?? d['venue'] ?? '') as String;
+              final status = (d['status'] ?? '') as String;
+              final type = (d['type'] ?? '') as String;
+
+              return GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournamentId: doc.id))),
+                child: Container(
+                  width: 180,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: status == '終了'
+                                  ? AppTheme.textSecondary.withValues(alpha: 0.1)
+                                  : AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(status.isEmpty ? '終了' : status,
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                                    color: status == '終了' ? AppTheme.textSecondary : AppTheme.primaryColor)),
+                          ),
+                          if (type.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 11, color: AppTheme.textSecondary),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(date, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                      if (location.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.place, size: 11, color: AppTheme.textSecondary),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(location, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ガジェットカード（横スクロール）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _GadgetCardsRow extends StatelessWidget {
+  final String userId;
+  const _GadgetCardsRow({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users').doc(userId).collection('gadgets')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+
+        final gadgets = snapshot.data?.docs ?? [];
+
+        if (gadgets.isEmpty) {
+          return SizedBox(
+            height: 100,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('ガジェットを登録しよう', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GadgetListScreen())),
+                    child: Text('登録する', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 150,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: gadgets.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final d = gadgets[index].data() as Map<String, dynamic>;
+              final name = (d['name'] ?? '') as String;
+              final category = (d['category'] ?? '') as String;
+              final imageUrl = (d['imageUrl'] ?? '') as String;
+              final hasAmazon = (d['amazonUrl'] ?? '').toString().isNotEmpty;
+              final hasRakuten = (d['rakutenUrl'] ?? '').toString().isNotEmpty;
+
+              return GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const GadgetListScreen())),
+                child: Container(
+                  width: 130,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── 画像エリア ──
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        child: SizedBox(
+                          height: 80,
+                          width: double.infinity,
+                          child: imageUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => Container(
+                                    color: Colors.grey[100],
+                                    child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 24)),
+                                  ),
+                                  errorWidget: (_, __, ___) => Container(
+                                    color: Colors.grey[100],
+                                    child: const Center(child: Icon(Icons.devices_other, color: Colors.grey, size: 24)),
+                                  ),
+                                )
+                              : Container(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                                  child: const Center(child: Icon(Icons.devices_other, color: AppTheme.primaryColor, size: 28)),
+                                ),
+                        ),
+                      ),
+                      // ── テキスト ──
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                if (category.isNotEmpty && category != 'カテゴリなし')
+                                  Expanded(
+                                    child: Text(category, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  ),
+                                if (hasAmazon)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFF9900).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: const Text('A', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
+                                  ),
+                                if (hasRakuten)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 3),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFBF0000).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: const Text('R', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
