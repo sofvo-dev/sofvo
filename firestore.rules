@@ -135,6 +135,19 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && resource.data.senderId == request.auth.uid;
+      }
+
+      match /album/{albumId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow delete: if isAuthenticated();
+      }
+
+      match /notes/{noteId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated();
       }
     }
 
