@@ -19,7 +19,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() { if (!_tabController.indexIsChanging) setState(() {}); });
   }
 
@@ -220,14 +220,9 @@ class _ChatListScreenState extends State<ChatListScreen>
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                _buildHeaderTab('DM', 0),
-                const SizedBox(width: 8),
-                _buildHeaderTab('チーム', 1),
-                const SizedBox(width: 8),
-                _buildHeaderTab('大会', 2),
+                Expanded(child: _buildXTab('個別チャット', 0)),
+                Expanded(child: _buildXTab('グループチャット', 1)),
               ]),
-              const SizedBox(height: 1),
-              Container(height: 1, color: Colors.grey[100]),
             ]),
           ),
           Expanded(
@@ -235,8 +230,7 @@ class _ChatListScreenState extends State<ChatListScreen>
               controller: _tabController,
               children: [
                 _buildChatTab('dm'),
-                _buildChatTab('team'),
-                _buildChatTab('tournament'),
+                _buildGroupChatTab(),
               ],
             ),
           ),
@@ -245,22 +239,74 @@ class _ChatListScreenState extends State<ChatListScreen>
     );
   }
 
-  Widget _buildHeaderTab(String label, int index) {
+  Widget _buildXTab(String label, int index) {
     final isSelected = _tabController.index == index;
     return GestureDetector(
       onTap: () { _tabController.animateTo(index); setState(() {}); },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[200]!,
+              width: isSelected ? 3 : 1,
+            ),
+          ),
         ),
-        child: Text(label, style: TextStyle(
-            fontSize: 13,
+        child: Center(
+          child: Text(label, style: TextStyle(
+            fontSize: 15,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary)),
+            color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+          )),
+        ),
       ),
+    );
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // グループチャット（チーム + 大会を統合）
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Widget _buildGroupChatTab() {
+    if (_currentUser == null) {
+      return const Center(child: Text('ログインしてください'));
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('chats')
+          .where('type', whereIn: ['team', 'tournament'])
+          .where('members', arrayContains: _currentUser!.uid)
+          .orderBy('lastMessageAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor));
+        }
+
+        if (snapshot.hasError) {
+          return _buildEmptyState('group');
+        }
+
+        final chats = snapshot.data?.docs ?? [];
+        if (chats.isEmpty) {
+          return _buildEmptyState('group');
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          itemCount: chats.length,
+          separatorBuilder: (_, __) => Divider(
+              height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
+          itemBuilder: (context, index) {
+            final data = chats[index].data() as Map<String, dynamic>;
+            final chatId = chats[index].id;
+            final type = (data['type'] as String?) ?? 'team';
+            return _buildFirestoreChatTile(chatId, data, type);
+          },
+        );
+      },
     );
   }
 
@@ -460,6 +506,11 @@ class _ChatListScreenState extends State<ChatListScreen>
       message = 'まだDMはありません';
       actionLabel = '新しいメッセージを送る';
       onAction = _showNewDmSheet;
+    } else if (type == 'group') {
+      icon = Icons.groups_outlined;
+      message = 'グループチャットはありません\nチームや大会に参加するとここに表示されます';
+      actionLabel = '';
+      onAction = null;
     } else if (type == 'team') {
       icon = Icons.groups_outlined;
       message = 'チームチャットはありません\nチーム管理画面からチャットを開始できます';

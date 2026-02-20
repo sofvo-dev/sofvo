@@ -172,12 +172,9 @@ class _HomeScreenState extends State<HomeScreen>
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                _buildHeaderTab('タイムライン', 0),
-                const SizedBox(width: 8),
-                _buildHeaderTab('お知らせ', 1),
+                Expanded(child: _buildXTab('タイムライン', 0)),
+                Expanded(child: _buildXTab('お知らせ', 1)),
               ]),
-              const SizedBox(height: 1),
-              Container(height: 1, color: Colors.grey[100]),
             ]),
           ),
           Expanded(
@@ -199,21 +196,27 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildHeaderTab(String label, int index) {
+  Widget _buildXTab(String label, int index) {
     final isSelected = _tabController.index == index;
     return GestureDetector(
       onTap: () { _tabController.animateTo(index); setState(() {}); },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[200]!,
+              width: isSelected ? 3 : 1,
+            ),
+          ),
         ),
-        child: Text(label, style: TextStyle(
-            fontSize: 13,
+        child: Center(
+          child: Text(label, style: TextStyle(
+            fontSize: 15,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary)),
+            color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+          )),
+        ),
       ),
     );
   }

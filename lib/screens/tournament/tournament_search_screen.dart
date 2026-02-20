@@ -121,7 +121,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     );
   }
 
-  // ━━━ ヘッダー（タイトル + モード切替 + 検索バー） ━━━
+  // ━━━ ヘッダー（タイトル + フォロー切替 + モード切替 + 検索バー） ━━━
   Widget _buildHeader() {
     return Container(
       color: Colors.white,
@@ -130,13 +130,19 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         const Text('さがす',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         const SizedBox(height: 12),
-        // モード切替タブ
+        // フォロー中/みんなの大会 切替（X風アンダーラインタブ）
+        if (_viewMode != 'saved') Row(children: [
+          Expanded(child: _buildXTab('フォロー中', 0)),
+          Expanded(child: _buildXTab('みんなの${_viewMode == 'tournament' ? '大会' : 'メンバー'}', 1)),
+        ]),
+        if (_viewMode != 'saved') const SizedBox(height: 10),
+        // モード切替タブ（大会 | メンバー | 保存）
         Row(children: [
           Expanded(child: _buildModeTab('大会', Icons.emoji_events_outlined, 'tournament')),
           const SizedBox(width: 8),
           Expanded(child: _buildModeTab('メンバー', Icons.people_outline, 'recruitment')),
           const SizedBox(width: 8),
-          Expanded(child: _buildModeTab('保存済み', Icons.bookmark_outline, 'saved',
+          Expanded(child: _buildModeTab('保存', Icons.bookmark_outline, 'saved',
               activeColor: AppTheme.accentColor)),
         ]),
         const SizedBox(height: 10),
@@ -183,15 +189,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             ),
           ),
         ]),
-        // フォロワー/みんな切替（大会・メンバーのみ）
-        if (_viewMode != 'saved') ...[
-          const SizedBox(height: 10),
-          Row(children: [
-            _buildTabToggle('フォロー中', 0),
-            const SizedBox(width: 8),
-            _buildTabToggle('みんなの${_viewMode == 'tournament' ? '大会' : 'メンバー'}', 1),
-          ]),
-        ],
         Container(height: 1, color: Colors.grey[100]),
       ]),
     );
@@ -221,22 +218,27 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     );
   }
 
-  Widget _buildTabToggle(String label, int index) {
+  Widget _buildXTab(String label, int index) {
     final isSelected = _tabController.index == index;
     return GestureDetector(
       onTap: () { _tabController.animateTo(index); setState(() {}); },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[200]!,
+              width: isSelected ? 3 : 1,
+            ),
+          ),
         ),
-        child: Text(label, style: TextStyle(
-          fontSize: 12,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-        )),
+        child: Center(
+          child: Text(label, style: TextStyle(
+            fontSize: 15,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+          )),
+        ),
       ),
     );
   }

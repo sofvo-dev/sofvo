@@ -85,7 +85,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
               NavigationDestination(
                 icon: Icon(Icons.calendar_today_outlined, color: AppTheme.textSecondary),
                 selectedIcon: Icon(Icons.calendar_today, color: AppTheme.primaryColor),
-                label: '予定',
+                label: 'マイ大会',
               ),
               NavigationDestination(
                 icon: _buildBadgeIcon(Icons.chat_bubble_outline, AppTheme.textSecondary, unreadCount),

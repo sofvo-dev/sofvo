@@ -135,22 +135,19 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('予定',
+        const Text('マイ大会',
             style:
                 TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         const SizedBox(height: 12),
         Row(children: [
-          _buildTab('開催予定', 0, Icons.upcoming),
-          const SizedBox(width: 8),
-          _buildTab('過去の大会', 1, Icons.history),
+          Expanded(child: _buildXTab('これから', 0)),
+          Expanded(child: _buildXTab('これまで', 1)),
         ]),
-        const SizedBox(height: 1),
-        Container(height: 1, color: Colors.grey[100]),
       ]),
     );
   }
 
-  Widget _buildTab(String label, int index, IconData icon) {
+  Widget _buildXTab(String label, int index) {
     final isSelected = _tabController.index == index;
     final count = index == 0 ? _upcoming.length : _past.length;
     return GestureDetector(
@@ -159,53 +156,39 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         setState(() {});
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryColor.withValues(alpha: 0.08)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color:
-                isSelected ? AppTheme.primaryColor : Colors.grey[300]!,
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[200]!,
+              width: isSelected ? 3 : 1,
+            ),
           ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon,
-              size: 15,
-              color: isSelected
-                  ? AppTheme.primaryColor
-                  : AppTheme.textSecondary),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight:
-                      isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondary)),
-          if (!_loading) ...[
-            const SizedBox(width: 5),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppTheme.primaryColor
-                    : Colors.grey[300],
-                borderRadius: BorderRadius.circular(10),
+        child: Center(
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(label, style: TextStyle(
+              fontSize: 15,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+            )),
+            if (!_loading) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.primaryColor : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text('$count', style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                )),
               ),
-              child: Text('$count',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected
-                          ? Colors.white
-                          : AppTheme.textSecondary)),
-            ),
-          ],
-        ]),
+            ],
+          ]),
+        ),
       ),
     );
   }
