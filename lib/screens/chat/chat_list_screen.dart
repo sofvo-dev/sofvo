@@ -48,44 +48,6 @@ class _ChatListScreenState extends State<ChatListScreen>
     );
   }
 
-  // ── サンプルチャットをFirestoreに作成して開く ──
-  Future<void> _openOrCreateSampleChat({
-    required String name,
-    required String type,
-  }) async {
-    if (_currentUser == null) return;
-
-    // 既存チャットを探す
-    final existing = await FirebaseFirestore.instance
-        .collection('chats')
-        .where('type', isEqualTo: type)
-        .where('name', isEqualTo: name)
-        .where('members', arrayContains: _currentUser!.uid)
-        .get();
-
-    String chatId;
-    if (existing.docs.isNotEmpty) {
-      chatId = existing.docs.first.id;
-    } else {
-      // 作成
-      final ref =
-          await FirebaseFirestore.instance.collection('chats').add({
-        'type': type,
-        'name': name,
-        'members': [_currentUser!.uid],
-        'memberNames': {_currentUser!.uid: '自分'},
-        'lastMessage': '',
-        'lastMessageAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      chatId = ref.id;
-    }
-
-    if (mounted) {
-      _openChat(chatId: chatId, title: name, type: type);
-    }
-  }
-
   // ── DM作成 or 既存DM取得 ──
   Future<void> _startDmWith(String otherUid, String otherName) async {
     if (_currentUser == null) return;
@@ -131,48 +93,6 @@ class _ChatListScreenState extends State<ChatListScreen>
         title: otherName,
         type: 'dm',
         otherUserId: otherUid,
-      );
-    }
-  }
-
-  // ── サンプルDMを作成して開く ──
-  Future<void> _openOrCreateSampleDm(String name) async {
-    if (_currentUser == null) return;
-
-    // 既存DMを探す（nameフィールドで検索）
-    final existing = await FirebaseFirestore.instance
-        .collection('chats')
-        .where('type', isEqualTo: 'dm')
-        .where('name', isEqualTo: 'dm_$name')
-        .where('members', arrayContains: _currentUser!.uid)
-        .get();
-
-    String chatId;
-    if (existing.docs.isNotEmpty) {
-      chatId = existing.docs.first.id;
-    } else {
-      final ref =
-          await FirebaseFirestore.instance.collection('chats').add({
-        'type': 'dm',
-        'name': 'dm_$name',
-        'members': [_currentUser!.uid, 'sample_$name'],
-        'memberNames': {
-          _currentUser!.uid: '自分',
-          'sample_$name': name,
-        },
-        'lastMessage': '',
-        'lastMessageAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      chatId = ref.id;
-    }
-
-    if (mounted) {
-      _openChat(
-        chatId: chatId,
-        title: name,
-        type: 'dm',
-        otherUserId: 'sample_$name',
       );
     }
   }
@@ -367,12 +287,12 @@ class _ChatListScreenState extends State<ChatListScreen>
         }
 
         if (snapshot.hasError) {
-          return _buildSampleList(type);
+          return _buildEmptyState(type);
         }
 
         final chats = snapshot.data?.docs ?? [];
         if (chats.isEmpty) {
-          return _buildSampleList(type);
+          return _buildEmptyState(type);
         }
 
         return ListView.separated(
@@ -390,6 +310,19 @@ class _ChatListScreenState extends State<ChatListScreen>
     );
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 未読判定
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  bool _hasUnread(Map<String, dynamic> data) {
+    if (_currentUser == null) return false;
+    final lastReadMap = data['lastRead'] as Map<String, dynamic>? ?? {};
+    final myLastRead = lastReadMap[_currentUser!.uid] as Timestamp?;
+    final lastMessageAt = data['lastMessageAt'] as Timestamp?;
+    if (lastMessageAt == null) return false;
+    if (myLastRead == null) return true;
+    return lastMessageAt.toDate().isAfter(myLastRead.toDate());
+  }
+
   Widget _buildFirestoreChatTile(
       String chatId, Map<String, dynamic> data, String type) {
     final memberNames =
@@ -397,6 +330,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     final lastMessage = (data['lastMessage'] as String?) ?? '';
     final lastAt = data['lastMessageAt'] as Timestamp?;
     final timeText = _formatTime(lastAt);
+    final unread = _hasUnread(data);
 
     String title;
     if (type == 'dm') {
@@ -425,7 +359,9 @@ class _ChatListScreenState extends State<ChatListScreen>
     }
 
     return Container(
-      color: Colors.white,
+      color: unread
+          ? AppTheme.primaryColor.withValues(alpha: 0.02)
+          : Colors.white,
       child: ListTile(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -450,23 +386,45 @@ class _ChatListScreenState extends State<ChatListScreen>
                 child: Icon(icon, color: iconColor, size: 24),
               ),
         title: Text(title,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontWeight: unread ? FontWeight.bold : FontWeight.w600,
                 color: AppTheme.textPrimary)),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             lastMessage.isEmpty ? 'メッセージはありません' : lastMessage,
             style: TextStyle(
-                fontSize: 13, color: AppTheme.textSecondary),
+                fontSize: 13,
+                color: unread ? AppTheme.textPrimary : AppTheme.textSecondary,
+                fontWeight: unread ? FontWeight.w500 : FontWeight.normal),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        trailing: Text(timeText,
-            style:
-                const TextStyle(fontSize: 12, color: AppTheme.textHint)),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(timeText,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: unread
+                        ? AppTheme.primaryColor
+                        : AppTheme.textHint)),
+            if (unread) ...[
+              const SizedBox(height: 6),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ],
+        ),
         onTap: () {
           String? otherUserId;
           if (type == 'dm') {
@@ -489,249 +447,69 @@ class _ChatListScreenState extends State<ChatListScreen>
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // サンプル表示（タップで開ける）
+  // 空状態表示
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Widget _buildSampleList(String type) {
-    if (type == 'team') {
-      return ListView(
-        padding: const EdgeInsets.only(top: 4),
-        children: [
-          _buildSampleTile(
-            icon: Icons.groups,
-            iconBgColor: AppTheme.success,
-            title: 'チーム・サンダース',
-            subtitle: 'けんじ: 次の練習は土曜10時からです',
-            time: '9:45',
-            unread: 3,
-            onTap: () => _openOrCreateSampleChat(
-                name: 'チーム・サンダース', type: 'team'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleTile(
-            icon: Icons.groups,
-            iconBgColor: AppTheme.info,
-            title: 'チーム・フェニックス',
-            subtitle: 'ゆみ: 来週の大会の打ち合わせしませんか？',
-            time: '昨日',
-            unread: 0,
-            onTap: () => _openOrCreateSampleChat(
-                name: 'チーム・フェニックス', type: 'team'),
-          ),
-        ],
-      );
-    } else if (type == 'tournament') {
-      return ListView(
-        padding: const EdgeInsets.only(top: 4),
-        children: [
-          _buildSampleTile(
-            icon: Icons.emoji_events,
-            iconBgColor: AppTheme.accentColor,
-            title: '第5回 世田谷カップ',
-            subtitle: 'たけし: 明日の集合時間は8:30です！',
-            time: '10:23',
-            unread: 5,
-            onTap: () => _openOrCreateSampleChat(
-                name: '第5回 世田谷カップ', type: 'tournament'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleTile(
-            icon: Icons.emoji_events,
-            iconBgColor: AppTheme.primaryColor,
-            title: '春のソフトバレー大会',
-            subtitle: '主催者: エントリーありがとうございます',
-            time: '昨日',
-            unread: 0,
-            onTap: () => _openOrCreateSampleChat(
-                name: '春のソフトバレー大会', type: 'tournament'),
-          ),
-        ],
-      );
+  Widget _buildEmptyState(String type) {
+    IconData icon;
+    String message;
+    String actionLabel;
+    VoidCallback? onAction;
+
+    if (type == 'dm') {
+      icon = Icons.chat_bubble_outline;
+      message = 'まだDMはありません';
+      actionLabel = '新しいメッセージを送る';
+      onAction = _showNewDmSheet;
+    } else if (type == 'team') {
+      icon = Icons.groups_outlined;
+      message = 'チームチャットはありません\nチーム管理画面からチャットを開始できます';
+      actionLabel = '';
+      onAction = null;
     } else {
-      return ListView(
-        padding: const EdgeInsets.only(top: 4),
-        children: [
-          _buildSampleDmTile(
-            name: 'たけし',
-            message: '明日の件了解です！会場で会いましょう',
-            time: '11:30',
-            unread: 1,
-            onTap: () => _openOrCreateSampleDm('たけし'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleDmTile(
-            name: 'はなこ',
-            message: 'メンバー募集の件、ありがとうございます！',
-            time: '昨日',
-            unread: 0,
-            onTap: () => _openOrCreateSampleDm('はなこ'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleDmTile(
-            name: 'けんじ',
-            message: '大会お疲れ様でした！',
-            time: '2/11',
-            unread: 0,
-            onTap: () => _openOrCreateSampleDm('けんじ'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleDmTile(
-            name: 'さとし',
-            message: '練習参加の件、了解しました',
-            time: '2/10',
-            unread: 0,
-            onTap: () => _openOrCreateSampleDm('さとし'),
-          ),
-        ],
-      );
+      icon = Icons.emoji_events_outlined;
+      message = '大会チャットはありません\n大会詳細画面からチャットを開始できます';
+      actionLabel = '';
+      onAction = null;
     }
-  }
 
-  Widget _buildSampleTile({
-    required IconData icon,
-    required Color iconBgColor,
-    required String title,
-    required String subtitle,
-    required String time,
-    required int unread,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      color: unread > 0
-          ? AppTheme.primaryColor.withValues(alpha: 0.02)
-          : Colors.white,
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: iconBgColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: iconBgColor, size: 24),
-        ),
-        title: Text(title,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight:
-                    unread > 0 ? FontWeight.bold : FontWeight.w500,
-                color: AppTheme.textPrimary)),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(subtitle,
-              style: TextStyle(
-                  fontSize: 13, color: AppTheme.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(time,
-                style: TextStyle(
-                    fontSize: 12,
-                    color: unread > 0
-                        ? AppTheme.primaryColor
-                        : AppTheme.textHint)),
-            if (unread > 0) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(10),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 40, color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+            ),
+            const SizedBox(height: 20),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 15, color: AppTheme.textSecondary, height: 1.5)),
+            if (onAction != null) ...[
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.edit, size: 18),
+                label: Text(actionLabel),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
-                child: Text('$unread',
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold)),
               ),
             ],
           ],
         ),
-        onTap: onTap,
       ),
     );
-  }
-
-  Widget _buildSampleDmTile({
-    required String name,
-    required String message,
-    required String time,
-    required int unread,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      color: unread > 0
-          ? AppTheme.primaryColor.withValues(alpha: 0.02)
-          : Colors.white,
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        leading: CircleAvatar(
-          radius: 24,
-          backgroundColor:
-              AppTheme.primaryColor.withValues(alpha: 0.12),
-          child: Text(name[0],
-              style: const TextStyle(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18)),
-        ),
-        title: Text(name,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight:
-                    unread > 0 ? FontWeight.bold : FontWeight.w500,
-                color: AppTheme.textPrimary)),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(message,
-              style: TextStyle(
-                  fontSize: 13, color: AppTheme.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(time,
-                style: TextStyle(
-                    fontSize: 12,
-                    color: unread > 0
-                        ? AppTheme.primaryColor
-                        : AppTheme.textHint)),
-            if (unread > 0) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text('$unread',
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ],
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-
-  Widget _buildSampleDivider() {
-    return Divider(
-        height: 1, thickness: 1, color: Colors.grey[100], indent: 80);
   }
 
   String _formatTime(Timestamp? timestamp) {

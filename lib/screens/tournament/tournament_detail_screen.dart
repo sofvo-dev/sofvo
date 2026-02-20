@@ -10,6 +10,7 @@ import '../../services/match_generator.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
+import '../chat/chat_screen.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> tournament;
@@ -63,6 +64,64 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       _myEntryTeamId = teamIds.isNotEmpty ? teamIds.first : "";
     });
   }
+  // ── 大会チャットを開く or 作成 ──
+  Future<void> _openOrCreateTournamentChat() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty || _tournamentId.isEmpty) return;
+
+    // linkedId で大会に紐づくチャットを検索
+    final existing = await _firestore
+        .collection('chats')
+        .where('type', isEqualTo: 'tournament')
+        .where('linkedId', isEqualTo: _tournamentId)
+        .get();
+
+    String chatId;
+    if (existing.docs.isNotEmpty) {
+      chatId = existing.docs.first.id;
+      // 自分がmembersに入っていなければ追加
+      final members = List<String>.from(existing.docs.first['members'] ?? []);
+      if (!members.contains(uid)) {
+        final userDoc = await _firestore.collection('users').doc(uid).get();
+        final myName = (userDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+        await _firestore.collection('chats').doc(chatId).update({
+          'members': FieldValue.arrayUnion([uid]),
+          'memberNames.$uid': myName,
+        });
+      }
+    } else {
+      // 新規作成：自分だけで作成（他の参加者はチャットを開いた時に追加される）
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final myName = (userDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+      final tournamentName = widget.tournament['name'] as String? ?? '大会チャット';
+
+      final ref = await _firestore.collection('chats').add({
+        'type': 'tournament',
+        'name': tournamentName,
+        'linkedId': _tournamentId,
+        'members': [uid],
+        'memberNames': {uid: myName},
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      chatId = ref.id;
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            chatId: chatId,
+            chatTitle: widget.tournament['name'] as String? ?? '大会チャット',
+            chatType: 'tournament',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = widget.tournament;
@@ -83,6 +142,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             style: const TextStyle(fontSize: 16),
             overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(icon: const Icon(Icons.chat_bubble_outline), onPressed: _openOrCreateTournamentChat),
           IconButton(icon: const Icon(Icons.share), onPressed: () => _showShareSheet(context)),
         ],
       ),

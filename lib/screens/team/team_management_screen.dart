@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import 'team_detail_screen.dart';
+import '../chat/chat_screen.dart';
 
 class TeamManagementScreen extends StatefulWidget {
   const TeamManagementScreen({super.key});
@@ -321,9 +322,26 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                         style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
                   ],
                   const Spacer(),
-                  if (isOwner)
-                    Row(
-                      children: [
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _openOrCreateTeamChat(
+                          teamId: doc.id,
+                          teamName: name,
+                          memberIds: memberIds,
+                          memberNames: memberNames,
+                        ),
+                        icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                        label: const Text('チャット', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.success,
+                            side: const BorderSide(color: AppTheme.success),
+                            minimumSize: const Size(0, 32),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                      ),
+                      if (isOwner) ...[
+                        const SizedBox(width: 8),
                         OutlinedButton.icon(
                           onPressed: () => _showInviteSheet(doc.id, name),
                           icon: const Icon(Icons.person_add, size: 16),
@@ -341,7 +359,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                           onPressed: () => _showDeleteConfirm(doc.id, name),
                         ),
                       ],
-                    ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -349,6 +368,54 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
         ),
       ),
     );
+  }
+
+  // ── チームチャットを開く or 作成 ──
+  Future<void> _openOrCreateTeamChat({
+    required String teamId,
+    required String teamName,
+    required List<String> memberIds,
+    required Map<String, String> memberNames,
+  }) async {
+    if (_currentUser == null) return;
+
+    // linkedId でチームに紐づくチャットを検索
+    final existing = await FirebaseFirestore.instance
+        .collection('chats')
+        .where('type', isEqualTo: 'team')
+        .where('linkedId', isEqualTo: teamId)
+        .get();
+
+    String chatId;
+    if (existing.docs.isNotEmpty) {
+      chatId = existing.docs.first.id;
+    } else {
+      // チーム全メンバーを含むチャットを新規作成
+      final ref = await FirebaseFirestore.instance.collection('chats').add({
+        'type': 'team',
+        'name': teamName,
+        'linkedId': teamId,
+        'members': memberIds,
+        'memberNames': memberNames.map((k, v) => MapEntry(k, v)),
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      chatId = ref.id;
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            chatId: chatId,
+            chatTitle: teamName,
+            chatType: 'team',
+          ),
+        ),
+      );
+    }
   }
 
   // ── チーム作成 ──
