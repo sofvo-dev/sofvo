@@ -19,8 +19,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() { if (!_tabController.indexIsChanging) setState(() {}); });
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -284,30 +283,46 @@ class _ChatListScreenState extends State<ChatListScreen>
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: Column(children: [
-          // ━━━ 統一ヘッダー ━━━
+          // ━━━ X-style ヘッダー ━━━
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const Text('チャット',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                const Spacer(),
-                GestureDetector(
-                  onTap: _showNewDmSheet,
-                  child: const Icon(Icons.edit_square, size: 24, color: AppTheme.textPrimary),
-                ),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                _buildHeaderTab('DM', 0),
-                const SizedBox(width: 8),
-                _buildHeaderTab('チーム', 1),
-                const SizedBox(width: 8),
-                _buildHeaderTab('大会', 2),
-              ]),
-              const SizedBox(height: 1),
-              Container(height: 1, color: Colors.grey[100]),
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(children: [
+                  const SizedBox(width: 26),
+                  const Spacer(),
+                  const Text('チャット',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _showNewDmSheet,
+                    child: const Icon(Icons.edit_square,
+                        size: 24, color: AppTheme.textPrimary),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              TabBar(
+                controller: _tabController,
+                labelColor: AppTheme.textPrimary,
+                unselectedLabelColor: AppTheme.textSecondary,
+                labelStyle: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.bold),
+                unselectedLabelStyle: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.normal),
+                indicatorColor: AppTheme.primaryColor,
+                indicatorWeight: 3,
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.grey[200],
+                tabs: const [
+                  Tab(text: '個別チャット'),
+                  Tab(text: 'グループチャット'),
+                ],
+              ),
             ]),
           ),
           Expanded(
@@ -315,8 +330,7 @@ class _ChatListScreenState extends State<ChatListScreen>
               controller: _tabController,
               children: [
                 _buildChatTab('dm'),
-                _buildChatTab('team'),
-                _buildChatTab('tournament'),
+                _buildGroupChatTab(),
               ],
             ),
           ),
@@ -325,22 +339,49 @@ class _ChatListScreenState extends State<ChatListScreen>
     );
   }
 
-  Widget _buildHeaderTab(String label, int index) {
-    final isSelected = _tabController.index == index;
-    return GestureDetector(
-      onTap: () { _tabController.animateTo(index); setState(() {}); },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
-        ),
-        child: Text(label, style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary)),
-      ),
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // グループチャット（チーム + 大会）
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Widget _buildGroupChatTab() {
+    if (_currentUser == null) {
+      return const Center(child: Text('ログインしてください'));
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('chats')
+          .where('type', whereIn: ['team', 'tournament'])
+          .where('members', arrayContains: _currentUser!.uid)
+          .orderBy('lastMessageAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor));
+        }
+
+        if (snapshot.hasError) {
+          return _buildCombinedSampleList();
+        }
+
+        final chats = snapshot.data?.docs ?? [];
+        if (chats.isEmpty) {
+          return _buildCombinedSampleList();
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          itemCount: chats.length,
+          separatorBuilder: (_, __) => Divider(
+              height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
+          itemBuilder: (context, index) {
+            final data = chats[index].data() as Map<String, dynamic>;
+            final chatId = chats[index].id;
+            final type = data['type'] as String? ?? 'team';
+            return _buildFirestoreChatTile(chatId, data, type);
+          },
+        );
+      },
     );
   }
 
@@ -492,98 +533,93 @@ class _ChatListScreenState extends State<ChatListScreen>
   // サンプル表示（タップで開ける）
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Widget _buildSampleList(String type) {
-    if (type == 'team') {
-      return ListView(
-        padding: const EdgeInsets.only(top: 4),
-        children: [
-          _buildSampleTile(
-            icon: Icons.groups,
-            iconBgColor: AppTheme.success,
-            title: 'チーム・サンダース',
-            subtitle: 'けんじ: 次の練習は土曜10時からです',
-            time: '9:45',
-            unread: 3,
-            onTap: () => _openOrCreateSampleChat(
-                name: 'チーム・サンダース', type: 'team'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleTile(
-            icon: Icons.groups,
-            iconBgColor: AppTheme.info,
-            title: 'チーム・フェニックス',
-            subtitle: 'ゆみ: 来週の大会の打ち合わせしませんか？',
-            time: '昨日',
-            unread: 0,
-            onTap: () => _openOrCreateSampleChat(
-                name: 'チーム・フェニックス', type: 'team'),
-          ),
-        ],
-      );
-    } else if (type == 'tournament') {
-      return ListView(
-        padding: const EdgeInsets.only(top: 4),
-        children: [
-          _buildSampleTile(
-            icon: Icons.emoji_events,
-            iconBgColor: AppTheme.accentColor,
-            title: '第5回 世田谷カップ',
-            subtitle: 'たけし: 明日の集合時間は8:30です！',
-            time: '10:23',
-            unread: 5,
-            onTap: () => _openOrCreateSampleChat(
-                name: '第5回 世田谷カップ', type: 'tournament'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleTile(
-            icon: Icons.emoji_events,
-            iconBgColor: AppTheme.primaryColor,
-            title: '春のソフトバレー大会',
-            subtitle: '主催者: エントリーありがとうございます',
-            time: '昨日',
-            unread: 0,
-            onTap: () => _openOrCreateSampleChat(
-                name: '春のソフトバレー大会', type: 'tournament'),
-          ),
-        ],
-      );
-    } else {
-      return ListView(
-        padding: const EdgeInsets.only(top: 4),
-        children: [
-          _buildSampleDmTile(
-            name: 'たけし',
-            message: '明日の件了解です！会場で会いましょう',
-            time: '11:30',
-            unread: 1,
-            onTap: () => _openOrCreateSampleDm('たけし'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleDmTile(
-            name: 'はなこ',
-            message: 'メンバー募集の件、ありがとうございます！',
-            time: '昨日',
-            unread: 0,
-            onTap: () => _openOrCreateSampleDm('はなこ'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleDmTile(
-            name: 'けんじ',
-            message: '大会お疲れ様でした！',
-            time: '2/11',
-            unread: 0,
-            onTap: () => _openOrCreateSampleDm('けんじ'),
-          ),
-          _buildSampleDivider(),
-          _buildSampleDmTile(
-            name: 'さとし',
-            message: '練習参加の件、了解しました',
-            time: '2/10',
-            unread: 0,
-            onTap: () => _openOrCreateSampleDm('さとし'),
-          ),
-        ],
-      );
-    }
+    return ListView(
+      padding: const EdgeInsets.only(top: 4),
+      children: [
+        _buildSampleDmTile(
+          name: 'たけし',
+          message: '明日の件了解です！会場で会いましょう',
+          time: '11:30',
+          unread: 1,
+          onTap: () => _openOrCreateSampleDm('たけし'),
+        ),
+        _buildSampleDivider(),
+        _buildSampleDmTile(
+          name: 'はなこ',
+          message: 'メンバー募集の件、ありがとうございます！',
+          time: '昨日',
+          unread: 0,
+          onTap: () => _openOrCreateSampleDm('はなこ'),
+        ),
+        _buildSampleDivider(),
+        _buildSampleDmTile(
+          name: 'けんじ',
+          message: '大会お疲れ様でした！',
+          time: '2/11',
+          unread: 0,
+          onTap: () => _openOrCreateSampleDm('けんじ'),
+        ),
+        _buildSampleDivider(),
+        _buildSampleDmTile(
+          name: 'さとし',
+          message: '練習参加の件、了解しました',
+          time: '2/10',
+          unread: 0,
+          onTap: () => _openOrCreateSampleDm('さとし'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCombinedSampleList() {
+    return ListView(
+      padding: const EdgeInsets.only(top: 4),
+      children: [
+        _buildSampleTile(
+          icon: Icons.groups,
+          iconBgColor: AppTheme.success,
+          title: 'チーム・サンダース',
+          subtitle: 'けんじ: 次の練習は土曜10時からです',
+          time: '9:45',
+          unread: 3,
+          onTap: () => _openOrCreateSampleChat(
+              name: 'チーム・サンダース', type: 'team'),
+        ),
+        _buildSampleDivider(),
+        _buildSampleTile(
+          icon: Icons.emoji_events,
+          iconBgColor: AppTheme.accentColor,
+          title: '第5回 世田谷カップ',
+          subtitle: 'たけし: 明日の集合時間は8:30です！',
+          time: '10:23',
+          unread: 5,
+          onTap: () => _openOrCreateSampleChat(
+              name: '第5回 世田谷カップ', type: 'tournament'),
+        ),
+        _buildSampleDivider(),
+        _buildSampleTile(
+          icon: Icons.groups,
+          iconBgColor: AppTheme.info,
+          title: 'チーム・フェニックス',
+          subtitle: 'ゆみ: 来週の大会の打ち合わせしませんか？',
+          time: '昨日',
+          unread: 0,
+          onTap: () => _openOrCreateSampleChat(
+              name: 'チーム・フェニックス', type: 'team'),
+        ),
+        _buildSampleDivider(),
+        _buildSampleTile(
+          icon: Icons.emoji_events,
+          iconBgColor: AppTheme.primaryColor,
+          title: '春のソフトバレー大会',
+          subtitle: '主催者: エントリーありがとうございます',
+          time: '昨日',
+          unread: 0,
+          onTap: () => _openOrCreateSampleChat(
+              name: '春のソフトバレー大会', type: 'tournament'),
+        ),
+      ],
+    );
   }
 
   Widget _buildSampleTile({
