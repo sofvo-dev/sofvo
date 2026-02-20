@@ -53,6 +53,16 @@ service cloud.firestore {
       match /blockedUsers/{blockedId} {
         allow read, write: if isOwner(userId);
       }
+
+      // ガジェット
+      match /gadgets/{gadgetId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ガジェットカテゴリ
+      match /gadgetCategories/{categoryId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // ━━━ 投稿 ━━━
