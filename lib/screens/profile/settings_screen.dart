@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
-import '../../main.dart' show themeNotifier;
 import '../auth/login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -273,21 +272,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onChanged: onChanged,
         activeColor: AppTheme.primaryColor,
       ),
-    );
-  }
-
-  Widget _buildThemeOption(IconData icon, String title, ThemeMode mode) {
-    final isSelected = themeNotifier.themeMode == mode;
-    return ListTile(
-      leading: Icon(icon, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary, size: 22),
-      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle, color: AppTheme.primaryColor, size: 22)
-          : null,
-      onTap: () {
-        themeNotifier.setThemeMode(mode);
-        setState(() {});
-      },
     );
   }
 
