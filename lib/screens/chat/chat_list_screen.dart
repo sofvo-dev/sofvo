@@ -281,21 +281,58 @@ class _ChatListScreenState extends State<ChatListScreen>
         }
 
         final chats = snapshot.data?.docs ?? [];
-        if (chats.isEmpty) {
-          return _buildEmptyState('group');
-        }
 
-        return ListView.separated(
-          padding: const EdgeInsets.only(top: 4, bottom: 80),
-          itemCount: chats.length,
-          separatorBuilder: (_, __) => Divider(
-              height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
-          itemBuilder: (context, index) {
-            final data = chats[index].data() as Map<String, dynamic>;
-            final chatId = chats[index].id;
-            final type = (data['type'] as String?) ?? 'team';
-            return _buildFirestoreChatTile(chatId, data, type);
-          },
+        return Column(
+          children: [
+            // グループ作成ボタン
+            InkWell(
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const CreateGroupChatScreen())),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.group_add, color: AppTheme.primaryColor, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    const Text('グループを作成',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryColor)),
+                  ],
+                ),
+              ),
+            ),
+            // チャット一覧
+            Expanded(
+              child: chats.isEmpty
+                  ? _buildEmptyState('group')
+                  : ListView.separated(
+                      padding: const EdgeInsets.only(top: 4, bottom: 80),
+                      itemCount: chats.length,
+                      separatorBuilder: (_, __) => Divider(
+                          height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
+                      itemBuilder: (context, index) {
+                        final data = chats[index].data() as Map<String, dynamic>;
+                        final chatId = chats[index].id;
+                        final type = (data['type'] as String?) ?? 'team';
+                        return _buildFirestoreChatTile(chatId, data, type);
+                      },
+                    ),
+            ),
+          ],
         );
       },
     );
