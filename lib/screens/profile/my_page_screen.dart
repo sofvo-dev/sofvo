@@ -5,11 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/app_theme.dart';
-import '../../services/bookmark_notification_service.dart';
 import '../../services/notification_service.dart';
 import '../tournament/tournament_detail_screen.dart';
-import '../../services/auth_service.dart';
-import '../auth/login_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../notification/notification_screen.dart';
 import '../tournament/venue_search_screen.dart';
@@ -38,494 +35,400 @@ class MyPageScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
+    if (user == null) {
+      return const Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        body: Center(child: Text('ログインしてください')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      body: SafeArea(
-        child: Column(children: [
-          // ━━━ 統一ヘッダー ━━━
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const Text('マイページ',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                const Spacer(),
-                if (user != null)
-                  StreamBuilder<int>(
-                    stream: NotificationService.unreadCountStream(user.uid),
-                    builder: (context, notifSnap) {
-                      final unread = notifSnap.data ?? 0;
-                      return GestureDetector(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
-                        child: Badge(
-                          isLabelVisible: unread > 0,
-                          label: Text('$unread', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                          backgroundColor: AppTheme.error,
-                          child: const Icon(Icons.notifications_outlined, size: 24, color: AppTheme.textPrimary),
-                        ),
-                      );
-                    },
-                  ),
-                const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                  child: const Icon(Icons.settings_outlined, size: 24, color: AppTheme.textPrimary),
-                ),
-              ]),
-              const SizedBox(height: 8),
-              Container(height: 1, color: Colors.grey[100]),
-            ]),
-          ),
-          Expanded(child: user == null
-          ? const Center(child: Text('ログインしてください'))
-          : StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.primaryColor,
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users').doc(user.uid).snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor),
+            );
+          }
+
+          final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+          final nickname = _safeString(data['nickname']).isEmpty
+              ? '未設定' : _safeString(data['nickname']);
+          final experience = _safeString(data['experience']);
+          final avatarUrl = _safeString(data['avatarUrl']);
+          final rawArea = data['area'];
+          final area = rawArea is String
+              ? rawArea
+              : rawArea is Map
+                  ? '${rawArea['prefecture'] ?? ''}${rawArea['city'] ?? ''}'
+                  : '';
+          final bio = _safeString(data['bio']);
+          final totalPoints = _safeInt(data['totalPoints']);
+          final stats = data['stats'] is Map<String, dynamic>
+              ? data['stats'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          final tournamentsPlayed = _safeInt(stats['tournamentsPlayed']);
+          final championships = _safeInt(stats['championships']);
+          final followersCount = _safeInt(data['followersCount']);
+          final followingCount = _safeInt(data['followingCount']);
+
+          return CustomScrollView(
+            slivers: [
+              // ━━━ ヒーローヘッダー（YAMAP風） ━━━
+              SliverToBoxAdapter(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppTheme.primaryDark, AppTheme.primaryColor, AppTheme.primaryLight],
                     ),
-                  );
-                }
-
-                final data =
-                    snapshot.data?.data() as Map<String, dynamic>? ?? {};
-
-                final nickname = _safeString(data['nickname']).isEmpty
-                    ? '未設定'
-                    : _safeString(data['nickname']);
-                final experience = _safeString(data['experience']);
-                final avatarUrl = _safeString(data['avatarUrl']);
-                final rawArea = data['area'];
-                final area = rawArea is String
-                    ? rawArea
-                    : rawArea is Map
-                        ? '${rawArea['prefecture'] ?? ''}${rawArea['city'] ?? ''}'
-                        : '';
-                final bio = _safeString(data['bio']);
-                final totalPoints = _safeInt(data['totalPoints']);
-                final stats = data['stats'] is Map<String, dynamic>
-                    ? data['stats'] as Map<String, dynamic>
-                    : <String, dynamic>{};
-                final tournamentsPlayed =
-                    _safeInt(stats['tournamentsPlayed']);
-                final championships = _safeInt(stats['championships']);
-                final followersCount = _safeInt(data['followersCount']);
-                final followingCount = _safeInt(data['followingCount']);
-
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    // ── プロフィールカード ──
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.06),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      children: [
+                        // ── トップバー ──
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                          child: Row(
                             children: [
-                              // アバター表示（キャッシュ対応）
-                              avatarUrl.isNotEmpty
-                                  ? CircleAvatar(
-                                      radius: 36,
-                                      backgroundImage:
-                                          CachedNetworkImageProvider(avatarUrl),
-                                      backgroundColor: AppTheme
-                                          .primaryColor
-                                          .withValues(alpha: 0.12),
-                                    )
-                                  : CircleAvatar(
-                                      radius: 36,
-                                      backgroundColor: AppTheme
-                                          .primaryColor
-                                          .withValues(alpha: 0.12),
-                                      child: Text(
-                                        nickname.isNotEmpty
-                                            ? nickname[0]
-                                            : '?',
-                                        style: const TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.primaryColor,
+                              const Text('マイページ',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                              const Spacer(),
+                              StreamBuilder<int>(
+                                stream: NotificationService.unreadCountStream(user.uid),
+                                builder: (context, notifSnap) {
+                                  final unread = notifSnap.data ?? 0;
+                                  return IconButton(
+                                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                                    icon: Badge(
+                                      isLabelVisible: unread > 0,
+                                      label: Text('$unread', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                      backgroundColor: AppTheme.error,
+                                      child: const Icon(Icons.notifications_outlined, size: 22, color: Colors.white),
+                                    ),
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                                icon: const Icon(Icons.settings_outlined, size: 22, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // ── アバター + 名前 ──
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () => Navigator.push(context,
+                              MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data))),
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 3),
+                                ),
+                                child: avatarUrl.isNotEmpty
+                                    ? CircleAvatar(
+                                        radius: 40,
+                                        backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                      )
+                                    : CircleAvatar(
+                                        radius: 40,
+                                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                        child: Text(
+                                          nickname.isNotEmpty ? nickname[0] : '?',
+                                          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
                                         ),
                                       ),
-                                    ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      nickname,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 4,
-                                      children: [
-                                        if (experience.isNotEmpty)
-                                          _buildTag('競技歴 $experience',
-                                              AppTheme.primaryColor),
-                                        if (area.isNotEmpty)
-                                          _buildTag(area,
-                                              AppTheme.textSecondary),
-                                      ],
-                                    ),
-                                  ],
-                                ),
                               ),
-                              OutlinedButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          ProfileEditScreen(
-                                              userData: data),
-                                    ),
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 36),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(8),
+                              Positioned(
+                                bottom: 0, right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.accentColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
                                   ),
+                                  child: const Icon(Icons.edit, color: Colors.white, size: 12),
                                 ),
-                                child: const Text('編集',
-                                    style: TextStyle(fontSize: 13)),
                               ),
                             ],
                           ),
-                          if (bio.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              bio,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textSecondary,
-                                height: 1.5,
-                              ),
-                            ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(nickname,
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                        const SizedBox(height: 6),
+                        // ── タグ ──
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (experience.isNotEmpty)
+                              _buildHeaderTag('競技歴 $experience'),
+                            if (experience.isNotEmpty && area.isNotEmpty)
+                              const SizedBox(width: 6),
+                            if (area.isNotEmpty)
+                              _buildHeaderTag(area),
                           ],
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
-                            children: [
-                              _buildFollowCount(
-                                context, '$followingCount', 'フォロー',
-                                () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          FollowListScreen(userId: FirebaseAuth.instance.currentUser!.uid, title: 'フォロー中', isFollowers: false,
-                                              ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Container(
-                                width: 1,
-                                height: 24,
-                                margin: const EdgeInsets.symmetric(
-                                    horizontal: 24),
-                                color: Colors.grey[300],
-                              ),
-                              _buildFollowCount(
-                                context, '$followersCount', 'フォロワー',
-                                () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          FollowListScreen(userId: FirebaseAuth.instance.currentUser!.uid, title: 'フォロワー', isFollowers: true,
-                                              ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
+                        ),
+                        if (bio.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(bio,
+                                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85), height: 1.4),
+                                textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                    // ── ステータスカード ──
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(Icons.star, '通算ポイント',
-                              '$totalPoints', AppTheme.accentColor),
+                        // ── フォロー / フォロワー ──
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildFollowCount(context, '$followingCount', 'フォロー', () {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => FollowListScreen(
+                                    userId: user.uid, title: 'フォロー中', isFollowers: false)));
+                            }),
+                            Container(width: 1, height: 28, margin: const EdgeInsets.symmetric(horizontal: 28),
+                                color: Colors.white.withValues(alpha: 0.25)),
+                            _buildFollowCount(context, '$followersCount', 'フォロワー', () {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => FollowListScreen(
+                                    userId: user.uid, title: 'フォロワー', isFollowers: true)));
+                            }),
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildStatCard(
-                              Icons.emoji_events, '大会参加',
-                              '$tournamentsPlayed', AppTheme.primaryColor),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildStatCard(Icons.military_tech,
-                              '優勝', '$championships', AppTheme.warning),
-                        ),
+                        const SizedBox(height: 16),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                  ),
+                ),
+              ),
 
-                    // ── 友達をさがす ──
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.person_add,
-                              color: AppTheme.primaryColor, size: 22),
-                        ),
-                        title: const Text('友達をさがす',
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary)),
-                        subtitle: Text('QRコード・ID検索・ユーザー検索',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textSecondary)),
-                        trailing: Icon(Icons.chevron_right,
-                            color: Colors.grey[400], size: 22),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    const FollowSearchScreen()),
-                          );
-                        },
-                      ),
+              // ━━━ ダッシュボード（スタッツ） ━━━
+              SliverToBoxAdapter(
+                child: Transform.translate(
+                  offset: const Offset(0, -14),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
                     ),
-                    const SizedBox(height: 16),
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.accentColor)),
+                        Container(width: 1, height: 36, color: Colors.grey[200]),
+                        Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
+                        Container(width: 1, height: 36, color: Colors.grey[200]),
+                        Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
-                    // ── 管理メニュー ──
+              // ━━━ コンテンツ ━━━
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // ── 友達をさがす ──
+                    _buildActionCard(
+                      icon: Icons.person_add_rounded,
+                      title: '友達をさがす',
+                      subtitle: 'QRコード・ID検索・ユーザー検索',
+                      color: AppTheme.primaryColor,
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const FollowSearchScreen())),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── 管理 ──
                     _buildSectionLabel('管理'),
                     const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
-                      ),
-                      child: Column(
-                        children: [
-                          _buildMenuItem(
-                              Icons.emoji_events_outlined, '大会管理', () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      const TournamentManagementScreen()),
-                            );
-                          }),
-                          _buildMenuDivider(),
-                          _buildMenuItem(
-                              Icons.person_search_outlined,
-                              'メンバー募集管理', () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      const RecruitmentManagementScreen()),
-                            );
-                          }),
-                          _buildMenuDivider(),
-                          _buildMenuItem(Icons.location_city, '会場を登録・検索', () {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => const VenueSearchScreen()));
-                          }),
-                          _buildMenuDivider(),
-                          _buildMenuItem(Icons.devices_other, 'ガジェット管理', () {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => const GadgetListScreen()));
-                          }),
-                        ],
-                      ),
-                    ),
+                    _buildMenuGroup([
+                      _MenuItemData(Icons.emoji_events_outlined, '大会管理', () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentManagementScreen()));
+                      }),
+                      _MenuItemData(Icons.person_search_outlined, 'メンバー募集管理', () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const RecruitmentManagementScreen()));
+                      }),
+                      _MenuItemData(Icons.location_city_outlined, '会場を登録・検索', () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
+                      }),
+                      _MenuItemData(Icons.devices_other_outlined, 'ガジェット管理', () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const GadgetListScreen()));
+                      }),
+                    ]),
                     const SizedBox(height: 20),
 
                     // ── 履歴・記録 ──
                     _buildSectionLabel('履歴・記録'),
                     const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
-                      ),
-                      child: Column(
-                        children: [
-                          _buildMenuItem(
-                              Icons.history, '参加大会履歴', () => _showComingSoon(context)),
-                          _buildMenuDivider(),
-                          _buildMenuItem(Icons.people_outline,
-                              '対戦ヒストリー', () => _showComingSoon(context)),
-                          _buildMenuDivider(),
-                          _buildMenuItem(Icons.article_outlined,
-                              '自分の投稿', () => _showComingSoon(context)),
-                        ],
-                      ),
-                    ),
+                    _buildMenuGroup([
+                      _MenuItemData(Icons.history_rounded, '参加大会履歴', () => _showComingSoon(context)),
+                      _MenuItemData(Icons.people_outline_rounded, '対戦ヒストリー', () => _showComingSoon(context)),
+                      _MenuItemData(Icons.article_outlined, '自分の投稿', () => _showComingSoon(context)),
+                    ]),
                     const SizedBox(height: 20),
 
                     // ── その他 ──
                     _buildSectionLabel('その他'),
                     const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
-                      ),
-                      child: Column(
-                        children: [
-                          _buildMenuItem(
-                              Icons.bookmark_outline,
-                              'ブックマーク', () => _showComingSoon(context)),
-                          _buildMenuDivider(),
-                          _buildMenuItem(
-                              Icons.workspace_premium_outlined,
-                              'バッジコレクション', () => _showComingSoon(context)),
-                          _buildMenuDivider(),
-                          _buildMenuItem(Icons.leaderboard_outlined,
-                              'ランキング', () => _showComingSoon(context)),
-                          _buildMenuDivider(),
-                          _buildMenuItem(Icons.save_outlined,
-                              'テンプレート管理', () => _showComingSoon(context)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                );
-              },
-            ),
-          ),
-        ]),
+                    _buildMenuGroup([
+                      _MenuItemData(Icons.bookmark_outline_rounded, 'ブックマーク', () => _showComingSoon(context)),
+                      _MenuItemData(Icons.workspace_premium_outlined, 'バッジコレクション', () => _showComingSoon(context)),
+                      _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () => _showComingSoon(context)),
+                      _MenuItemData(Icons.save_outlined, 'テンプレート管理', () => _showComingSoon(context)),
+                    ]),
+                  ]),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildTag(String text, Color color) {
+  // ── ヘッダー上のタグ ──
+  Widget _buildHeaderTag(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
       ),
-      child: Text(text,
-          style: TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+      child: Text(text, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w500)),
     );
   }
 
+  // ── フォロー数（ヘッダー内） ──
   Widget _buildFollowCount(
       BuildContext context, String count, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
-          Text(count,
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary)),
+          Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 12, color: AppTheme.textSecondary)),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(
-      IconData icon, String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.08),
-            color.withValues(alpha: 0.02),
+  // ── ダッシュボードスタッツ ──
+  Widget _buildDashboardStat(IconData icon, String value, String label, Color color) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 4),
+            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
           ],
         ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 20),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+      ],
+    );
+  }
+
+  // ── アクションカード（友達をさがす等） ──
+  Widget _buildActionCard({
+    required IconData icon, required String title, required String subtitle,
+    required Color color, required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey[400], size: 22),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: color)),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppTheme.textSecondary)),
-        ],
+        ),
       ),
     );
   }
 
+  // ── セクションラベル ──
   Widget _buildSectionLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+    );
+  }
+
+  // ── メニューグループ ──
+  Widget _buildMenuGroup(List<_MenuItemData> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            _buildMenuItem(items[i].icon, items[i].title, items[i].onTap),
+            if (i < items.length - 1)
+              Divider(height: 1, indent: 54, color: Colors.grey[100]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── メニューアイテム ──
+  Widget _buildMenuItem(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.primaryColor, size: 22),
+      title: Text(title, style: const TextStyle(fontSize: 15, color: AppTheme.textPrimary)),
+      trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 22),
+      onTap: onTap,
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -1),
     );
   }
 
@@ -540,62 +443,14 @@ class MyPageScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildMenuItem(
-      IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: AppTheme.primaryColor, size: 22),
-      title: Text(title,
-          style: const TextStyle(
-              fontSize: 15, color: AppTheme.textPrimary)),
-      trailing:
-          Icon(Icons.chevron_right, color: Colors.grey[400], size: 22),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildMenuDivider() {
-    return Divider(height: 1, indent: 56, color: Colors.grey[100]);
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('ログアウト',
-            style:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: const Text('ログアウトしますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('キャンセル',
-                style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await AuthService().signOut();
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              minimumSize: const Size(100, 40),
-            ),
-            child: const Text('ログアウト'),
-          ),
-        ],
-      ),
-    );
-  }
+// ── メニューアイテムデータ ──
+class _MenuItemData {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  const _MenuItemData(this.icon, this.title, this.onTap);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
