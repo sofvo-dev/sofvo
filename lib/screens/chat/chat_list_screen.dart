@@ -219,6 +219,12 @@ class _ChatListScreenState extends State<ChatListScreen>
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                   const Spacer(),
                   GestureDetector(
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const CreateGroupChatScreen())),
+                    child: const Icon(Icons.group_add, size: 24, color: AppTheme.textPrimary),
+                  ),
+                  const SizedBox(width: 16),
+                  GestureDetector(
                     onTap: _showNewDmSheet,
                     child: const Icon(Icons.edit_square, size: 24, color: AppTheme.textPrimary),
                   ),
