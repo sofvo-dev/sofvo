@@ -138,9 +138,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text(t['name'] as String,
-            style: const TextStyle(fontSize: 16),
-            overflow: TextOverflow.ellipsis),
+        title: const SizedBox.shrink(),
         actions: [
           IconButton(icon: const Icon(Icons.chat_bubble_outline), onPressed: _openOrCreateTournamentChat),
           IconButton(icon: const Icon(Icons.share), onPressed: () => _showShareSheet(context)),
@@ -174,7 +172,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -184,40 +182,48 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+          // 大会名 + ステータスバッジを1行に
+          Row(
+            children: [
+              Expanded(
+                child: Text(t['name'] as String,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
-              child: Text(status, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
-              child: Text(t['type'] as String, style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Text(t['name'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 10),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                ),
+                child: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
+                child: Text(t['type'] as String, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 日付・チーム数・場所を1行に
           Row(children: [
-            const Icon(Icons.calendar_today, size: 14, color: Colors.white70),
-            const SizedBox(width: 6),
-            Text(t['date'] as String, style: const TextStyle(fontSize: 13, color: Colors.white70)),
-            const SizedBox(width: 16),
-            const Icon(Icons.groups, size: 14, color: Colors.white70),
-            const SizedBox(width: 6),
-            Text('$currentTeams/$maxTeams チーム', style: const TextStyle(fontSize: 13, color: Colors.white70)),
-            const SizedBox(width: 16),
-            const Icon(Icons.location_on, size: 14, color: Colors.white70),
+            const Icon(Icons.calendar_today, size: 13, color: Colors.white70),
             const SizedBox(width: 4),
+            Text(t['date'] as String, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            const SizedBox(width: 12),
+            const Icon(Icons.groups, size: 13, color: Colors.white70),
+            const SizedBox(width: 4),
+            Text('$currentTeams/$maxTeams', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            const SizedBox(width: 12),
+            const Icon(Icons.location_on, size: 13, color: Colors.white70),
+            const SizedBox(width: 3),
             Expanded(
               child: Text(t['location'] as String? ?? t['venue'] as String? ?? '',
-                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
                   overflow: TextOverflow.ellipsis),
             ),
           ]),
