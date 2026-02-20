@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import '../../config/affiliate_config.dart';
 import '../../services/notification_service.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -723,27 +725,27 @@ class _GadgetCardsRow extends StatelessWidget {
               final name = (d['name'] ?? '') as String;
               final category = (d['category'] ?? '') as String;
               final imageUrl = (d['imageUrl'] ?? '') as String;
-              final hasAmazon = (d['amazonUrl'] ?? '').toString().isNotEmpty;
-              final hasRakuten = (d['rakutenUrl'] ?? '').toString().isNotEmpty;
+              final amazonUrl = (d['amazonUrl'] ?? '').toString();
+              final rakutenUrl = (d['rakutenUrl'] ?? '').toString();
 
-              return GestureDetector(
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const GadgetListScreen())),
-                child: Container(
-                  width: 130,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── 画像エリア ──
-                      ClipRRect(
+              return Container(
+                width: 140,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── 画像エリア ──
+                    GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const GadgetListScreen())),
+                      child: ClipRRect(
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                         child: SizedBox(
-                          height: 80,
+                          height: 72,
                           width: double.infinity,
                           child: imageUrl.isNotEmpty
                               ? CachedNetworkImage(
@@ -764,49 +766,75 @@ class _GadgetCardsRow extends StatelessWidget {
                                 ),
                         ),
                       ),
-                      // ── テキスト ──
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    ),
+                    // ── テキスト ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 5, 6, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          if (category.isNotEmpty && category != 'カテゴリなし') ...[
+                            const SizedBox(height: 1),
+                            Text(category, style: const TextStyle(fontSize: 9, color: AppTheme.textSecondary),
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                if (category.isNotEmpty && category != 'カテゴリなし')
-                                  Expanded(
-                                    child: Text(category, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
-                                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ),
-                                if (hasAmazon)
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 4),
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFF9900).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: const Text('A', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
-                                  ),
-                                if (hasRakuten)
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 3),
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFBF0000).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: const Text('R', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
-                                  ),
-                              ],
-                            ),
                           ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const Spacer(),
+                    // ── Amazon / 楽天 ミニボタン ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 5),
+                      child: Row(
+                        children: [
+                          if (amazonUrl.isNotEmpty)
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () async {
+                                  final url = AffiliateConfig.buildAmazonAffiliateUrl(amazonUrl);
+                                  final uri = Uri.tryParse(url);
+                                  if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF9900).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Center(
+                                    child: Text('Amazon', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (amazonUrl.isNotEmpty && rakutenUrl.isNotEmpty)
+                            const SizedBox(width: 3),
+                          if (rakutenUrl.isNotEmpty)
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () async {
+                                  final url = AffiliateConfig.buildRakutenAffiliateUrl(rakutenUrl);
+                                  final uri = Uri.tryParse(url);
+                                  if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFBF0000).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Center(
+                                    child: Text('楽天', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
