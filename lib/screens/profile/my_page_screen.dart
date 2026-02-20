@@ -227,18 +227,18 @@ class MyPageScreen extends StatelessWidget {
                   offset: const Offset(0, -12),
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3))],
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
                     ),
                     child: Row(
                       children: [
                         Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.accentColor)),
-                        Container(width: 1, height: 48, color: Colors.grey[200]),
+                        Container(width: 1, height: 60, color: Colors.grey[200]),
                         Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
-                        Container(width: 1, height: 48, color: Colors.grey[200]),
+                        Container(width: 1, height: 60, color: Colors.grey[200]),
                         Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
                       ],
                     ),
@@ -392,11 +392,11 @@ class MyPageScreen extends StatelessWidget {
   Widget _buildDashboardStat(IconData icon, String value, String label, Color color) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 26),
-        const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: color, height: 1.1)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+        Icon(icon, color: color, size: 32),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: color, height: 1.1)),
+        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
       ],
     );
   }
