@@ -130,46 +130,47 @@ class _HomeScreenState extends State<HomeScreen>
       body: SafeArea(
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
-          Container(
+          Material(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Text('Sofvo',
-                    style: GoogleFonts.montserrat(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 24,
-                        letterSpacing: 2,
-                        color: AppTheme.textPrimary)),
-                const Spacer(),
-                StreamBuilder<int>(
-                  stream: NotificationService.unreadCountStream(
-                      FirebaseAuth.instance.currentUser?.uid ?? ''),
-                  builder: (context, snap) {
-                    final count = snap.data ?? 0;
-                    return GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const NotificationScreen())),
-                      child: Stack(children: [
-                        const Icon(Icons.notifications_outlined, size: 26, color: AppTheme.textPrimary),
-                        if (count > 0)
-                          Positioned(
-                            right: 0, top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                              child: Text('$count',
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center),
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(children: [
+                  Text('Sofvo',
+                      style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 24,
+                          letterSpacing: 2,
+                          color: AppTheme.textPrimary)),
+                  const Spacer(),
+                  StreamBuilder<int>(
+                    stream: NotificationService.unreadCountStream(
+                        FirebaseAuth.instance.currentUser?.uid ?? ''),
+                    builder: (context, snap) {
+                      final count = snap.data ?? 0;
+                      return GestureDetector(
+                        onTap: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                        child: Stack(children: [
+                          const Icon(Icons.notifications_outlined, size: 26, color: AppTheme.textPrimary),
+                          if (count > 0)
+                            Positioned(
+                              right: 0, top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                child: Text('$count',
+                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center),
+                              ),
                             ),
-                          ),
-                      ]),
-                    );
-                  },
-                ),
-              ]),
-              const SizedBox(height: 12),
+                        ]),
+                      );
+                    },
+                  ),
+                ]),
+              ),
               TabBar(
                 controller: _tabController,
                 labelColor: AppTheme.textPrimary,

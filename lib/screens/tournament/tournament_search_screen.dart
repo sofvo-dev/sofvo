@@ -122,12 +122,14 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
   // ━━━ ヘッダー（タイトル + フォロー切替 + モード切替 + 検索バー） ━━━
   Widget _buildHeader() {
-    return Container(
+    return Material(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('さがす',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: const Text('さがす',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        ),
         const SizedBox(height: 12),
         // フォロー中/みんなの大会 切替（X風アンダーラインタブ）
         if (_viewMode != 'saved') TabBar(
@@ -146,17 +148,22 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         ),
         if (_viewMode != 'saved') const SizedBox(height: 10),
         // モード切替タブ（大会 | メンバー | 保存）
-        Row(children: [
-          Expanded(child: _buildModeTab('大会', Icons.emoji_events_outlined, 'tournament')),
-          const SizedBox(width: 8),
-          Expanded(child: _buildModeTab('メンバー', Icons.people_outline, 'recruitment')),
-          const SizedBox(width: 8),
-          Expanded(child: _buildModeTab('保存', Icons.bookmark_outline, 'saved',
-              activeColor: AppTheme.accentColor)),
-        ]),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _buildModeTab('大会', Icons.emoji_events_outlined, 'tournament')),
+            const SizedBox(width: 8),
+            Expanded(child: _buildModeTab('メンバー', Icons.people_outline, 'recruitment')),
+            const SizedBox(width: 8),
+            Expanded(child: _buildModeTab('保存', Icons.bookmark_outline, 'saved',
+                activeColor: AppTheme.accentColor)),
+          ]),
+        ),
         const SizedBox(height: 10),
         // 検索バー + フィルターボタン
-        if (_viewMode != 'saved') Row(children: [
+        if (_viewMode != 'saved') Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
           Expanded(
             child: SizedBox(
               height: 44,
@@ -198,7 +205,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             ),
           ),
         ]),
-        Container(height: 1, color: Colors.grey[100]),
+        ),
       ]),
     );
   }
