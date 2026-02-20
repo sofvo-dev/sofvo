@@ -227,18 +227,18 @@ class MyPageScreen extends StatelessWidget {
                   offset: const Offset(0, -12),
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3))],
                     ),
                     child: Row(
                       children: [
                         Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.accentColor)),
-                        Container(width: 1, height: 32, color: Colors.grey[200]),
+                        Container(width: 1, height: 48, color: Colors.grey[200]),
                         Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
-                        Container(width: 1, height: 32, color: Colors.grey[200]),
+                        Container(width: 1, height: 48, color: Colors.grey[200]),
                         Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
                       ],
                     ),
@@ -268,6 +268,15 @@ class MyPageScreen extends StatelessWidget {
                       seeAllTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const GadgetListScreen())),
                       child: _GadgetCardsRow(userId: user.uid),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ━━━ バッジコレクション（YAMAP風） ━━━
+                    _buildCardSection(
+                      context: context,
+                      title: 'バッジコレクション',
+                      icon: Icons.workspace_premium_rounded,
+                      child: _BadgeCollectionRow(userId: user.uid),
                     ),
                     const SizedBox(height: 16),
 
@@ -383,17 +392,11 @@ class MyPageScreen extends StatelessWidget {
   Widget _buildDashboardStat(IconData icon, String value, String label, Color color) {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 4),
-            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+        Icon(icon, color: color, size: 26),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: color, height: 1.1)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -843,6 +846,137 @@ class _GadgetCardsRow extends StatelessWidget {
       },
     );
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// バッジコレクション（YAMAP風 横スクロール）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _BadgeCollectionRow extends StatelessWidget {
+  final String userId;
+  const _BadgeCollectionRow({required this.userId});
+
+  // バッジ定義（YAMAP風の達成系バッジ）
+  static const _badgeDefinitions = [
+    _BadgeDef('初参加', Icons.flag_rounded, Color(0xFF4CAF50), 'tournamentsPlayed', 1),
+    _BadgeDef('5大会参加', Icons.emoji_events_rounded, Color(0xFF2196F3), 'tournamentsPlayed', 5),
+    _BadgeDef('10大会参加', Icons.emoji_events_rounded, Color(0xFF9C27B0), 'tournamentsPlayed', 10),
+    _BadgeDef('初優勝', Icons.military_tech_rounded, Color(0xFFFF9800), 'championships', 1),
+    _BadgeDef('3回優勝', Icons.military_tech_rounded, Color(0xFFF44336), 'championships', 3),
+    _BadgeDef('100Pt達成', Icons.star_rounded, Color(0xFFFFC107), 'totalPoints', 100),
+    _BadgeDef('500Pt達成', Icons.star_rounded, Color(0xFFFF5722), 'totalPoints', 500),
+    _BadgeDef('1000Pt達成', Icons.diamond_rounded, Color(0xFFE91E63), 'totalPoints', 1000),
+    _BadgeDef('ガジェット5個', Icons.devices_other_rounded, Color(0xFF00BCD4), 'gadgetCount', 5),
+    _BadgeDef('フォロワー10', Icons.people_rounded, Color(0xFF795548), 'followersCount', 10),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users').doc(userId).snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        final stats = data['stats'] is Map<String, dynamic>
+            ? data['stats'] as Map<String, dynamic>
+            : <String, dynamic>{};
+
+        // 各値を取得
+        final values = {
+          'tournamentsPlayed': _intVal(stats['tournamentsPlayed']),
+          'championships': _intVal(stats['championships']),
+          'totalPoints': _intVal(data['totalPoints']),
+          'gadgetCount': _intVal(data['gadgetCount']),
+          'followersCount': _intVal(data['followersCount']),
+        };
+
+        return SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _badgeDefinitions.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final badge = _badgeDefinitions[index];
+              final currentValue = values[badge.statKey] ?? 0;
+              final earned = currentValue >= badge.threshold;
+
+              return Container(
+                width: 90,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                decoration: BoxDecoration(
+                  color: earned ? Colors.white : Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: earned ? badge.color.withValues(alpha: 0.4) : Colors.grey[200]!,
+                    width: earned ? 1.5 : 1,
+                  ),
+                  boxShadow: earned
+                      ? [BoxShadow(color: badge.color.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))]
+                      : null,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: earned
+                            ? badge.color.withValues(alpha: 0.12)
+                            : Colors.grey[200],
+                        border: earned
+                            ? Border.all(color: badge.color.withValues(alpha: 0.3), width: 2)
+                            : null,
+                      ),
+                      child: Icon(
+                        badge.icon,
+                        color: earned ? badge.color : Colors.grey[400],
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      badge.name,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: earned ? FontWeight.bold : FontWeight.normal,
+                        color: earned ? AppTheme.textPrimary : AppTheme.textHint,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (!earned)
+                      Text(
+                        '$currentValue/${badge.threshold}',
+                        style: TextStyle(fontSize: 9, color: AppTheme.textHint),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  int _intVal(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    return 0;
+  }
+}
+
+class _BadgeDef {
+  final String name;
+  final IconData icon;
+  final Color color;
+  final String statKey;
+  final int threshold;
+  const _BadgeDef(this.name, this.icon, this.color, this.statKey, this.threshold);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
