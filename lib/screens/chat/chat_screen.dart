@@ -911,7 +911,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ListTile(
                 leading: const Icon(Icons.person_outline),
                 title: const Text('プロフィールを見る'),
-                onTap: () => Navigator.pop(ctx),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (widget.otherUserId != null && widget.otherUserId!.isNotEmpty) {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => UserProfileScreen(userId: widget.otherUserId!),
+                    ));
+                  }
+                },
               ),
             ],
             if (widget.chatType == 'group') ...[
@@ -946,11 +953,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     const Icon(Icons.block, color: AppTheme.error),
                 title: const Text('ブロック',
                     style: TextStyle(color: AppTheme.error)),
-                onTap: () => Navigator.pop(ctx),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmBlockUser();
+                },
               ),
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmBlockUser() {
+    if (_currentUser == null || widget.otherUserId == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('ブロックしますか？', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('ブロックすると相手の投稿やメッセージが表示されなくなります。設定からいつでも解除できます。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(_currentUser!.uid)
+                  .collection('blockedUsers')
+                  .doc(widget.otherUserId!)
+                  .set({'blockedAt': FieldValue.serverTimestamp()});
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('ユーザーをブロックしました'), backgroundColor: AppTheme.success),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            child: const Text('ブロック'),
+          ),
+        ],
       ),
     );
   }
