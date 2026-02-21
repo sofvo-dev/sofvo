@@ -1,7 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
-const fetch = require("node-fetch");
 
 admin.initializeApp();
 
@@ -178,6 +177,8 @@ function extractItem(item) {
 async function scrapeAmazonSearch(keyword) {
   const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}&language=ja_JP`;
 
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), 8000);
   const response = await fetch(url, {
     headers: {
       "User-Agent":
@@ -187,8 +188,8 @@ async function scrapeAmazonSearch(keyword) {
       "Accept":
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     },
-    timeout: 8000,
-  });
+    signal: ac.signal,
+  }).finally(() => clearTimeout(tid));
 
   if (!response.ok) {
     throw new Error(`Amazon returned status ${response.status}`);
@@ -235,6 +236,8 @@ async function scrapeAmazonSearch(keyword) {
 async function scrapeAmazonProduct(asin) {
   const url = `https://www.amazon.co.jp/dp/${asin}?language=ja_JP`;
 
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), 8000);
   const response = await fetch(url, {
     headers: {
       "User-Agent":
@@ -244,8 +247,8 @@ async function scrapeAmazonProduct(asin) {
       "Accept":
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     },
-    timeout: 8000,
-  });
+    signal: ac.signal,
+  }).finally(() => clearTimeout(tid));
 
   if (!response.ok) {
     throw new Error(`Amazon returned status ${response.status}`);
@@ -565,7 +568,9 @@ exports.onGadgetWrite = functions.firestore
       // 内部HTTPリクエストで同期処理を実行
       const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
       const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncGadgetsToSheet`;
-      await fetch(syncUrl, { method: "POST", timeout: 30000 });
+      const ac = new AbortController();
+      const tid = setTimeout(() => ac.abort(), 30000);
+      await fetch(syncUrl, { method: "POST", signal: ac.signal }).finally(() => clearTimeout(tid));
     } catch (e) {
       console.warn("Auto gadget sync failed (non-critical):", e.message);
     }
@@ -581,7 +586,9 @@ exports.onVenueWrite = functions.firestore
     try {
       const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
       const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncVenuesToSheet`;
-      await fetch(syncUrl, { method: "POST", timeout: 30000 });
+      const ac = new AbortController();
+      const tid = setTimeout(() => ac.abort(), 30000);
+      await fetch(syncUrl, { method: "POST", signal: ac.signal }).finally(() => clearTimeout(tid));
     } catch (e) {
       console.warn("Auto venue sync failed (non-critical):", e.message);
     }
