@@ -11,17 +11,11 @@ admin.initializeApp();
 const GADGET_SHEET_ID = "1IITgU-IvD1xpIqig0MtnlMfQAsoGWcwtbcPLKkNwv60";
 const VENUE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk";
 
-let _sheetsClientEmail = null;
-
 async function getAccessToken() {
-  const { GoogleAuth } = require("google-auth-library");
-  const auth = new GoogleAuth({
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-  const client = await auth.getClient();
-  _sheetsClientEmail = client.email || "unknown";
-  const tokenResponse = await client.getAccessToken();
-  return tokenResponse.token;
+  // Firebase Admin SDK の組み込みクレデンシャルを使用
+  // google-auth-library 不要 → デプロイ高速化
+  const tokenResult = await admin.app().options.credential.getAccessToken();
+  return tokenResult.access_token;
 }
 
 async function sheetsClear(spreadsheetId, range) {
@@ -495,11 +489,7 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
     res.json({ success: true, count: allGadgets.length });
   } catch (e) {
     console.error("Gadget sync error:", e);
-    res.status(500).json({
-      error: e.message,
-      serviceAccount: _sheetsClientEmail,
-      hint: `このメールアドレスをスプレッドシートの編集者に追加してください: ${_sheetsClientEmail}`,
-    });
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -560,11 +550,7 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
     res.json({ success: true, count: venueRows.length });
   } catch (e) {
     console.error("Venue sync error:", e);
-    res.status(500).json({
-      error: e.message,
-      serviceAccount: _sheetsClientEmail,
-      hint: `このメールアドレスをスプレッドシートの編集者に追加してください: ${_sheetsClientEmail}`,
-    });
+    res.status(500).json({ error: e.message });
   }
 });
 
