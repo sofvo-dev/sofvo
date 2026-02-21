@@ -244,16 +244,22 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.06),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Title
+        // Title + toggle
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Text(
-            _isSavedMode ? '保存済み' : 'さがす',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
-            ),
+          child: Row(
+            children: [
+              Text(
+                _isSavedMode ? '保存済み' : 'さがす',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              if (!_isSavedMode) _buildCompactToggle(),
+            ],
           ),
         ),
         const SizedBox(height: 12),
@@ -264,9 +270,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             Expanded(child: _buildModeTab('大会をさがす', 0)),
             Expanded(child: _buildModeTab('メンバーをさがす', 1)),
           ]),
-
-          // ── フォロー中 / みんなの (navy pill toggle) ──
-          _buildSubTabToggle(),
           const SizedBox(height: 10),
 
           // ── 検索バー + フィルターボタン ──
@@ -361,43 +364,44 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     );
   }
 
-  // ── Sub-tab toggle (フォロー中 / みんなの) ──
-  Widget _buildSubTabToggle() {
-    final allLabel = _currentPage == 0 ? 'みんなの大会' : 'みんなのメンバー';
+  // ── Compact toggle (右上の切替ボタン) ──
+  Widget _buildCompactToggle() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.all(3),
-      child: Row(children: [
-        Expanded(child: _subTabButton('フォロー中', true)),
-        Expanded(child: _subTabButton(allLabel, false)),
+      padding: const EdgeInsets.all(2),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        _compactToggleButton(Icons.people, 'フォロー中', true),
+        _compactToggleButton(Icons.public, 'みんな', false),
       ]),
     );
   }
 
-  Widget _subTabButton(String label, bool isFriendsValue) {
+  Widget _compactToggleButton(IconData icon, String label, bool isFriendsValue) {
     final isActive = _friendsOnly == isFriendsValue;
     return GestureDetector(
       onTap: () => setState(() => _friendsOnly = isFriendsValue),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? AppTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            color: isActive ? Colors.white : AppTheme.textSecondary,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: isActive ? Colors.white : AppTheme.textSecondary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: isActive ? Colors.white : AppTheme.textSecondary,
+            ),
           ),
-        ),
+        ]),
       ),
     );
   }

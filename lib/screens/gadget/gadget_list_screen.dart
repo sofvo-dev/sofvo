@@ -1,10 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:http/http.dart' as http;
 import '../../config/app_theme.dart';
 import 'gadget_register_screen.dart';
 
@@ -92,12 +90,6 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                 ]),
               ),
             ],
-          ),
-          // スプレッドシートから取り込み
-          IconButton(
-            icon: const Icon(Icons.cloud_download_outlined, color: Colors.white),
-            tooltip: 'スプレッドシートから取り込み',
-            onPressed: () => _importFromSheet(),
           ),
           // 表示切り替え
           IconButton(
@@ -323,6 +315,10 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     final name = g['name'] ?? '名前なし';
     final category = g['category'] ?? 'カテゴリなし';
     final memo = g['memo'] ?? '';
+    final amazonAffUrl = (g['amazonAffiliateUrl'] ?? '').toString();
+    final rakutenAffUrl = (g['rakutenAffiliateUrl'] ?? '').toString();
+    final hasAmazon = amazonAffUrl.isNotEmpty;
+    final hasRakuten = rakutenAffUrl.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -372,20 +368,50 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (category != 'カテゴリなし')
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    Wrap(spacing: 6, runSpacing: 4, children: [
+                      if (category != 'カテゴリなし')
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(category,
+                              style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                        ),
+                      if (hasAmazon)
+                        GestureDetector(
+                          onTap: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              color: const Color(0xFFFF9900).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(category,
-                                style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.shopping_cart, size: 11, color: Color(0xFFFF9900)),
+                              SizedBox(width: 3),
+                              Text('Amazon', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
+                            ]),
                           ),
-                      ],
-                    ),
+                        ),
+                      if (hasRakuten)
+                        GestureDetector(
+                          onTap: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFBF0000).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.shopping_bag, size: 11, color: Color(0xFFBF0000)),
+                              SizedBox(width: 3),
+                              Text('楽天', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
+                            ]),
+                          ),
+                        ),
+                    ]),
                     if (memo.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(memo,
@@ -681,52 +707,4 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     );
   }
 
-  Future<void> _importFromSheet() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('スプレッドシートから取り込み', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        content: const Text('Google Sheetsのガジェットデータをアプリに反映します。\n既存のガジェットは更新、新しいガジェットは追加されます。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('取り込む'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('スプレッドシートからデータを取り込み中...')),
-    );
-
-    try {
-      final url = Uri.parse('https://us-central1-sofvo-19d84.cloudfunctions.net/importGadgetsFromSheet');
-      final response = await http.post(url);
-      final data = jsonDecode(response.body);
-
-      if (!mounted) return;
-      if (data['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('取り込み完了: 新規 ${data['imported']}件, 更新 ${data['updated']}件')),
-        );
-        setState(() {});
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: ${data['error'] ?? '不明'}'), backgroundColor: AppTheme.error),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('通信エラー: $e'), backgroundColor: AppTheme.error),
-      );
-    }
-  }
 }

@@ -237,7 +237,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () async {
-                  final result = await Navigator.push<Map<String, dynamic>>(ctx, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
+                  final result = await Navigator.push<Map<String, dynamic>>(ctx, MaterialPageRoute(builder: (_) => const VenueSearchScreen(pickerMode: true)));
                   if (result != null) setSheetState(() { selectedVenue = result; locationCtrl.text = result['name'] ?? ''; courtsCtrl.text = (result['courts'] ?? courtsCtrl.text).toString(); });
                 },
                 child: Container(
@@ -378,7 +378,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () async {
-                  final result = await Navigator.push<Map<String, dynamic>>(ctx, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
+                  final result = await Navigator.push<Map<String, dynamic>>(ctx, MaterialPageRoute(builder: (_) => const VenueSearchScreen(pickerMode: true)));
                   if (result != null) setSheetState(() { selectedVenue = result; locationCtrl.text = result['name'] ?? ''; courtsCtrl.text = (result['courts'] ?? courtsCtrl.text).toString(); });
                 },
                 child: Container(

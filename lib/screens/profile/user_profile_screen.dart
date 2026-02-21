@@ -430,28 +430,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: ElevatedButton(
-                                onPressed: _toggleFollow,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _isFollowing
-                                      ? Colors.white.withValues(alpha: 0.2)
-                                      : Colors.white,
-                                  foregroundColor: _isFollowing
-                                      ? Colors.white
-                                      : AppTheme.primaryColor,
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  minimumSize: const Size(0, 40),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  elevation: 0,
-                                  side: BorderSide(
-                                    color: Colors.white.withValues(alpha: _isFollowing ? 0.5 : 0),
-                                  ),
-                                ),
-                                child: Text(
-                                  _isFollowing ? 'フォロー中' : 'フォローする',
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                ),
-                              ),
+                              child: _isFollowing
+                                  ? OutlinedButton.icon(
+                                      onPressed: _toggleFollow,
+                                      icon: const Icon(Icons.check, size: 16),
+                                      label: const Text('フォロー中',
+                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        side: const BorderSide(color: Colors.white, width: 1.5),
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        minimumSize: const Size(0, 40),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                    )
+                                  : ElevatedButton(
+                                      onPressed: _toggleFollow,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: AppTheme.primaryColor,
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        minimumSize: const Size(0, 40),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        elevation: 0,
+                                      ),
+                                      child: const Text('フォローする',
+                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                    ),
                             ),
                             const SizedBox(width: 10),
                             OutlinedButton(

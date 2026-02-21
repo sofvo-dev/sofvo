@@ -1,12 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
 import '../../config/app_theme.dart';
 
 class VenueSearchScreen extends StatefulWidget {
-  const VenueSearchScreen({super.key});
+  final bool pickerMode;
+  const VenueSearchScreen({super.key, this.pickerMode = false});
   @override
   State<VenueSearchScreen> createState() => _VenueSearchScreenState();
 }
@@ -14,6 +13,31 @@ class VenueSearchScreen extends StatefulWidget {
 class _VenueSearchScreenState extends State<VenueSearchScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  String _filterArea = 'すべて';
+
+  static const _areas = [
+    'すべて', '北海道', '東北', '関東', '中部', '近畿', '中国', '四国', '九州・沖縄',
+  ];
+
+  // 都道府県 → エリア のマッピング
+  static const _prefectureToArea = {
+    '北海道': '北海道',
+    '青森': '東北', '岩手': '東北', '宮城': '東北', '秋田': '東北', '山形': '東北', '福島': '東北',
+    '茨城': '関東', '栃木': '関東', '群馬': '関東', '埼玉': '関東', '千葉': '関東', '東京': '関東', '神奈川': '関東',
+    '新潟': '中部', '富山': '中部', '石川': '中部', '福井': '中部', '山梨': '中部', '長野': '中部', '岐阜': '中部', '静岡': '中部', '愛知': '中部',
+    '三重': '近畿', '滋賀': '近畿', '京都': '近畿', '大阪': '近畿', '兵庫': '近畿', '奈良': '近畿', '和歌山': '近畿',
+    '鳥取': '中国', '島根': '中国', '岡山': '中国', '広島': '中国', '山口': '中国',
+    '徳島': '四国', '香川': '四国', '愛媛': '四国', '高知': '四国',
+    '福岡': '九州・沖縄', '佐賀': '九州・沖縄', '長崎': '九州・沖縄', '熊本': '九州・沖縄', '大分': '九州・沖縄', '宮崎': '九州・沖縄', '鹿児島': '九州・沖縄', '沖縄': '九州・沖縄',
+  };
+
+  bool _matchesArea(String address) {
+    if (_filterArea == 'すべて') return true;
+    for (final entry in _prefectureToArea.entries) {
+      if (address.contains(entry.key) && entry.value == _filterArea) return true;
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +47,6 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
         title: const Text('会場を探す', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.cloud_download_outlined),
-            tooltip: 'スプレッドシートから取り込み',
-            onPressed: () => _importFromSheet(),
-          ),
           IconButton(icon: const Icon(Icons.add_location_alt),
             onPressed: () async {
               final result = await Navigator.push<bool>(context,
@@ -50,6 +69,34 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
             ),
           ),
         ),
+        // エリアフィルタ
+        SizedBox(
+          height: 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: _areas.length,
+            itemBuilder: (context, index) {
+              final area = _areas[index];
+              final isSelected = _filterArea == area;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Text(area, style: const TextStyle(fontSize: 12)),
+                  selected: isSelected,
+                  onSelected: (_) => setState(() => _filterArea = area),
+                  selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
         // 参加者への案内
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -82,11 +129,14 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
               final docs = snapshot.data?.docs ?? [];
-              final filtered = _query.isEmpty ? docs : docs.where((d) {
+              final filtered = docs.where((d) {
                 final data = d.data() as Map<String, dynamic>;
                 final name = (data['name'] ?? '').toString().toLowerCase();
                 final address = (data['address'] ?? '').toString().toLowerCase();
-                return name.contains(_query) || address.contains(_query);
+                final addressOriginal = (data['address'] ?? '').toString();
+                if (_query.isNotEmpty && !name.contains(_query) && !address.contains(_query)) return false;
+                if (!_matchesArea(addressOriginal)) return false;
+                return true;
               }).toList();
               if (filtered.isEmpty) {
                 return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -139,11 +189,17 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
         side: BorderSide(color: Colors.grey[200]!)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.pop(context, {
-          'id': docId, 'name': name, 'address': address,
-          'phone': phone, 'parking': parking, 'toilets': toilets,
-          'courts': courts,
-        }),
+        onTap: () {
+          if (widget.pickerMode) {
+            Navigator.pop(context, {
+              'id': docId, 'name': name, 'address': address,
+              'phone': phone, 'parking': parking, 'toilets': toilets,
+              'courts': courts,
+            });
+          } else {
+            _showVenueDetail(data, docId);
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -194,61 +250,161 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
     );
   }
 
+  void _showVenueDetail(Map<String, dynamic> data, String docId) {
+    final name = data['name'] ?? '';
+    final address = data['address'] ?? '';
+    final phone = (data['phone'] ?? '').toString();
+    final parking = data['parking'] ?? 0;
+    final toilets = data['toilets'] ?? 0;
+    final courts = data['courts'] ?? 0;
+    final hasAC = data['hasAC'] ?? false;
+    final hasChangeRoom = data['hasChangeRoom'] ?? false;
+    final hasShower = data['hasShower'] ?? false;
+    final hasGallery = data['hasGallery'] ?? false;
+    final station = (data['station'] ?? '').toString();
+    final openTime = (data['openTime'] ?? '').toString();
+    final closeTime = (data['closeTime'] ?? '').toString();
+    final fee = (data['fee'] ?? '').toString();
+    final eatArea = (data['eatArea'] ?? '').toString();
+    final equipments = data['equipments'] is List ? List<Map<String, dynamic>>.from(data['equipments']) : <Map<String, dynamic>>[];
+    final rating = (data['rating'] ?? 0).toDouble();
+    final reviewCount = data['reviewCount'] ?? 0;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, scrollCtrl) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  // 会場名
+                  Row(children: [
+                    Expanded(child: Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                    if (rating > 0) Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.star, size: 18, color: Colors.amber),
+                      Text(' ${rating.toStringAsFixed(1)} ($reviewCount)', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    ]),
+                  ]),
+                  const SizedBox(height: 12),
+
+                  // 住所
+                  _detailRow(Icons.location_on, address),
+                  if (phone.isNotEmpty) _detailRow(Icons.phone, phone),
+                  if (station.isNotEmpty) _detailRow(Icons.train, station),
+                  if (openTime.isNotEmpty || closeTime.isNotEmpty) _detailRow(Icons.access_time, '$openTime 〜 $closeTime'),
+                  if (fee.isNotEmpty) _detailRow(Icons.payments_outlined, fee),
+                  if (eatArea.isNotEmpty) _detailRow(Icons.restaurant, eatArea),
+
+                  const SizedBox(height: 16),
+
+                  // 施設情報
+                  const Text('施設情報', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 12, runSpacing: 8, children: [
+                    if (courts > 0) _detailChip(Icons.grid_view, '$courtsコート'),
+                    if (parking > 0) _detailChip(Icons.local_parking, '駐車場 $parking台'),
+                    if (toilets > 0) _detailChip(Icons.wc, 'トイレ $toilets箇所'),
+                    if (hasAC) _detailChip(Icons.ac_unit, '空調あり'),
+                    if (hasChangeRoom) _detailChip(Icons.checkroom, '更衣室あり'),
+                    if (hasShower) _detailChip(Icons.shower, 'シャワーあり'),
+                    if (hasGallery) _detailChip(Icons.visibility, '観覧席あり'),
+                  ]),
+
+                  // 貸出備品
+                  if (equipments.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text('貸出備品', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...equipments.map((eq) {
+                      final eqFee = eq['fee'] as int? ?? 0;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(children: [
+                          Icon(Icons.inventory_2_outlined, size: 16, color: AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('${eq['name']} × ${eq['qty']}個', style: const TextStyle(fontSize: 14))),
+                          Text(eqFee == 0 ? '無料' : '¥$eqFee', style: TextStyle(fontSize: 14, color: eqFee == 0 ? AppTheme.success : AppTheme.textPrimary)),
+                        ]),
+                      );
+                    }),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // 編集ボタン
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final result = await Navigator.push<bool>(context,
+                          MaterialPageRoute(builder: (_) => VenueRegisterScreen(existingVenue: data, venueId: docId)));
+                        if (result == true) setState(() {});
+                      },
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('この会場の情報を編集する'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 18, color: AppTheme.primaryColor),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 14, height: 1.4))),
+      ]),
+    );
+  }
+
+  Widget _detailChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 16, color: AppTheme.primaryColor),
+        const SizedBox(width: 6),
+        Text(text, style: const TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w500)),
+      ]),
+    );
+  }
+
   Widget _chip(IconData icon, String text) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(icon, size: 14, color: AppTheme.primaryColor),
       const SizedBox(width: 3),
       Text(text, style: const TextStyle(fontSize: 12)),
     ]);
-  }
-
-  Future<void> _importFromSheet() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('スプレッドシートから取り込み', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        content: const Text('Google Sheetsの会場データをアプリに反映します。\n既存の会場は更新、新しい会場は追加されます。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('取り込む'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('スプレッドシートからデータを取り込み中...')),
-    );
-
-    try {
-      final url = Uri.parse('https://us-central1-sofvo-19d84.cloudfunctions.net/importVenuesFromSheet');
-      final response = await http.post(url);
-      final data = jsonDecode(response.body);
-
-      if (!mounted) return;
-      if (data['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('取り込み完了: 新規 ${data['imported']}件, 更新 ${data['updated']}件')),
-        );
-        setState(() {});
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: ${data['error'] ?? '不明'}'), backgroundColor: AppTheme.error),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('通信エラー: $e'), backgroundColor: AppTheme.error),
-      );
-    }
   }
 }
 
