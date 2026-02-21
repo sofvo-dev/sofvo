@@ -524,6 +524,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
 
           // ── カテゴリ ──
           _buildSectionLabel('カテゴリ'),
+          const SizedBox(height: 4),
+          Text('ガジェットの種類を分類できます。一覧画面でフィルタリングに使えます',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: _showCategoryDialog,
@@ -555,19 +558,6 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── 楽天アフィリエイトURL ──
-          _buildSectionLabel('楽天アフィリエイトURL'),
-          const SizedBox(height: 4),
-          Text('楽天のアフィリエイトリンクを貼り付けてください',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _rakutenAffiliateCtrl,
-            decoration: _inputDecoration('https://...'),
-            keyboardType: TextInputType.url,
           ),
           const SizedBox(height: 16),
 
@@ -695,14 +685,25 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
   final _newCategoryCtrl = TextEditingController();
   bool _isAdding = false;
 
+  static const _presetCategories = [
+    'シューズ',
+    'ボール',
+    'ウェア',
+    'サポーター',
+    'バッグ',
+    'プロテクター',
+    'トレーニング用品',
+    'その他',
+  ];
+
   @override
   void dispose() {
     _newCategoryCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _addCategory() async {
-    final name = _newCategoryCtrl.text.trim();
+  Future<void> _addCategory([String? name]) async {
+    name = name ?? _newCategoryCtrl.text.trim();
     if (name.isEmpty) return;
 
     setState(() => _isAdding = true);
@@ -838,44 +839,80 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                       {'id': '__none__', 'name': 'カテゴリなし'},
                     ];
 
+                    final existingNames = <String>{'カテゴリなし'};
                     if (snapshot.hasData) {
                       for (final doc in snapshot.data!.docs) {
                         final data = doc.data() as Map<String, dynamic>;
-                        categories.add({'id': doc.id, 'name': data['name'] ?? ''});
+                        final name = data['name'] ?? '';
+                        categories.add({'id': doc.id, 'name': name});
+                        existingNames.add(name);
                       }
                     }
 
-                    return ListView.builder(
-                      controller: scrollCtrl,
-                      itemCount: categories.length,
-                      itemBuilder: (context, index) {
-                        final cat = categories[index];
-                        final name = cat['name'] as String;
-                        final isSelected = name == widget.selected;
-                        final isDefault = cat['id'] == '__none__';
+                    // まだ追加されていないプリセットカテゴリ
+                    final availablePresets = _presetCategories
+                        .where((p) => !existingNames.contains(p))
+                        .toList();
 
-                        return ListTile(
-                          leading: Icon(
-                            isDefault ? Icons.label_off_outlined : Icons.label_outlined,
-                            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                    return ListView(
+                      controller: scrollCtrl,
+                      children: [
+                        // プリセット候補チップ
+                        if (availablePresets.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                            child: Text('おすすめカテゴリ',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
                           ),
-                          title: Text(
-                            name,
-                            style: TextStyle(
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: availablePresets.map((preset) {
+                                return ActionChip(
+                                  avatar: const Icon(Icons.add, size: 16),
+                                  label: Text(preset, style: const TextStyle(fontSize: 13)),
+                                  onPressed: () => _addCategory(preset),
+                                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                                );
+                              }).toList(),
                             ),
                           ),
-                          trailing: isDefault
-                              ? null
-                              : IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.error),
-                                  onPressed: () => _deleteCategory(cat['id']),
-                                ),
-                          selected: isSelected,
-                          onTap: () => widget.onSelected(name),
-                        );
-                      },
+                          const SizedBox(height: 8),
+                          const Divider(),
+                        ],
+
+                        // 既存カテゴリ一覧
+                        ...categories.map((cat) {
+                          final name = cat['name'] as String;
+                          final isSelected = name == widget.selected;
+                          final isDefault = cat['id'] == '__none__';
+
+                          return ListTile(
+                            leading: Icon(
+                              isDefault ? Icons.label_off_outlined : Icons.label_outlined,
+                              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                            ),
+                            title: Text(
+                              name,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                              ),
+                            ),
+                            trailing: isDefault
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.error),
+                                    onPressed: () => _deleteCategory(cat['id']),
+                                  ),
+                            selected: isSelected,
+                            onTap: () => widget.onSelected(name),
+                          );
+                        }),
+                      ],
                     );
                   },
                 ),
