@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お問い合わせ - Sofvo</title>
+  <style>
+    :root { --primary: #1565C0; --primary-dark: #0D47A1; --text: #1A1A2E; --text-secondary: #6B7280; --bg: #F5F7FA; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; color: var(--text); line-height: 1.8; background: var(--bg); }
+    header { background: var(--primary); color: #fff; padding: 20px 24px; }
+    .header-inner { max-width: 800px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-size: 22px; font-weight: 800; color: #fff; text-decoration: none; }
+    .logo span { color: #FF6D00; }
+    header a.back { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 14px; }
+    main { max-width: 600px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; text-align: center; }
+    .subtitle { color: var(--text-secondary); font-size: 14px; text-align: center; margin-bottom: 32px; }
+    .form-card { background: #fff; border-radius: 16px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 10px;
+      font-size: 15px; font-family: inherit; background: var(--bg); transition: border 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+    textarea { resize: vertical; min-height: 140px; }
+    .submit-btn {
+      width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none;
+      border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background 0.2s;
+    }
+    .submit-btn:hover { background: var(--primary-dark); }
+    .note { margin-top: 16px; font-size: 12px; color: var(--text-secondary); text-align: center; }
+    .faq-link { text-align: center; margin-top: 24px; }
+    .faq-link a { color: var(--primary); font-size: 14px; font-weight: 600; }
+    footer { text-align: center; padding: 24px; font-size: 12px; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="index.html" class="logo">Sof<span>vo</span></a>
+      <a href="index.html" class="back">トップに戻る</a>
+    </div>
+  </header>
+
+  <main>
+    <h1>お問い合わせ</h1>
+    <p class="subtitle">ご質問やご要望がありましたら、お気軽にお問い合わせください。</p>
+
+    <div class="form-card">
+      <form id="contactForm" onsubmit="handleSubmit(event)">
+        <div class="form-group">
+          <label for="name">お名前</label>
+          <input type="text" id="name" name="name" required placeholder="山田 太郎">
+        </div>
+        <div class="form-group">
+          <label for="email">メールアドレス</label>
+          <input type="email" id="email" name="email" required placeholder="example@email.com">
+        </div>
+        <div class="form-group">
+          <label for="category">カテゴリ</label>
+          <select id="category" name="category" required>
+            <option value="">選択してください</option>
+            <option value="bug">不具合の報告</option>
+            <option value="feature">機能のリクエスト</option>
+            <option value="account">アカウントについて</option>
+            <option value="tournament">大会運営について</option>
+            <option value="privacy">個人情報について</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="message">お問い合わせ内容</label>
+          <textarea id="message" name="message" required placeholder="お問い合わせ内容をご記入ください"></textarea>
+        </div>
+        <button type="submit" class="submit-btn">送信する</button>
+      </form>
+      <p class="note">通常2〜3営業日以内にご返信いたします。</p>
+    </div>
+
+    <div class="faq-link">
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">お問い合わせの前に</p>
+      <a href="index.html#faq">よくある質問を確認する</a>
+    </div>
+  </main>
+
+  <footer>&copy; 2025 Sofvo. All rights reserved.</footer>
+
+  <script>
+    function handleSubmit(e) {
+      e.preventDefault();
+      // TODO: ここにフォーム送信処理を実装（Xserverのメール送信PHPなど）
+      // 現在はデモ表示のみ
+      const form = document.getElementById('contactForm');
+      form.innerHTML = '<div style="text-align:center;padding:40px 0;">' +
+        '<div style="font-size:48px;margin-bottom:16px;">&#9989;</div>' +
+        '<h3 style="font-size:20px;margin-bottom:8px;">送信完了しました</h3>' +
+        '<p style="color:#6B7280;font-size:14px;">お問い合わせありがとうございます。<br>内容を確認の上、ご返信いたします。</p>' +
+        '</div>';
+    }
+  </script>
+</body>
+</html>

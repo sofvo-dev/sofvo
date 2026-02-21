@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sofvo - ソフトバレーボール マッチングアプリ</title>
+  <meta name="description" content="Sofvoはソフトバレーボールの大会運営・チームマッチング・コミュニティをひとつにまとめたアプリです。">
+  <style>
+    :root {
+      --primary: #1565C0;
+      --primary-dark: #0D47A1;
+      --primary-light: #42A5F5;
+      --accent: #FF6D00;
+      --bg: #F5F7FA;
+      --text: #1A1A2E;
+      --text-secondary: #6B7280;
+      --white: #FFFFFF;
+      --success: #2E7D32;
+      --radius: 16px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      color: var(--text);
+      background: var(--white);
+      line-height: 1.7;
+    }
+
+    /* ── ヘッダー ── */
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      z-index: 100;
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--accent); }
+    nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      margin-left: 28px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--primary); }
+
+    /* ── ヒーロー ── */
+    .hero {
+      padding: 140px 24px 80px;
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary), var(--primary-light));
+      color: var(--white);
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 800;
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+    .hero p {
+      font-size: clamp(15px, 2vw, 18px);
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .hero-badges {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 24px;
+      padding: 8px 18px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* ── セクション共通 ── */
+    section { padding: 80px 24px; }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+    .section-title {
+      text-align: center;
+      font-size: clamp(24px, 4vw, 36px);
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .section-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+    .accent-line {
+      width: 48px;
+      height: 4px;
+      background: var(--primary);
+      border-radius: 2px;
+      margin: 0 auto 24px;
+    }
+
+    /* ── 機能カード ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      border: 1px solid rgba(0,0,0,0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+    }
+    .feature-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 16px;
+    }
+    .feature-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .feature-card ul {
+      list-style: none;
+      margin-top: 12px;
+    }
+    .feature-card ul li {
+      padding: 4px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .feature-card ul li::before {
+      content: '\2713';
+      color: var(--success);
+      font-weight: bold;
+      margin-right: 8px;
+    }
+
+    /* ── フローセクション ── */
+    .flow-section { background: var(--bg); }
+    .flow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .flow-step {
+      text-align: center;
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 32px 20px;
+      position: relative;
+    }
+    .flow-number {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--white);
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .flow-step h4 { font-size: 16px; margin-bottom: 8px; }
+    .flow-step p { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── 数字セクション ── */
+    .stats-section {
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+      color: var(--white);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 32px;
+      text-align: center;
+    }
+    .stat-item h3 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 800;
+    }
+    .stat-item p { opacity: 0.8; font-size: 14px; }
+
+    /* ── FAQ ── */
+    .faq-list { max-width: 700px; margin: 0 auto; }
+    .faq-item {
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 20px 0;
+    }
+    .faq-item summary {
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .faq-item summary::after {
+      content: '+';
+      font-size: 24px;
+      color: var(--primary);
+      transition: transform 0.2s;
+    }
+    .faq-item[open] summary::after {
+      transform: rotate(45deg);
+    }
+    .faq-item p {
+      margin-top: 12px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    /* ── CTA ── */
+    .cta-section {
+      text-align: center;
+      background: var(--bg);
+    }
+    .cta-section h2 {
+      font-size: clamp(24px, 4vw, 32px);
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+    .cta-section p {
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+    .cta-btn {
+      display: inline-block;
+      background: var(--primary);
+      color: var(--white);
+      padding: 16px 40px;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 16px;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .cta-btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    /* ── フッター ── */
+    footer {
+      background: var(--text);
+      color: rgba(255,255,255,0.6);
+      padding: 48px 24px 32px;
+    }
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 32px;
+    }
+    .footer-col h4 {
+      color: var(--white);
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .footer-col a {
+      display: block;
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 0;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover { color: var(--white); }
+    .footer-bottom {
+      max-width: 1100px;
+      margin: 32px auto 0;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    /* ── レスポンシブ ── */
+    @media (max-width: 768px) {
+      nav { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      section { padding: 60px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="header-inner">
+      <a href="#" class="logo">Sof<span>vo</span></a>
+      <nav>
+        <a href="#features">機能紹介</a>
+        <a href="#flow">使い方</a>
+        <a href="#faq">よくある質問</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシーポリシー</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ヒーロー -->
+  <section class="hero">
+    <h1>ソフトバレーの全てを<br>ひとつのアプリに。</h1>
+    <p>大会運営・チーム募集・コミュニティ。<br>Sofvoがソフトバレーボールをもっと楽しくします。</p>
+    <div class="hero-badges">
+      <span class="badge-pill">&#127941; 大会運営</span>
+      <span class="badge-pill">&#129309; チームマッチング</span>
+      <span class="badge-pill">&#128172; チャット</span>
+      <span class="badge-pill">&#127942; ランキング</span>
+    </div>
+  </section>
+
+  <!-- 機能紹介 -->
+  <section id="features">
+    <div class="section-inner">
+      <div class="accent-line"></div>
+      <h2 class="section-title">主な機能</h2>
+      <p class="section-subtitle">ソフトバレーに必要な全てが揃っています</p>
+
+      <div class="features-grid">
+        <!-- 大会管理 -->
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(21,101,192,0.1);">&#127941;</div>
+          <h3>大会の作成・運営</h3>
+          <p>数タップで大会を作成。エントリー管理からトーナメント表まで自動生成。</p>
+          <ul>
+            <li>リーグ戦 / トーナメント戦の自動組み合わせ</li>
+            <li>QRコードでの受付チェックイン</li>
+            <li>リアルタイムスコア入力・結果表示</li>
+            <li>大会結果のPDF出力</li>
+          </ul>
+        </div>
+
+        <!-- チームマッチング -->
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(255,109,0,0.1);">&#129309;</div>
+          <h3>メンバー募集・マッチング</h3>
+          <p>「メンバーが足りない」を解消。エリア・レベルで自動マッチング。</p>
+          <ul>
+            <li>エリア・競技歴でフィルタリング</li>
+            <li>募集条件に合うメンバーを自動提案</li>
+            <li>ブックマーク・通知で見逃さない</li>
+          </ul>
+        </div>
+
+        <!-- チャット -->
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(46,125,50,0.1);">&#128172;</div>
+          <h3>チャット</h3>
+          <p>チームメイトやメンバーとリアルタイムでコミュニケーション。</p>
+          <ul>
+            <li>1対1 DM / グループチャット</li>
+            <li>画像・ファイル送信対応</li>
+            <li>グループアルバム機能</li>
+            <li>既読表示・通知ミュート</li>
+          </ul>
+        </div>
+
+        <!-- コミュニティ -->
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(156,39,176,0.1);">&#128227;</div>
+          <h3>コミュニティ・SNS</h3>
+          <p>大会の感想やチーム活動をシェア。仲間とつながろう。</p>
+          <ul>
+            <li>テキスト・画像投稿</li>
+            <li>いいね・コメント</li>
+            <li>フォロー / フォロワー機能</li>
+            <li>ユーザー検索・QRコード交換</li>
+          </ul>
+        </div>
+
+        <!-- ガジェット -->
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(0,188,212,0.1);">&#127992;</div>
+          <h3>マイガジェット</h3>
+          <p>愛用のシューズやボール、ウェアを登録して共有。</p>
+          <ul>
+            <li>写真付きでギア登録</li>
+            <li>Amazon / 楽天リンク連携</li>
+            <li>他のプレイヤーのギアをチェック</li>
+          </ul>
+        </div>
+
+        <!-- バッジ・ランキング -->
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(255,193,7,0.1);">&#127942;</div>
+          <h3>バッジ・ランキング</h3>
+          <p>大会参加や優勝でバッジを獲得。全国ランキングに挑戦。</p>
+          <ul>
+            <li>14種類の達成バッジ</li>
+            <li>通算ポイント / 大会参加 / 優勝ランキング</li>
+            <li>対戦ヒストリー・戦績管理</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 使い方フロー -->
+  <section id="flow" class="flow-section">
+    <div class="section-inner">
+      <div class="accent-line"></div>
+      <h2 class="section-title">かんたん3ステップ</h2>
+      <p class="section-subtitle">すぐに始められます</p>
+
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-number">1</div>
+          <h4>アカウント登録</h4>
+          <p>メールアドレスまたはGoogle / Appleアカウントで簡単登録。プロフィールを設定しましょう。</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-number">2</div>
+          <h4>大会をさがす or 作る</h4>
+          <p>近くの大会を検索して参加、または自分で大会を作成して仲間を集めましょう。</p>
+        </div>
+        <div class="flow-step">
+          <div class="flow-number">3</div>
+          <h4>プレイ & つながる</h4>
+          <p>スコアを記録して戦績を積み上げ。チャットやSNS機能で仲間の輪を広げましょう。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 数字セクション -->
+  <section class="stats-section">
+    <div class="section-inner">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <h3>6+</h3>
+          <p>主要機能</p>
+        </div>
+        <div class="stat-item">
+          <h3>14</h3>
+          <p>獲得バッジ種類</p>
+        </div>
+        <div class="stat-item">
+          <h3>3</h3>
+          <p>ランキングカテゴリ</p>
+        </div>
+        <div class="stat-item">
+          <h3>&#x221E;</h3>
+          <p>つながる可能性</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="section-inner">
+      <div class="accent-line"></div>
+      <h2 class="section-title">よくある質問</h2>
+      <p class="section-subtitle">気になるポイントをまとめました</p>
+
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary>無料で使えますか？</summary>
+          <p>はい、基本機能はすべて無料でご利用いただけます。大会の作成・参加・チャット・コミュニティ機能は無料プランで利用可能です。</p>
+        </details>
+        <details class="faq-item">
+          <summary>ソフトバレーボール以外でも使えますか？</summary>
+          <p>現在はソフトバレーボールに特化した設計ですが、リーグ戦やトーナメント戦の仕組みは他のスポーツにも応用可能です。今後の対応をご期待ください。</p>
+        </details>
+        <details class="faq-item">
+          <summary>大会は何チームまで登録できますか？</summary>
+          <p>制限はありません。小規模な練習試合から大規模な大会まで対応しています。自動組み合わせ機能がコート数やチーム数に応じて最適な対戦表を生成します。</p>
+        </details>
+        <details class="faq-item">
+          <summary>個人情報の取り扱いは？</summary>
+          <p>Firebase（Google Cloud）のセキュアなインフラを使用しており、データは暗号化して保管されます。詳細は<a href="privacy.html" style="color:var(--primary);">プライバシーポリシー</a>をご確認ください。</p>
+        </details>
+        <details class="faq-item">
+          <summary>対応している端末は？</summary>
+          <p>iOS / Android / Webブラウザに対応しています。スマートフォン、タブレット、PCからご利用いただけます。</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2>ソフトバレーを、もっと楽しく。</h2>
+    <p>Sofvoで大会運営もチーム探しもスマートに。</p>
+    <!-- <a href="#" class="cta-btn">App Storeでダウンロード</a> -->
+    <p style="color: var(--text-secondary); font-size: 14px;">アプリは近日リリース予定です</p>
+  </section>
+
+  <!-- フッター -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-col">
+        <h4>Sofvo</h4>
+        <p style="font-size: 13px;">ソフトバレーボールの大会運営・チームマッチング・コミュニティアプリ</p>
+      </div>
+      <div class="footer-col">
+        <h4>サービス</h4>
+        <a href="#features">機能紹介</a>
+        <a href="#flow">使い方</a>
+        <a href="#faq">よくある質問</a>
+      </div>
+      <div class="footer-col">
+        <h4>法的情報</h4>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシーポリシー</a>
+      </div>
+      <div class="footer-col">
+        <h4>お問い合わせ</h4>
+        <a href="contact.html">お問い合わせフォーム</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      &copy; 2025 Sofvo. All rights reserved.
+    </div>
+  </footer>
+
+</body>
+</html>
