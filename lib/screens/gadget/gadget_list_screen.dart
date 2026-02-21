@@ -391,45 +391,99 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
 
   // ── スプレッドシート表示 ──
   Widget _buildSpreadsheetView(List<Map<String, dynamic>> gadgets) {
+    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
         child: DataTable(
-          headingRowColor: WidgetStateProperty.all(AppTheme.primaryColor.withValues(alpha: 0.08)),
-          columnSpacing: 16,
+          headingRowColor: WidgetStateProperty.all(AppTheme.primaryColor.withValues(alpha: 0.06)),
+          columnSpacing: 12,
+          dataRowMinHeight: 52,
+          dataRowMaxHeight: 56,
           columns: const [
-            DataColumn(label: Text('画像', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            DataColumn(label: Text('商品名', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            DataColumn(label: Text('カテゴリ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            DataColumn(label: Text('メモ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            DataColumn(label: Text('操作', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+            DataColumn(label: Text('画像', style: headerStyle)),
+            DataColumn(label: Text('商品名', style: headerStyle)),
+            DataColumn(label: Text('カテゴリ', style: headerStyle)),
+            DataColumn(label: Text('メモ', style: headerStyle)),
+            DataColumn(label: Text('Amazon', style: headerStyle)),
+            DataColumn(label: Text('楽天', style: headerStyle)),
+            DataColumn(label: Text('操作', style: headerStyle)),
           ],
           rows: gadgets.map((g) {
             final imageUrl = g['imageUrl'] ?? '';
+            final amazonUrl = (g['amazonAffiliateUrl'] ?? g['amazonUrl'] ?? '') as String;
+            final rakutenUrl = (g['rakutenAffiliateUrl'] ?? '') as String;
             return DataRow(cells: [
               DataCell(
                 imageUrl.isNotEmpty
                     ? SizedBox(
                         width: 40,
                         height: 40,
-                        child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
+                        ),
                       )
-                    : const Icon(Icons.image_not_supported, size: 24, color: AppTheme.textHint),
+                    : const Icon(Icons.image_not_supported, size: 22, color: AppTheme.textHint),
               ),
               DataCell(
                 SizedBox(
-                  width: 200,
+                  width: 180,
                   child: Text(g['name'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13)),
-                ),
-              ),
-              DataCell(Text(g['category'] ?? 'カテゴリなし', style: const TextStyle(fontSize: 13))),
-              DataCell(
-                SizedBox(
-                  width: 150,
-                  child: Text(g['memo'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12)),
                 ),
+              ),
+              DataCell(Text(g['category'] ?? 'カテゴリなし', style: const TextStyle(fontSize: 12))),
+              DataCell(
+                SizedBox(
+                  width: 120,
+                  child: Text(g['memo'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                ),
+              ),
+              DataCell(
+                amazonUrl.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(amazonUrl), mode: LaunchMode.externalApplication),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9900).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.open_in_new, size: 13, color: Color(0xFFFF9900)),
+                              SizedBox(width: 4),
+                              Text('開く', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
+              ),
+              DataCell(
+                rakutenUrl.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(rakutenUrl), mode: LaunchMode.externalApplication),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBF0000).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.open_in_new, size: 13, color: Color(0xFFBF0000)),
+                              SizedBox(width: 4),
+                              Text('開く', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
               ),
               DataCell(Row(
                 mainAxisSize: MainAxisSize.min,
@@ -437,10 +491,14 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
                     onPressed: () => _editGadget(g),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
                     onPressed: () => _deleteGadget(g),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
                 ],
               )),
