@@ -19,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _matchNotification = true;
   bool _tournamentNotification = true;
   bool _followNotification = true;
+  String _searchId = '';
 
   @override
   void initState() {
@@ -35,15 +36,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         .doc(uid)
         .get();
     if (doc.exists) {
+      final data = doc.data();
       final settings =
-          doc.data()?['notificationSettings'] as Map<String, dynamic>?;
-      if (settings != null && mounted) {
+          data?['notificationSettings'] as Map<String, dynamic>?;
+      if (mounted) {
         setState(() {
-          _pushNotification = settings['push'] ?? true;
-          _emailNotification = settings['email'] ?? false;
-          _tournamentNotification = settings['tournament'] ?? true;
-          _followNotification = settings['follow'] ?? true;
-          _matchNotification = settings['match'] ?? true;
+          _searchId = (data?['searchId'] as String?) ?? '';
+          if (settings != null) {
+            _pushNotification = settings['push'] ?? true;
+            _emailNotification = settings['email'] ?? false;
+            _tournamentNotification = settings['tournament'] ?? true;
+            _followNotification = settings['follow'] ?? true;
+            _matchNotification = settings['match'] ?? true;
+          }
         });
       }
     }
@@ -96,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildInfoTile(
                   Icons.badge_outlined,
                   'ユーザーID',
-                  user?.uid.substring(0, 12) ?? '---',
+                  _searchId.isNotEmpty ? '@$_searchId' : '未設定',
                 ),
                 _buildDivider(),
                 ListTile(
