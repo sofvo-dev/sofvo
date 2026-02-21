@@ -16,16 +16,17 @@ class GadgetRegisterScreen extends StatefulWidget {
 
 class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   final _nameCtrl = TextEditingController();
-  final _amazonUrlCtrl = TextEditingController();
-  final _rakutenUrlCtrl = TextEditingController();
-  final _imageUrlCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
+
+  // 内部管理用（ユーザーには非表示）
+  String _amazonUrl = '';
+  String _rakutenUrl = '';
+  String _imageUrl = '';
 
   String _selectedCategory = 'カテゴリなし';
   bool _isSaving = false;
   bool _isSearching = false;
-  bool _isFetchingUrl = false;
   List<AmazonProduct> _searchResults = [];
   String? _editingId;
 
@@ -36,9 +37,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       final g = widget.existingGadget!;
       _editingId = g['id'];
       _nameCtrl.text = g['name'] ?? '';
-      _amazonUrlCtrl.text = g['amazonUrl'] ?? '';
-      _rakutenUrlCtrl.text = g['rakutenUrl'] ?? '';
-      _imageUrlCtrl.text = g['imageUrl'] ?? '';
+      _amazonUrl = g['amazonUrl'] ?? '';
+      _rakutenUrl = g['rakutenUrl'] ?? '';
+      _imageUrl = g['imageUrl'] ?? '';
       _memoCtrl.text = g['memo'] ?? '';
       _selectedCategory = g['category'] ?? 'カテゴリなし';
     }
@@ -47,9 +48,6 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _amazonUrlCtrl.dispose();
-    _rakutenUrlCtrl.dispose();
-    _imageUrlCtrl.dispose();
     _memoCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -58,16 +56,15 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   bool _showEmptyHint = false;
 
   Future<void> _searchAmazon() async {
-    if (_searchCtrl.text.trim().isEmpty) return;
+    final keyword = _searchCtrl.text.trim();
+    if (keyword.isEmpty) return;
     setState(() {
       _isSearching = true;
       _searchResults = [];
       _showEmptyHint = false;
     });
     try {
-      final results = await AmazonSearchService.searchProducts(
-        _searchCtrl.text.trim(),
-      );
+      final results = await AmazonSearchService.searchProducts(keyword);
       setState(() {
         _searchResults = results;
         _showEmptyHint = results.isEmpty;
@@ -77,7 +74,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('検索に失敗しました'),
+            content: Text('検索に失敗しました。キーワードを変えてお試しください。'),
             backgroundColor: AppTheme.error,
           ),
         );
@@ -100,8 +97,8 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   void _selectProduct(AmazonProduct product) {
     setState(() {
       _nameCtrl.text = product.title;
-      _imageUrlCtrl.text = product.imageUrl;
-      _amazonUrlCtrl.text = product.detailPageUrl;
+      _imageUrl = product.imageUrl;
+      _amazonUrl = product.detailPageUrl;
       _searchResults = [];
       _searchCtrl.clear();
     });
@@ -112,62 +109,6 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
         duration: Duration(seconds: 2),
       ),
     );
-  }
-
-  Future<void> _fetchFromAmazonUrl() async {
-    final url = _amazonUrlCtrl.text.trim();
-    if (url.isEmpty) return;
-
-    if (!url.contains('amazon')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Amazon URLを入力してください'),
-          backgroundColor: AppTheme.warning,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isFetchingUrl = true);
-    try {
-      final product = await AmazonSearchService.fetchProductByUrl(url);
-      if (product != null) {
-        setState(() {
-          if (product.title.isNotEmpty) _nameCtrl.text = product.title;
-          if (product.imageUrl.isNotEmpty) _imageUrlCtrl.text = product.imageUrl;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(product.title.isNotEmpty
-                  ? '商品情報を取得しました'
-                  : '画像URLを取得しました（商品名は手動入力してください）'),
-              backgroundColor: AppTheme.success,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('商品情報を取得できませんでした'),
-              backgroundColor: AppTheme.warning,
-            ),
-          );
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('取得に失敗しました'),
-            backgroundColor: AppTheme.error,
-          ),
-        );
-      }
-    } finally {
-      setState(() => _isFetchingUrl = false);
-    }
   }
 
   Future<void> _save() async {
@@ -185,9 +126,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
 
       final gadgetData = {
         'name': _nameCtrl.text.trim(),
-        'amazonUrl': _amazonUrlCtrl.text.trim(),
-        'rakutenUrl': _rakutenUrlCtrl.text.trim(),
-        'imageUrl': _imageUrlCtrl.text.trim(),
+        'amazonUrl': _amazonUrl,
+        'rakutenUrl': _rakutenUrl,
+        'imageUrl': _imageUrl,
         'memo': _memoCtrl.text.trim(),
         'category': _selectedCategory,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -272,7 +213,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // ── Amazon検索 ──
-          _buildSectionLabel('Amazon商品検索'),
+          _buildSectionLabel('商品を検索'),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(16),
@@ -292,6 +233,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                   ],
                 ),
+                const SizedBox(height: 4),
+                Text('商品名やブランド名で検索できます',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -299,7 +243,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                       child: TextField(
                         controller: _searchCtrl,
                         decoration: InputDecoration(
-                          hintText: '商品名を入力...',
+                          hintText: '例: ミカサ バレーボール',
                           hintStyle: const TextStyle(color: AppTheme.textHint, fontSize: 14),
                           filled: true,
                           fillColor: Colors.white,
@@ -317,6 +261,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                             borderSide: const BorderSide(color: Color(0xFFFF9900), width: 2),
                           ),
                         ),
+                        textInputAction: TextInputAction.search,
                         onSubmitted: (_) => _searchAmazon(),
                       ),
                     ),
@@ -348,7 +293,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                   const Divider(),
                   const SizedBox(height: 8),
                   const Text(
-                    '商品が見つかりませんでした',
+                    '商品が見つかりませんでした。\n別のキーワードで検索するか、商品名を直接入力してください。',
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 8),
@@ -358,8 +303,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _openAmazonSearch,
                           icon: const Icon(Icons.open_in_new, size: 16),
-                          label: const Text('Amazonで検索して\nURLを貼り付け',
-                              textAlign: TextAlign.center,
+                          label: const Text('Amazonで直接検索',
                               style: TextStyle(fontSize: 12)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFFF9900),
@@ -379,7 +323,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
           const SizedBox(height: 16),
 
           // ── プレビュー（画像がある場合） ──
-          if (_imageUrlCtrl.text.isNotEmpty) ...[
+          if (_imageUrl.isNotEmpty) ...[
             Center(
               child: Container(
                 width: 120,
@@ -392,7 +336,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(11),
                   child: CachedNetworkImage(
-                    imageUrl: _imageUrlCtrl.text,
+                    imageUrl: _imageUrl,
                     fit: BoxFit.contain,
                     placeholder: (_, __) => const Center(
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
@@ -407,6 +351,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
 
           // ── 商品名 ──
           _buildSectionLabel('商品名 *'),
+          const SizedBox(height: 4),
+          Text('検索から自動入力されますが、手動で変更もできます',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
           TextField(
             controller: _nameCtrl,
@@ -452,67 +399,6 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── Amazon URL ──
-          _buildSectionLabel('Amazon URL（アフィリエイト）'),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _amazonUrlCtrl,
-                  decoration: _inputDecoration('https://www.amazon.co.jp/...'),
-                  maxLines: 1,
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: _isFetchingUrl ? null : _fetchFromAmazonUrl,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(56, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    side: const BorderSide(color: Color(0xFFFF9900)),
-                    foregroundColor: const Color(0xFFFF9900),
-                  ),
-                  child: _isFetchingUrl
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9900)))
-                      : const Text('取得', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text('URLを貼り付けて「取得」で画像・商品名を自動入力',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          const SizedBox(height: 16),
-
-          // ── 楽天 URL ──
-          _buildSectionLabel('楽天 URL（アフィリエイト）'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _rakutenUrlCtrl,
-            decoration: _inputDecoration('https://item.rakuten.co.jp/...'),
-            maxLines: 1,
-          ),
-          const SizedBox(height: 4),
-          Text('スプレッドシートで一括管理も可能です',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          const SizedBox(height: 16),
-
-          // ── 画像URL ──
-          _buildSectionLabel('画像URL'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _imageUrlCtrl,
-            decoration: _inputDecoration('https://...'),
-            maxLines: 1,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 16),
-
           // ── メモ ──
           _buildSectionLabel('メモ'),
           const SizedBox(height: 8),
@@ -520,7 +406,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
             controller: _memoCtrl,
             maxLines: 3,
             maxLength: 500,
-            decoration: _inputDecoration('メモを入力').copyWith(alignLabelWithHint: true),
+            decoration: _inputDecoration('使用感や気に入っているポイントなど').copyWith(alignLabelWithHint: true),
           ),
           const SizedBox(height: 24),
 

@@ -4,24 +4,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
-import '../../config/affiliate_config.dart';
-import '../../services/notification_service.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
-import '../notification/notification_screen.dart';
 import '../tournament/venue_search_screen.dart';
 import '../tournament/tournament_management_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
 import '../gadget/gadget_list_screen.dart';
-import 'my_posts_screen.dart';
 import 'tournament_history_screen.dart';
 import 'match_history_screen.dart';
-import 'bookmarks_screen.dart';
-import 'badge_collection_screen.dart';
 import 'ranking_screen.dart';
 import 'template_management_screen.dart';
 
@@ -108,23 +101,6 @@ class MyPageScreen extends StatelessWidget {
                               const Text('マイページ',
                                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                               const Spacer(),
-                              StreamBuilder<int>(
-                                stream: NotificationService.unreadCountStream(user.uid),
-                                builder: (context, notifSnap) {
-                                  final unread = notifSnap.data ?? 0;
-                                  return IconButton(
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(8),
-                                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
-                                    icon: Badge(
-                                      isLabelVisible: unread > 0,
-                                      label: Text('$unread', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                      backgroundColor: AppTheme.error,
-                                      child: const Icon(Icons.notifications_outlined, size: 20, color: Colors.white),
-                                    ),
-                                  );
-                                },
-                              ),
                               IconButton(
                                 constraints: const BoxConstraints(),
                                 padding: const EdgeInsets.all(8),
@@ -341,9 +317,6 @@ class MyPageScreen extends StatelessWidget {
                         _MenuItemData(Icons.people_outline_rounded, '対戦ヒストリー', () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const MatchHistoryScreen()));
                         }),
-                        _MenuItemData(Icons.article_outlined, '自分の投稿', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const MyPostsScreen()));
-                        }),
                       ]),
                     ),
                     const SizedBox(height: 20),
@@ -357,12 +330,6 @@ class MyPageScreen extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _buildMenuGroup([
-                        _MenuItemData(Icons.bookmark_outline_rounded, 'ブックマーク', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const BookmarksScreen()));
-                        }),
-                        _MenuItemData(Icons.workspace_premium_outlined, 'バッジコレクション', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const BadgeCollectionScreen()));
-                        }),
                         _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingScreen()));
                         }),
@@ -749,24 +716,23 @@ class _GadgetCardsRow extends StatelessWidget {
               final name = (d['name'] ?? '') as String;
               final category = (d['category'] ?? '') as String;
               final imageUrl = (d['imageUrl'] ?? '') as String;
-              final amazonUrl = (d['amazonUrl'] ?? '').toString();
-              final rakutenUrl = (d['rakutenUrl'] ?? '').toString();
+              final memo = (d['memo'] ?? '') as String;
 
-              return Container(
-                width: 140,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[200]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── 画像エリア ──
-                    GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const GadgetListScreen())),
-                      child: ClipRRect(
+              return GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const GadgetListScreen())),
+                child: Container(
+                  width: 140,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── 画像エリア ──
+                      ClipRRect(
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                         child: SizedBox(
                           height: 72,
@@ -790,75 +756,29 @@ class _GadgetCardsRow extends StatelessWidget {
                                 ),
                         ),
                       ),
-                    ),
-                    // ── テキスト ──
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(6, 5, 6, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                          if (category.isNotEmpty && category != 'カテゴリなし') ...[
-                            const SizedBox(height: 1),
-                            Text(category, style: const TextStyle(fontSize: 9, color: AppTheme.textSecondary),
+                      // ── テキスト ──
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
+                            if (category.isNotEmpty && category != 'カテゴリなし') ...[
+                              const SizedBox(height: 2),
+                              Text(category, style: const TextStyle(fontSize: 9, color: AppTheme.textSecondary),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
+                            if (memo.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(memo, style: const TextStyle(fontSize: 9, color: AppTheme.textSecondary),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    // ── Amazon / 楽天 ミニボタン ──
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 5),
-                      child: Row(
-                        children: [
-                          if (amazonUrl.isNotEmpty)
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () async {
-                                  final url = AffiliateConfig.buildAmazonAffiliateUrl(amazonUrl);
-                                  final uri = Uri.tryParse(url);
-                                  if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFF9900).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Center(
-                                    child: Text('Amazon', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (amazonUrl.isNotEmpty && rakutenUrl.isNotEmpty)
-                            const SizedBox(width: 3),
-                          if (rakutenUrl.isNotEmpty)
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () async {
-                                  final url = AffiliateConfig.buildRakutenAffiliateUrl(rakutenUrl);
-                                  final uri = Uri.tryParse(url);
-                                  if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFBF0000).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Center(
-                                    child: Text('楽天', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -1017,6 +937,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late TextEditingController _idCtrl;
   String _selectedExperience = '1年未満';
   String _selectedArea = '東京都';
+  String _selectedGender = '未設定';
+  DateTime? _birthDate;
+  bool _isIdLocked = false;
   bool _isSaving = false;
   bool _isUploadingAvatar = false;
   String _avatarUrl = '';
@@ -1024,9 +947,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _picker = ImagePicker();
 
   final _experiences = ['1年未満', '1〜3年', '3〜5年', '5〜10年', '10年以上'];
+  final _genders = ['男性', '女性', 'その他', '未設定'];
   final _areas = [
-    '北海道', '東北', '東京都', '神奈川県', '千葉県', '埼玉県',
-    '関東（その他）', '中部', '関西', '中国', '四国', '九州', '沖縄',
+    '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+    '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+    '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+    '岐阜県', '静岡県', '愛知県', '三重県',
+    '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+    '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+    '徳島県', '香川県', '愛媛県', '高知県',
+    '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
   ];
 
   @override
@@ -1038,9 +968,24 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _idCtrl = TextEditingController(text: _str(d['searchId']));
     _avatarUrl = _str(d['avatarUrl']);
 
+    // ユーザーIDが設定済みなら変更不可
+    final existingId = _str(d['searchId']);
+    _isIdLocked = existingId.isNotEmpty;
+
     final rawExp = _str(d['experience']);
     _selectedExperience =
         _experiences.contains(rawExp) ? rawExp : '1年未満';
+
+    // 性別
+    final rawGender = _str(d['gender']);
+    _selectedGender = _genders.contains(rawGender) ? rawGender : '未設定';
+
+    // 生年月日
+    if (d['birthDate'] is Timestamp) {
+      _birthDate = (d['birthDate'] as Timestamp).toDate();
+    } else if (d['birthDate'] is String && (d['birthDate'] as String).isNotEmpty) {
+      _birthDate = DateTime.tryParse(d['birthDate']);
+    }
 
     final rawArea = d['area'];
     String areaStr = '';
@@ -1100,7 +1045,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       await ref.putData(bytes, metadata);
       final downloadUrl = await ref.getDownloadURL();
 
-      // Firestore にも avatarUrl を更新
       await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -1129,6 +1073,20 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(2000, 1, 1),
+      firstDate: DateTime(1940),
+      lastDate: now,
+      locale: const Locale('ja'),
+    );
+    if (picked != null) {
+      setState(() => _birthDate = picked);
     }
   }
 
@@ -1222,6 +1180,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ),
           ),
           const SizedBox(height: 24),
+
+          // ── ニックネーム ──
           _buildSectionLabel('ニックネーム'),
           const SizedBox(height: 8),
           TextField(
@@ -1231,14 +1191,26 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             decoration: _inputDecoration('ニックネームを入力'),
           ),
           const SizedBox(height: 8),
+
+          // ── ユーザーID（一度決めたら変更不可） ──
           _buildSectionLabel('ユーザーID'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          if (_isIdLocked)
+            Text('一度設定したユーザーIDは変更できません',
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+          const SizedBox(height: 4),
           TextField(
             controller: _idCtrl,
             maxLength: 20,
-            decoration: _inputDecoration('@から始まるID'),
+            enabled: !_isIdLocked,
+            decoration: _inputDecoration('@から始まるID').copyWith(
+              fillColor: _isIdLocked ? Colors.grey[100] : Colors.white,
+              prefixIcon: _isIdLocked ? const Icon(Icons.lock_outline, size: 18) : null,
+            ),
           ),
           const SizedBox(height: 8),
+
+          // ── 競技歴 ──
           _buildSectionLabel('競技歴'),
           const SizedBox(height: 8),
           Wrap(
@@ -1265,7 +1237,37 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             }).toList(),
           ),
           const SizedBox(height: 16),
-          _buildSectionLabel('エリア'),
+
+          // ── 性別 ──
+          _buildSectionLabel('性別'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _genders.map((g) {
+              final sel = _selectedGender == g;
+              return ChoiceChip(
+                label: Text(g),
+                selected: sel,
+                onSelected: (s) {
+                  if (s) setState(() => _selectedGender = g);
+                },
+                selectedColor:
+                    AppTheme.primaryColor.withValues(alpha: 0.15),
+                labelStyle: TextStyle(
+                  color: sel
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondary,
+                  fontWeight:
+                      sel ? FontWeight.bold : FontWeight.normal,
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
+          // ── エリア（都道府県） ──
+          _buildSectionLabel('エリア（都道府県）'),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1288,6 +1290,42 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ),
           ),
           const SizedBox(height: 16),
+
+          // ── 生年月日 ──
+          _buildSectionLabel('生年月日'),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _pickBirthDate,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 18,
+                      color: _birthDate != null ? AppTheme.primaryColor : AppTheme.textHint),
+                  const SizedBox(width: 12),
+                  Text(
+                    _birthDate != null
+                        ? '${_birthDate!.year}年${_birthDate!.month}月${_birthDate!.day}日'
+                        : '生年月日を選択',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: _birthDate != null ? AppTheme.textPrimary : AppTheme.textHint,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── 自己紹介 ──
           _buildSectionLabel('自己紹介'),
           const SizedBox(height: 8),
           TextField(
@@ -1343,21 +1381,56 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           const SnackBar(content: Text('ニックネームを入力してください')));
       return;
     }
+
+    // ユーザーID重複チェック（新規設定時のみ）
+    final newId = _idCtrl.text.trim();
+    if (!_isIdLocked && newId.isNotEmpty) {
+      final existing = await FirebaseFirestore.instance
+          .collection('users')
+          .where('searchId', isEqualTo: newId)
+          .get();
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final otherUsers = existing.docs.where((d) => d.id != uid);
+      if (otherUsers.isNotEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('このユーザーIDは既に使用されています'),
+              backgroundColor: AppTheme.error,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .update({
+        final updateData = <String, dynamic>{
           'nickname': _nicknameCtrl.text.trim(),
           'bio': _bioCtrl.text.trim(),
-          'searchId': _idCtrl.text.trim(),
           'experience': _selectedExperience,
           'area': _selectedArea,
           'avatarUrl': _avatarUrl,
-        });
+          'gender': _selectedGender,
+        };
+
+        // ユーザーIDは初回のみ設定可
+        if (!_isIdLocked) {
+          updateData['searchId'] = newId;
+        }
+
+        // 生年月日
+        if (_birthDate != null) {
+          updateData['birthDate'] = Timestamp.fromDate(_birthDate!);
+        }
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update(updateData);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

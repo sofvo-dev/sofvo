@@ -18,7 +18,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   String _selectedPrefecture = '';
   String _selectedExperience = '1年未満';
+  String _selectedGender = '未設定';
+  DateTime? _birthDate;
   bool _isLoading = false;
+
+  final List<String> _genders = ['男性', '女性', 'その他', '未設定'];
 
   final List<String> _prefectures = [
     '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
@@ -79,6 +83,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'avatarUrl': '',
         'area': _selectedPrefecture,
         'experience': _selectedExperience,
+        'gender': _selectedGender,
+        'birthDate': _birthDate != null ? Timestamp.fromDate(_birthDate!) : null,
+        'searchId': '',
         'totalPoints': 0,
         'seasonPoints': 0,
         'title': 'ビギナー',
@@ -252,6 +259,95 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     );
                   }).toList(),
+                ),
+                const SizedBox(height: 24),
+
+                // ── 性別 ──
+                const Text(
+                  '性別',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _genders.map((g) {
+                    final selected = _selectedGender == g;
+                    return ChoiceChip(
+                      label: Text(g),
+                      selected: selected,
+                      onSelected: (s) {
+                        if (s) setState(() => _selectedGender = g);
+                      },
+                      selectedColor:
+                          AppTheme.primaryColor.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: selected
+                            ? AppTheme.primaryColor
+                            : AppTheme.textPrimary,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+
+                // ── 生年月日 ──
+                const Text(
+                  '生年月日',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final now = DateTime.now();
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _birthDate ?? DateTime(2000, 1, 1),
+                      firstDate: DateTime(1940),
+                      lastDate: now,
+                      locale: const Locale('ja'),
+                    );
+                    if (picked != null) {
+                      setState(() => _birthDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 18,
+                            color: _birthDate != null ? AppTheme.primaryColor : AppTheme.textHint),
+                        const SizedBox(width: 12),
+                        Text(
+                          _birthDate != null
+                              ? '${_birthDate!.year}年${_birthDate!.month}月${_birthDate!.day}日'
+                              : '生年月日を選択（任意）',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: _birthDate != null ? AppTheme.textPrimary : AppTheme.textHint,
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
 

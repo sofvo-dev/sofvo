@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 
 class RecruitmentManagementScreen extends StatefulWidget {
@@ -11,67 +13,66 @@ class RecruitmentManagementScreen extends StatefulWidget {
 
 class _RecruitmentManagementScreenState
     extends State<RecruitmentManagementScreen> {
-  final List<Map<String, dynamic>> _recruitments = [
-    {
-      'title': '3/8 区民選手権 メンバー募集',
-      'tournament': '区民バレーボール選手権',
-      'team': 'サンダース',
-      'needed': 1,
-      'status': '募集中',
-      'deadline': '2025/03/01',
-      'message': 'あと1人足りません！一緒に出ましょう！',
-      'applicants': [
-        {'name': 'ゆうた', 'experience': '3〜5年', 'status': '承認待ち'},
-        {'name': 'あきら', 'experience': '10年以上', 'status': '承認待ち'},
-      ],
-    },
-    {
-      'title': '4/12 春の親善大会 助っ人募集',
-      'tournament': '春の親善バレーボール大会',
-      'team': 'サンダース',
-      'needed': 2,
-      'status': '募集中',
-      'deadline': '2025/04/05',
-      'message': '楽しくバレーしましょう！初心者大歓迎です。',
-      'applicants': [
-        {'name': 'けんた', 'experience': '1〜3年', 'status': '承認済'},
-        {'name': 'まさと', 'experience': '3〜5年', 'status': '承認待ち'},
-        {'name': 'そうた', 'experience': '1年未満', 'status': '拒否'},
-      ],
-    },
-    {
-      'title': '2/22 ミックスバレー メンバー募集',
-      'tournament': '初心者歓迎！ミックスバレー',
-      'team': 'フェニックス',
-      'needed': 1,
-      'status': '締切',
-      'deadline': '2025/02/15',
-      'message': '',
-      'applicants': [
-        {'name': 'りく', 'experience': '1年未満', 'status': '承認済'},
-      ],
-    },
-  ];
+  final _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
   Widget build(BuildContext context) {
+    final uid = _currentUser?.uid;
+    if (uid == null) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(title: const Text('メンバー募集管理')),
+        body: const Center(child: Text('ログインしてください')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('メンバー募集管理'),
       ),
-      body: _recruitments.isEmpty
-          ? _buildEmptyState()
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              children: [
-                ..._buildSection('募集中',
-                    _recruitments.where((r) => r['status'] == '募集中').toList()),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('recruitments')
+            .where('userId', isEqualTo: uid)
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+                child: CircularProgressIndicator(color: AppTheme.primaryColor));
+          }
+
+          if (snapshot.hasError) {
+            return _buildEmptyState();
+          }
+
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          final active = docs.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return data['status'] == '募集中';
+          }).toList();
+
+          final closed = docs.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            return data['status'] != '募集中';
+          }).toList();
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            children: [
+              ..._buildSection('募集中', active),
+              if (active.isNotEmpty && closed.isNotEmpty)
                 const SizedBox(height: 16),
-                ..._buildSection('締切・終了',
-                    _recruitments.where((r) => r['status'] != '募集中').toList()),
-              ],
-            ),
+              ..._buildSection('締切・終了', closed),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -99,7 +100,7 @@ class _RecruitmentManagementScreenState
   }
 
   List<Widget> _buildSection(
-      String title, List<Map<String, dynamic>> items) {
+      String title, List<QueryDocumentSnapshot> items) {
     if (items.isEmpty) return [];
     return [
       Row(
@@ -114,7 +115,7 @@ class _RecruitmentManagementScreenState
             padding:
                 const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha:0.1),
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text('${items.length}',
@@ -126,33 +127,34 @@ class _RecruitmentManagementScreenState
         ],
       ),
       const SizedBox(height: 10),
-      ...items.map((r) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildRecruitmentCard(r),
-          )),
+      ...items.map((doc) {
+        final r = doc.data() as Map<String, dynamic>;
+        r['docId'] = doc.id;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildRecruitmentCard(r),
+        );
+      }),
     ];
   }
 
   Widget _buildRecruitmentCard(Map<String, dynamic> r) {
-    final status = r['status'] as String;
+    final status = (r['status'] as String?) ?? '募集中';
     final isActive = status == '募集中';
     final statusColor = isActive ? AppTheme.success : AppTheme.textSecondary;
-    final applicants = r['applicants'] as List<Map<String, dynamic>>;
-    final approved =
-        applicants.where((a) => a['status'] == '承認済').length;
-    final pending =
-        applicants.where((a) => a['status'] == '承認待ち').length;
-    final needed = r['needed'] as int;
+    final needed = (r['needed'] as int?) ?? 0;
+    final approved = (r['approvedCount'] as int?) ?? 0;
+    final pending = (r['pendingCount'] as int?) ?? 0;
 
     return GestureDetector(
       onTap: () => _showRecruitmentDetail(r),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: pending > 0 && isActive
-                  ? AppTheme.accentColor.withValues(alpha:0.5)
+                  ? AppTheme.accentColor.withValues(alpha: 0.5)
                   : Colors.grey[200]!),
         ),
         child: Padding(
@@ -165,7 +167,7 @@ class _RecruitmentManagementScreenState
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: isActive
-                        ? AppTheme.accentColor.withValues(alpha:0.12)
+                        ? AppTheme.accentColor.withValues(alpha: 0.12)
                         : Colors.grey[100],
                     child: Icon(Icons.person_search,
                         color: isActive
@@ -178,14 +180,14 @@ class _RecruitmentManagementScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(r['title'] as String,
+                        Text((r['title'] as String?) ?? '',
                             style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.textPrimary),
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 4),
-                        Text(r['tournament'] as String,
+                        Text((r['tournament'] as String?) ?? '',
                             style: const TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textSecondary)),
@@ -197,9 +199,9 @@ class _RecruitmentManagementScreenState
               ),
               const SizedBox(height: 12),
               Row(children: [
-                _buildInfoChip(Icons.groups_outlined, r['team'] as String),
+                _buildInfoChip(Icons.groups_outlined, (r['team'] as String?) ?? ''),
                 const SizedBox(width: 12),
-                _buildInfoChip(Icons.people, '${r['needed']}人募集'),
+                _buildInfoChip(Icons.people, '$needed人募集'),
               ]),
               const SizedBox(height: 10),
               Row(
@@ -222,7 +224,7 @@ class _RecruitmentManagementScreenState
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: AppTheme.accentColor
-                                      .withValues(alpha:0.12),
+                                      .withValues(alpha: 0.12),
                                   borderRadius:
                                       BorderRadius.circular(8),
                                 ),
@@ -258,7 +260,7 @@ class _RecruitmentManagementScreenState
                           style: TextStyle(
                               fontSize: 10,
                               color: AppTheme.textSecondary)),
-                      Text(r['deadline'] as String,
+                      Text((r['deadline'] as String?) ?? '',
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -275,6 +277,9 @@ class _RecruitmentManagementScreenState
   }
 
   void _showRecruitmentDetail(Map<String, dynamic> r) {
+    final docId = r['docId'] as String?;
+    if (docId == null) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -283,245 +288,273 @@ class _RecruitmentManagementScreenState
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setSheetState) {
-          final applicants =
-              r['applicants'] as List<Map<String, dynamic>>;
-          final isActive = r['status'] == '募集中';
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          maxChildSize: 0.95,
+          builder: (_, scrollCtrl) {
+            return StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('recruitments')
+                  .doc(docId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                final isActive = data['status'] == '募集中';
 
-          return DraggableScrollableSheet(
-            expand: false,
-            initialChildSize: 0.75,
-            maxChildSize: 0.95,
-            builder: (_, scrollCtrl) {
-              return SingleChildScrollView(
-                controller: scrollCtrl,
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40, height: 4,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Text(r['title'] as String,
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      _buildTag(r['status'] as String,
-                          isActive ? AppTheme.success : AppTheme.textSecondary),
-                    ]),
-                    const SizedBox(height: 16),
-                    _buildDetailRow(Icons.emoji_events, '大会',
-                        r['tournament'] as String),
-                    _buildDetailRow(Icons.groups, 'チーム',
-                        r['team'] as String),
-                    _buildDetailRow(Icons.people, '募集人数',
-                        '${r['needed']}人'),
-                    _buildDetailRow(Icons.timer_outlined, '締切',
-                        r['deadline'] as String),
-                    if ((r['message'] as String).isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(r['message'] as String,
-                            style: const TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textPrimary,
-                                height: 1.5)),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        const Text('応募者',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                return SingleChildScrollView(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40, height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha:0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                          child: Text('${applicants.length}人',
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor)),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (applicants.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text('まだ応募はありません',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: AppTheme.textSecondary)),
-                      )
-                    else
-                      ...applicants.map((a) {
-                        final aStatus = a['status'] as String;
-                        Color aBadgeColor;
-                        switch (aStatus) {
-                          case '承認済':
-                            aBadgeColor = AppTheme.success;
-                            break;
-                          case '拒否':
-                            aBadgeColor = AppTheme.error;
-                            break;
-                          default:
-                            aBadgeColor = AppTheme.accentColor;
-                        }
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
+                      ),
+                      Text((data['title'] as String?) ?? '',
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        _buildTag((data['status'] as String?) ?? '',
+                            isActive ? AppTheme.success : AppTheme.textSecondary),
+                      ]),
+                      const SizedBox(height: 16),
+                      _buildDetailRow(Icons.emoji_events, '大会',
+                          (data['tournament'] as String?) ?? ''),
+                      _buildDetailRow(Icons.groups, 'チーム',
+                          (data['team'] as String?) ?? ''),
+                      _buildDetailRow(Icons.people, '募集人数',
+                          '${data['needed'] ?? 0}人'),
+                      _buildDetailRow(Icons.timer_outlined, '締切',
+                          (data['deadline'] as String?) ?? ''),
+                      if (((data['message'] as String?) ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: aStatus == '承認待ち' && isActive
-                                ? AppTheme.accentColor.withValues(alpha:0.04)
-                                : Colors.white,
+                            color: AppTheme.backgroundColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: aStatus == '承認待ち' && isActive
-                                    ? AppTheme.accentColor.withValues(alpha:0.3)
-                                    : Colors.grey[200]!),
                           ),
-                          child: Column(
+                          child: Text(data['message'] as String,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textPrimary,
+                                  height: 1.5)),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      // 応募者一覧（サブコレクション）
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('recruitments')
+                            .doc(docId)
+                            .collection('applicants')
+                            .orderBy('createdAt', descending: true)
+                            .snapshots(),
+                        builder: (context, appSnap) {
+                          final applicants = appSnap.data?.docs ?? [];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: AppTheme.primaryColor
-                                        .withValues(alpha:0.12),
-                                    child: Text(
-                                        (a['name'] as String)[0],
+                                  const Text('応募者',
+                                      style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text('${applicants.length}人',
                                         style: const TextStyle(
+                                            fontSize: 12,
                                             fontWeight: FontWeight.bold,
                                             color: AppTheme.primaryColor)),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(a['name'] as String,
-                                            style: const TextStyle(
-                                                fontSize: 15,
-                                                fontWeight:
-                                                    FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                            '競技歴 ${a['experience']}',
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme
-                                                    .textSecondary)),
-                                      ],
-                                    ),
-                                  ),
-                                  _buildTag(aStatus, aBadgeColor),
                                 ],
                               ),
-                              if (aStatus == '承認待ち' && isActive) ...[
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () {
-                                          setSheetState(() =>
-                                              a['status'] = '拒否');
-                                          setState(() {});
-                                        },
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppTheme.error,
-                                          side: BorderSide(
-                                              color: AppTheme.error
-                                                  .withValues(alpha:0.5)),
+                              const SizedBox(height: 12),
+                              if (applicants.isEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text('まだ応募はありません',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          color: AppTheme.textSecondary)),
+                                )
+                              else
+                                ...applicants.map((aDoc) {
+                                  final a = aDoc.data() as Map<String, dynamic>;
+                                  final aStatus = (a['status'] as String?) ?? '承認待ち';
+                                  Color aBadgeColor;
+                                  switch (aStatus) {
+                                    case '承認済':
+                                      aBadgeColor = AppTheme.success;
+                                      break;
+                                    case '拒否':
+                                      aBadgeColor = AppTheme.error;
+                                      break;
+                                    default:
+                                      aBadgeColor = AppTheme.accentColor;
+                                  }
+                                  final name = (a['name'] as String?) ?? 'ユーザー';
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: aStatus == '承認待ち' && isActive
+                                          ? AppTheme.accentColor.withValues(alpha: 0.04)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                          color: aStatus == '承認待ち' && isActive
+                                              ? AppTheme.accentColor.withValues(alpha: 0.3)
+                                              : Colors.grey[200]!),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 20,
+                                              backgroundColor: AppTheme.primaryColor
+                                                  .withValues(alpha: 0.12),
+                                              child: Text(
+                                                  name.isNotEmpty ? name[0] : '?',
+                                                  style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      color: AppTheme.primaryColor)),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(name,
+                                                      style: const TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight:
+                                                              FontWeight.bold)),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                      '競技歴 ${a['experience'] ?? ''}',
+                                                      style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: AppTheme
+                                                              .textSecondary)),
+                                                ],
+                                              ),
+                                            ),
+                                            _buildTag(aStatus, aBadgeColor),
+                                          ],
                                         ),
-                                        child: const Text('見送り'),
-                                      ),
+                                        if (aStatus == '承認待ち' && isActive) ...[
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: OutlinedButton(
+                                                  onPressed: () async {
+                                                    await aDoc.reference.update({'status': '拒否'});
+                                                  },
+                                                  style: OutlinedButton.styleFrom(
+                                                    foregroundColor: AppTheme.error,
+                                                    side: BorderSide(
+                                                        color: AppTheme.error
+                                                            .withValues(alpha: 0.5)),
+                                                  ),
+                                                  child: const Text('見送り'),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  onPressed: () async {
+                                                    await aDoc.reference.update({'status': '承認済'});
+                                                    if (context.mounted) {
+                                                      ScaffoldMessenger.of(context)
+                                                          .showSnackBar(SnackBar(
+                                                              content: Text(
+                                                                  '$nameさんを承認しました！'),
+                                                              backgroundColor:
+                                                                  AppTheme.success));
+                                                    }
+                                                  },
+                                                  child: const Text('承認する'),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: () {
-                                          setSheetState(() =>
-                                              a['status'] = '承認済');
-                                          setState(() {});
-                                          ScaffoldMessenger.of(
-                                                  this.context)
-                                              .showSnackBar(SnackBar(
-                                                  content: Text(
-                                                      '${a['name']}さんを承認しました！'),
-                                                  backgroundColor:
-                                                      AppTheme.success));
-                                        },
-                                        child: const Text('承認する'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                  );
+                                }),
                             ],
-                          ),
-                        );
-                      }),
-                    const SizedBox(height: 20),
-                    if (isActive)
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            setSheetState(() => r['status'] = '締切');
-                            setState(() {});
-                            ScaffoldMessenger.of(this.context)
-                                .showSnackBar(const SnackBar(
-                                    content: Text('募集を締め切りました'),
-                                    backgroundColor: AppTheme.success));
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.error,
-                            side: BorderSide(
-                                color: AppTheme.error.withValues(alpha:0.5)),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: const Text('募集を締め切る',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold)),
-                        ),
+                          );
+                        },
                       ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              );
-            },
-          );
-        });
+                      const SizedBox(height: 20),
+                      if (data['status'] == '募集中')
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              await FirebaseFirestore.instance
+                                  .collection('recruitments')
+                                  .doc(docId)
+                                  .update({'status': '締切'});
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(const SnackBar(
+                                        content: Text('募集を締め切りました'),
+                                        backgroundColor: AppTheme.success));
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.error,
+                              side: BorderSide(
+                                  color: AppTheme.error.withValues(alpha: 0.5)),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text('募集を締め切る',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
       },
     );
   }
@@ -555,7 +588,7 @@ class _RecruitmentManagementScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha:0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(text,

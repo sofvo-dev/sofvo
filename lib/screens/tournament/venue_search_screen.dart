@@ -43,6 +43,30 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
             ),
           ),
         ),
+        // 参加者への案内
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 18, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '会場情報は誰でも追加・編集できます。大会に参加して気づいたことがあれば更新してください！',
+                    style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection('venues').orderBy('name').snapshots(),
@@ -123,6 +147,24 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                 Text(' ${rating.toStringAsFixed(1)} ($reviewCount)',
                   style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ]),
+              const SizedBox(width: 8),
+              // 編集ボタン
+              GestureDetector(
+                onTap: () async {
+                  final result = await Navigator.push<bool>(context,
+                    MaterialPageRoute(builder: (_) => VenueRegisterScreen(
+                      existingVenue: data, venueId: docId)));
+                  if (result == true) setState(() {});
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.primaryColor),
+                ),
+              ),
             ]),
             const SizedBox(height: 6),
             Row(children: [
@@ -155,7 +197,9 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
 }
 
 class VenueRegisterScreen extends StatefulWidget {
-  const VenueRegisterScreen({super.key});
+  final Map<String, dynamic>? existingVenue;
+  final String? venueId;
+  const VenueRegisterScreen({super.key, this.existingVenue, this.venueId});
   @override
   State<VenueRegisterScreen> createState() => _VenueRegisterScreenState();
 }
@@ -177,13 +221,43 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
   bool _hasGallery = false;
   bool _hasAC = false;
 
-  // 貸出備品リスト
   final List<Map<String, dynamic>> _equipments = [];
   final _eqNameCtrl = TextEditingController();
   final _eqQtyCtrl = TextEditingController();
   final _eqFeeCtrl = TextEditingController(text: '0');
 
   bool _saving = false;
+  bool get _isEditing => widget.venueId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingVenue != null) {
+      final v = widget.existingVenue!;
+      _nameCtrl.text = (v['name'] as String?) ?? '';
+      _addressCtrl.text = (v['address'] as String?) ?? '';
+      _phoneCtrl.text = (v['phone'] as String?) ?? '';
+      _courtsCtrl.text = (v['courts'] ?? 0) > 0 ? '${v['courts']}' : '';
+      _parkingCtrl.text = (v['parking'] ?? 0) > 0 ? '${v['parking']}' : '';
+      _toiletsCtrl.text = (v['toilets'] ?? 0) > 0 ? '${v['toilets']}' : '';
+      _stationCtrl.text = (v['station'] as String?) ?? '';
+      _openTimeCtrl.text = (v['openTime'] as String?) ?? '8:00';
+      _closeTimeCtrl.text = (v['closeTime'] as String?) ?? '22:00';
+      _feeCtrl.text = (v['fee'] as String?) ?? '';
+      _eatAreaCtrl.text = (v['eatArea'] as String?) ?? '';
+      _hasChangeRoom = v['hasChangeRoom'] ?? false;
+      _hasShower = v['hasShower'] ?? false;
+      _hasGallery = v['hasGallery'] ?? false;
+      _hasAC = v['hasAC'] ?? false;
+      if (v['equipments'] is List) {
+        for (final eq in v['equipments']) {
+          if (eq is Map<String, dynamic>) {
+            _equipments.add(Map<String, dynamic>.from(eq));
+          }
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,12 +265,34 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('会場を登録', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(_isEditing ? '会場を編集' : '会場を登録',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (_isEditing)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.edit_note, size: 20, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '会場情報を更新します。実際に利用して気づいた情報を追加してください。',
+                      style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _section('基本情報', Icons.info_outline),
           const SizedBox(height: 12),
           _label('会場名 *'),
@@ -296,7 +392,8 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
             ),
             child: _saving
               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('会場を登録する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              : Text(_isEditing ? '会場を更新する' : '会場を登録する',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           )),
           const SizedBox(height: 20),
         ]),
@@ -308,7 +405,7 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
     setState(() => _saving = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
-      await FirebaseFirestore.instance.collection('venues').add({
+      final venueData = {
         'name': _nameCtrl.text.trim(),
         'address': _addressCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
@@ -325,15 +422,31 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
         'closeTime': _closeTimeCtrl.text.trim(),
         'fee': _feeCtrl.text.trim(),
         'equipments': _equipments,
-        'rating': 0,
-        'reviewCount': 0,
-        'registeredBy': user?.uid ?? '',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('会場を登録しました！'), backgroundColor: AppTheme.success));
-        Navigator.pop(context, true);
+        'updatedAt': FieldValue.serverTimestamp(),
+        'lastEditedBy': user?.uid ?? '',
+      };
+
+      if (_isEditing) {
+        await FirebaseFirestore.instance
+            .collection('venues')
+            .doc(widget.venueId)
+            .update(venueData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('会場情報を更新しました！'), backgroundColor: AppTheme.success));
+          Navigator.pop(context, true);
+        }
+      } else {
+        venueData['rating'] = 0;
+        venueData['reviewCount'] = 0;
+        venueData['registeredBy'] = user?.uid ?? '';
+        venueData['createdAt'] = FieldValue.serverTimestamp();
+        await FirebaseFirestore.instance.collection('venues').add(venueData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('会場を登録しました！'), backgroundColor: AppTheme.success));
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -349,7 +462,7 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha:0.08),
+        color: AppTheme.primaryColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10)),
       child: Row(children: [
         Icon(icon, size: 20, color: AppTheme.primaryColor),

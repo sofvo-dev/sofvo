@@ -1,7 +1,25 @@
 const functions = require("firebase-functions");
+const admin = require("firebase-admin");
 const crypto = require("crypto");
 const fetch = require("node-fetch");
 const cheerio = require("cheerio");
+const { google } = require("googleapis");
+
+admin.initializeApp();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Google Sheets 連携設定
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const GADGET_SHEET_ID = "1IITgU-IvD1xpIqig0MtnlMfQAsoGWcwtbcPLKkNwv60";
+const VENUE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk";
+
+async function getSheetsClient() {
+  const auth = new google.auth.GoogleAuth({
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+  const authClient = await auth.getClient();
+  return google.sheets({ version: "v4", auth: authClient });
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Amazon PA-API v5 共通ヘルパー
@@ -385,3 +403,191 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
     });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ガジェット → Google Sheets 同期
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const sheets = await getSheetsClient();
+
+    // 全ユーザーのガジェットを取得
+    const usersSnap = await admin.firestore().collection("users").get();
+    const allGadgets = [];
+
+    for (const userDoc of usersSnap.docs) {
+      const userData = userDoc.data();
+      const nickname = userData.nickname || "不明";
+      const gadgetsSnap = await userDoc.ref.collection("gadgets")
+        .orderBy("createdAt", "desc").get();
+
+      for (const gDoc of gadgetsSnap.docs) {
+        const g = gDoc.data();
+        allGadgets.push([
+          nickname,
+          g.name || "",
+          g.category || "カテゴリなし",
+          g.amazonUrl || "",
+          g.rakutenUrl || "",
+          g.imageUrl || "",
+          g.memo || "",
+          g.createdAt ? g.createdAt.toDate().toISOString().split("T")[0] : "",
+        ]);
+      }
+    }
+
+    // シートをクリアしてヘッダー＋データを書き込む
+    const sheetName = "ガジェット一覧";
+    try {
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: GADGET_SHEET_ID,
+        range: `${sheetName}!A:H`,
+      });
+    } catch (_) {
+      // シートがない場合は作成
+      try {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: GADGET_SHEET_ID,
+          requestBody: {
+            requests: [{ addSheet: { properties: { title: sheetName } } }],
+          },
+        });
+      } catch (_) { /* シートが既存の場合は無視 */ }
+    }
+
+    const values = [
+      ["ユーザー", "商品名", "カテゴリ", "Amazon URL", "楽天 URL", "画像URL", "メモ", "登録日"],
+      ...allGadgets,
+    ];
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: GADGET_SHEET_ID,
+      range: `${sheetName}!A1`,
+      valueInputOption: "RAW",
+      requestBody: { values },
+    });
+
+    res.json({ success: true, count: allGadgets.length });
+  } catch (e) {
+    console.error("Gadget sync error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 会場 → Google Sheets 同期
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const sheets = await getSheetsClient();
+
+    const venuesSnap = await admin.firestore().collection("venues")
+      .orderBy("name").get();
+
+    const venueRows = venuesSnap.docs.map((doc) => {
+      const v = doc.data();
+      return [
+        v.name || "",
+        v.address || "",
+        v.phone || "",
+        v.station || "",
+        v.courts || 0,
+        v.parking || 0,
+        v.toilets || 0,
+        v.hasChangeRoom ? "あり" : "なし",
+        v.hasShower ? "あり" : "なし",
+        v.hasGallery ? "あり" : "なし",
+        v.hasAC ? "あり" : "なし",
+        v.eatArea || "",
+        v.openTime || "",
+        v.closeTime || "",
+        v.fee || "",
+        (v.equipments || []).map((eq) => `${eq.name}(${eq.qty}個${eq.fee > 0 ? "/¥" + eq.fee : "/無料"})`).join(", "),
+        v.rating || 0,
+        v.reviewCount || 0,
+        v.createdAt ? v.createdAt.toDate().toISOString().split("T")[0] : "",
+      ];
+    });
+
+    const sheetName = "会場一覧";
+    try {
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: VENUE_SHEET_ID,
+        range: `${sheetName}!A:S`,
+      });
+    } catch (_) {
+      try {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: VENUE_SHEET_ID,
+          requestBody: {
+            requests: [{ addSheet: { properties: { title: sheetName } } }],
+          },
+        });
+      } catch (_) { /* シートが既存の場合は無視 */ }
+    }
+
+    const values = [
+      ["会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
+       "更衣室", "シャワー", "観覧席", "空調", "飲食エリア",
+       "開始時間", "終了時間", "料金", "貸出備品", "評価", "レビュー数", "登録日"],
+      ...venueRows,
+    ];
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: VENUE_SHEET_ID,
+      range: `${sheetName}!A1`,
+      valueInputOption: "RAW",
+      requestBody: { values },
+    });
+
+    res.json({ success: true, count: venueRows.length });
+  } catch (e) {
+    console.error("Venue sync error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Firestore トリガー: ガジェット変更時に自動同期
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.onGadgetWrite = functions.firestore
+  .document("users/{userId}/gadgets/{gadgetId}")
+  .onWrite(async () => {
+    try {
+      // 内部HTTPリクエストで同期処理を実行
+      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+      const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncGadgetsToSheet`;
+      await fetch(syncUrl, { method: "POST", timeout: 30000 });
+    } catch (e) {
+      console.warn("Auto gadget sync failed (non-critical):", e.message);
+    }
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Firestore トリガー: 会場変更時に自動同期
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.onVenueWrite = functions.firestore
+  .document("venues/{venueId}")
+  .onWrite(async () => {
+    try {
+      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+      const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncVenuesToSheet`;
+      await fetch(syncUrl, { method: "POST", timeout: 30000 });
+    } catch (e) {
+      console.warn("Auto venue sync failed (non-critical):", e.message);
+    }
+  });
