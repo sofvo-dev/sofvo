@@ -30,6 +30,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   List<String> _myTeamIds = [];
   final _postController = TextEditingController();
   bool _isBoardTeam = false; // false=大会掲示板, true=チーム掲示板
+  XFile? _selectedBoardImage;
   String _myEntryTeamId = "";
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
@@ -1406,7 +1407,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               const SizedBox(width: 4),
               IconButton(
                 icon: Icon(Icons.image, color: AppTheme.primaryColor, size: 24),
-                onPressed: () => _pickAndSendBoardImage(uid),
+                onPressed: () async {
+                  final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
+                  if (picked != null) setState(() => _selectedBoardImage = picked);
+                },
               ),
               const SizedBox(width: 4),
               Container(
@@ -1417,6 +1421,36 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ],
           ),
         ),
+        // 画像プレビュー
+        if (_selectedBoardImage != null)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Stack(
+              alignment: Alignment.topRight,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: FutureBuilder<Uint8List>(
+                    future: _selectedBoardImage!.readAsBytes(),
+                    builder: (ctx, snap) {
+                      if (!snap.hasData) return const SizedBox(height: 100);
+                      return Image.memory(snap.data!, height: 100, width: double.infinity, fit: BoxFit.cover);
+                    },
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => setState(() => _selectedBoardImage = null),
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    width: 24, height: 24,
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.close, color: Colors.white, size: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Divider(height: 1, color: Colors.grey[200]),
 
         // 投稿一覧
@@ -1583,35 +1617,65 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   Future<void> _submitTimelinePost(String uid) async {
     final text = _postController.text.trim();
-    if (text.isEmpty || _tournamentId.isEmpty) return;
+    final hasImage = _selectedBoardImage != null;
+    if (text.isEmpty && !hasImage) return;
+    if (_tournamentId.isEmpty) return;
 
-    final userDoc = await _firestore.collection('users').doc(uid).get();
-    final userData = userDoc.data() ?? {};
-    final nickname = userData['nickname'] ?? '匿名';
-    final avatar = userData['avatarUrl'] ?? '';
-
-    if (_isBoardTeam && _myEntryTeamId.isNotEmpty) {
-      // チーム掲示板に投稿
-      await _firestore.collection('tournaments').doc(_tournamentId)
-          .collection('team_board').doc(_myEntryTeamId).collection('posts').add({
-        'authorId': uid, 'authorName': nickname, 'authorAvatar': avatar,
-        'text': text, 'createdAt': FieldValue.serverTimestamp(),
-      });
-    } else {
-      // 大会掲示板に投稿
-      final tournamentDoc = await _firestore.collection('tournaments').doc(_tournamentId).get();
-      final tournamentData = tournamentDoc.data() ?? {};
-      final isOrganizer = tournamentData['organizerId'] == uid;
-
-      await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add({
-        'authorId': uid, 'authorName': nickname, 'authorAvatar': avatar,
-        'text': text, 'isOrganizer': isOrganizer, 'pinned': false,
-        'likesCount': 0, 'createdAt': FieldValue.serverTimestamp(),
-      });
+    // ローディング表示
+    if (hasImage && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      );
     }
 
-    _postController.clear();
-    FocusScope.of(context).unfocus();
+    try {
+      String imageUrl = '';
+      if (hasImage) {
+        final bytes = await _selectedBoardImage!.readAsBytes();
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_selectedBoardImage!.name}';
+        final ref = FirebaseStorage.instance
+            .ref().child('tournament_board').child(_tournamentId).child(fileName);
+        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+        imageUrl = await ref.getDownloadURL();
+      }
+
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final userData = userDoc.data() ?? {};
+      final nickname = userData['nickname'] ?? '匿名';
+      final avatar = userData['avatarUrl'] ?? '';
+
+      final postData = <String, dynamic>{
+        'authorId': uid, 'authorName': nickname, 'authorAvatar': avatar,
+        'text': text, 'createdAt': FieldValue.serverTimestamp(),
+      };
+      if (imageUrl.isNotEmpty) postData['imageUrl'] = imageUrl;
+
+      if (_isBoardTeam && _myEntryTeamId.isNotEmpty) {
+        await _firestore.collection('tournaments').doc(_tournamentId)
+            .collection('team_board').doc(_myEntryTeamId).collection('posts').add(postData);
+      } else {
+        final tournamentDoc = await _firestore.collection('tournaments').doc(_tournamentId).get();
+        final tournamentData = tournamentDoc.data() ?? {};
+        final isOrganizer = tournamentData['organizerId'] == uid;
+
+        postData.addAll({'isOrganizer': isOrganizer, 'pinned': false, 'likesCount': 0});
+        await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add(postData);
+      }
+
+      _postController.clear();
+      setState(() => _selectedBoardImage = null);
+      FocusScope.of(context).unfocus();
+      if (hasImage && mounted) Navigator.pop(context); // ローディング閉じる
+    } catch (e) {
+      if (hasImage && mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('投稿に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
   }
 
   // ── 掲示板に画像を投稿 ──
@@ -1783,11 +1847,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ),
                 itemCount: photos.length,
                 itemBuilder: (context, index) {
-                  final data = photos[index].data() as Map<String, dynamic>;
+                  final photoDoc = photos[index];
+                  final data = photoDoc.data() as Map<String, dynamic>;
                   final imageUrl = (data['imageUrl'] as String?) ?? '';
                   final uploaderName = (data['uploaderName'] as String?) ?? '';
+                  final uploadedBy = (data['uploadedBy'] as String?) ?? '';
                   return GestureDetector(
                     onTap: () => _showGalleryPhoto(imageUrl, uploaderName, data['createdAt'] as Timestamp?),
+                    onLongPress: uploadedBy == uid
+                        ? () => _confirmDeleteGalleryPhoto(photoDoc.id)
+                        : null,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(imageUrl, fit: BoxFit.cover,
@@ -1864,6 +1933,38 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         );
       }
     }
+  }
+
+  // ── ギャラリー写真を削除 ──
+  void _confirmDeleteGalleryPhoto(String photoId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('写真を削除', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text('この写真を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _firestore.collection('tournaments').doc(_tournamentId)
+                  .collection('photos').doc(photoId).delete();
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('写真を削除しました'), backgroundColor: AppTheme.success),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── ギャラリー写真フルスクリーン ──

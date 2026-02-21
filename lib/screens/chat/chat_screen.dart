@@ -35,9 +35,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _currentUser = FirebaseAuth.instance.currentUser;
   final _picker = ImagePicker();
   bool _isSending = false;
+  bool _isMuted = false;
   Map<String, dynamic> _lastReadMap = {};
   List<String> _memberIds = [];
+  Map<String, String> _memberNames = {};
   String _groupIconUrl = '';
+  int _previousMessageCount = 0;
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -47,7 +50,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _markAsRead();
-    _loadChatMeta();
+    _loadMuteState();
 
     // メッセージストリームを一度だけ生成（再生成による無限ローディングを防止）
     _messagesStream = FirebaseFirestore.instance
@@ -68,6 +71,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         setState(() {
           _lastReadMap = (chatData['lastRead'] as Map<String, dynamic>?) ?? {};
           _memberIds = List<String>.from(chatData['members'] ?? _memberIds);
+          _memberNames = Map<String, String>.from(
+            (chatData['memberNames'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, v.toString()),
+            ) ?? {},
+          );
           _groupIconUrl = (chatData['iconUrl'] as String?) ?? _groupIconUrl;
         });
       }
@@ -95,14 +103,41 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _loadChatMeta() async {
-    final doc = await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).get();
-    final data = doc.data() ?? {};
-    if (mounted) {
-      setState(() {
-        _memberIds = List<String>.from(data['members'] ?? []);
-        _groupIconUrl = (data['iconUrl'] as String?) ?? '';
-      });
+  Future<void> _loadMuteState() async {
+    if (_currentUser == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('mutedChats')
+        .doc(widget.chatId)
+        .get();
+    if (mounted) setState(() => _isMuted = doc.exists);
+  }
+
+  Future<void> _toggleMute() async {
+    if (_currentUser == null) return;
+    final ref = FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('mutedChats')
+        .doc(widget.chatId);
+
+    if (_isMuted) {
+      await ref.delete();
+      setState(() => _isMuted = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('通知をオンにしました')),
+        );
+      }
+    } else {
+      await ref.set({'mutedAt': FieldValue.serverTimestamp()});
+      setState(() => _isMuted = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('このチャットの通知をオフにしました')),
+        );
+      }
     }
   }
 
@@ -527,11 +562,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
                 final messages = snapshot.data?.docs ?? [];
                 if (messages.isEmpty) {
+                  _previousMessageCount = 0;
                   return Center(
                     child: Text('メッセージを送ってみましょう！',
                         style: TextStyle(color: AppTheme.textSecondary)),
                   );
                 }
+
+                // 新着メッセージが来たら自動スクロール
+                if (messages.length > _previousMessageCount && _previousMessageCount > 0) {
+                  _scrollToBottom();
+                }
+                _previousMessageCount = messages.length;
 
                 return ListView.builder(
                   controller: _scrollController,
@@ -951,14 +993,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ],
             ListTile(
-              leading: const Icon(Icons.notifications_off_outlined),
-              title: const Text('通知をオフにする'),
+              leading: Icon(_isMuted ? Icons.notifications_outlined : Icons.notifications_off_outlined),
+              title: Text(_isMuted ? '通知をオンにする' : '通知をオフにする'),
               onTap: () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('このチャットの通知をオフにしました')),
-                );
+                _toggleMute();
               },
             ),
             if (widget.chatType == 'dm')
@@ -1023,21 +1062,65 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final otherMembers = _memberIds.where((id) => id != _currentUser!.uid).toList();
     if (otherMembers.isEmpty) return const SizedBox();
 
-    int readCount = 0;
+    final readMemberIds = <String>[];
     for (final memberId in otherMembers) {
       final lastRead = _lastReadMap[memberId];
       if (lastRead is Timestamp && lastRead.toDate().isAfter(msgDate)) {
-        readCount++;
+        readMemberIds.add(memberId);
       }
     }
 
-    if (readCount == 0) return const SizedBox();
+    if (readMemberIds.isEmpty) return const SizedBox();
 
     if (widget.chatType == 'dm') {
       return const Text('既読', style: TextStyle(fontSize: 10, color: AppTheme.primaryColor));
     } else {
-      return Text('既読 $readCount', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor));
+      return GestureDetector(
+        onTap: () => _showReadMembers(readMemberIds),
+        child: Text('既読 ${readMemberIds.length}', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor)),
+      );
     }
+  }
+
+  void _showReadMembers(List<String> readMemberIds) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            Text('既読 ${readMemberIds.length}人', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 12),
+            ...readMemberIds.map((id) {
+              final name = _memberNames[id] ?? 'ユーザー';
+              return ListTile(
+                leading: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                  child: Text(name.isNotEmpty ? name[0] : '?',
+                    style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                ),
+                title: Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(userId: id),
+                  ));
+                },
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   String _formatMessageTime(Timestamp? timestamp) {

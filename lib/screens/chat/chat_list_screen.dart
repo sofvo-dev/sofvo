@@ -16,6 +16,9 @@ class _ChatListScreenState extends State<ChatListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _currentUser = FirebaseAuth.instance.currentUser;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  Set<String> _blockedUserIds = {};
 
   @override
   void initState() {
@@ -25,12 +28,28 @@ class _ChatListScreenState extends State<ChatListScreen>
       vsync: this,
       animationDuration: const Duration(milliseconds: 200),
     );
+    _loadBlockedUsers();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBlockedUsers() async {
+    if (_currentUser == null) return;
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('blockedUsers')
+        .get();
+    if (mounted) {
+      setState(() {
+        _blockedUserIds = snap.docs.map((d) => d.id).toSet();
+      });
+    }
   }
 
   void _openChat({
@@ -231,7 +250,38 @@ class _ChatListScreenState extends State<ChatListScreen>
                   ),
                 ]),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
+              // 検索バー
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _searchQuery = value.trim().toLowerCase()),
+                  decoration: InputDecoration(
+                    hintText: 'チャットを検索',
+                    hintStyle: TextStyle(fontSize: 14, color: AppTheme.textHint),
+                    prefixIcon: Icon(Icons.search, color: AppTheme.textHint, size: 20),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? GestureDetector(
+                            onTap: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                            child: Icon(Icons.close, color: AppTheme.textHint, size: 18),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: AppTheme.backgroundColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               TabBar(
                 controller: _tabController,
                 labelColor: AppTheme.textPrimary,
@@ -288,7 +338,15 @@ class _ChatListScreenState extends State<ChatListScreen>
           return _buildEmptyState('group');
         }
 
-        final chats = snapshot.data?.docs ?? [];
+        final allChats = snapshot.data?.docs ?? [];
+        // 検索フィルタ
+        final chats = _searchQuery.isEmpty ? allChats : allChats.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final chatName = (data['name'] as String?) ?? '';
+          final memberNames = data['memberNames'] as Map<String, dynamic>? ?? {};
+          final allNames = memberNames.values.map((v) => v.toString().toLowerCase()).join(' ');
+          return chatName.toLowerCase().contains(_searchQuery) || allNames.contains(_searchQuery);
+        }).toList();
 
         return Column(
           children: [
@@ -326,7 +384,10 @@ class _ChatListScreenState extends State<ChatListScreen>
             // チャット一覧
             Expanded(
               child: chats.isEmpty
-                  ? _buildEmptyState('group')
+                  ? (_searchQuery.isNotEmpty
+                      ? Center(child: Text('「$_searchQuery」に一致するグループがありません',
+                          style: const TextStyle(color: AppTheme.textSecondary)))
+                      : _buildEmptyState('group'))
                   : ListView.separated(
                       padding: const EdgeInsets.only(top: 4, bottom: 80),
                       itemCount: chats.length,
@@ -373,9 +434,32 @@ class _ChatListScreenState extends State<ChatListScreen>
           return _buildEmptyState(type);
         }
 
-        final chats = snapshot.data?.docs ?? [];
+        final allChats = snapshot.data?.docs ?? [];
+        // ブロックユーザーフィルタ & 検索フィルタ
+        final chats = allChats.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          // ブロックチェック（DM のみ）
+          if (type == 'dm' && _blockedUserIds.isNotEmpty) {
+            final members = List<String>.from(data['members'] ?? []);
+            if (members.any((m) => _blockedUserIds.contains(m) && m != _currentUser!.uid)) {
+              return false;
+            }
+          }
+          // 検索フィルタ
+          if (_searchQuery.isNotEmpty) {
+            final memberNames = data['memberNames'] as Map<String, dynamic>? ?? {};
+            final chatName = (data['name'] as String?) ?? '';
+            final allNames = memberNames.values.map((v) => v.toString().toLowerCase()).join(' ');
+            return allNames.contains(_searchQuery) || chatName.toLowerCase().contains(_searchQuery);
+          }
+          return true;
+        }).toList();
+
         if (chats.isEmpty) {
-          return _buildEmptyState(type);
+          return _searchQuery.isNotEmpty
+              ? Center(child: Text('「$_searchQuery」に一致するチャットがありません',
+                  style: const TextStyle(color: AppTheme.textSecondary)))
+              : _buildEmptyState(type);
         }
 
         return ListView.separated(

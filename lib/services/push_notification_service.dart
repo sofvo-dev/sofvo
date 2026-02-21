@@ -2,6 +2,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../screens/chat/chat_screen.dart';
+import '../screens/profile/user_profile_screen.dart';
 
 class PushNotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -106,16 +108,53 @@ class PushNotificationService {
 
     switch (type) {
       case 'chat':
-        debugPrint('Navigate to chat: $targetId');
-        break;
-      case 'tournament':
-        debugPrint('Navigate to tournament: $targetId');
+        _navigateToChat(navigator, targetId);
         break;
       case 'follow':
-        debugPrint('Navigate to user profile: $targetId');
+        navigator.push(MaterialPageRoute(
+          builder: (_) => UserProfileScreen(userId: targetId),
+        ));
         break;
       default:
         debugPrint('Unknown notification type: $type');
+    }
+  }
+
+  /// チャット画面に遷移（chatIdからメタ情報を取得）
+  static Future<void> _navigateToChat(NavigatorState navigator, String chatId) async {
+    try {
+      final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+      if (!chatDoc.exists) return;
+
+      final chatData = chatDoc.data() ?? {};
+      final chatType = (chatData['type'] as String?) ?? 'dm';
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+      String chatTitle;
+      String? otherUserId;
+
+      if (chatType == 'dm') {
+        final memberNames = chatData['memberNames'] as Map<String, dynamic>? ?? {};
+        final otherEntry = memberNames.entries.firstWhere(
+          (e) => e.key != uid,
+          orElse: () => const MapEntry('', 'ユーザー'),
+        );
+        chatTitle = otherEntry.value as String;
+        otherUserId = otherEntry.key.isNotEmpty ? otherEntry.key : null;
+      } else {
+        chatTitle = (chatData['name'] as String?) ?? 'グループ';
+      }
+
+      navigator.push(MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          chatId: chatId,
+          chatTitle: chatTitle,
+          chatType: chatType,
+          otherUserId: otherUserId,
+        ),
+      ));
+    } catch (e) {
+      debugPrint('Failed to navigate to chat: $e');
     }
   }
 
