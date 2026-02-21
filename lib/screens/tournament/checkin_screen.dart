@@ -120,7 +120,7 @@ class _CheckInScreenState extends State<CheckInScreen>
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20)],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.08), blurRadius: 20)],
             ),
             child: Column(children: [
               QrImageView(
@@ -203,7 +203,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isChecked ? AppTheme.success.withOpacity(0.4) : Colors.grey[200]!),
+                        border: Border.all(color: isChecked ? AppTheme.success.withValues(alpha:0.4) : Colors.grey[200]!),
                       ),
                       child: SwitchListTile(
                         value: isChecked,
@@ -213,7 +213,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                         subtitle: Text(isChecked ? '到着済み' : '未到着',
                             style: TextStyle(fontSize: 12, color: isChecked ? AppTheme.success : AppTheme.textHint)),
                         secondary: CircleAvatar(
-                          backgroundColor: isChecked ? AppTheme.success.withOpacity(0.1) : Colors.grey[100],
+                          backgroundColor: isChecked ? AppTheme.success.withValues(alpha:0.1) : Colors.grey[100],
                           child: Icon(isChecked ? Icons.check : Icons.person_outline,
                               color: isChecked ? AppTheme.success : AppTheme.textHint, size: 20),
                         ),
@@ -268,7 +268,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(color: AppTheme.success.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: AppTheme.success.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Icon(Icons.check_circle, color: AppTheme.success, size: 18),
                       const SizedBox(width: 8),
@@ -320,9 +320,9 @@ class _CheckInScreenState extends State<CheckInScreen>
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppTheme.success.withOpacity(0.05),
+                color: AppTheme.success.withValues(alpha:0.05),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.success.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.success.withValues(alpha:0.3)),
               ),
               child: Row(children: [
                 Icon(Icons.check_circle, size: 18, color: AppTheme.success),

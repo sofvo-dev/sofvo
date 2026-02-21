@@ -90,7 +90,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            CircleAvatar(radius: 20, backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
+            CircleAvatar(radius: 20, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
                 child: const Icon(Icons.emoji_events, color: AppTheme.primaryColor, size: 20)),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -276,7 +276,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               Wrap(spacing: 8, children: ['混合', 'メンズ', 'レディース'].map((t) {
                 return ChoiceChip(label: Text(t), selected: selectedType == t,
                     onSelected: (s) { if (s) setSheetState(() => selectedType = t); },
-                    selectedColor: AppTheme.primaryColor.withOpacity(0.15));
+                    selectedColor: AppTheme.primaryColor.withValues(alpha:0.15));
               }).toList()),
               const SizedBox(height: 24),
               SizedBox(width: double.infinity, child: OutlinedButton.icon(
@@ -417,7 +417,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               Wrap(spacing: 8, children: ['混合', 'メンズ', 'レディース'].map((t) {
                 return ChoiceChip(label: Text(t), selected: selectedType == t,
                     onSelected: (s) { if (s) setSheetState(() => selectedType = t); },
-                    selectedColor: AppTheme.primaryColor.withOpacity(0.15));
+                    selectedColor: AppTheme.primaryColor.withValues(alpha:0.15));
               }).toList()),
               const SizedBox(height: 24),
               // ── スケジュール設定 ──
@@ -493,7 +493,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
 
   Widget _buildTag(String text, Color color) {
     return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(color: color.withValues(alpha:0.1), borderRadius: BorderRadius.circular(6)),
       child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)));
   }
 

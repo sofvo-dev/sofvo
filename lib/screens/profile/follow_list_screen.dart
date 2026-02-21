@@ -112,14 +112,14 @@ class FollowListScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2))],
                 ),
                 child: Row(
                   children: [
                     avatarUrl.toString().isNotEmpty
                         ? CircleAvatar(radius: 24, backgroundImage: NetworkImage(avatarUrl),
-                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1))
-                        : CircleAvatar(radius: 24, backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                            backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1))
+                        : CircleAvatar(radius: 24, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
                             child: Text(nickname.toString().isNotEmpty ? nickname.toString()[0] : '?',
                                 style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 18))),
                     const SizedBox(width: 12),
