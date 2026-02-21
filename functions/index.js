@@ -515,6 +515,7 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
     const venueRows = venuesSnap.docs.map((doc) => {
       const v = doc.data();
       return [
+        doc.id,
         v.name || "",
         v.address || "",
         v.phone || "",
@@ -538,13 +539,13 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
     });
 
     const sheetName = "会場一覧";
-    const clearRes = await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A:S`);
+    const clearRes = await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A:T`);
     if (!clearRes.ok) {
       await sheetsAddSheet(VENUE_SHEET_ID, sheetName);
     }
 
     const values = [
-      ["会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
+      ["会場ID", "会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
        "更衣室", "シャワー", "観覧席", "空調", "飲食エリア",
        "開始時間", "終了時間", "料金", "貸出備品", "評価", "レビュー数", "登録日"],
       ...venueRows,
