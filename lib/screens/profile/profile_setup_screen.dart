@@ -14,7 +14,9 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nicknameController = TextEditingController();
+  final _searchIdController = TextEditingController();
   final _bioController = TextEditingController();
+  String? _searchIdError;
 
   String _selectedPrefecture = '';
   String _selectedExperience = '1年未満';
@@ -46,6 +48,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   void dispose() {
     _nicknameController.dispose();
+    _searchIdController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -72,6 +75,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('ユーザーが見つかりません');
 
+      // ユーザーID重複チェック
+      final searchId = _searchIdController.text.trim();
+      final existing = await FirebaseFirestore.instance
+          .collection('users')
+          .where('searchId', isEqualTo: searchId)
+          .get();
+      if (existing.docs.isNotEmpty) {
+        setState(() {
+          _searchIdError = 'このユーザーIDは既に使用されています';
+          _isLoading = false;
+        });
+        return;
+      }
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -85,7 +102,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'experience': _selectedExperience,
         'gender': _selectedGender,
         'birthDate': _birthDate != null ? Timestamp.fromDate(_birthDate!) : null,
-        'searchId': '',
+        'searchId': searchId,
         'totalPoints': 0,
         'seasonPoints': 0,
         'title': 'ビギナー',
@@ -191,6 +208,49 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
                       return 'ニックネームを入力してください';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // ── ユーザーID ──
+                const Text(
+                  'ユーザーID *',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'あなたを識別するIDです（英数字・アンダースコア、一度設定すると変更できません）',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _searchIdController,
+                  style: const TextStyle(fontSize: 16),
+                  decoration: InputDecoration(
+                    hintText: '例: volleyball_taro',
+                    prefixIcon: const Icon(Icons.alternate_email),
+                    errorText: _searchIdError,
+                  ),
+                  onChanged: (_) {
+                    if (_searchIdError != null) {
+                      setState(() => _searchIdError = null);
+                    }
+                  },
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'ユーザーIDを入力してください';
+                    }
+                    if (v.trim().length < 3) {
+                      return '3文字以上で入力してください';
+                    }
+                    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(v.trim())) {
+                      return '英数字とアンダースコアのみ使用できます';
                     }
                     return null;
                   },
