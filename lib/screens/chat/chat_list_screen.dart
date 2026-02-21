@@ -234,21 +234,8 @@ class _ChatListScreenState extends State<ChatListScreen>
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(children: [
-                  const Text('チャット',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const CreateGroupChatScreen())),
-                    child: const Icon(Icons.group_add, size: 24, color: AppTheme.textPrimary),
-                  ),
-                  const SizedBox(width: 16),
-                  GestureDetector(
-                    onTap: _showNewDmSheet,
-                    child: const Icon(Icons.edit_square, size: 24, color: AppTheme.textPrimary),
-                  ),
-                ]),
+                child: const Text('チャット',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               ),
               const SizedBox(height: 10),
               // 検索バー
@@ -369,7 +356,7 @@ class _ChatListScreenState extends State<ChatListScreen>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
                   border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
                 ),
                 child: Row(
@@ -378,7 +365,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(Icons.group_add, color: AppTheme.primaryColor, size: 24),

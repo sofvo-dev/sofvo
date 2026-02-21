@@ -26,53 +26,52 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
+    if (_imageBytes.length >= 2) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('無料プランでは画像は最大2枚までです'),
+            backgroundColor: AppTheme.warning,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       final picker = ImagePicker();
-      final images = await picker.pickMultiImage(
+      final image = await picker.pickImage(
+        source: ImageSource.gallery,
         imageQuality: MediaService.imageQuality,
         maxWidth: MediaService.imageMaxWidth.toDouble(),
         maxHeight: MediaService.imageMaxHeight.toDouble(),
       );
-      final picked = <({String name, Uint8List bytes})>[];
-      for (final img in images) {
-        final bytes = await img.readAsBytes();
-        picked.add((name: img.name, bytes: bytes));
+      if (image == null) return;
+
+      final bytes = await image.readAsBytes();
+
+      if (!MediaService.validateFileSize(
+          bytes.length, maxMB: MediaService.maxImageSizeMB)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  '画像サイズが${MediaService.maxImageSizeMB}MBを超えています'),
+              backgroundColor: AppTheme.warning,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        }
+        return;
       }
 
-      for (final file in picked) {
-        if (_imageBytes.length >= 2) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('無料プランでは画像は最大2枚までです'),
-                backgroundColor: AppTheme.warning,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            );
-          }
-          break;
-        }
-        if (!MediaService.validateFileSize(
-            file.bytes.length, maxMB: MediaService.maxImageSizeMB)) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                    '画像サイズが${MediaService.maxImageSizeMB}MBを超えています'),
-                backgroundColor: AppTheme.warning,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            );
-          }
-          continue;
-        }
-        setState(() {
-          _imageBytes.add(file.bytes);
-          _imageNames.add(file.name);
-        });
-      }
+      setState(() {
+        _imageBytes.add(bytes);
+        _imageNames.add(image.name);
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -135,17 +134,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ? '名無し'
           : safeString(userData['nickname']);
 
-      // 画像をFirebase Storageにアップロード
-      final List<String> imageUrls = [];
+      // 画像をFirebase Storageに並列アップロード
+      final uploadFutures = <Future<String>>[];
       for (int i = 0; i < _imageBytes.length; i++) {
         final fileName = MediaService.generateFileName(_imageNames[i]);
-        final url = await MediaService.uploadImage(
+        uploadFutures.add(MediaService.uploadImage(
           bytes: _imageBytes[i],
           storagePath: 'post_images/${user.uid}',
           fileName: fileName,
-        );
-        imageUrls.add(url);
+        ));
       }
+      final imageUrls = await Future.wait(uploadFutures);
 
       // 投稿をFirestoreに保存
       await FirebaseFirestore.instance.collection('posts').add({

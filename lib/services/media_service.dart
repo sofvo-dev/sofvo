@@ -4,9 +4,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 /// メディアファイルの圧縮設定とアップロードを一元管理するサービス
 class MediaService {
   // ── 画像圧縮設定 ──
-  static const int imageMaxWidth = 1024;
-  static const int imageMaxHeight = 1024;
-  static const int imageQuality = 75;
+  static const int imageMaxWidth = 800;
+  static const int imageMaxHeight = 800;
+  static const int imageQuality = 60;
 
   // ── アバター/アイコン用 ──
   static const int avatarSize = 512;
