@@ -462,6 +462,8 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
       for (const gDoc of gadgetsSnap.docs) {
         const g = gDoc.data();
         allGadgets.push([
+          gDoc.id,
+          userDoc.id,
           nickname,
           g.name || "",
           g.category || "カテゴリなし",
@@ -476,14 +478,14 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
 
     // シートをクリアしてヘッダー＋データを書き込む
     const sheetName = "ガジェット一覧";
-    const clearRes = await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A:H`);
+    const clearRes = await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A:J`);
     if (!clearRes.ok) {
       // シートがない場合は作成
       await sheetsAddSheet(GADGET_SHEET_ID, sheetName);
     }
 
     const values = [
-      ["ユーザー", "商品名", "カテゴリ", "Amazon URL", "楽天 URL", "画像URL", "メモ", "登録日"],
+      ["ガジェットID", "ユーザーID", "ユーザー", "商品名", "カテゴリ", "Amazon URL", "楽天 URL", "画像URL", "メモ", "登録日"],
       ...allGadgets,
     ];
 
