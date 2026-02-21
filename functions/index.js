@@ -2,23 +2,55 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const fetch = require("node-fetch");
-const cheerio = require("cheerio");
 
 admin.initializeApp();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Google Sheets 連携設定
+// Google Sheets 連携設定 (googleapis不使用 — 直接REST API)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const GADGET_SHEET_ID = "1IITgU-IvD1xpIqig0MtnlMfQAsoGWcwtbcPLKkNwv60";
 const VENUE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk";
 
-async function getSheetsClient() {
-  const { google } = require("googleapis");
-  const auth = new google.auth.GoogleAuth({
+async function getAccessToken() {
+  const { GoogleAuth } = require("google-auth-library");
+  const auth = new GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
-  const authClient = await auth.getClient();
-  return google.sheets({ version: "v4", auth: authClient });
+  const client = await auth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  return tokenResponse.token;
+}
+
+async function sheetsClear(spreadsheetId, range) {
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:clear`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  return res;
+}
+
+async function sheetsUpdate(spreadsheetId, range, values) {
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+  if (!res.ok) throw new Error(`Sheets API error: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function sheetsAddSheet(spreadsheetId, sheetName) {
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+  await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetName } } }] }),
+  });
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -166,6 +198,7 @@ async function scrapeAmazonSearch(keyword) {
   }
 
   const html = await response.text();
+  const cheerio = require("cheerio");
   const $ = cheerio.load(html);
   const items = [];
 
@@ -222,6 +255,7 @@ async function scrapeAmazonProduct(asin) {
   }
 
   const html = await response.text();
+  const cheerio = require("cheerio");
   const $ = cheerio.load(html);
 
   const title =
@@ -415,8 +449,6 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
-    const sheets = await getSheetsClient();
-
     // 全ユーザーのガジェットを取得
     const usersSnap = await admin.firestore().collection("users").get();
     const allGadgets = [];
@@ -444,21 +476,10 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
 
     // シートをクリアしてヘッダー＋データを書き込む
     const sheetName = "ガジェット一覧";
-    try {
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId: GADGET_SHEET_ID,
-        range: `${sheetName}!A:H`,
-      });
-    } catch (_) {
+    const clearRes = await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A:H`);
+    if (!clearRes.ok) {
       // シートがない場合は作成
-      try {
-        await sheets.spreadsheets.batchUpdate({
-          spreadsheetId: GADGET_SHEET_ID,
-          requestBody: {
-            requests: [{ addSheet: { properties: { title: sheetName } } }],
-          },
-        });
-      } catch (_) { /* シートが既存の場合は無視 */ }
+      await sheetsAddSheet(GADGET_SHEET_ID, sheetName);
     }
 
     const values = [
@@ -466,12 +487,7 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
       ...allGadgets,
     ];
 
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: GADGET_SHEET_ID,
-      range: `${sheetName}!A1`,
-      valueInputOption: "RAW",
-      requestBody: { values },
-    });
+    await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
 
     res.json({ success: true, count: allGadgets.length });
   } catch (e) {
@@ -491,8 +507,6 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
-    const sheets = await getSheetsClient();
-
     const venuesSnap = await admin.firestore().collection("venues")
       .orderBy("name").get();
 
@@ -522,20 +536,9 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
     });
 
     const sheetName = "会場一覧";
-    try {
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId: VENUE_SHEET_ID,
-        range: `${sheetName}!A:S`,
-      });
-    } catch (_) {
-      try {
-        await sheets.spreadsheets.batchUpdate({
-          spreadsheetId: VENUE_SHEET_ID,
-          requestBody: {
-            requests: [{ addSheet: { properties: { title: sheetName } } }],
-          },
-        });
-      } catch (_) { /* シートが既存の場合は無視 */ }
+    const clearRes = await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A:S`);
+    if (!clearRes.ok) {
+      await sheetsAddSheet(VENUE_SHEET_ID, sheetName);
     }
 
     const values = [
@@ -545,12 +548,7 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
       ...venueRows,
     ];
 
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: VENUE_SHEET_ID,
-      range: `${sheetName}!A1`,
-      valueInputOption: "RAW",
-      requestBody: { values },
-    });
+    await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
 
     res.json({ success: true, count: venueRows.length });
   } catch (e) {
