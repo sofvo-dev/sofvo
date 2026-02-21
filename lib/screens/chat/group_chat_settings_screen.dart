@@ -484,7 +484,9 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
+        imageQuality: 75,
+        maxWidth: 1024,
+        maxHeight: 1024,
       );
       if (picked == null) return;
 

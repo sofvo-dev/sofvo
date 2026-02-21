@@ -195,13 +195,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_currentUser == null) return;
 
     try {
-      final picked =
-          await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 75,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
       if (picked == null) return;
 
       setState(() => _isSending = true);
 
       final bytes = await picked.readAsBytes();
+      if (bytes.length > 5 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('画像サイズが5MBを超えています'),
+              backgroundColor: AppTheme.warning,
+            ),
+          );
+        }
+        setState(() => _isSending = false);
+        return;
+      }
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
       final ref = FirebaseStorage.instance
@@ -269,6 +285,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       final file = result.files.first;
       if (file.bytes == null) return;
+
+      if (file.size > 10 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('ファイルサイズが10MBを超えています'),
+              backgroundColor: AppTheme.warning,
+            ),
+          );
+        }
+        return;
+      }
 
       setState(() => _isSending = true);
 
