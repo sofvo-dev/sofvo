@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../chat/chat_screen.dart';
+import '../tournament/tournament_detail_screen.dart';
 import 'follow_list_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -14,16 +15,13 @@ class UserProfileScreen extends StatefulWidget {
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
-class _UserProfileScreenState extends State<UserProfileScreen>
-    with SingleTickerProviderStateMixin {
+class _UserProfileScreenState extends State<UserProfileScreen> {
   final _firestore = FirebaseFirestore.instance;
-  late TabController _tabController;
   bool _isFollowing = false;
   bool _isLoading = true;
   Map<String, dynamic> _userData = {};
   int _followingCount = 0;
   int _followersCount = 0;
-  int _postsCount = 0;
 
   String get _currentUid => FirebaseAuth.instance.currentUser?.uid ?? '';
   bool get _isMyProfile => widget.userId == _currentUid;
@@ -31,14 +29,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _loadUserData();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -49,8 +40,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         .collection('users').doc(widget.userId).collection('following').get();
     final followersSnap = await _firestore
         .collection('users').doc(widget.userId).collection('followers').get();
-    final postsSnap = await _firestore
-        .collection('posts').where('userId', isEqualTo: widget.userId).get();
 
     bool isFollowing = false;
     if (!_isMyProfile) {
@@ -64,18 +53,28 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         _userData = userData;
         _followingCount = followingSnap.docs.length;
         _followersCount = followersSnap.docs.length;
-        _postsCount = postsSnap.docs.length;
         _isFollowing = isFollowing;
         _isLoading = false;
       });
     }
   }
 
+  String _safeString(dynamic value) {
+    if (value is String) return value;
+    if (value is Map) return value.values.join(' ');
+    return value?.toString() ?? '';
+  }
+
+  int _safeInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
   Future<void> _startDmWith(String otherUid, String otherName) async {
     final myUid = _currentUid;
     if (myUid.isEmpty) return;
 
-    // 既存DMを検索
     final existing = await _firestore
         .collection('chats')
         .where('type', isEqualTo: 'dm')
@@ -91,7 +90,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       }
     }
 
-    // なければ新規作成
     if (chatId == null) {
       final myDoc = await _firestore.collection('users').doc(myUid).get();
       final myName = (myDoc.data()?['nickname'] as String?) ?? '自分';
@@ -260,7 +258,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         _followersCount--;
       });
     } else {
-      // 相手のニックネームを保存（チャット作成時に使用）
       final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
       final myDoc = await myRef.get();
       final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
@@ -288,166 +285,263 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(title: const Text('プロフィール')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
 
-    final nickname = _userData['nickname'] ?? '名前なし';
-    final bio = _userData['bio'] ?? '';
-    final avatarUrl = _userData['avatarUrl'] ?? '';
-    final area = _userData['area'] ?? '';
-    final experience = _userData['experience'] ?? '';
-    final odId = _userData['odId'] ?? '';
+    final nickname = _safeString(_userData['nickname']).isEmpty
+        ? '名前なし' : _safeString(_userData['nickname']);
+    final bio = _safeString(_userData['bio']);
+    final avatarUrl = _safeString(_userData['avatarUrl']);
+    final rawArea = _userData['area'];
+    final area = rawArea is String
+        ? rawArea
+        : rawArea is Map
+            ? '${rawArea['prefecture'] ?? ''}${rawArea['city'] ?? ''}'
+            : '';
+    final experience = _safeString(_userData['experience']);
+    final totalPoints = _safeInt(_userData['totalPoints']);
+    final stats = _userData['stats'] is Map<String, dynamic>
+        ? _userData['stats'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final tournamentsPlayed = _safeInt(stats['tournamentsPlayed']);
+    final championships = _safeInt(stats['championships']);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: Text(nickname, style: const TextStyle(fontSize: 16)),
-        actions: [
-          if (!_isMyProfile)
-            IconButton(
-              icon: const Icon(Icons.more_horiz),
-              onPressed: _showBlockReportSheet,
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // プロフィールヘッダー
-          Container(
-            width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    avatarUrl.toString().isNotEmpty
-                        ? CircleAvatar(
-                            radius: 40,
-                            backgroundImage: NetworkImage(avatarUrl),
-                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          )
-                        : CircleAvatar(
-                            radius: 40,
-                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            child: Text(
-                              nickname.toString().isNotEmpty ? nickname.toString()[0] : '?',
-                              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+      body: CustomScrollView(
+        slivers: [
+          // ━━━ グラデーションヘッダー ━━━
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppTheme.primaryDark, AppTheme.primaryColor, AppTheme.primaryLight],
+                ),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 8, 14),
+                  child: Column(
+                    children: [
+                      // ── トップバー ──
+                      Row(
+                        children: [
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(8),
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.arrow_back, size: 22, color: Colors.white),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(nickname,
+                                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          if (!_isMyProfile)
+                            IconButton(
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(8),
+                              onPressed: _showBlockReportSheet,
+                              icon: const Icon(Icons.more_horiz, size: 22, color: Colors.white),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // ── プロフィール行 ──
+                      Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2.5),
+                            ),
+                            child: avatarUrl.isNotEmpty
+                                ? CircleAvatar(
+                                    radius: 30,
+                                    backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                  )
+                                : CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                    child: Text(
+                                      nickname.isNotEmpty ? nickname[0] : '?',
+                                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(nickname,
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    if (experience.isNotEmpty) _buildHeaderTag('競技歴 $experience'),
+                                    if (area.isNotEmpty) _buildHeaderTag(area),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        ],
+                      ),
+                      if (bio.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(bio,
+                              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
+                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      // ── フォロー / フォロワー ──
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildStatColumn('投稿', _postsCount, null),
-                          _buildStatColumn('フォロワー', _followersCount, () {
+                          _buildFollowCount('$_followingCount', 'フォロー', () {
                             Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => FollowListScreen(userId: widget.userId, title: 'フォロワー', isFollowers: true),
-                            ));
+                              builder: (_) => FollowListScreen(
+                                  userId: widget.userId, title: 'フォロー中', isFollowers: false)));
                           }),
-                          _buildStatColumn('フォロー中', _followingCount, () {
+                          Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
+                              color: Colors.white.withValues(alpha: 0.25)),
+                          _buildFollowCount('$_followersCount', 'フォロワー', () {
                             Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => FollowListScreen(userId: widget.userId, title: 'フォロー中', isFollowers: false),
-                            ));
+                              builder: (_) => FollowListScreen(
+                                  userId: widget.userId, title: 'フォロワー', isFollowers: true)));
                           }),
                         ],
                       ),
-                    ),
+                      // ── フォロー / メッセージ ボタン ──
+                      if (!_isMyProfile) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _toggleFollow,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _isFollowing
+                                      ? Colors.white.withValues(alpha: 0.2)
+                                      : Colors.white,
+                                  foregroundColor: _isFollowing
+                                      ? Colors.white
+                                      : AppTheme.primaryColor,
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  elevation: 0,
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(alpha: _isFollowing ? 0.5 : 0),
+                                  ),
+                                ),
+                                child: Text(
+                                  _isFollowing ? 'フォロー中' : 'フォローする',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            OutlinedButton(
+                              onPressed: () => _startDmWith(widget.userId, nickname),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('メッセージ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ━━━ ダッシュボード（スタッツ） ━━━
+          SliverToBoxAdapter(
+            child: Transform.translate(
+              offset: const Offset(0, -12),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.accentColor)),
+                    Container(width: 1, height: 60, color: Colors.grey[200]),
+                    Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
+                    Container(width: 1, height: 60, color: Colors.grey[200]),
+                    Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
                   ],
                 ),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(nickname, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                      if (odId.toString().isNotEmpty)
-                        Text('@$odId', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                      if (area.toString().isNotEmpty || experience.toString().isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          if (area.toString().isNotEmpty) ...[
-                            Icon(Icons.location_on, size: 14, color: AppTheme.textHint),
-                            const SizedBox(width: 2),
-                            Text(area.toString(), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                            const SizedBox(width: 12),
-                          ],
-                          if (experience.toString().isNotEmpty) ...[
-                            Icon(Icons.sports_volleyball, size: 14, color: AppTheme.textHint),
-                            const SizedBox(width: 2),
-                            Text(experience.toString(), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                          ],
-                        ]),
-                      ],
-                      if (bio.toString().isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(bio.toString(), style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4)),
-                      ],
-                    ],
-                  ),
+              ),
+            ),
+          ),
+
+          // ━━━ コンテンツ ━━━
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ━━━ 大会結果カードセクション ━━━
+                _buildCardSection(
+                  title: '大会結果',
+                  icon: Icons.emoji_events_rounded,
+                  child: _TournamentCardsRow(userId: widget.userId),
                 ),
-                const SizedBox(height: 14),
-                if (!_isMyProfile)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _toggleFollow,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isFollowing ? Colors.grey[200] : AppTheme.primaryColor,
-                            foregroundColor: _isFollowing ? AppTheme.textPrimary : Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            elevation: 0,
-                          ),
-                          child: Text(_isFollowing ? 'フォロー中' : 'フォローする',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton(
-                        onPressed: () => _startDmWith(widget.userId, nickname),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryColor,
-                          side: const BorderSide(color: AppTheme.primaryColor),
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text('メッセージ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          // タブバー
-          Container(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppTheme.primaryColor,
-              unselectedLabelColor: AppTheme.textSecondary,
-              indicatorColor: AppTheme.primaryColor,
-              indicatorWeight: 3,
-              tabs: const [
-                Tab(text: '投稿'),
-                Tab(text: 'ガジェット'),
-                Tab(text: '所属チーム'),
-              ],
-            ),
-          ),
-          // タブコンテンツ
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPostsTab(),
-                _buildGadgetsTab(),
-                _buildTeamsTab(),
-              ],
+                const SizedBox(height: 16),
+
+                // ━━━ ガジェットカードセクション ━━━
+                _buildCardSection(
+                  title: 'ガジェット',
+                  icon: Icons.devices_other_rounded,
+                  child: _GadgetCardsRow(userId: widget.userId),
+                ),
+                const SizedBox(height: 16),
+
+                // ━━━ バッジコレクション ━━━
+                _buildCardSection(
+                  title: 'バッジコレクション',
+                  icon: Icons.workspace_premium_rounded,
+                  child: _BadgeCollectionRow(userId: widget.userId),
+                ),
+                const SizedBox(height: 16),
+
+                // ━━━ 投稿 ━━━
+                _buildCardSection(
+                  title: '投稿',
+                  icon: Icons.article_rounded,
+                  child: _RecentPostsSection(userId: widget.userId),
+                ),
+                const SizedBox(height: 16),
+
+                // ━━━ 所属チーム ━━━
+                _buildCardSection(
+                  title: '所属チーム',
+                  icon: Icons.groups_rounded,
+                  child: _TeamsSection(userId: widget.userId),
+                ),
+              ]),
             ),
           ),
         ],
@@ -455,337 +549,547 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
-  Widget _buildStatColumn(String label, int count, VoidCallback? onTap) {
+  // ── ヘッダー上のタグ ──
+  Widget _buildHeaderTag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Text(text, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w500)),
+    );
+  }
+
+  // ── フォロー数 ──
+  Widget _buildFollowCount(String count, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
-          Text('$count', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+          Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
         ],
       ),
     );
   }
 
-  // ━━━ 投稿タブ ━━━
-  Widget _buildPostsTab() {
+  // ── ダッシュボードスタッツ ──
+  Widget _buildDashboardStat(IconData icon, String value, String label, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 32),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: color, height: 1.1)),
+        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  // ── カードセクション ──
+  Widget _buildCardSection({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: AppTheme.primaryColor, size: 18),
+              const SizedBox(width: 6),
+              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 大会結果カード（横スクロール）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _TournamentCardsRow extends StatelessWidget {
+  final String userId;
+  const _TournamentCardsRow({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('posts')
-          .where('userId', isEqualTo: widget.userId)
+      stream: FirebaseFirestore.instance
+          .collection('tournaments')
+          .where('status', isEqualTo: '終了')
+          .orderBy('date', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+
+        final allTournaments = snapshot.data?.docs ?? [];
+        final tournaments = allTournaments.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          return d['organizerId'] == userId;
+        }).take(10).toList();
+
+        if (tournaments.isEmpty) {
+          return _buildEmptyCard('まだ大会結果がありません', Icons.emoji_events_outlined);
+        }
+
+        return SizedBox(
+          height: 130,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: tournaments.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final doc = tournaments[index];
+              final d = doc.data() as Map<String, dynamic>;
+              final title = (d['title'] ?? d['name'] ?? '大会') as String;
+              final date = (d['date'] ?? '') as String;
+              final location = (d['location'] ?? d['venue'] ?? '') as String;
+              final status = (d['status'] ?? '') as String;
+              final type = (d['type'] ?? '') as String;
+
+              return GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {...d, 'id': doc.id}))),
+                child: Container(
+                  width: 180,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(status.isEmpty ? '終了' : status,
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                          ),
+                          if (type.isNotEmpty) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 11, color: AppTheme.textSecondary),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(date, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                      if (location.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.place, size: 11, color: AppTheme.textSecondary),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(location, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ガジェットカード（横スクロール）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _GadgetCardsRow extends StatelessWidget {
+  final String userId;
+  const _GadgetCardsRow({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users').doc(userId).collection('gadgets')
           .orderBy('createdAt', descending: true)
+          .limit(10)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+
+        final gadgets = snapshot.data?.docs ?? [];
+
+        if (gadgets.isEmpty) {
+          return _buildEmptyCard('ガジェットがまだありません', Icons.devices_other_outlined);
+        }
+
+        return SizedBox(
+          height: 150,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: gadgets.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final d = gadgets[index].data() as Map<String, dynamic>;
+              final name = (d['name'] ?? '') as String;
+              final category = (d['category'] ?? '') as String;
+              final imageUrl = (d['imageUrl'] ?? '') as String;
+              final memo = (d['memo'] ?? '') as String;
+              final amazonAffiliateUrl = (d['amazonAffiliateUrl'] ?? '') as String;
+              final rakutenAffiliateUrl = (d['rakutenAffiliateUrl'] ?? '') as String;
+
+              return GestureDetector(
+                onTap: () {
+                  // アフィリエイトリンクがあれば開く
+                  final url = amazonAffiliateUrl.isNotEmpty
+                      ? amazonAffiliateUrl
+                      : rakutenAffiliateUrl.isNotEmpty
+                          ? rakutenAffiliateUrl
+                          : '';
+                  if (url.isNotEmpty) {
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Container(
+                  width: 140,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        child: SizedBox(
+                          height: 72,
+                          width: double.infinity,
+                          child: imageUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, __) => Container(
+                                    color: Colors.grey[100],
+                                    child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 24)),
+                                  ),
+                                  errorWidget: (_, __, ___) => Container(
+                                    color: Colors.grey[100],
+                                    child: const Center(child: Icon(Icons.devices_other, color: Colors.grey, size: 24)),
+                                  ),
+                                )
+                              : Container(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                                  child: const Center(child: Icon(Icons.devices_other, color: AppTheme.primaryColor, size: 28)),
+                                ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            if (category.isNotEmpty && category != 'カテゴリなし') ...[
+                              const SizedBox(height: 2),
+                              Text(category, style: const TextStyle(fontSize: 9, color: AppTheme.textSecondary),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
+                            if (memo.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(memo, style: const TextStyle(fontSize: 9, color: AppTheme.textSecondary),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// バッジコレクション（横スクロール）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _BadgeCollectionRow extends StatelessWidget {
+  final String userId;
+  const _BadgeCollectionRow({required this.userId});
+
+  static const _badgeDefinitions = [
+    _BadgeDef('初参加', Icons.flag_rounded, Color(0xFF4CAF50), 'tournamentsPlayed', 1),
+    _BadgeDef('5大会参加', Icons.emoji_events_rounded, Color(0xFF2196F3), 'tournamentsPlayed', 5),
+    _BadgeDef('10大会参加', Icons.emoji_events_rounded, Color(0xFF9C27B0), 'tournamentsPlayed', 10),
+    _BadgeDef('初優勝', Icons.military_tech_rounded, Color(0xFFFF9800), 'championships', 1),
+    _BadgeDef('3回優勝', Icons.military_tech_rounded, Color(0xFFF44336), 'championships', 3),
+    _BadgeDef('100Pt達成', Icons.star_rounded, Color(0xFFFFC107), 'totalPoints', 100),
+    _BadgeDef('500Pt達成', Icons.star_rounded, Color(0xFFFF5722), 'totalPoints', 500),
+    _BadgeDef('1000Pt達成', Icons.diamond_rounded, Color(0xFFE91E63), 'totalPoints', 1000),
+    _BadgeDef('ガジェット5個', Icons.devices_other_rounded, Color(0xFF00BCD4), 'gadgetCount', 5),
+    _BadgeDef('フォロワー10', Icons.people_rounded, Color(0xFF795548), 'followersCount', 10),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users').doc(userId).snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        final stats = data['stats'] is Map<String, dynamic>
+            ? data['stats'] as Map<String, dynamic>
+            : <String, dynamic>{};
+
+        final values = {
+          'tournamentsPlayed': _intVal(stats['tournamentsPlayed']),
+          'championships': _intVal(stats['championships']),
+          'totalPoints': _intVal(data['totalPoints']),
+          'gadgetCount': _intVal(data['gadgetCount']),
+          'followersCount': _intVal(data['followersCount']),
+        };
+
+        return SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _badgeDefinitions.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final badge = _badgeDefinitions[index];
+              final currentValue = values[badge.statKey] ?? 0;
+              final earned = currentValue >= badge.threshold;
+
+              return Container(
+                width: 90,
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                decoration: BoxDecoration(
+                  color: earned ? Colors.white : Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: earned ? badge.color.withValues(alpha: 0.4) : Colors.grey[200]!,
+                    width: earned ? 1.5 : 1,
+                  ),
+                  boxShadow: earned
+                      ? [BoxShadow(color: badge.color.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))]
+                      : null,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: earned
+                            ? badge.color.withValues(alpha: 0.12)
+                            : Colors.grey[200],
+                        border: earned
+                            ? Border.all(color: badge.color.withValues(alpha: 0.3), width: 2)
+                            : null,
+                      ),
+                      child: Icon(
+                        badge.icon,
+                        color: earned ? badge.color : Colors.grey[400],
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      badge.name,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: earned ? FontWeight.bold : FontWeight.normal,
+                        color: earned ? AppTheme.textPrimary : AppTheme.textHint,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (!earned)
+                      Text(
+                        '$currentValue/${badge.threshold}',
+                        style: TextStyle(fontSize: 9, color: AppTheme.textHint),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  int _intVal(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    return 0;
+  }
+}
+
+class _BadgeDef {
+  final String name;
+  final IconData icon;
+  final Color color;
+  final String statKey;
+  final int threshold;
+  const _BadgeDef(this.name, this.icon, this.color, this.statKey, this.threshold);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 最近の投稿セクション
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _RecentPostsSection extends StatelessWidget {
+  final String userId;
+  const _RecentPostsSection({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(3)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           // インデックスなしフォールバック
           return FutureBuilder<QuerySnapshot>(
-            future: _firestore.collection('posts')
-                .where('userId', isEqualTo: widget.userId).get(),
-            builder: (context, futureSnap) {
-              if (futureSnap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final posts = futureSnap.data?.docs ?? [];
-              if (posts.isEmpty) return _buildEmptyState('まだ投稿がありません', Icons.article_outlined);
-              return _buildPostList(posts);
-            },
-          );
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final posts = snapshot.data?.docs ?? [];
-        if (posts.isEmpty) return _buildEmptyState('まだ投稿がありません', Icons.article_outlined);
-        return _buildPostList(posts);
-      },
-    );
-  }
-
-  Widget _buildPostList(List<QueryDocumentSnapshot> posts) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: posts.length,
-      itemBuilder: (context, index) {
-        final data = posts[index].data() as Map<String, dynamic>;
-        final text = data['text'] ?? '';
-        final images = data['images'] is List ? List<String>.from(data['images']) : <String>[];
-        final likesCount = data['likesCount'] ?? 0;
-        final commentsCount = data['commentsCount'] ?? 0;
-        final createdAt = data['createdAt'] as Timestamp?;
-        final timeAgo = _formatTimeAgo(createdAt);
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(text.toString(), style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5)),
-              if (images.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(images.first, height: 180, width: double.infinity, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox()),
-                ),
-              ],
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(Icons.favorite, size: 16, color: AppTheme.textHint),
-                  const SizedBox(width: 4),
-                  Text('$likesCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                  const SizedBox(width: 16),
-                  Icon(Icons.comment, size: 16, color: AppTheme.textHint),
-                  const SizedBox(width: 4),
-                  Text('$commentsCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                  const Spacer(),
-                  Text(timeAgo, style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ━━━ ガジェットタブ ━━━
-  Widget _buildGadgetsTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('users')
-          .doc(widget.userId)
-          .collection('gadgets')
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return FutureBuilder<QuerySnapshot>(
-            future: _firestore
-                .collection('users')
-                .doc(widget.userId)
-                .collection('gadgets')
+            future: FirebaseFirestore.instance
+                .collection('posts')
+                .where('userId', isEqualTo: userId)
+                .limit(3)
                 .get(),
             builder: (context, futureSnap) {
               if (futureSnap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
               }
-              final gadgets = futureSnap.data?.docs ?? [];
-              if (gadgets.isEmpty) {
-                return _buildEmptyState('ガジェットがまだありません', Icons.devices_other);
-              }
-              return _buildGadgetList(gadgets);
+              final posts = futureSnap.data?.docs ?? [];
+              if (posts.isEmpty) return _buildEmptyCard('まだ投稿がありません', Icons.article_outlined);
+              return _buildPostCards(posts);
             },
           );
         }
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
-        final gadgets = snapshot.data?.docs ?? [];
-        if (gadgets.isEmpty) {
-          return _buildEmptyState('ガジェットがまだありません', Icons.devices_other);
-        }
-        return _buildGadgetList(gadgets);
+        final posts = snapshot.data?.docs ?? [];
+        if (posts.isEmpty) return _buildEmptyCard('まだ投稿がありません', Icons.article_outlined);
+        return _buildPostCards(posts);
       },
     );
   }
 
-  Widget _buildGadgetList(List<QueryDocumentSnapshot> gadgets) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: gadgets.length,
-      itemBuilder: (context, index) {
-        final data = gadgets[index].data() as Map<String, dynamic>;
-        final name = data['name'] ?? '';
-        final imageUrl = (data['imageUrl'] ?? '') as String;
-        final amazonAffiliateUrl = (data['amazonAffiliateUrl'] ?? '') as String;
-        final rakutenAffiliateUrl = (data['rakutenAffiliateUrl'] ?? '') as String;
+  Widget _buildPostCards(List<QueryDocumentSnapshot> posts) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: posts.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final text = (data['text'] ?? '') as String;
+          final images = data['images'] is List ? List<String>.from(data['images']) : <String>[];
+          final likesCount = data['likesCount'] ?? 0;
+          final commentsCount = data['commentsCount'] ?? 0;
+          final createdAt = data['createdAt'] as Timestamp?;
+          final timeAgo = _formatTimeAgo(createdAt);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-          ),
-          child: Row(
-            children: [
-              // 画像
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[200]!),
-                  color: Colors.grey[50],
-                ),
-                child: imageUrl.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(9),
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.contain,
-                          placeholder: (_, __) => const Center(
-                            child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
-                          ),
-                          errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, color: AppTheme.textHint),
-                        ),
-                      )
-                    : const Icon(Icons.devices_other, size: 28, color: AppTheme.textHint),
-              ),
-              const SizedBox(width: 12),
-              // 情報 + リンク
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        if (amazonAffiliateUrl.isNotEmpty)
-                          GestureDetector(
-                            onTap: () => launchUrl(Uri.parse(amazonAffiliateUrl), mode: LaunchMode.externalApplication),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3E0),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFF9900).withValues(alpha: 0.3)),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.open_in_new, size: 12, color: Color(0xFFFF9900)),
-                                  SizedBox(width: 4),
-                                  Text('Amazon', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
-                                ],
-                              ),
-                            ),
-                          ),
-                        if (amazonAffiliateUrl.isNotEmpty && rakutenAffiliateUrl.isNotEmpty)
-                          const SizedBox(width: 8),
-                        if (rakutenAffiliateUrl.isNotEmpty)
-                          GestureDetector(
-                            onTap: () => launchUrl(Uri.parse(rakutenAffiliateUrl), mode: LaunchMode.externalApplication),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFEBEE),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFBF0000).withValues(alpha: 0.3)),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.open_in_new, size: 12, color: Color(0xFFBF0000)),
-                                  SizedBox(width: 4),
-                                  Text('楽天', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5),
+                    maxLines: 3, overflow: TextOverflow.ellipsis),
+                if (images.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: CachedNetworkImage(
+                      imageUrl: images.first,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => const SizedBox(),
                     ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.favorite, size: 16, color: AppTheme.textHint),
+                    const SizedBox(width: 4),
+                    Text('$likesCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    const SizedBox(width: 16),
+                    Icon(Icons.comment, size: 16, color: AppTheme.textHint),
+                    const SizedBox(width: 4),
+                    Text('$commentsCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    const Spacer(),
+                    Text(timeAgo, style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
                   ],
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ━━━ チームタブ ━━━
-  Widget _buildTeamsTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('teams')
-          .where('memberIds', arrayContains: widget.userId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final teams = snapshot.data?.docs ?? [];
-        if (teams.isEmpty) return _buildEmptyState('所属チームはありません', Icons.groups_outlined);
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: teams.length,
-          itemBuilder: (context, index) {
-            final data = teams[index].data() as Map<String, dynamic>;
-            final name = data['name'] ?? 'チーム';
-            final memberNames = data['memberNames'] is Map
-                ? Map<String, String>.from(data['memberNames'])
-                : <String, String>{};
-            final isOwner = data['ownerId'] == widget.userId;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    child: Text(name.toString()[0],
-                        style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 18)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name.toString(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                        const SizedBox(height: 4),
-                        Text('${memberNames.length}人 ${isOwner ? "・オーナー" : "・メンバー"}',
-                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                      ],
-                    ),
-                  ),
-                  if (isOwner)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text('オーナー', style: TextStyle(fontSize: 11, color: AppTheme.accentColor, fontWeight: FontWeight.bold)),
-                    ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyState(String message, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: AppTheme.textHint),
-          const SizedBox(height: 16),
-          Text(message, style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
-        ],
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -799,4 +1103,101 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     if (diff.inDays < 7) return '${diff.inDays}日前';
     return '${ts.toDate().month}/${ts.toDate().day}';
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 所属チームセクション
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _TeamsSection extends StatelessWidget {
+  final String userId;
+  const _TeamsSection({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('teams')
+          .where('memberIds', arrayContains: userId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+        final teams = snapshot.data?.docs ?? [];
+        if (teams.isEmpty) return _buildEmptyCard('所属チームはありません', Icons.groups_outlined);
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: teams.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final name = (data['name'] ?? 'チーム') as String;
+              final memberNames = data['memberNames'] is Map
+                  ? Map<String, String>.from(data['memberNames'])
+                  : <String, String>{};
+              final isOwner = data['ownerId'] == userId;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      child: Text(name[0],
+                          style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                          const SizedBox(height: 2),
+                          Text('${memberNames.length}人 ${isOwner ? "・オーナー" : "・メンバー"}',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    if (isOwner)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('オーナー', style: TextStyle(fontSize: 11, color: AppTheme.accentColor, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── 空カード（共通） ──
+Widget _buildEmptyCard(String message, IconData icon) {
+  return SizedBox(
+    height: 100,
+    child: Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 32, color: AppTheme.textHint),
+          const SizedBox(height: 8),
+          Text(message, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        ],
+      ),
+    ),
+  );
 }
