@@ -18,6 +18,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   final _nameCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
+  final _urlCtrl = TextEditingController();
+  final _scrollController = ScrollController();
+  final _nameFieldKey = GlobalKey();
 
   // 内部管理用
   String _amazonUrl = '';
@@ -28,6 +31,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   String _selectedCategory = 'カテゴリなし';
   bool _isSaving = false;
   bool _isSearching = false;
+  bool _isFetchingUrl = false;
   List<AmazonProduct> _searchResults = [];
   String? _editingId;
 
@@ -52,6 +56,8 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
     _nameCtrl.dispose();
     _memoCtrl.dispose();
     _searchCtrl.dispose();
+    _urlCtrl.dispose();
+    _scrollController.dispose();
     _rakutenAffiliateCtrl.dispose();
     super.dispose();
   }
@@ -84,6 +90,71 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       }
     } finally {
       setState(() => _isSearching = false);
+    }
+  }
+
+  /// Amazon URLから商品情報を取得して自動入力
+  Future<void> _fetchByUrl() async {
+    final url = _urlCtrl.text.trim();
+    if (url.isEmpty) return;
+
+    // ASIN抽出チェック
+    final asin = AmazonSearchService.extractAsin(url);
+    if (asin == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('有効なAmazon商品URLを入力してください'),
+            backgroundColor: AppTheme.warning,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isFetchingUrl = true);
+    try {
+      final product = await AmazonSearchService.fetchProductByUrl(url);
+      if (product != null) {
+        setState(() {
+          if (product.title.isNotEmpty) _nameCtrl.text = product.title;
+          _imageUrl = product.imageUrl;
+          _amazonUrl = product.detailPageUrl;
+          _amazonAffiliateUrl = product.affiliateUrl;
+          _urlCtrl.clear();
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(product.title.isNotEmpty
+                  ? '商品情報を自動入力しました'
+                  : 'URLを登録しました。商品名を手動で入力してください。'),
+              backgroundColor: product.title.isNotEmpty ? AppTheme.success : AppTheme.warning,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('商品情報の取得に失敗しました。商品名を手動で入力してください。'),
+            backgroundColor: AppTheme.warning,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isFetchingUrl = false);
+    }
+  }
+
+  /// 商品名フィールドまでスクロールしてフォーカス
+  void _scrollToNameField() {
+    final ctx = _nameFieldKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx,
+          duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     }
   }
 
@@ -215,6 +286,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
         ],
       ),
       body: ListView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
         children: [
           // ── Amazon検索 ──
@@ -298,28 +370,110 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                   const Divider(),
                   const SizedBox(height: 8),
                   const Text(
-                    '商品が見つかりませんでした。\n別のキーワードで検索するか、商品名を直接入力してください。',
+                    '商品が見つかりませんでした。\n以下の方法で登録できます：',
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _openAmazonSearch,
-                          icon: const Icon(Icons.open_in_new, size: 16),
-                          label: const Text('Amazonで直接検索',
-                              style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFFF9900),
-                            side: const BorderSide(color: Color(0xFFFF9900)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
+                  const SizedBox(height: 12),
+
+                  // 方法1: Amazon URLを貼り付け
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('① Amazon URLを貼り付け',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                        const SizedBox(height: 4),
+                        Text('Amazonで商品を見つけて、URLをコピー＆ペースト',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _urlCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'https://www.amazon.co.jp/dp/...',
+                                  hintStyle: const TextStyle(color: AppTheme.textHint, fontSize: 12),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: const BorderSide(color: Color(0xFFFF9900), width: 2),
+                                  ),
+                                ),
+                                style: const TextStyle(fontSize: 12),
+                                onSubmitted: (_) => _fetchByUrl(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 38,
+                              child: ElevatedButton(
+                                onPressed: _isFetchingUrl ? null : _fetchByUrl,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF9900),
+                                  minimumSize: const Size(56, 38),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                ),
+                                child: _isFetchingUrl
+                                    ? const SizedBox(width: 18, height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Text('取得', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 方法2: Amazonで検索 → URLコピー
+                  OutlinedButton.icon(
+                    onPressed: _openAmazonSearch,
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('Amazonで商品を探す',
+                        style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFFF9900),
+                      side: const BorderSide(color: Color(0xFFFF9900)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      minimumSize: const Size(double.infinity, 40),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 方法3: 手動入力
+                  ElevatedButton.icon(
+                    onPressed: _scrollToNameField,
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('手動で商品名を入力する',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      minimumSize: const Size(double.infinity, 40),
+                    ),
                   ),
                 ],
               ],
@@ -355,7 +509,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
           ],
 
           // ── 商品名 ──
-          _buildSectionLabel('商品名 *'),
+          _buildSectionLabel('商品名 *', key: _nameFieldKey),
           const SizedBox(height: 4),
           Text('検索から自動入力されますが、手動で変更もできます',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -491,8 +645,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
     );
   }
 
-  Widget _buildSectionLabel(String text) {
+  Widget _buildSectionLabel(String text, {Key? key}) {
     return Text(text,
+        key: key,
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary));
   }
 
