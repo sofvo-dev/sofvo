@@ -1685,7 +1685,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     try {
       final picked = await ImagePicker().pickImage(
         source: ImageSource.gallery,
-        imageQuality: 70,
+        imageQuality: 75,
+        maxWidth: 1024,
+        maxHeight: 1024,
       );
       if (picked == null) return;
 
@@ -1886,7 +1888,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     try {
       final picked = await ImagePicker().pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
+        imageQuality: 75,
+        maxWidth: 1024,
+        maxHeight: 1024,
       );
       if (picked == null) return;
 
