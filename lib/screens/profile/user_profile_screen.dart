@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../chat/chat_screen.dart';
 import 'follow_list_screen.dart';
@@ -29,7 +31,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadUserData();
   }
 
@@ -432,6 +434,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               indicatorWeight: 3,
               tabs: const [
                 Tab(text: '投稿'),
+                Tab(text: 'ガジェット'),
                 Tab(text: '所属チーム'),
               ],
             ),
@@ -442,6 +445,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               controller: _tabController,
               children: [
                 _buildPostsTab(),
+                _buildGadgetsTab(),
                 _buildTeamsTab(),
               ],
             ),
@@ -543,6 +547,158 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   const Spacer(),
                   Text(timeAgo, style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
                 ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ━━━ ガジェットタブ ━━━
+  Widget _buildGadgetsTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('users')
+          .doc(widget.userId)
+          .collection('gadgets')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return FutureBuilder<QuerySnapshot>(
+            future: _firestore
+                .collection('users')
+                .doc(widget.userId)
+                .collection('gadgets')
+                .get(),
+            builder: (context, futureSnap) {
+              if (futureSnap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final gadgets = futureSnap.data?.docs ?? [];
+              if (gadgets.isEmpty) {
+                return _buildEmptyState('ガジェットがまだありません', Icons.devices_other);
+              }
+              return _buildGadgetList(gadgets);
+            },
+          );
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final gadgets = snapshot.data?.docs ?? [];
+        if (gadgets.isEmpty) {
+          return _buildEmptyState('ガジェットがまだありません', Icons.devices_other);
+        }
+        return _buildGadgetList(gadgets);
+      },
+    );
+  }
+
+  Widget _buildGadgetList(List<QueryDocumentSnapshot> gadgets) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: gadgets.length,
+      itemBuilder: (context, index) {
+        final data = gadgets[index].data() as Map<String, dynamic>;
+        final name = data['name'] ?? '';
+        final imageUrl = (data['imageUrl'] ?? '') as String;
+        final amazonAffiliateUrl = (data['amazonAffiliateUrl'] ?? '') as String;
+        final rakutenAffiliateUrl = (data['rakutenAffiliateUrl'] ?? '') as String;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          ),
+          child: Row(
+            children: [
+              // 画像
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[200]!),
+                  color: Colors.grey[50],
+                ),
+                child: imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
+                          ),
+                          errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, color: AppTheme.textHint),
+                        ),
+                      )
+                    : const Icon(Icons.devices_other, size: 28, color: AppTheme.textHint),
+              ),
+              const SizedBox(width: 12),
+              // 情報 + リンク
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (amazonAffiliateUrl.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => launchUrl(Uri.parse(amazonAffiliateUrl), mode: LaunchMode.externalApplication),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3E0),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFFF9900).withValues(alpha: 0.3)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.open_in_new, size: 12, color: Color(0xFFFF9900)),
+                                  SizedBox(width: 4),
+                                  Text('Amazon', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (amazonAffiliateUrl.isNotEmpty && rakutenAffiliateUrl.isNotEmpty)
+                          const SizedBox(width: 8),
+                        if (rakutenAffiliateUrl.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => launchUrl(Uri.parse(rakutenAffiliateUrl), mode: LaunchMode.externalApplication),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFEBEE),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFBF0000).withValues(alpha: 0.3)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.open_in_new, size: 12, color: Color(0xFFBF0000)),
+                                  SizedBox(width: 4),
+                                  Text('楽天', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
