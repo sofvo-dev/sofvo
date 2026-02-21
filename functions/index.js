@@ -3,7 +3,6 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const fetch = require("node-fetch");
 const cheerio = require("cheerio");
-const { google } = require("googleapis");
 
 admin.initializeApp();
 
@@ -14,6 +13,7 @@ const GADGET_SHEET_ID = "1IITgU-IvD1xpIqig0MtnlMfQAsoGWcwtbcPLKkNwv60";
 const VENUE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk";
 
 async function getSheetsClient() {
+  const { google } = require("googleapis");
   const auth = new google.auth.GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
