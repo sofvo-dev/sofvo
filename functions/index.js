@@ -580,6 +580,52 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// お知らせ初期データ登録（1回だけ実行）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.seedNotices = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const db = admin.firestore();
+    const existing = await db.collection("notices").limit(1).get();
+    if (!existing.empty) {
+      res.json({ message: "お知らせは既に登録済みです", count: 0 });
+      return;
+    }
+
+    const notices = [
+      {
+        type: "release",
+        title: "Sofvo 正式リリースのお知らせ",
+        body: "ソフトバレーボール マッチングアプリ「Sofvo」をご利用いただきありがとうございます。大会検索・メンバー募集・チャットなどの機能をお楽しみください。",
+        createdAt: admin.firestore.Timestamp.fromDate(new Date("2026-02-14T00:00:00+09:00")),
+      },
+      {
+        type: "update",
+        title: "バージョン 1.1 アップデート",
+        body: "大会検索のフィルター機能が強化されました。種別・エリア・日付での絞り込みが可能です。",
+        createdAt: admin.firestore.Timestamp.fromDate(new Date("2026-02-10T00:00:00+09:00")),
+      },
+    ];
+
+    const batch = db.batch();
+    for (const notice of notices) {
+      batch.set(db.collection("notices").doc(), notice);
+    }
+    await batch.commit();
+
+    res.json({ success: true, count: notices.length });
+  } catch (e) {
+    console.error("Seed notices error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Firestore トリガー: ガジェット変更時に自動同期
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
