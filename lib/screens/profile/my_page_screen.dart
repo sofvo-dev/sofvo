@@ -17,6 +17,13 @@ import '../recruitment/recruitment_management_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
 import '../gadget/gadget_list_screen.dart';
+import 'my_posts_screen.dart';
+import 'tournament_history_screen.dart';
+import 'match_history_screen.dart';
+import 'bookmarks_screen.dart';
+import 'badge_collection_screen.dart';
+import 'ranking_screen.dart';
+import 'template_management_screen.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key});
@@ -328,9 +335,15 @@ class MyPageScreen extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _buildMenuGroup([
-                        _MenuItemData(Icons.history_rounded, '参加大会履歴', () => _showComingSoon(context)),
-                        _MenuItemData(Icons.people_outline_rounded, '対戦ヒストリー', () => _showComingSoon(context)),
-                        _MenuItemData(Icons.article_outlined, '自分の投稿', () => _showComingSoon(context)),
+                        _MenuItemData(Icons.history_rounded, '参加大会履歴', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentHistoryScreen()));
+                        }),
+                        _MenuItemData(Icons.people_outline_rounded, '対戦ヒストリー', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const MatchHistoryScreen()));
+                        }),
+                        _MenuItemData(Icons.article_outlined, '自分の投稿', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const MyPostsScreen()));
+                        }),
                       ]),
                     ),
                     const SizedBox(height: 20),
@@ -344,10 +357,18 @@ class MyPageScreen extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _buildMenuGroup([
-                        _MenuItemData(Icons.bookmark_outline_rounded, 'ブックマーク', () => _showComingSoon(context)),
-                        _MenuItemData(Icons.workspace_premium_outlined, 'バッジコレクション', () => _showComingSoon(context)),
-                        _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () => _showComingSoon(context)),
-                        _MenuItemData(Icons.save_outlined, 'テンプレート管理', () => _showComingSoon(context)),
+                        _MenuItemData(Icons.bookmark_outline_rounded, 'ブックマーク', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const BookmarksScreen()));
+                        }),
+                        _MenuItemData(Icons.workspace_premium_outlined, 'バッジコレクション', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const BadgeCollectionScreen()));
+                        }),
+                        _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingScreen()));
+                        }),
+                        _MenuItemData(Icons.save_outlined, 'テンプレート管理', () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagementScreen()));
+                        }),
                       ]),
                     ),
                   ]),
