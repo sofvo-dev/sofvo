@@ -258,19 +258,14 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         ),
         const SizedBox(height: 12),
 
-        // ── メイン切替タブ (swipeable indicators) ──
+        // ── メイン切替タブ (underline style) ──
         if (!_isSavedMode) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(children: [
-              Expanded(child: _buildModeTab('大会をさがす', Icons.emoji_events_outlined, 0)),
-              const SizedBox(width: 8),
-              Expanded(child: _buildModeTab('メンバーをさがす', Icons.people_outline, 1)),
-            ]),
-          ),
-          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _buildModeTab('大会をさがす', 0)),
+            Expanded(child: _buildModeTab('メンバーをさがす', 1)),
+          ]),
 
-          // ── フォロー中 / みんなの (tappable toggle) ──
+          // ── フォロー中 / みんなの (navy pill toggle) ──
           _buildSubTabToggle(),
           const SizedBox(height: 10),
 
@@ -332,8 +327,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     );
   }
 
-  // ── Mode tab for swipeable top-level pages ──
-  Widget _buildModeTab(String label, IconData icon, int page) {
+  // ── Mode tab (underline style) ──
+  Widget _buildModeTab(String label, int page) {
     final isSelected = _currentPage == page;
     return GestureDetector(
       onTap: () {
@@ -343,25 +338,25 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           curve: Curves.easeInOut,
         );
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!,
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+              width: 2.5,
+            ),
           ),
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size: 15, color: isSelected ? Colors.white : AppTheme.textSecondary),
-          const SizedBox(width: 5),
-          Text(label, style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? Colors.white : AppTheme.textSecondary,
-          )),
-        ]),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textHint,
+          ),
+        ),
       ),
     );
   }
@@ -372,7 +367,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
+        color: Colors.grey[100],
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.all(3),
@@ -391,19 +386,16 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? Colors.white : Colors.transparent,
+          color: isActive ? AppTheme.primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          boxShadow: isActive
-              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 1))]
-              : null,
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            color: isActive ? AppTheme.textPrimary : AppTheme.textSecondary,
+            color: isActive ? Colors.white : AppTheme.textSecondary,
           ),
         ),
       ),
@@ -1386,6 +1378,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         final query = _searchController.text.toLowerCase();
         final filtered = docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
+          final recruiterId = data['userId'] ?? '';
+          final isF = _followingIds.contains(recruiterId) || recruiterId == _currentUser?.uid;
+          if (friendsOnly && !isF) return false;
+          if (!friendsOnly && isF) return false;
           if (query.isNotEmpty) {
             final nn = (data['nickname'] ?? '').toString().toLowerCase();
             final tn = (data['tournamentName'] ?? '').toString().toLowerCase();
@@ -1400,14 +1396,28 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           return true;
         }).toList();
 
-        if (filtered.isEmpty) return _emptyState(Icons.person_search, 'メンバー募集が見つかりません', '');
+        if (filtered.isEmpty) {
+          return _emptyState(
+            friendsOnly ? Icons.people_outline : Icons.person_search,
+            friendsOnly ? 'フォロー中のメンバー募集はありません' : 'メンバー募集が見つかりません',
+            '',
+          );
+        }
 
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-          itemCount: filtered.length,
-          itemBuilder: (ctx, i) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _buildRecruitCard(filtered[i]),
+        return RefreshIndicator(
+          color: AppTheme.primaryColor,
+          onRefresh: () async {
+            setState(() {});
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            itemCount: filtered.length,
+            itemBuilder: (ctx, i) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildRecruitCard(filtered[i]),
+            ),
           ),
         );
       },

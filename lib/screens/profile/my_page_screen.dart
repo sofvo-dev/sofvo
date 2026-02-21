@@ -229,7 +229,7 @@ class MyPageScreen extends StatelessWidget {
 
               // ━━━ コンテンツ ━━━
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 100),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // ━━━ 大会結果カードセクション ━━━
@@ -697,7 +697,7 @@ class _GadgetCardsRow extends StatelessWidget {
         }
 
         return SizedBox(
-          height: 150,
+          height: 210,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -723,16 +723,15 @@ class _GadgetCardsRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── 画像エリア ──
+                      // ── 正方形画像エリア ──
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        child: SizedBox(
-                          height: 72,
-                          width: double.infinity,
+                        child: AspectRatio(
+                          aspectRatio: 1,
                           child: imageUrl.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: imageUrl,
-                                  fit: BoxFit.cover,
+                                  fit: BoxFit.contain,
                                   placeholder: (_, __) => Container(
                                     color: Colors.grey[100],
                                     child: const Center(child: Icon(Icons.image, color: Colors.grey, size: 24)),
