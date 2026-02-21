@@ -806,7 +806,134 @@ exports.onVenueWrite = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Google Sheets → Firestore インポート (会場)
+// Google Sheets → Firestore インポート (会場) 共通ロジック
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function doImportVenues() {
+  const rows = await sheetsRead(VENUE_SHEET_ID, "会場一覧!A:T");
+  if (rows.length < 2) return { imported: 0, updated: 0, total: 0 };
+
+  const db = admin.firestore();
+  const dataRows = rows.slice(1);
+  let imported = 0;
+  let updated = 0;
+
+  for (const row of dataRows) {
+    const venueId = (row[0] || "").trim();
+    const name = (row[1] || "").trim();
+    if (!name) continue;
+
+    const venueData = {
+      name,
+      address: row[2] || "",
+      phone: row[3] || "",
+      station: row[4] || "",
+      courts: parseInt(row[5]) || 0,
+      parking: parseInt(row[6]) || 0,
+      toilets: parseInt(row[7]) || 0,
+      hasChangeRoom: (row[8] || "").trim() === "あり",
+      hasShower: (row[9] || "").trim() === "あり",
+      hasGallery: (row[10] || "").trim() === "あり",
+      hasAC: (row[11] || "").trim() === "あり",
+      eatArea: row[12] || "",
+      openTime: row[13] || "",
+      closeTime: row[14] || "",
+      fee: row[15] || "",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (row[16]) {
+      const eqParts = row[16].split(",").map((s) => s.trim()).filter(Boolean);
+      venueData.equipments = eqParts.map((part) => {
+        const m = part.match(/^(.+?)\((\d+)個(?:\/¥(\d+)|\/無料)?\)$/);
+        if (m) return { name: m[1], qty: parseInt(m[2]) || 1, fee: parseInt(m[3]) || 0 };
+        return { name: part, qty: 1, fee: 0 };
+      });
+    }
+
+    if (venueId) {
+      const existing = await db.collection("venues").doc(venueId).get();
+      if (existing.exists) {
+        await db.collection("venues").doc(venueId).update(venueData);
+        updated++;
+      } else {
+        venueData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        venueData.registeredBy = "sheet_import";
+        venueData.rating = 0;
+        venueData.reviewCount = 0;
+        await db.collection("venues").doc(venueId).set(venueData);
+        imported++;
+      }
+    } else {
+      venueData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      venueData.registeredBy = "sheet_import";
+      venueData.rating = 0;
+      venueData.reviewCount = 0;
+      await db.collection("venues").add(venueData);
+      imported++;
+    }
+  }
+
+  return { imported, updated, total: dataRows.length };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Google Sheets → Firestore インポート (ガジェット) 共通ロジック
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function doImportGadgets() {
+  const rows = await sheetsRead(GADGET_SHEET_ID, "ガジェット一覧!A:K");
+  if (rows.length < 2) return { imported: 0, updated: 0, skipped: 0, total: 0 };
+
+  const db = admin.firestore();
+  const dataRows = rows.slice(1);
+  let imported = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const row of dataRows) {
+    const gadgetId = (row[0] || "").trim();
+    const userId = (row[1] || "").trim();
+    const name = (row[3] || "").trim();
+    if (!userId || !name) { skipped++; continue; }
+
+    const gadgetData = {
+      name,
+      category: row[4] || "カテゴリなし",
+      amazonUrl: row[5] || "",
+      amazonAffiliateUrl: row[6] || "",
+      rakutenAffiliateUrl: row[7] || "",
+      imageUrl: row[8] || "",
+      memo: row[9] || "",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) { skipped++; continue; }
+
+    if (gadgetId) {
+      const existing = await userRef.collection("gadgets").doc(gadgetId).get();
+      if (existing.exists) {
+        await userRef.collection("gadgets").doc(gadgetId).update(gadgetData);
+        updated++;
+      } else {
+        gadgetData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        await userRef.collection("gadgets").doc(gadgetId).set(gadgetData);
+        imported++;
+      }
+    } else {
+      gadgetData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      await userRef.collection("gadgets").add(gadgetData);
+      imported++;
+    }
+  }
+
+  return { imported, updated, skipped, total: dataRows.length };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HTTP エンドポイント (手動トリガー用)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 exports.importVenuesFromSheet = functions.https.onRequest(async (req, res) => {
@@ -816,89 +943,13 @@ exports.importVenuesFromSheet = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
-    const rows = await sheetsRead(VENUE_SHEET_ID, "会場一覧!A:T");
-    if (rows.length < 2) {
-      res.json({ success: true, imported: 0, updated: 0, message: "データなし" });
-      return;
-    }
-
-    const db = admin.firestore();
-    const header = rows[0];
-    const dataRows = rows.slice(1);
-    let imported = 0;
-    let updated = 0;
-
-    for (const row of dataRows) {
-      const venueId = (row[0] || "").trim();
-      const name = (row[1] || "").trim();
-      if (!name) continue; // 会場名がなければスキップ
-
-      const venueData = {
-        name,
-        address: row[2] || "",
-        phone: row[3] || "",
-        station: row[4] || "",
-        courts: parseInt(row[5]) || 0,
-        parking: parseInt(row[6]) || 0,
-        toilets: parseInt(row[7]) || 0,
-        hasChangeRoom: (row[8] || "").trim() === "あり",
-        hasShower: (row[9] || "").trim() === "あり",
-        hasGallery: (row[10] || "").trim() === "あり",
-        hasAC: (row[11] || "").trim() === "あり",
-        eatArea: row[12] || "",
-        openTime: row[13] || "",
-        closeTime: row[14] || "",
-        fee: row[15] || "",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
-
-      // 貸出備品をパース: "ボール(3個/¥500), ネット(1個/無料)"
-      if (row[16]) {
-        const eqStr = row[16];
-        const eqParts = eqStr.split(",").map((s) => s.trim()).filter(Boolean);
-        venueData.equipments = eqParts.map((part) => {
-          const m = part.match(/^(.+?)\((\d+)個(?:\/¥(\d+)|\/無料)?\)$/);
-          if (m) return { name: m[1], qty: parseInt(m[2]) || 1, fee: parseInt(m[3]) || 0 };
-          return { name: part, qty: 1, fee: 0 };
-        });
-      }
-
-      if (venueId) {
-        // 既存の会場を更新
-        const existing = await db.collection("venues").doc(venueId).get();
-        if (existing.exists) {
-          await db.collection("venues").doc(venueId).update(venueData);
-          updated++;
-        } else {
-          // IDが指定されてるが存在しない → 新規作成
-          venueData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-          venueData.registeredBy = "sheet_import";
-          venueData.rating = 0;
-          venueData.reviewCount = 0;
-          await db.collection("venues").doc(venueId).set(venueData);
-          imported++;
-        }
-      } else {
-        // IDなし → 新規作成
-        venueData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-        venueData.registeredBy = "sheet_import";
-        venueData.rating = 0;
-        venueData.reviewCount = 0;
-        await db.collection("venues").add(venueData);
-        imported++;
-      }
-    }
-
-    res.json({ success: true, imported, updated, total: dataRows.length });
+    const result = await doImportVenues();
+    res.json({ success: true, ...result });
   } catch (e) {
     console.error("Venue import error:", e);
     res.status(500).json({ error: e.message });
   }
 });
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Google Sheets → Firestore インポート (ガジェット)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 exports.importGadgetsFromSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -907,60 +958,36 @@ exports.importGadgetsFromSheet = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
-    const rows = await sheetsRead(GADGET_SHEET_ID, "ガジェット一覧!A:K");
-    if (rows.length < 2) {
-      res.json({ success: true, imported: 0, updated: 0, message: "データなし" });
-      return;
-    }
-
-    const db = admin.firestore();
-    const dataRows = rows.slice(1); // ヘッダースキップ
-    let imported = 0;
-    let updated = 0;
-    let skipped = 0;
-
-    // シート列順: ガジェットID, ユーザーID, ユーザー, 商品名, カテゴリ, Amazon URL, Amazon Affiliate URL, 楽天 Affiliate URL, 画像URL, メモ, 登録日
-    for (const row of dataRows) {
-      const gadgetId = (row[0] || "").trim();
-      const userId = (row[1] || "").trim();
-      const name = (row[3] || "").trim();
-      if (!userId || !name) { skipped++; continue; }
-
-      const gadgetData = {
-        name,
-        category: row[4] || "カテゴリなし",
-        amazonUrl: row[5] || "",
-        amazonAffiliateUrl: row[6] || "",
-        rakutenAffiliateUrl: row[7] || "",
-        imageUrl: row[8] || "",
-        memo: row[9] || "",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
-
-      const userRef = db.collection("users").doc(userId);
-      const userDoc = await userRef.get();
-      if (!userDoc.exists) { skipped++; continue; }
-
-      if (gadgetId) {
-        const existing = await userRef.collection("gadgets").doc(gadgetId).get();
-        if (existing.exists) {
-          await userRef.collection("gadgets").doc(gadgetId).update(gadgetData);
-          updated++;
-        } else {
-          gadgetData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-          await userRef.collection("gadgets").doc(gadgetId).set(gadgetData);
-          imported++;
-        }
-      } else {
-        gadgetData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-        await userRef.collection("gadgets").add(gadgetData);
-        imported++;
-      }
-    }
-
-    res.json({ success: true, imported, updated, skipped, total: dataRows.length });
+    const result = await doImportGadgets();
+    res.json({ success: true, ...result });
   } catch (e) {
     console.error("Gadget import error:", e);
     res.status(500).json({ error: e.message });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// スケジュール実行: シート → Firestore 自動同期 (5分毎)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.scheduledImportVenues = functions.pubsub
+  .schedule("every 5 minutes")
+  .onRun(async () => {
+    try {
+      const result = await doImportVenues();
+      console.log("Scheduled venue import:", JSON.stringify(result));
+    } catch (e) {
+      console.error("Scheduled venue import error:", e.message);
+    }
+  });
+
+exports.scheduledImportGadgets = functions.pubsub
+  .schedule("every 5 minutes")
+  .onRun(async () => {
+    try {
+      const result = await doImportGadgets();
+      console.log("Scheduled gadget import:", JSON.stringify(result));
+    } catch (e) {
+      console.error("Scheduled gadget import error:", e.message);
+    }
+  });
