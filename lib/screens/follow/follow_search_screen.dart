@@ -28,12 +28,14 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
 
   // フォロー状態キャッシュ
   final Set<String> _followingIds = {};
+  String _mySearchId = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadFollowing();
+    _loadMySearchId();
   }
 
   Future<void> _loadFollowing() async {
@@ -46,6 +48,19 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     setState(() {
       _followingIds.addAll(snap.docs.map((d) => d.id));
     });
+  }
+
+  Future<void> _loadMySearchId() async {
+    if (_currentUser == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .get();
+    if (doc.exists && mounted) {
+      setState(() {
+        _mySearchId = (doc.data()?['searchId'] as String?) ?? '';
+      });
+    }
   }
 
   @override
@@ -369,7 +384,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                     children: [
                       Icon(Icons.qr_code_2, size: 120, color: AppTheme.primaryColor),
                       const SizedBox(height: 8),
-                      Text(_currentUser?.uid.substring(0, 8) ?? '',
+                      Text(_mySearchId.isNotEmpty ? '@$_mySearchId' : '未設定',
                           style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ),
