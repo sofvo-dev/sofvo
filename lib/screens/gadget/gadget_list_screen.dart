@@ -16,6 +16,7 @@ class GadgetListScreen extends StatefulWidget {
 class _GadgetListScreenState extends State<GadgetListScreen> {
   String _filterCategory = 'すべて';
   bool _isSpreadsheetView = false;
+  String _sortMode = 'category'; // 'category' | 'name' | 'date'
 
   @override
   Widget build(BuildContext context) {
@@ -28,73 +29,99 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── ヘッダー ──
-            Container(
+      appBar: AppBar(
+        title: const Text('ガジェット管理'),
+        actions: [
+          // 並び替え
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort, color: Colors.white),
+            tooltip: '並び替え',
+            onSelected: (val) => setState(() => _sortMode = val),
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'category',
+                child: Row(children: [
+                  Icon(Icons.label_outlined, size: 18,
+                      color: _sortMode == 'category' ? AppTheme.primaryColor : AppTheme.textSecondary),
+                  const SizedBox(width: 8),
+                  Text('カテゴリ順', style: TextStyle(
+                    fontWeight: _sortMode == 'category' ? FontWeight.bold : FontWeight.normal,
+                    color: _sortMode == 'category' ? AppTheme.primaryColor : AppTheme.textPrimary)),
+                ]),
+              ),
+              PopupMenuItem(
+                value: 'name',
+                child: Row(children: [
+                  Icon(Icons.sort_by_alpha, size: 18,
+                      color: _sortMode == 'name' ? AppTheme.primaryColor : AppTheme.textSecondary),
+                  const SizedBox(width: 8),
+                  Text('名前順', style: TextStyle(
+                    fontWeight: _sortMode == 'name' ? FontWeight.bold : FontWeight.normal,
+                    color: _sortMode == 'name' ? AppTheme.primaryColor : AppTheme.textPrimary)),
+                ]),
+              ),
+              PopupMenuItem(
+                value: 'date',
+                child: Row(children: [
+                  Icon(Icons.access_time, size: 18,
+                      color: _sortMode == 'date' ? AppTheme.primaryColor : AppTheme.textSecondary),
+                  const SizedBox(width: 8),
+                  Text('登録日順', style: TextStyle(
+                    fontWeight: _sortMode == 'date' ? FontWeight.bold : FontWeight.normal,
+                    color: _sortMode == 'date' ? AppTheme.primaryColor : AppTheme.textPrimary)),
+                ]),
+              ),
+            ],
+          ),
+          // 表示切り替え
+          IconButton(
+            icon: Icon(
+              _isSpreadsheetView ? Icons.grid_view : Icons.table_chart_outlined,
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text('ガジェット管理',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                      const Spacer(),
-                      // 表示切り替え
-                      IconButton(
-                        icon: Icon(
-                          _isSpreadsheetView ? Icons.grid_view : Icons.table_chart_outlined,
-                          color: AppTheme.primaryColor,
-                        ),
-                        tooltip: _isSpreadsheetView ? 'カード表示' : 'スプレッドシート表示',
-                        onPressed: () => setState(() => _isSpreadsheetView = !_isSpreadsheetView),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(height: 1, color: Colors.grey[100]),
-                ],
-              ),
             ),
+            tooltip: _isSpreadsheetView ? 'カード表示' : 'スプレッドシート表示',
+            onPressed: () => setState(() => _isSpreadsheetView = !_isSpreadsheetView),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // ── カテゴリフィルタ ──
+          _buildCategoryFilter(uid),
 
-            // ── カテゴリフィルタ ──
-            _buildCategoryFilter(uid),
+          // ── ガジェット一覧 ──
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _buildQuery(uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _buildEmptyState();
+                }
 
-            // ── ガジェット一覧 ──
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _buildQuery(uid),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return _buildEmptyState();
-                  }
+                final gadgets = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  data['id'] = doc.id;
+                  return data;
+                }).toList();
 
-                  final gadgets = snapshot.data!.docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    data['id'] = doc.id;
-                    return data;
-                  }).toList();
+                // ソート適用
+                _sortGadgets(gadgets);
 
-                  if (_isSpreadsheetView) {
-                    return _buildSpreadsheetView(gadgets);
-                  }
-                  return _buildCardView(gadgets);
-                },
-              ),
+                if (_isSpreadsheetView) {
+                  return _buildSpreadsheetView(gadgets);
+                }
+
+                if (_sortMode == 'category' && _filterCategory == 'すべて') {
+                  return _buildGroupedCardView(gadgets);
+                }
+                return _buildCardView(gadgets);
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -108,6 +135,27 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
+  }
+
+  void _sortGadgets(List<Map<String, dynamic>> gadgets) {
+    switch (_sortMode) {
+      case 'name':
+        gadgets.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
+        break;
+      case 'category':
+        gadgets.sort((a, b) {
+          final catA = (a['category'] ?? 'カテゴリなし').toString();
+          final catB = (b['category'] ?? 'カテゴリなし').toString();
+          final catCmp = catA.compareTo(catB);
+          if (catCmp != 0) return catCmp;
+          return (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString());
+        });
+        break;
+      case 'date':
+      default:
+        // FirestoreからcreatedAt descで取得済み。そのまま。
+        break;
+    }
   }
 
   Stream<QuerySnapshot> _buildQuery(String uid) {
@@ -159,7 +207,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(cat, style: TextStyle(fontSize: 13)),
+                  label: Text(cat, style: const TextStyle(fontSize: 13)),
                   selected: isSelected,
                   onSelected: (_) => setState(() => _filterCategory = cat),
                   selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
@@ -172,6 +220,61 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
               );
             },
           ),
+        );
+      },
+    );
+  }
+
+  // ── カテゴリグループ表示 ──
+  Widget _buildGroupedCardView(List<Map<String, dynamic>> gadgets) {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final g in gadgets) {
+      final cat = (g['category'] ?? 'カテゴリなし') as String;
+      grouped.putIfAbsent(cat, () => []).add(g);
+    }
+
+    final sortedKeys = grouped.keys.toList()
+      ..sort((a, b) {
+        if (a == 'カテゴリなし') return 1;
+        if (b == 'カテゴリなし') return -1;
+        return a.compareTo(b);
+      });
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: sortedKeys.length,
+      itemBuilder: (context, index) {
+        final category = sortedKeys[index];
+        final items = grouped[category]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (index > 0) const SizedBox(height: 8),
+            // カテゴリヘッダー
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    category == 'カテゴリなし' ? Icons.label_off_outlined : Icons.label_outlined,
+                    size: 16, color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(category,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  const Spacer(),
+                  Text('${items.length}件',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...items.map((g) => _buildGadgetCard(g)),
+          ],
         );
       },
     );
@@ -428,5 +531,4 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
       ),
     );
   }
-
 }

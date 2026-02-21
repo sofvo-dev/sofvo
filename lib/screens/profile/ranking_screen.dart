@@ -36,6 +36,10 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
         title: const Text('ランキング'),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: AppTheme.accentColor,
+          indicatorWeight: 3,
           tabs: const [
             Tab(text: '通算Pt'),
             Tab(text: '大会参加'),
