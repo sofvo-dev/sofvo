@@ -47,7 +47,7 @@
     }
   },
   "hosting": {
-    "public": "website",
+    "public": "build/web",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -59,6 +59,12 @@
         "headers": [
           { "key": "Cache-Control", "value": "no-cache" }
         ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/app/**",
+        "destination": "/index.html"
       }
     ]
   }
