@@ -187,51 +187,62 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       body: SafeArea(
         child: Column(children: [
           _buildHeader(),
-          if (_showFilter && _viewMode != 'saved') _buildFilterPanel(),
+          if (_showFilter) _buildFilterPanel(),
           Expanded(child: _buildContent()),
         ]),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => setState(() {
+          if (_viewMode == 'saved') {
+            _viewMode = 'tournament';
+          } else {
+            _viewMode = 'saved';
+          }
+        }),
+        backgroundColor: _viewMode == 'saved' ? AppTheme.primaryColor : AppTheme.accentColor,
+        child: Icon(
+          _viewMode == 'saved' ? Icons.search : Icons.bookmark,
+          color: Colors.white,
+        ),
       ),
     );
   }
 
-  // ━━━ ヘッダー（タイトル + フォロー切替 + モード切替 + 検索バー） ━━━
+  // ━━━ ヘッダー（タイトル + モード切替 + フォロー切替 + 検索バー） ━━━
   Widget _buildHeader() {
     return Material(
       color: Colors.white,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: const Text('さがす',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+          child: Text(_viewMode == 'saved' ? '保存済み' : 'さがす',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         ),
         const SizedBox(height: 12),
-        // フォロー中/みんなの大会 切替（X風アンダーラインタブ）
+        // メイン切替タブ（大会をさがす | メンバーをさがす）
+        if (_viewMode != 'saved') Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _buildModeTab('大会をさがす', Icons.emoji_events_outlined, 'tournament')),
+            const SizedBox(width: 8),
+            Expanded(child: _buildModeTab('メンバーをさがす', Icons.people_outline, 'recruitment')),
+          ]),
+        ),
+        if (_viewMode != 'saved') const SizedBox(height: 10),
+        // フォロー中/みんなの大会 切替（サブタブ）
         if (_viewMode != 'saved') TabBar(
           controller: _tabController,
           labelColor: AppTheme.textPrimary,
           unselectedLabelColor: AppTheme.textSecondary,
-          labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal),
+          labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
           indicatorColor: AppTheme.primaryColor,
-          indicatorWeight: 3,
+          indicatorWeight: 2,
           dividerColor: Colors.grey[200],
           tabs: [
             Tab(text: 'フォロー中'),
             Tab(text: 'みんなの${_viewMode == 'tournament' ? '大会' : 'メンバー'}'),
           ],
-        ),
-        if (_viewMode != 'saved') const SizedBox(height: 10),
-        // モード切替タブ（大会 | メンバー | 保存）
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _buildModeTab('大会', Icons.emoji_events_outlined, 'tournament')),
-            const SizedBox(width: 8),
-            Expanded(child: _buildModeTab('メンバー', Icons.people_outline, 'recruitment')),
-            const SizedBox(width: 8),
-            Expanded(child: _buildModeTab('保存', Icons.bookmark_outline, 'saved',
-                activeColor: AppTheme.accentColor)),
-          ]),
         ),
         const SizedBox(height: 10),
         // 検索バー + フィルターボタン
@@ -475,6 +486,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       ],
     );
   }
+
+  // viewModeがsavedに変更されたときもヘッダーのフォロータブを隠す
+  bool get _isSavedMode => _viewMode == 'saved';
 
   // ━━━ 保存済み ━━━
   Widget _buildSavedList() {

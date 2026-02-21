@@ -925,152 +925,78 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildNoticeTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('アクティビティ',
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary)),
-        const SizedBox(height: 12),
-        _buildActivityNotice(
-          icon: Icons.check_circle,
-          color: AppTheme.success,
-          title: 'エントリーが承認されました',
-          body: '「第5回 世田谷カップ」へのエントリーが承認されました。大会詳細を確認しましょう。',
-          time: '30分前',
-          isUnread: true,
-        ),
-        const SizedBox(height: 10),
-        _buildActivityNotice(
-          icon: Icons.person_add,
-          color: AppTheme.primaryColor,
-          title: 'メンバー募集に応募がありました',
-          body: 'ゆみさんが「春のソフトバレー大会」の募集に応募しました。',
-          time: '2時間前',
-          isUnread: true,
-        ),
-        const SizedBox(height: 10),
-        _buildActivityNotice(
-          icon: Icons.favorite,
-          color: AppTheme.error,
-          title: '投稿にいいねがつきました',
-          body: 'たけしさん、けんたさんが あなたの投稿にいいねしました。',
-          time: '5時間前',
-          isUnread: false,
-        ),
-        const SizedBox(height: 10),
-        _buildActivityNotice(
-          icon: Icons.group_add,
-          color: AppTheme.accentColor,
-          title: 'フォローされました',
-          body: 'あやかさんがあなたをフォローしました。',
-          time: '1日前',
-          isUnread: false,
-        ),
-        const SizedBox(height: 24),
-        const Text('運営からのお知らせ',
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary)),
-        const SizedBox(height: 12),
-        _buildOfficialNotice(
-          icon: Icons.campaign,
-          color: AppTheme.accentColor,
-          title: 'Sofvo 正式リリースのお知らせ',
-          body: 'ソフトバレーボール マッチングアプリ「Sofvo」をご利用いただきありがとうございます。',
-          time: '2026年2月14日',
-        ),
-        const SizedBox(height: 10),
-        _buildOfficialNotice(
-          icon: Icons.update,
-          color: AppTheme.info,
-          title: 'バージョン 1.1 アップデート',
-          body: '大会検索のフィルター機能が強化されました。',
-          time: '2026年2月10日',
-        ),
-        const SizedBox(height: 80),
-      ],
-    );
-  }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notices')
+          .orderBy('createdAt', descending: true)
+          .limit(30)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor));
+        }
 
-  Widget _buildActivityNotice({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String body,
-    required String time,
-    required bool isUnread,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isUnread
-            ? AppTheme.primaryColor.withValues(alpha: 0.04)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isUnread
-              ? AppTheme.primaryColor.withValues(alpha: 0.15)
-              : Colors.grey[200]!,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+        final docs = snapshot.data?.docs ?? [];
+
+        if (docs.isEmpty) {
+          return Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(title,
-                          style: TextStyle(
-                              fontWeight: isUnread
-                                  ? FontWeight.bold
-                                  : FontWeight.w600,
-                              fontSize: 14,
-                              color: AppTheme.textPrimary)),
-                    ),
-                    if (isUnread)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(body,
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                        height: 1.4)),
-                const SizedBox(height: 4),
-                Text(time,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textHint)),
+                Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                Text('お知らせはありません',
+                    style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
               ],
             ),
-          ),
-        ],
-      ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final type = data['type'] ?? 'info';
+            final title = data['title'] ?? '';
+            final body = data['body'] ?? '';
+            final createdAt = data['createdAt'] as Timestamp?;
+            final timeText = _formatTime(createdAt);
+
+            IconData icon;
+            Color color;
+            switch (type) {
+              case 'release':
+                icon = Icons.campaign;
+                color = AppTheme.accentColor;
+                break;
+              case 'update':
+                icon = Icons.update;
+                color = AppTheme.info;
+                break;
+              case 'maintenance':
+                icon = Icons.build;
+                color = AppTheme.warning;
+                break;
+              default:
+                icon = Icons.info_outline;
+                color = AppTheme.primaryColor;
+            }
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildOfficialNotice(
+                icon: icon,
+                color: color,
+                title: title,
+                body: body,
+                time: timeText,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
