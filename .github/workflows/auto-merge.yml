@@ -75,6 +75,15 @@ jobs:
       - name: Build web
         run: flutter build web --release
 
+      - name: Copy website files (LP, terms, privacy, etc.)
+        run: |
+          mkdir -p build/web/lp
+          cp website/index.html build/web/lp/
+          cp website/terms.html build/web/
+          cp website/privacy.html build/web/
+          cp website/contact.html build/web/
+          cp website/404.html build/web/
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
