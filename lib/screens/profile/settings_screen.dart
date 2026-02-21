@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
@@ -204,13 +205,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: AppTheme.primaryColor, size: 22),
                   title: const Text('利用規約',
                       style: TextStyle(fontSize: 15)),
-                  trailing: Icon(Icons.chevron_right,
-                      color: Colors.grey[400], size: 22),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('利用規約ページは準備中です')),
-                    );
-                  },
+                  trailing: Icon(Icons.open_in_new,
+                      color: Colors.grey[400], size: 18),
+                  onTap: () => _openUrl('https://sofvo.jp/terms.html'),
                 ),
                 _buildDivider(),
                 ListTile(
@@ -218,14 +215,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: AppTheme.primaryColor, size: 22),
                   title: const Text('プライバシーポリシー',
                       style: TextStyle(fontSize: 15)),
-                  trailing: Icon(Icons.chevron_right,
-                      color: Colors.grey[400], size: 22),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('プライバシーポリシーページは準備中です')),
-                    );
-                  },
+                  trailing: Icon(Icons.open_in_new,
+                      color: Colors.grey[400], size: 18),
+                  onTap: () => _openUrl('https://sofvo.jp/privacy.html'),
                 ),
                 _buildDivider(),
                 ListTile(
@@ -233,14 +225,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: AppTheme.primaryColor, size: 22),
                   title: const Text('ヘルプ・お問い合わせ',
                       style: TextStyle(fontSize: 15)),
-                  trailing: Icon(Icons.chevron_right,
-                      color: Colors.grey[400], size: 22),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('お問い合わせページは準備中です')),
-                    );
-                  },
+                  trailing: Icon(Icons.open_in_new,
+                      color: Colors.grey[400], size: 18),
+                  onTap: () => _openUrl('https://sofvo.jp/contact.html'),
                 ),
               ],
             ),
@@ -337,6 +324,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildDivider() {
     return Divider(height: 1, indent: 56, color: Colors.grey[100]);
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ページを開けませんでした')),
+        );
+      }
+    }
   }
 
   void _showChangePasswordDialog() {
