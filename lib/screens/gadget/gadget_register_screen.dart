@@ -19,10 +19,11 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   final _memoCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
 
-  // 内部管理用（ユーザーには非表示）
+  // 内部管理用
   String _amazonUrl = '';
-  String _rakutenUrl = '';
+  String _amazonAffiliateUrl = '';
   String _imageUrl = '';
+  final _rakutenAffiliateCtrl = TextEditingController();
 
   String _selectedCategory = 'カテゴリなし';
   bool _isSaving = false;
@@ -38,8 +39,9 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       _editingId = g['id'];
       _nameCtrl.text = g['name'] ?? '';
       _amazonUrl = g['amazonUrl'] ?? '';
-      _rakutenUrl = g['rakutenUrl'] ?? '';
+      _amazonAffiliateUrl = g['amazonAffiliateUrl'] ?? '';
       _imageUrl = g['imageUrl'] ?? '';
+      _rakutenAffiliateCtrl.text = g['rakutenAffiliateUrl'] ?? '';
       _memoCtrl.text = g['memo'] ?? '';
       _selectedCategory = g['category'] ?? 'カテゴリなし';
     }
@@ -50,6 +52,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
     _nameCtrl.dispose();
     _memoCtrl.dispose();
     _searchCtrl.dispose();
+    _rakutenAffiliateCtrl.dispose();
     super.dispose();
   }
 
@@ -99,6 +102,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       _nameCtrl.text = product.title;
       _imageUrl = product.imageUrl;
       _amazonUrl = product.detailPageUrl;
+      _amazonAffiliateUrl = product.affiliateUrl;
       _searchResults = [];
       _searchCtrl.clear();
     });
@@ -127,7 +131,8 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       final gadgetData = {
         'name': _nameCtrl.text.trim(),
         'amazonUrl': _amazonUrl,
-        'rakutenUrl': _rakutenUrl,
+        'amazonAffiliateUrl': _amazonAffiliateUrl,
+        'rakutenAffiliateUrl': _rakutenAffiliateCtrl.text.trim(),
         'imageUrl': _imageUrl,
         'memo': _memoCtrl.text.trim(),
         'category': _selectedCategory,
@@ -396,6 +401,19 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── 楽天アフィリエイトURL ──
+          _buildSectionLabel('楽天アフィリエイトURL'),
+          const SizedBox(height: 4),
+          Text('楽天のアフィリエイトリンクを貼り付けてください',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _rakutenAffiliateCtrl,
+            decoration: _inputDecoration('https://...'),
+            keyboardType: TextInputType.url,
           ),
           const SizedBox(height: 16),
 

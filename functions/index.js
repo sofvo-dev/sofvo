@@ -57,6 +57,18 @@ const PAAPI_HOST = "webservices.amazon.co.jp";
 const PAAPI_REGION = "us-west-2";
 const PAAPI_SERVICE = "ProductAdvertisingAPI";
 
+function getPartnerTag() {
+  return process.env.AMAZON_PARTNER_TAG || null;
+}
+
+function makeAffiliateUrl(asin) {
+  const tag = getPartnerTag();
+  if (tag) {
+    return `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
+  }
+  return `https://www.amazon.co.jp/dp/${asin}`;
+}
+
 function hasPaapiCredentials() {
   return !!(
     process.env.AMAZON_ACCESS_KEY &&
@@ -156,14 +168,16 @@ function extractItem(item) {
   const info = item.ItemInfo || {};
   const images = item.Images || {};
 
+  const asin = item.ASIN || "";
   return {
-    asin: item.ASIN || "",
+    asin,
     title: info.Title?.DisplayValue || "",
     imageUrl:
       images.Primary?.Large?.URL ||
       images.Primary?.Medium?.URL ||
       "",
-    detailPageUrl: item.DetailPageURL || "",
+    detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
+    affiliateUrl: makeAffiliateUrl(asin),
     price:
       item.Offers?.Listings?.[0]?.Price?.DisplayAmount || null,
   };
@@ -225,6 +239,7 @@ async function scrapeAmazonSearch(keyword) {
         title,
         imageUrl: image,
         detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
+        affiliateUrl: makeAffiliateUrl(asin),
         price,
       });
     }
@@ -278,6 +293,7 @@ async function scrapeAmazonProduct(asin) {
     title,
     imageUrl: image,
     detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
+    affiliateUrl: makeAffiliateUrl(asin),
     price,
   };
 }
@@ -422,6 +438,7 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
         title: "",
         imageUrl: `https://images-na.ssl-images-amazon.com/images/P/${asin}.09.LZZZZZZZ.jpg`,
         detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
+        affiliateUrl: makeAffiliateUrl(asin),
         price: null,
       });
     }
@@ -433,6 +450,7 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
       title: "",
       imageUrl: `https://images-na.ssl-images-amazon.com/images/P/${asin}.09.LZZZZZZZ.jpg`,
       detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
+      affiliateUrl: makeAffiliateUrl(asin),
       price: null,
     });
   }
@@ -468,7 +486,8 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
           g.name || "",
           g.category || "カテゴリなし",
           g.amazonUrl || "",
-          g.rakutenUrl || "",
+          g.amazonAffiliateUrl || "",
+          g.rakutenAffiliateUrl || "",
           g.imageUrl || "",
           g.memo || "",
           g.createdAt ? g.createdAt.toDate().toISOString().split("T")[0] : "",
@@ -478,14 +497,14 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
 
     // シートをクリアしてヘッダー＋データを書き込む
     const sheetName = "ガジェット一覧";
-    const clearRes = await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A:J`);
+    const clearRes = await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A:K`);
     if (!clearRes.ok) {
       // シートがない場合は作成
       await sheetsAddSheet(GADGET_SHEET_ID, sheetName);
     }
 
     const values = [
-      ["ガジェットID", "ユーザーID", "ユーザー", "商品名", "カテゴリ", "Amazon URL", "楽天 URL", "画像URL", "メモ", "登録日"],
+      ["ガジェットID", "ユーザーID", "ユーザー", "商品名", "カテゴリ", "Amazon URL", "Amazon Affiliate URL", "楽天 Affiliate URL", "画像URL", "メモ", "登録日"],
       ...allGadgets,
     ];
 

@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:csv/csv.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import 'gadget_register_screen.dart';
-
-// Web環境でのみCSVダウンロードヘルパーをインポート
-import 'gadget_csv_helper.dart' if (dart.library.js_interop) 'gadget_csv_helper_web.dart';
 
 class GadgetListScreen extends StatefulWidget {
   const GadgetListScreen({super.key});
@@ -59,12 +56,6 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                         ),
                         tooltip: _isSpreadsheetView ? 'カード表示' : 'スプレッドシート表示',
                         onPressed: () => setState(() => _isSpreadsheetView = !_isSpreadsheetView),
-                      ),
-                      // CSV出力
-                      IconButton(
-                        icon: const Icon(Icons.download_outlined, color: AppTheme.primaryColor),
-                        tooltip: 'CSVエクスポート',
-                        onPressed: () => _exportCsv(uid),
                       ),
                     ],
                   ),
@@ -438,54 +429,4 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     );
   }
 
-  Future<void> _exportCsv(String uid) async {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('gadgets')
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      if (snapshot.docs.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('エクスポートするガジェットがありません'), backgroundColor: AppTheme.warning),
-          );
-        }
-        return;
-      }
-
-      final rows = <List<String>>[
-        ['商品名', 'カテゴリ', 'Amazon URL', '楽天 URL', '画像URL', 'メモ'],
-      ];
-
-      for (final doc in snapshot.docs) {
-        final g = doc.data();
-        rows.add([
-          g['name'] ?? '',
-          g['category'] ?? 'カテゴリなし',
-          g['amazonUrl'] ?? '',
-          g['rakutenUrl'] ?? '',
-          g['imageUrl'] ?? '',
-          g['memo'] ?? '',
-        ]);
-      }
-
-      final csvString = const ListToCsvConverter().convert(rows);
-      downloadCsvFile(csvString, 'gadgets_export.csv');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CSVをエクスポートしました'), backgroundColor: AppTheme.success),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エクスポートに失敗しました: $e'), backgroundColor: AppTheme.error),
-        );
-      }
-    }
-  }
 }

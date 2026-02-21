@@ -6,6 +6,7 @@ class AmazonProduct {
   final String title;
   final String imageUrl;
   final String detailPageUrl;
+  final String affiliateUrl;
   final String? price;
 
   AmazonProduct({
@@ -13,6 +14,7 @@ class AmazonProduct {
     required this.title,
     required this.imageUrl,
     required this.detailPageUrl,
+    required this.affiliateUrl,
     this.price,
   });
 
@@ -22,6 +24,7 @@ class AmazonProduct {
       title: json['title'] ?? '',
       imageUrl: json['imageUrl'] ?? '',
       detailPageUrl: json['detailPageUrl'] ?? '',
+      affiliateUrl: json['affiliateUrl'] ?? json['detailPageUrl'] ?? '',
       price: json['price'],
     );
   }
@@ -31,6 +34,7 @@ class AmazonProduct {
     'title': title,
     'imageUrl': imageUrl,
     'detailPageUrl': detailPageUrl,
+    'affiliateUrl': affiliateUrl,
     'price': price,
   };
 }
@@ -116,6 +120,7 @@ class AmazonSearchService {
       title: '',
       imageUrl: 'https://images-na.ssl-images-amazon.com/images/P/$asin.09.LZZZZZZZ.jpg',
       detailPageUrl: 'https://www.amazon.co.jp/dp/$asin',
+      affiliateUrl: 'https://www.amazon.co.jp/dp/$asin',
     );
   }
 }
