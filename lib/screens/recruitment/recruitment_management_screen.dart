@@ -114,7 +114,7 @@ class _RecruitmentManagementScreenState
             padding:
                 const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
+              color: AppTheme.primaryColor.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text('${items.length}',
@@ -152,7 +152,7 @@ class _RecruitmentManagementScreenState
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
               color: pending > 0 && isActive
-                  ? AppTheme.accentColor.withOpacity(0.5)
+                  ? AppTheme.accentColor.withValues(alpha:0.5)
                   : Colors.grey[200]!),
         ),
         child: Padding(
@@ -165,7 +165,7 @@ class _RecruitmentManagementScreenState
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: isActive
-                        ? AppTheme.accentColor.withOpacity(0.12)
+                        ? AppTheme.accentColor.withValues(alpha:0.12)
                         : Colors.grey[100],
                     child: Icon(Icons.person_search,
                         color: isActive
@@ -222,7 +222,7 @@ class _RecruitmentManagementScreenState
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: AppTheme.accentColor
-                                      .withOpacity(0.12),
+                                      .withValues(alpha:0.12),
                                   borderRadius:
                                       BorderRadius.circular(8),
                                 ),
@@ -354,7 +354,7 @@ class _RecruitmentManagementScreenState
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            color: AppTheme.primaryColor.withValues(alpha:0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text('${applicants.length}人',
@@ -399,12 +399,12 @@ class _RecruitmentManagementScreenState
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
                             color: aStatus == '承認待ち' && isActive
-                                ? AppTheme.accentColor.withOpacity(0.04)
+                                ? AppTheme.accentColor.withValues(alpha:0.04)
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                                 color: aStatus == '承認待ち' && isActive
-                                    ? AppTheme.accentColor.withOpacity(0.3)
+                                    ? AppTheme.accentColor.withValues(alpha:0.3)
                                     : Colors.grey[200]!),
                           ),
                           child: Column(
@@ -414,7 +414,7 @@ class _RecruitmentManagementScreenState
                                   CircleAvatar(
                                     radius: 20,
                                     backgroundColor: AppTheme.primaryColor
-                                        .withOpacity(0.12),
+                                        .withValues(alpha:0.12),
                                     child: Text(
                                         (a['name'] as String)[0],
                                         style: const TextStyle(
@@ -460,7 +460,7 @@ class _RecruitmentManagementScreenState
                                           foregroundColor: AppTheme.error,
                                           side: BorderSide(
                                               color: AppTheme.error
-                                                  .withOpacity(0.5)),
+                                                  .withValues(alpha:0.5)),
                                         ),
                                         child: const Text('見送り'),
                                       ),
@@ -506,7 +506,7 @@ class _RecruitmentManagementScreenState
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.error,
                             side: BorderSide(
-                                color: AppTheme.error.withOpacity(0.5)),
+                                color: AppTheme.error.withValues(alpha:0.5)),
                             padding:
                                 const EdgeInsets.symmetric(vertical: 14),
                           ),
@@ -555,7 +555,7 @@ class _RecruitmentManagementScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(text,

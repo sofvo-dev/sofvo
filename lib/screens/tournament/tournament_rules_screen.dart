@@ -343,9 +343,9 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [_suggestColor.withOpacity(0.1), _suggestColor.withOpacity(0.05)]),
+              gradient: LinearGradient(colors: [_suggestColor.withValues(alpha:0.1), _suggestColor.withValues(alpha:0.05)]),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _suggestColor.withOpacity(0.3)),
+              border: Border.all(color: _suggestColor.withValues(alpha:0.3)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -369,7 +369,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           // ── Teams per court ──
           Container(
             width: double.infinity, padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))]),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2))]),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('1コートのチーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
@@ -480,7 +480,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(children: [
         GestureDetector(
@@ -488,7 +488,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.08),
+              color: color.withValues(alpha:0.08),
               borderRadius: isOpen ? const BorderRadius.vertical(top: Radius.circular(12)) : BorderRadius.circular(12),
             ),
             child: Row(children: [
@@ -585,7 +585,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             onTap: () { if (value < 20) onChanged(value + 1); },
             child: Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: _prelimColor.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+              decoration: BoxDecoration(color: _prelimColor.withValues(alpha:0.15), borderRadius: BorderRadius.circular(6)),
               child: Icon(Icons.add, size: 18, color: _prelimColor),
             ),
           ),
@@ -600,7 +600,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.08) : Colors.grey[50],
+          color: selected ? color.withValues(alpha:0.08) : Colors.grey[50],
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: selected ? color : Colors.grey[300]!, width: selected ? 2 : 1),
         ),
@@ -610,7 +610,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: selected ? color : AppTheme.textPrimary)),
             const SizedBox(height: 2),
-            Text(desc, style: TextStyle(fontSize: 12, color: selected ? color.withOpacity(0.7) : AppTheme.textSecondary)),
+            Text(desc, style: TextStyle(fontSize: 12, color: selected ? color.withValues(alpha:0.7) : AppTheme.textSecondary)),
           ])),
           if (selected) Icon(Icons.check_circle, color: color),
         ]),

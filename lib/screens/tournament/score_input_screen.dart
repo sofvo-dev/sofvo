@@ -256,9 +256,9 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.08),
+                color: Colors.red.withValues(alpha:0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
+                border: Border.all(color: Colors.red.withValues(alpha:0.3)),
               ),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const Icon(Icons.sports, size: 16, color: Colors.red),
@@ -332,9 +332,9 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: confirmed ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.04),
+        color: confirmed ? Colors.white.withValues(alpha:0.08) : Colors.white.withValues(alpha:0.04),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: confirmed ? Colors.greenAccent.withOpacity(0.4) : Colors.white12),
+        border: Border.all(color: confirmed ? Colors.greenAccent.withValues(alpha:0.4) : Colors.white12),
       ),
       child: Column(children: [
         Row(children: [
@@ -357,8 +357,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFF6CA6FF)),
             decoration: InputDecoration(
-              hintText: '0', hintStyle: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 36),
-              filled: true, fillColor: Colors.white.withOpacity(0.05),
+              hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha:0.15), fontSize: 36),
+              filled: true, fillColor: Colors.white.withValues(alpha:0.05),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
@@ -375,8 +375,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFFFF6C6C)),
             decoration: InputDecoration(
-              hintText: '0', hintStyle: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 36),
-              filled: true, fillColor: Colors.white.withOpacity(0.05),
+              hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha:0.15), fontSize: 36),
+              filled: true, fillColor: Colors.white.withValues(alpha:0.05),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
@@ -447,9 +447,9 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.08),
+        color: Colors.red.withValues(alpha:0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        border: Border.all(color: Colors.red.withValues(alpha:0.3)),
       ),
       child: Column(children: [
         const Text('試合終了', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red)),
@@ -471,9 +471,9 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.greenAccent.withOpacity(0.1),
+          color: Colors.greenAccent.withValues(alpha:0.1),
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.greenAccent.withOpacity(0.3)),
+          border: Border.all(color: Colors.greenAccent.withValues(alpha:0.3)),
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.check_circle, color: Colors.greenAccent, size: 20),
@@ -499,7 +499,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withValues(alpha:0.06),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: Colors.white24),
         ),

@@ -240,7 +240,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: AppTheme.warning.withOpacity(0.1),
+      color: AppTheme.warning.withValues(alpha:0.1),
       child: Row(
         children: [
           Icon(Icons.info_outline, size: 18, color: AppTheme.warning),
@@ -330,7 +330,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               },
               child: _buildCard(
                 child: Row(children: [
-                  CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
+                  CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
                       child: const Text('主', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
                   const SizedBox(width: 12),
                   Expanded(
@@ -412,7 +412,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: liveProgress >= 1.0 ? AppTheme.error.withOpacity(0.1) : AppTheme.success.withOpacity(0.1),
+                      color: liveProgress >= 1.0 ? AppTheme.error.withValues(alpha:0.1) : AppTheme.success.withValues(alpha:0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(liveProgress >= 1.0 ? '満員' : '残り${liveMaxTeams - liveCurrentTeams}枠',
@@ -607,7 +607,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return Row(children: [
       Container(
         width: 40, height: 40,
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: color.withValues(alpha:0.1), borderRadius: BorderRadius.circular(10)),
         child: Icon(icon, color: color, size: 22),
       ),
       const SizedBox(width: 12),
@@ -757,9 +757,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.05),
+        color: AppTheme.primaryColor.withValues(alpha:0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.2)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
@@ -977,7 +977,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     margin: const EdgeInsets.symmetric(horizontal: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: status == 'completed' ? AppTheme.success.withOpacity(0.1) : Colors.grey[100],
+                      color: status == 'completed' ? AppTheme.success.withValues(alpha:0.1) : Colors.grey[100],
                       borderRadius: BorderRadius.circular(6)),
                     child: Text(
                       status == 'completed' ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : 'vs',
@@ -1017,7 +1017,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           child: Column(children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+              decoration: BoxDecoration(color: Colors.amber.withValues(alpha:0.1), borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
               child: Row(children: [
                 const Icon(Icons.leaderboard, size: 16, color: Colors.amber),
                 const SizedBox(width: 8),
@@ -1041,7 +1041,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               final t = e.value.data() as Map<String, dynamic>;
               final isMyTeam = _myTeamIds.contains(t['teamId'] ?? '');
               return Container(
-                color: isMyTeam ? Colors.red.withOpacity(0.08) : null,
+                color: isMyTeam ? Colors.red.withValues(alpha:0.08) : null,
                 child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 child: Row(children: [
@@ -1086,7 +1086,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withOpacity(0.3))),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withValues(alpha:0.3))),
               child: InkWell(
                 onTap: (isOrganizer && status != 'waiting') ? () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
@@ -1106,7 +1106,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         margin: const EdgeInsets.symmetric(horizontal: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: status == 'completed' ? Colors.amber.withOpacity(0.1) : Colors.grey[100],
+                          color: status == 'completed' ? Colors.amber.withValues(alpha:0.1) : Colors.grey[100],
                           borderRadius: BorderRadius.circular(6)),
                         child: Text(
                           status == 'completed' ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (status == 'waiting' ? '待機中' : 'vs'),
@@ -1287,12 +1287,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isMyTeam ? Colors.red.withOpacity(0.06) : Colors.white,
+                    color: isMyTeam ? Colors.red.withValues(alpha:0.06) : Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isMyTeam ? Colors.red.withOpacity(0.3) : Colors.grey[200]!),
+                    border: Border.all(color: isMyTeam ? Colors.red.withValues(alpha:0.3) : Colors.grey[200]!),
                   ),
                   child: Row(children: [
-                    CircleAvatar(radius: 20, backgroundColor: isMyTeam ? Colors.red.withOpacity(0.12) : AppTheme.primaryColor.withOpacity(0.12),
+                    CircleAvatar(radius: 20, backgroundColor: isMyTeam ? Colors.red.withValues(alpha:0.12) : AppTheme.primaryColor.withValues(alpha:0.12),
                         child: Text(teamName.toString().isNotEmpty ? teamName.toString()[0] : '?',
                             style: TextStyle(color: isMyTeam ? Colors.red : AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
                     const SizedBox(width: 12),
@@ -1306,7 +1306,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     if (isMyTeam) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(color: Colors.red.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
                         child: const Text('自分', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
                       ),
                       const SizedBox(width: 8),
@@ -1314,7 +1314,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         onTap: () => _showMyTeamQR(data['teamId'] ?? '', teamName.toString()),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                          decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Icon(Icons.qr_code, size: 14, color: AppTheme.primaryColor),
                             const SizedBox(width: 4),
@@ -2086,9 +2086,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.05),
+                        color: AppTheme.primaryColor.withValues(alpha:0.05),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.15)),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(widget.tournament['name'] as String,
@@ -2151,7 +2151,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                               return ListTile(
                                 leading: fAvatar.toString().isNotEmpty
                                     ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
-                                    : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                    : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
                                         child: Text(fName.toString()[0], style: TextStyle(color: AppTheme.primaryColor))),
                                 title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
                                 trailing: isSelected
@@ -2406,9 +2406,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     Container(
                       width: double.infinity, padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.05),
+                        color: AppTheme.primaryColor.withValues(alpha:0.05),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.15)),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(widget.tournament['name'] as String,

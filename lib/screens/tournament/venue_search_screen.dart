@@ -349,7 +349,7 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.08),
+        color: AppTheme.primaryColor.withValues(alpha:0.08),
         borderRadius: BorderRadius.circular(10)),
       child: Row(children: [
         Icon(icon, size: 20, color: AppTheme.primaryColor),

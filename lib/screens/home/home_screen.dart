@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import '../profile/user_profile_screen.dart';
 import '../notification/notification_screen.dart';
 import '../../services/notification_service.dart';
@@ -20,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final Set<String> _hiddenPostIds = {};
 
   @override
   void initState() {
@@ -29,6 +31,19 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       animationDuration: const Duration(milliseconds: 200),
     );
+    _loadHiddenPosts();
+  }
+
+  Future<void> _loadHiddenPosts() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final snap = await FirebaseFirestore.instance
+        .collection('users').doc(uid).collection('hiddenPosts').get();
+    if (mounted) {
+      setState(() {
+        _hiddenPostIds.addAll(snap.docs.map((d) => d.id));
+      });
+    }
   }
 
   @override
@@ -258,7 +273,8 @@ class _HomeScreenState extends State<HomeScreen>
               return _buildEmptyTimeline();
             }
 
-            final posts = postSnapshot.data?.docs ?? [];
+            final allPosts = postSnapshot.data?.docs ?? [];
+            final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
             if (posts.isEmpty) {
               return _buildEmptyTimeline();
             }
@@ -437,7 +453,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(width: 32),
                     _buildLikeButton(postId, likesCount),
                     const SizedBox(width: 32),
-                    _buildStaticActionButton(Icons.share_outlined, ''),
+                    _buildShareButton(text, nickname),
                   ],
                 ),
               ],
@@ -710,6 +726,21 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildShareButton(String text, String nickname) {
+    return GestureDetector(
+      onTap: () {
+        final shareText = '$nickname の投稿:\n$text';
+        Clipboard.setData(ClipboardData(text: shareText));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('投稿をクリップボードにコピーしました')),
+          );
+        }
+      },
+      child: const Icon(Icons.share_outlined, size: 18, color: AppTheme.textSecondary),
+    );
+  }
+
   Widget _buildPostMenu(String postId, bool isMyPost) {
     return GestureDetector(
       onTap: () {
@@ -757,11 +788,7 @@ class _HomeScreenState extends State<HomeScreen>
                         title: const Text('この投稿を報告'),
                         onTap: () {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('報告を受け付けました。ご協力ありがとうございます。')),
-                          );
+                          _reportPost(postId);
                         },
                       ),
                       ListTile(
@@ -770,10 +797,7 @@ class _HomeScreenState extends State<HomeScreen>
                         title: const Text('この投稿を非表示'),
                         onTap: () {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('この投稿を非表示にしました')),
-                          );
+                          _hidePost(postId);
                         },
                       ),
                     ],
@@ -796,6 +820,52 @@ class _HomeScreenState extends State<HomeScreen>
             size: 20, color: AppTheme.textSecondary),
       ),
     );
+  }
+
+  Future<void> _reportPost(String postId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('reports').add({
+        'postId': postId,
+        'reporterId': uid,
+        'type': 'post',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('報告を受け付けました。ご協力ありがとうございます。')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('報告に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _hidePost(String postId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('hiddenPosts').doc(postId)
+          .set({'hiddenAt': FieldValue.serverTimestamp()});
+      setState(() => _hiddenPostIds.add(postId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('この投稿を非表示にしました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('非表示に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
   }
 
   void _showDeletePostDialog(String postId) {

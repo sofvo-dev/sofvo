@@ -136,7 +136,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.05),
+        color: AppTheme.primaryColor.withValues(alpha:0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -219,10 +219,10 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: isMain
-              ? Border.all(color: AppTheme.accentColor.withOpacity(0.3), width: 2)
+              ? Border.all(color: AppTheme.accentColor.withValues(alpha:0.3), width: 2)
               : null,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2)),
           ],
         ),
         child: Column(
@@ -231,8 +231,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
               decoration: BoxDecoration(
                 color: isMain
-                    ? AppTheme.accentColor.withOpacity(0.04)
-                    : AppTheme.primaryColor.withOpacity(0.03),
+                    ? AppTheme.accentColor.withValues(alpha:0.04)
+                    : AppTheme.primaryColor.withValues(alpha:0.03),
                 borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(14), topRight: Radius.circular(14)),
               ),
@@ -241,8 +241,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                   CircleAvatar(
                     radius: 22,
                     backgroundColor: isMain
-                        ? AppTheme.accentColor.withOpacity(0.15)
-                        : AppTheme.primaryColor.withOpacity(0.12),
+                        ? AppTheme.accentColor.withValues(alpha:0.15)
+                        : AppTheme.primaryColor.withValues(alpha:0.12),
                     child: Text(name[0],
                         style: TextStyle(
                             color: isMain ? AppTheme.accentColor : AppTheme.primaryColor,
@@ -265,7 +265,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                    color: AppTheme.accentColor.withOpacity(0.15),
+                                    color: AppTheme.accentColor.withValues(alpha:0.15),
                                     borderRadius: BorderRadius.circular(6)),
                                 child: const Text('メイン',
                                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
@@ -306,11 +306,11 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                           ? CircleAvatar(
                               radius: 16,
                               backgroundImage: NetworkImage(mAvatar),
-                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                              backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
                             )
                           : CircleAvatar(
                               radius: 16,
-                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                              backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
                               child: Text(mName.isNotEmpty ? mName[0] : '?',
                                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                             ),
@@ -627,7 +627,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isSelected ? AppTheme.primaryColor.withOpacity(0.05) : AppTheme.backgroundColor,
+                                color: isSelected ? AppTheme.primaryColor.withValues(alpha:0.05) : AppTheme.backgroundColor,
                                 borderRadius: BorderRadius.circular(12),
                                 border: isSelected ? Border.all(color: AppTheme.primaryColor, width: 2) : null,
                               ),
@@ -636,7 +636,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                                   avatar.isNotEmpty
                                       ? CircleAvatar(radius: 20, backgroundImage: NetworkImage(avatar))
                                       : CircleAvatar(radius: 20,
-                                          backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
+                                          backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
                                           child: Text(nick[0], style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold))),
                                   const SizedBox(width: 12),
                                   Expanded(child: Text(nick, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),

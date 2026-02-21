@@ -244,7 +244,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.05),
+              color: AppTheme.primaryColor.withValues(alpha:0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -345,7 +345,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+                BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
             child: Column(
@@ -362,7 +362,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2), width: 2),
+                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.2), width: 2),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -484,17 +484,17 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
         children: [
           avatarUrl.isNotEmpty
               ? CircleAvatar(radius: 26, backgroundImage: NetworkImage(avatarUrl),
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.12))
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12))
               : CircleAvatar(
                   radius: 26,
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.12),
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
                   child: Text(nickname.isNotEmpty ? nickname[0] : '?',
                       style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 20)),
                 ),
@@ -515,7 +515,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                            color: AppTheme.accentColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                            color: AppTheme.accentColor.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
                         child: Text(experience,
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                       ),
