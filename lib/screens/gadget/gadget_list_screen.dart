@@ -17,6 +17,24 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
   String _filterCategory = 'すべて';
   bool _isSpreadsheetView = false;
   String _sortMode = 'category'; // 'category' | 'name' | 'date'
+  String _userSearchId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSearchId();
+  }
+
+  Future<void> _loadUserSearchId() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    if (doc.exists && mounted) {
+      setState(() {
+        _userSearchId = (doc.data()?['searchId'] ?? '') as String;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -390,6 +408,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
   }
 
   // ── スプレッドシート表示 ──
+  // 列順: ガジェットID, ユーザーID, ユーザー商品名, カテゴリ, Amazon URL, Amazon Affiliate URL, 楽天 Affiliate URL, 画像URL, メモ, 登録日
   Widget _buildSpreadsheetView(List<Map<String, dynamic>> gadgets) {
     const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor);
     return SingleChildScrollView(
@@ -401,31 +420,50 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
           dataRowMinHeight: 52,
           dataRowMaxHeight: 56,
           columns: const [
-            DataColumn(label: Text('画像', style: headerStyle)),
-            DataColumn(label: Text('商品名', style: headerStyle)),
+            DataColumn(label: Text('ガジェットID', style: headerStyle)),
+            DataColumn(label: Text('ユーザーID', style: headerStyle)),
+            DataColumn(label: Text('ユーザー商品名', style: headerStyle)),
             DataColumn(label: Text('カテゴリ', style: headerStyle)),
+            DataColumn(label: Text('Amazon URL', style: headerStyle)),
+            DataColumn(label: Text('Amazon Affiliate', style: headerStyle)),
+            DataColumn(label: Text('楽天 Affiliate', style: headerStyle)),
+            DataColumn(label: Text('画像', style: headerStyle)),
             DataColumn(label: Text('メモ', style: headerStyle)),
-            DataColumn(label: Text('Amazon', style: headerStyle)),
-            DataColumn(label: Text('楽天', style: headerStyle)),
+            DataColumn(label: Text('登録日', style: headerStyle)),
             DataColumn(label: Text('操作', style: headerStyle)),
           ],
           rows: gadgets.map((g) {
-            final imageUrl = g['imageUrl'] ?? '';
-            final amazonUrl = (g['amazonAffiliateUrl'] ?? g['amazonUrl'] ?? '') as String;
-            final rakutenUrl = (g['rakutenAffiliateUrl'] ?? '') as String;
+            final imageUrl = (g['imageUrl'] ?? '') as String;
+            final amazonUrl = (g['amazonUrl'] ?? '') as String;
+            final amazonAffUrl = (g['amazonAffiliateUrl'] ?? '') as String;
+            final rakutenAffUrl = (g['rakutenAffiliateUrl'] ?? '') as String;
+            final createdAt = g['createdAt'];
+            String dateStr = '';
+            if (createdAt is Timestamp) {
+              final d = createdAt.toDate();
+              dateStr = '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
+            }
             return DataRow(cells: [
+              // ガジェットID
               DataCell(
-                imageUrl.isNotEmpty
-                    ? SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
-                        ),
-                      )
-                    : const Icon(Icons.image_not_supported, size: 22, color: AppTheme.textHint),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    (g['id'] ?? '').toString().length > 8
+                        ? '${(g['id'] ?? '').toString().substring(0, 8)}…'
+                        : (g['id'] ?? '').toString(),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
               ),
+              // ユーザーID
+              DataCell(
+                Text(
+                  _userSearchId.isNotEmpty ? '@$_userSearchId' : '—',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              // ユーザー商品名
               DataCell(
                 SizedBox(
                   width: 180,
@@ -433,14 +471,9 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                       style: const TextStyle(fontSize: 12)),
                 ),
               ),
+              // カテゴリ
               DataCell(Text(g['category'] ?? 'カテゴリなし', style: const TextStyle(fontSize: 12))),
-              DataCell(
-                SizedBox(
-                  width: 120,
-                  child: Text(g['memo'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                ),
-              ),
+              // Amazon URL
               DataCell(
                 amazonUrl.isNotEmpty
                     ? GestureDetector(
@@ -463,10 +496,34 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                       )
                     : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
               ),
+              // Amazon Affiliate URL
               DataCell(
-                rakutenUrl.isNotEmpty
+                amazonAffUrl.isNotEmpty
                     ? GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(rakutenUrl), mode: LaunchMode.externalApplication),
+                        onTap: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9900).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.open_in_new, size: 13, color: Color(0xFFFF9900)),
+                              SizedBox(width: 4),
+                              Text('Aff', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
+              ),
+              // 楽天 Affiliate URL
+              DataCell(
+                rakutenAffUrl.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -485,6 +542,32 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                       )
                     : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
               ),
+              // 画像URL (サムネイル表示)
+              DataCell(
+                imageUrl.isNotEmpty
+                    ? SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
+                        ),
+                      )
+                    : const Icon(Icons.image_not_supported, size: 22, color: AppTheme.textHint),
+              ),
+              // メモ
+              DataCell(
+                SizedBox(
+                  width: 120,
+                  child: Text(g['memo'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                ),
+              ),
+              // 登録日
+              DataCell(
+                Text(dateStr, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              ),
+              // 操作
               DataCell(Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
