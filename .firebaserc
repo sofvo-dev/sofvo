@@ -1,13 +1,5 @@
 {
   "projects": {
     "default": "sofvo-19d84"
-  },
-  "targets": {
-    "sofvo-19d84": {
-      "hosting": {
-        "website": ["sofvo-19d84"],
-        "app": ["sofvo-app"]
-      }
-    }
   }
 }

@@ -46,38 +46,20 @@
       }
     }
   },
-  "hosting": [
-    {
-      "target": "website",
-      "public": "website",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "headers": [
-        {
-          "source": "**/*.html",
-          "headers": [
-            { "key": "Cache-Control", "value": "no-cache" }
-          ]
-        }
-      ]
-    },
-    {
-      "target": "app",
-      "public": "build/web",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "**",
-          "destination": "/index.html"
-        }
-      ]
-    }
-  ]
+  "hosting": {
+    "public": "website",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**/*.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
+    ]
+  }
 }
