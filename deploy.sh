@@ -39,8 +39,8 @@ deploy_web() {
   cp website/contact.html build/web/
   cp website/404.html build/web/
 
-  print_step "Firebase Hosting にデプロイ中..."
-  firebase deploy --only hosting
+  print_step "Firebase (Hosting + Firestore ルール＆インデックス) にデプロイ中..."
+  firebase deploy --only hosting,firestore
 
   echo -e "\n${GREEN}✓ Web デプロイ完了！${NC}"
   echo "  アプリ: https://sofvo-19d84.web.app/"

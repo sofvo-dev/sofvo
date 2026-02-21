@@ -320,12 +320,11 @@ class _ChatListScreenState extends State<ChatListScreen>
       return const Center(child: Text('ログインしてください'));
     }
 
+    // 複合インデックス不要: membersのみでクエリ → type フィルタ＆ソートはDart側
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('chats')
-          .where('type', isEqualTo: 'group')
           .where('members', arrayContains: _currentUser!.uid)
-          .orderBy('lastMessageAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -338,7 +337,20 @@ class _ChatListScreenState extends State<ChatListScreen>
           return _buildEmptyState('group');
         }
 
-        final allChats = snapshot.data?.docs ?? [];
+        // type == 'group' をDart側でフィルタ
+        final allChats = (snapshot.data?.docs ?? []).where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['type'] == 'group';
+        }).toList();
+        // lastMessageAt で降順ソート
+        allChats.sort((a, b) {
+          final aTime = (a.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
+          final bTime = (b.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+          return bTime.compareTo(aTime);
+        });
         // 検索フィルタ
         final chats = _searchQuery.isEmpty ? allChats : allChats.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -415,12 +427,11 @@ class _ChatListScreenState extends State<ChatListScreen>
       return const Center(child: Text('ログインしてください'));
     }
 
+    // 複合インデックス不要: membersのみでクエリ → type フィルタ＆ソートはDart側
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('chats')
-          .where('type', isEqualTo: type)
           .where('members', arrayContains: _currentUser!.uid)
-          .orderBy('lastMessageAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -434,7 +445,20 @@ class _ChatListScreenState extends State<ChatListScreen>
           return _buildEmptyState(type);
         }
 
-        final allChats = snapshot.data?.docs ?? [];
+        // type フィルタをDart側で適用
+        final allChats = (snapshot.data?.docs ?? []).where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['type'] == type;
+        }).toList();
+        // lastMessageAt で降順ソート
+        allChats.sort((a, b) {
+          final aTime = (a.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
+          final bTime = (b.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+          return bTime.compareTo(aTime);
+        });
         // ブロックユーザーフィルタ & 検索フィルタ
         final chats = allChats.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
