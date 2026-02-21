@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
@@ -17,6 +18,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _matchNotification = true;
   bool _tournamentNotification = true;
   bool _followNotification = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationSettings();
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    if (doc.exists) {
+      final settings =
+          doc.data()?['notificationSettings'] as Map<String, dynamic>?;
+      if (settings != null && mounted) {
+        setState(() {
+          _pushNotification = settings['push'] ?? true;
+          _emailNotification = settings['email'] ?? false;
+          _tournamentNotification = settings['tournament'] ?? true;
+          _followNotification = settings['follow'] ?? true;
+          _matchNotification = settings['match'] ?? true;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveNotificationSettings() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'notificationSettings': {
+        'push': _pushNotification,
+        'email': _emailNotification,
+        'tournament': _tournamentNotification,
+        'follow': _followNotification,
+        'match': _matchNotification,
+      },
+    }, SetOptions(merge: true));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +128,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'プッシュ通知',
                   'アプリ内の通知を受け取る',
                   _pushNotification,
-                  (v) => setState(() => _pushNotification = v),
+                  (v) {
+                    setState(() => _pushNotification = v);
+                    _saveNotificationSettings();
+                  },
                 ),
                 _buildDivider(),
                 _buildSwitchTile(
@@ -91,7 +139,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'メール通知',
                   '重要なお知らせをメールで受け取る',
                   _emailNotification,
-                  (v) => setState(() => _emailNotification = v),
+                  (v) {
+                    setState(() => _emailNotification = v);
+                    _saveNotificationSettings();
+                  },
                 ),
                 _buildDivider(),
                 _buildSwitchTile(
@@ -99,7 +150,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   '大会通知',
                   '大会の更新・リマインダー',
                   _tournamentNotification,
-                  (v) => setState(() => _tournamentNotification = v),
+                  (v) {
+                    setState(() => _tournamentNotification = v);
+                    _saveNotificationSettings();
+                  },
                 ),
                 _buildDivider(),
                 _buildSwitchTile(
@@ -107,7 +161,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'フォロー通知',
                   'フォロー・フォロワーの更新',
                   _followNotification,
-                  (v) => setState(() => _followNotification = v),
+                  (v) {
+                    setState(() => _followNotification = v);
+                    _saveNotificationSettings();
+                  },
                 ),
                 _buildDivider(),
                 _buildSwitchTile(
@@ -115,7 +172,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'マッチング通知',
                   'メンバー募集のマッチング結果',
                   _matchNotification,
-                  (v) => setState(() => _matchNotification = v),
+                  (v) {
+                    setState(() => _matchNotification = v);
+                    _saveNotificationSettings();
+                  },
                 ),
               ],
             ),
@@ -282,6 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showChangePasswordDialog() {
     final currentPwCtrl = TextEditingController();
     final newPwCtrl = TextEditingController();
+    final confirmPwCtrl = TextEditingController();
 
     showDialog(
       context: context,
@@ -321,6 +382,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: confirmPwCtrl,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: '新しいパスワード（確認）',
+                filled: true,
+                fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -330,14 +405,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('パスワードを変更しました'),
-                  backgroundColor: AppTheme.success,
-                ),
-              );
+            onPressed: () async {
+              if (currentPwCtrl.text.isEmpty || newPwCtrl.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('すべての項目を入力してください'),
+                    backgroundColor: AppTheme.warning,
+                  ),
+                );
+                return;
+              }
+              if (newPwCtrl.text.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('新しいパスワードは6文字以上にしてください'),
+                    backgroundColor: AppTheme.warning,
+                  ),
+                );
+                return;
+              }
+              if (newPwCtrl.text != confirmPwCtrl.text) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('新しいパスワードが一致しません'),
+                    backgroundColor: AppTheme.warning,
+                  ),
+                );
+                return;
+              }
+              try {
+                await AuthService().changePassword(
+                  currentPwCtrl.text,
+                  newPwCtrl.text,
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('パスワードを変更しました'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  String message = 'パスワードの変更に失敗しました';
+                  if (e.toString().contains('wrong-password') ||
+                      e.toString().contains('invalid-credential')) {
+                    message = '現在のパスワードが正しくありません';
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(message),
+                      backgroundColor: AppTheme.error,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
                 minimumSize: const Size(100, 40)),
@@ -388,6 +512,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showDeleteAccountDialog() {
+    final passwordCtrl = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -396,9 +522,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('アカウント削除',
             style:
                 TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: const Text(
-          'アカウントを完全に削除しますか？\n\n・すべての投稿が削除されます\n・チーム情報が削除されます\n・この操作は取り消せません',
-          style: TextStyle(height: 1.5),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'アカウントを完全に削除しますか？\n\n'
+              '・すべての投稿が削除されます\n'
+              '・チーム情報が削除されます\n'
+              '・この操作は取り消せません',
+              style: TextStyle(height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordCtrl,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: '確認のためパスワードを入力',
+                filled: true,
+                fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -407,14 +555,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('アカウント削除機能は準備中です'),
-                  backgroundColor: AppTheme.warning,
-                ),
-              );
+            onPressed: () async {
+              if (passwordCtrl.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('パスワードを入力してください'),
+                    backgroundColor: AppTheme.warning,
+                  ),
+                );
+                return;
+              }
+              try {
+                await AuthService().deleteAccount(passwordCtrl.text);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                        builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  String message = 'アカウント削除に失敗しました';
+                  if (e.toString().contains('wrong-password') ||
+                      e.toString().contains('invalid-credential')) {
+                    message = 'パスワードが正しくありません';
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(message),
+                      backgroundColor: AppTheme.error,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.error,

@@ -66,13 +66,16 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithGoogle() async {
     setState(() => _isLoading = true);
     try {
-      await AuthService().signInWithGoogle();
+      final result = await AuthService().signInWithGoogle();
+      if (result == null && mounted) {
+        // ユーザーがキャンセルした場合は何もしない
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Googleログインは準備中です'),
-          backgroundColor: AppTheme.warning,
+          content: const Text('Googleログインに失敗しました'),
+          backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
