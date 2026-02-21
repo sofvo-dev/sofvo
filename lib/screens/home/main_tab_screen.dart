@@ -40,7 +40,10 @@ class _MainTabScreenState extends State<MainTabScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: StreamBuilder<QuerySnapshot>(
         stream: uid.isNotEmpty
             ? FirebaseFirestore.instance
@@ -53,6 +56,8 @@ class _MainTabScreenState extends State<MainTabScreen> {
           if (chatSnap.hasData) {
             for (final doc in chatSnap.data!.docs) {
               final data = doc.data() as Map<String, dynamic>;
+              final lastMessage = (data['lastMessage'] as String?) ?? '';
+              if (lastMessage.isEmpty) continue;
               final lastRead = (data['lastRead'] as Map<String, dynamic>?)?[uid];
               final lastMsg = data['lastMessageAt'];
               if (lastMsg is Timestamp) {

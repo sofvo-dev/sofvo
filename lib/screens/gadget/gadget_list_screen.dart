@@ -3,9 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:csv/csv.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
-import '../../config/affiliate_config.dart';
 import 'gadget_register_screen.dart';
 
 // Web環境でのみCSVダウンロードヘルパーをインポート
@@ -204,8 +202,6 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     final imageUrl = g['imageUrl'] ?? '';
     final name = g['name'] ?? '名前なし';
     final category = g['category'] ?? 'カテゴリなし';
-    final amazonUrl = g['amazonUrl'] ?? '';
-    final rakutenUrl = g['rakutenUrl'] ?? '';
     final memo = g['memo'] ?? '';
 
     return Container(
@@ -215,169 +211,88 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
-      child: Column(
-        children: [
-          InkWell(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            onTap: () => _editGadget(g),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  // 画像
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey[200]!),
-                      color: Colors.grey[50],
-                    ),
-                    child: imageUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(9),
-                            child: CachedNetworkImage(
-                              imageUrl: imageUrl,
-                              fit: BoxFit.contain,
-                              placeholder: (_, __) => const Center(
-                                child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
-                              ),
-                              errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, color: AppTheme.textHint),
-                            ),
-                          )
-                        : const Icon(Icons.devices_other, size: 32, color: AppTheme.textHint),
-                  ),
-                  const SizedBox(width: 12),
-                  // 情報
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            if (category != 'カテゴリなし')
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(category,
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
-                              ),
-                          ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _editGadget(g),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // 画像
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[200]!),
+                  color: Colors.grey[50],
+                ),
+                child: imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
+                          ),
+                          errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, color: AppTheme.textHint),
                         ),
-                        if (memo.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(memo,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                        ],
+                      )
+                    : const Icon(Icons.devices_other, size: 32, color: AppTheme.textHint),
+              ),
+              const SizedBox(width: 12),
+              // 情報
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (category != 'カテゴリなし')
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(category,
+                                style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                          ),
                       ],
                     ),
-                  ),
-                  // 操作
-                  PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
-                    onSelected: (val) {
-                      if (val == 'edit') _editGadget(g);
-                      if (val == 'delete') _deleteGadget(g);
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'edit', child: Text('編集')),
-                      const PopupMenuItem(value: 'delete', child: Text('削除', style: TextStyle(color: AppTheme.error))),
+                    if (memo.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(memo,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     ],
-                  ),
+                  ],
+                ),
+              ),
+              // 操作
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
+                onSelected: (val) {
+                  if (val == 'edit') _editGadget(g);
+                  if (val == 'delete') _deleteGadget(g);
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'edit', child: Text('編集')),
+                  const PopupMenuItem(value: 'delete', child: Text('削除', style: TextStyle(color: AppTheme.error))),
                 ],
               ),
-            ),
-          ),
-          // ── Amazon / 楽天 ボタン ──
-          if (amazonUrl.isNotEmpty || rakutenUrl.isNotEmpty)
-            Container(
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey[100]!)),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  if (amazonUrl.isNotEmpty)
-                    Expanded(
-                      child: _buildStoreButton(
-                        label: 'Amazonで見る',
-                        color: const Color(0xFFFF9900),
-                        icon: Icons.shopping_cart,
-                        onTap: () => _openAffiliateUrl(
-                          AffiliateConfig.buildAmazonAffiliateUrl(amazonUrl),
-                        ),
-                      ),
-                    ),
-                  if (amazonUrl.isNotEmpty && rakutenUrl.isNotEmpty)
-                    const SizedBox(width: 8),
-                  if (rakutenUrl.isNotEmpty)
-                    Expanded(
-                      child: _buildStoreButton(
-                        label: '楽天で見る',
-                        color: const Color(0xFFBF0000),
-                        icon: Icons.shopping_bag,
-                        onTap: () => _openAffiliateUrl(
-                          AffiliateConfig.buildRakutenAffiliateUrl(rakutenUrl),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStoreButton({
-    required String label,
-    required Color color,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
             ],
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _openAffiliateUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('URLを開けませんでした'), backgroundColor: AppTheme.error),
-        );
-      }
-    }
   }
 
   // ── スプレッドシート表示 ──
@@ -392,8 +307,6 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
             DataColumn(label: Text('画像', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
             DataColumn(label: Text('商品名', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
             DataColumn(label: Text('カテゴリ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            DataColumn(label: Text('Amazon URL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            DataColumn(label: Text('楽天 URL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
             DataColumn(label: Text('メモ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
             DataColumn(label: Text('操作', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
           ],
@@ -417,20 +330,6 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                 ),
               ),
               DataCell(Text(g['category'] ?? 'カテゴリなし', style: const TextStyle(fontSize: 13))),
-              DataCell(
-                SizedBox(
-                  width: 150,
-                  child: Text(g['amazonUrl'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFFFF9900))),
-                ),
-              ),
-              DataCell(
-                SizedBox(
-                  width: 150,
-                  child: Text(g['rakutenUrl'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFFBF0000))),
-                ),
-              ),
               DataCell(
                 SizedBox(
                   width: 150,
