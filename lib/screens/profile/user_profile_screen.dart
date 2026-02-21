@@ -440,6 +440,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       ? Colors.white
                                       : AppTheme.primaryColor,
                                   padding: const EdgeInsets.symmetric(vertical: 10),
+                                  minimumSize: const Size(0, 40),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   elevation: 0,
                                   side: BorderSide(
@@ -532,14 +533,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   title: '投稿',
                   icon: Icons.article_rounded,
                   child: _RecentPostsSection(userId: widget.userId),
-                ),
-                const SizedBox(height: 16),
-
-                // ━━━ 所属チーム ━━━
-                _buildCardSection(
-                  title: '所属チーム',
-                  icon: Icons.groups_rounded,
-                  child: _TeamsSection(userId: widget.userId),
                 ),
               ]),
             ),
@@ -1105,85 +1098,6 @@ class _RecentPostsSection extends StatelessWidget {
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 所属チームセクション
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-class _TeamsSection extends StatelessWidget {
-  final String userId;
-  const _TeamsSection({required this.userId});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('teams')
-          .where('memberIds', arrayContains: userId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
-        }
-        final teams = snapshot.data?.docs ?? [];
-        if (teams.isEmpty) return _buildEmptyCard('所属チームはありません', Icons.groups_outlined);
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: teams.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              final name = (data['name'] ?? 'チーム') as String;
-              final memberNames = data['memberNames'] is Map
-                  ? Map<String, String>.from(data['memberNames'])
-                  : <String, String>{};
-              final isOwner = data['ownerId'] == userId;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      child: Text(name[0],
-                          style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                          const SizedBox(height: 2),
-                          Text('${memberNames.length}人 ${isOwner ? "・オーナー" : "・メンバー"}',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                        ],
-                      ),
-                    ),
-                    if (isOwner)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text('オーナー', style: TextStyle(fontSize: 11, color: AppTheme.accentColor, fontWeight: FontWeight.bold)),
-                      ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
-    );
-  }
-}
 
 // ── 空カード（共通） ──
 Widget _buildEmptyCard(String message, IconData icon) {

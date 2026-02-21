@@ -14,9 +14,7 @@ import 'follow_list_screen.dart';
 import 'settings_screen.dart';
 import '../gadget/gadget_list_screen.dart';
 import 'tournament_history_screen.dart';
-import 'match_history_screen.dart';
 import 'ranking_screen.dart';
-import 'template_management_screen.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key});
@@ -314,9 +312,6 @@ class MyPageScreen extends StatelessWidget {
                         _MenuItemData(Icons.history_rounded, '参加大会履歴', () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentHistoryScreen()));
                         }),
-                        _MenuItemData(Icons.people_outline_rounded, '対戦ヒストリー', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const MatchHistoryScreen()));
-                        }),
                       ]),
                     ),
                     const SizedBox(height: 20),
@@ -332,9 +327,6 @@ class MyPageScreen extends StatelessWidget {
                       child: _buildMenuGroup([
                         _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingScreen()));
-                        }),
-                        _MenuItemData(Icons.save_outlined, 'テンプレート管理', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagementScreen()));
                         }),
                       ]),
                     ),
