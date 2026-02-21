@@ -363,6 +363,20 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                 if (_searchResults.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   const Divider(),
+                  Row(children: [
+                    Text('${_searchResults.length}件見つかりました',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: _openAmazonSearch,
+                      child: const Text('Amazonで更に探す',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFFF9900), decoration: TextDecoration.underline)),
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  const Text('タップして商品を選択してください',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                  const SizedBox(height: 4),
                   ...(_searchResults.map((p) => _buildSearchResultTile(p))),
                 ],
                 if (_showEmptyHint) ...[
@@ -525,7 +539,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
           // ── カテゴリ ──
           _buildSectionLabel('カテゴリ'),
           const SizedBox(height: 4),
-          Text('ガジェットの種類を分類できます。一覧画面でフィルタリングに使えます',
+          Text('一覧画面でカテゴリごとにフィルタリング・グループ表示されます',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
           GestureDetector(
@@ -533,25 +547,45 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: _selectedCategory == 'カテゴリなし' ? Colors.white : AppTheme.primaryColor.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
+                border: Border.all(
+                  color: _selectedCategory == 'カテゴリなし' ? Colors.grey[200]! : AppTheme.primaryColor.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(
-                    _selectedCategory == 'カテゴリなし' ? Icons.label_off_outlined : Icons.label_outlined,
-                    color: _selectedCategory == 'カテゴリなし' ? AppTheme.textHint : AppTheme.primaryColor,
-                    size: 20,
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: _selectedCategory == 'カテゴリなし'
+                          ? Colors.grey[100]
+                          : AppTheme.primaryColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _selectedCategory == 'カテゴリなし' ? Icons.label_off_outlined : Icons.label,
+                      color: _selectedCategory == 'カテゴリなし' ? AppTheme.textHint : AppTheme.primaryColor,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      _selectedCategory,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: _selectedCategory == 'カテゴリなし' ? AppTheme.textHint : AppTheme.textPrimary,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedCategory == 'カテゴリなし' ? 'カテゴリを選択' : _selectedCategory,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: _selectedCategory == 'カテゴリなし' ? FontWeight.normal : FontWeight.w600,
+                            color: _selectedCategory == 'カテゴリなし' ? AppTheme.textHint : AppTheme.textPrimary,
+                          ),
+                        ),
+                        if (_selectedCategory != 'カテゴリなし')
+                          Text('タップして変更',
+                              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      ],
                     ),
                   ),
                   Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
