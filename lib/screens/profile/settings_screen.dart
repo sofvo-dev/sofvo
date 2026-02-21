@@ -207,7 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.open_in_new,
                       color: Colors.grey[400], size: 18),
-                  onTap: () => _openUrl('https://sofvo.jp/terms.html'),
+                  onTap: () => _openUrl('https://sofvo.com/terms.html'),
                 ),
                 _buildDivider(),
                 ListTile(
@@ -217,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.open_in_new,
                       color: Colors.grey[400], size: 18),
-                  onTap: () => _openUrl('https://sofvo.jp/privacy.html'),
+                  onTap: () => _openUrl('https://sofvo.com/privacy.html'),
                 ),
                 _buildDivider(),
                 ListTile(
@@ -227,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.open_in_new,
                       color: Colors.grey[400], size: 18),
-                  onTap: () => _openUrl('https://sofvo.jp/contact.html'),
+                  onTap: () => _openUrl('https://sofvo.com/contact.html'),
                 ),
               ],
             ),
