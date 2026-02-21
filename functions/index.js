@@ -188,20 +188,40 @@ function extractItem(item) {
 // PA-API認証情報が未設定の場合に使用
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+// ランダムUser-Agent（Cloud FunctionsのIPブロック対策）
+function randomUserAgent() {
+  const agents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  ];
+  return agents[Math.floor(Math.random() * agents.length)];
+}
+
 async function scrapeAmazonSearch(keyword) {
   const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}&language=ja_JP`;
 
   const ac = new AbortController();
-  const tid = setTimeout(() => ac.abort(), 8000);
+  const tid = setTimeout(() => ac.abort(), 10000);
   const response = await fetch(url, {
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
-      "Accept":
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "User-Agent": randomUserAgent(),
+      "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "max-age=0",
+      "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+      "Sec-Ch-Ua-Mobile": "?0",
+      "Sec-Ch-Ua-Platform": '"Windows"',
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1",
     },
+    redirect: "follow",
     signal: ac.signal,
   }).finally(() => clearTimeout(tid));
 
@@ -210,6 +230,13 @@ async function scrapeAmazonSearch(keyword) {
   }
 
   const html = await response.text();
+
+  // CAPTCHA検出
+  if (html.includes("captcha") || html.includes("robot") || html.includes("api-services-support@amazon.com")) {
+    console.warn("[scrapeAmazonSearch] CAPTCHA/bot detection page received");
+    throw new Error("Amazon bot detection triggered");
+  }
+
   const cheerio = require("cheerio");
   const $ = cheerio.load(html);
   const items = [];
@@ -245,6 +272,7 @@ async function scrapeAmazonSearch(keyword) {
     }
   });
 
+  console.log(`[scrapeAmazonSearch] Parsed ${items.length} items from HTML (length: ${html.length})`);
   return items.slice(0, 10);
 }
 
@@ -315,8 +343,12 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  // デバッグ: 認証情報の有無をログ出力
+  const hasCredentials = hasPaapiCredentials();
+  console.log(`[amazonSearch] keyword="${keyword}", hasPaapiCredentials=${hasCredentials}`);
+
   // 1) PA-API が使える場合はそちらを優先
-  if (hasPaapiCredentials()) {
+  if (hasCredentials) {
     try {
       const { partnerTag } = getCredentials();
 
@@ -336,35 +368,41 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
       });
 
       const { headers, url } = signRequest(payload, "SearchItems");
+
+      const ac = new AbortController();
+      const tid = setTimeout(() => ac.abort(), 12000);
       const response = await fetch(url, {
         method: "POST",
         headers,
         body: payload,
-      });
+        signal: ac.signal,
+      }).finally(() => clearTimeout(tid));
 
       const data = await response.json();
 
       if (response.ok) {
         const items = (data.SearchResult?.Items || []).map(extractItem);
+        console.log(`[amazonSearch] PA-API success: ${items.length} items`);
         res.json(items);
         return;
       }
 
-      console.warn("PA-API failed, falling back to scraping:", JSON.stringify(data));
+      console.warn(`[amazonSearch] PA-API failed (${response.status}):`, JSON.stringify(data).substring(0, 500));
     } catch (paapiError) {
-      console.warn("PA-API error, falling back to scraping:", paapiError.message);
+      console.warn(`[amazonSearch] PA-API error: ${paapiError.message}`);
     }
   }
 
   // 2) フォールバック: スクレイピング
   try {
+    console.log(`[amazonSearch] Trying scraping fallback...`);
     const items = await scrapeAmazonSearch(keyword);
+    console.log(`[amazonSearch] Scraping success: ${items.length} items`);
     res.json(items);
   } catch (scrapeError) {
-    console.error("Scraping also failed:", scrapeError.message);
-    res.status(500).json({
-      error: "検索に失敗しました。しばらく待ってからお試しください。",
-    });
+    console.error(`[amazonSearch] Scraping also failed: ${scrapeError.message}`);
+    // エラーでも空配列を返す（UIで手動入力を促す）
+    res.json([]);
   }
 });
 
@@ -454,6 +492,100 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
       price: null,
     });
   }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 診断エンドポイント: Amazon検索の問題を特定
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.amazonSearchDebug = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const result = {
+    credentials: {
+      hasAccessKey: !!process.env.AMAZON_ACCESS_KEY,
+      hasSecretKey: !!process.env.AMAZON_SECRET_KEY,
+      hasPartnerTag: !!process.env.AMAZON_PARTNER_TAG,
+      partnerTag: process.env.AMAZON_PARTNER_TAG || "(not set)",
+      accessKeyPrefix: process.env.AMAZON_ACCESS_KEY ? process.env.AMAZON_ACCESS_KEY.substring(0, 6) + "..." : "(not set)",
+    },
+    paapiTest: null,
+    scrapeTest: null,
+  };
+
+  const keyword = req.query.q || "バレーボール";
+
+  // PA-API テスト
+  if (hasPaapiCredentials()) {
+    try {
+      const { partnerTag } = getCredentials();
+      const payload = JSON.stringify({
+        Keywords: keyword,
+        Resources: ["ItemInfo.Title"],
+        SearchIndex: "All",
+        ItemCount: 1,
+        PartnerTag: partnerTag,
+        PartnerType: "Associates",
+        Marketplace: "www.amazon.co.jp",
+      });
+
+      const { headers, url } = signRequest(payload, "SearchItems");
+      const ac = new AbortController();
+      const tid = setTimeout(() => ac.abort(), 12000);
+      const response = await fetch(url, {
+        method: "POST", headers, body: payload, signal: ac.signal,
+      }).finally(() => clearTimeout(tid));
+
+      const data = await response.json();
+      result.paapiTest = {
+        status: response.status,
+        ok: response.ok,
+        itemCount: data.SearchResult?.Items?.length || 0,
+        error: data.Errors ? data.Errors.map(e => e.Message).join("; ") : null,
+        rawSnippet: JSON.stringify(data).substring(0, 300),
+      };
+    } catch (e) {
+      result.paapiTest = { error: e.message };
+    }
+  } else {
+    result.paapiTest = { error: "Credentials not configured" };
+  }
+
+  // スクレイピング テスト
+  try {
+    const ac = new AbortController();
+    const tid = setTimeout(() => ac.abort(), 10000);
+    const scrapeUrl = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}&language=ja_JP`;
+    const response = await fetch(scrapeUrl, {
+      headers: {
+        "User-Agent": randomUserAgent(),
+        "Accept-Language": "ja-JP,ja;q=0.9",
+        "Accept": "text/html",
+      },
+      redirect: "follow",
+      signal: ac.signal,
+    }).finally(() => clearTimeout(tid));
+
+    const html = await response.text();
+    const hasCaptcha = html.includes("captcha") || html.includes("robot");
+    const cheerio = require("cheerio");
+    const $ = cheerio.load(html);
+    const resultCount = $('[data-component-type="s-search-result"]').length;
+
+    result.scrapeTest = {
+      status: response.status,
+      htmlLength: html.length,
+      hasCaptcha,
+      resultCount,
+      titleTag: $("title").text().trim().substring(0, 100),
+    };
+  } catch (e) {
+    result.scrapeTest = { error: e.message };
+  }
+
+  res.json(result);
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
