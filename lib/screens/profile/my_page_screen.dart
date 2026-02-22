@@ -15,6 +15,7 @@ import 'settings_screen.dart';
 import '../gadget/gadget_list_screen.dart';
 import 'tournament_history_screen.dart';
 import 'ranking_screen.dart';
+import 'user_profile_screen.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key});
