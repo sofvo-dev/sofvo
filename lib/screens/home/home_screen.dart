@@ -346,11 +346,28 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  static const _badgeIconMap = <String, IconData>{
+    '初参加': Icons.flag_rounded,
+    '5大会参加': Icons.emoji_events_rounded,
+    '10大会参加': Icons.emoji_events_rounded,
+    '20大会参加': Icons.emoji_events_rounded,
+    '初優勝': Icons.military_tech_rounded,
+    '3回優勝': Icons.military_tech_rounded,
+    '5回優勝': Icons.military_tech_rounded,
+    '100Pt達成': Icons.star_rounded,
+    '500Pt達成': Icons.star_rounded,
+    '1000Pt達成': Icons.diamond_rounded,
+    'ガジェット5個': Icons.devices_other_rounded,
+    'フォロワー10': Icons.people_rounded,
+    'フォロワー50': Icons.people_rounded,
+    '投稿10件': Icons.article_rounded,
+  };
+
   Widget _buildBadgeCard(Map<String, dynamic> data) {
     final badgeName = data['badgeName'] as String? ?? '';
-    final iconCodePoint = data['badgeIconCodePoint'] as int? ?? 0xe3f3;
     final colorValue = data['badgeColorValue'] as int? ?? 0xFF4CAF50;
     final color = Color(colorValue);
+    final icon = _badgeIconMap[badgeName] ?? Icons.emoji_events_rounded;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -374,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen>
               border: Border.all(color: color.withValues(alpha: 0.4), width: 2.5),
             ),
             child: Icon(
-              IconData(iconCodePoint, fontFamily: 'MaterialIcons'),
+              icon,
               color: color,
               size: 28,
             ),
