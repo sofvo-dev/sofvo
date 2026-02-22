@@ -13,6 +13,7 @@ import 'checkin_screen.dart';
 import '../../services/match_generator.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
+import '../home/create_post_screen.dart';
 import 'package:printing/printing.dart';
 import '../chat/chat_screen.dart';
 import '../../services/notification_service.dart';
@@ -568,6 +569,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showImpressionModal(),
+                                  icon: const Icon(Icons.edit, size: 18),
+                                  label: const Text('感想を投稿する'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.accentColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                ),
+                              ),
                             ]);
                           },
                         );
@@ -598,6 +614,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       const SnackBar(
         content: Text('結果をコピーしました！SNSに貼り付けてシェアしましょう'),
         backgroundColor: AppTheme.success,
+      ),
+    );
+  }
+
+  void _showImpressionModal() {
+    final t = widget.tournament;
+    final tournamentName = t['name'] ?? '大会';
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreatePostScreen(
+          tournamentId: _tournamentId,
+          tournamentName: tournamentName,
+        ),
       ),
     );
   }
