@@ -160,11 +160,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildOverviewTab(),
-                if (_isEntryDeadlinePassed) _buildMatchTableTab(),
-                _buildTeamsTab(),
-                _buildTimelineTab(),
-                _buildPhotoGalleryTab(),
+                _KeepAlivePage(child: _buildOverviewTab()),
+                if (_isEntryDeadlinePassed) _KeepAlivePage(child: _buildMatchTableTab()),
+                _KeepAlivePage(child: _buildTeamsTab()),
+                _KeepAlivePage(child: _buildTimelineTab()),
+                _KeepAlivePage(child: _buildPhotoGalleryTab()),
               ],
             ),
           ),
@@ -1380,7 +1380,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final entries = snapshot.data?.docs ?? [];
 
         if (entries.isEmpty) {
@@ -1622,7 +1622,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 : _firestore.collection('tournaments').doc(_tournamentId)
                     .collection('timeline').orderBy('createdAt', descending: true).snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final rawPosts = snapshot.data?.docs ?? [];
               final posts = List<QueryDocumentSnapshot>.from(rawPosts);
               if (!_isBoardTeam) {
@@ -1999,7 +1999,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             stream: _firestore.collection('tournaments').doc(_tournamentId)
                 .collection('photos').orderBy('createdAt', descending: true).snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
               }
               final photos = snapshot.data?.docs ?? [];
@@ -3058,4 +3058,23 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildDivider() => Divider(height: 1, color: Colors.grey[100]);
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
 }

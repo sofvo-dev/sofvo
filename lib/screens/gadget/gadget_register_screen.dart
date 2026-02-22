@@ -528,11 +528,15 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
           Text('検索から自動入力されますが、手動で変更もできます',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
-          TextField(
-            controller: _nameCtrl,
-            maxLength: 100,
-            decoration: _inputDecoration('商品名を入力'),
-            onChanged: (_) => setState(() {}),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _nameCtrl,
+            builder: (context, value, child) {
+              return TextField(
+                controller: _nameCtrl,
+                maxLength: 100,
+                decoration: _inputDecoration('商品名を入力'),
+              );
+            },
           ),
           const SizedBox(height: 8),
 

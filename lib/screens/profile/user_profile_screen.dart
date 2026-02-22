@@ -644,7 +644,7 @@ class _TournamentCardsRow extends StatelessWidget {
           .limit(20)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
@@ -767,7 +767,7 @@ class _GadgetCardsRow extends StatelessWidget {
           .limit(10)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
@@ -1026,7 +1026,7 @@ class _RecentPostsSection extends StatelessWidget {
                 .limit(3)
                 .get(),
             builder: (context, futureSnap) {
-              if (futureSnap.connectionState == ConnectionState.waiting) {
+              if (!futureSnap.hasData) {
                 return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
               }
               final posts = futureSnap.data?.docs ?? [];
@@ -1035,7 +1035,7 @@ class _RecentPostsSection extends StatelessWidget {
             },
           );
         }
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
         final posts = snapshot.data?.docs ?? [];

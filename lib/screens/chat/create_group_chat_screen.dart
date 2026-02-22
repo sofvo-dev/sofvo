@@ -334,7 +334,7 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
                         .collection('following')
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                      if (!snapshot.hasData) {
                         return const Center(
                           child: CircularProgressIndicator(
                               color: AppTheme.primaryColor),

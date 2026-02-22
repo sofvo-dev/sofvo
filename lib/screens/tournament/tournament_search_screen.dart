@@ -626,7 +626,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           .collection('users').doc(user.uid)
           .collection('bookmarks').snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+        if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
 

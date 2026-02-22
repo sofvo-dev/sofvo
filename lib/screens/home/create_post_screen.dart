@@ -290,9 +290,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canPost =
-        _textController.text.trim().isNotEmpty || _imageBytes.isNotEmpty;
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -304,25 +301,32 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: ElevatedButton(
-              onPressed: _isLoading || !canPost ? null : _submitPost,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(80, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('投稿する'),
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _textController,
+              builder: (context, value, child) {
+                final canPost =
+                    value.text.trim().isNotEmpty || _imageBytes.isNotEmpty;
+                return ElevatedButton(
+                  onPressed: _isLoading || !canPost ? null : _submitPost,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(80, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('投稿する'),
+                );
+              },
             ),
           ),
         ],
@@ -348,30 +352,34 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: TextField(
-                          controller: _textController,
-                          maxLines: null,
-                          minLines: 5,
-                          maxLength: 500,
-                          style:
-                              const TextStyle(fontSize: 16, height: 1.5),
-                          decoration: InputDecoration(
-                            hintText: _hasTournament
-                                ? '大会の感想を書いてみましょう！\n楽しかったこと、印象に残った試合など'
-                                : '今日の大会はどうでしたか？\nチームメンバー募集中？\n近況を投稿してみましょう！',
-                            hintStyle: TextStyle(
-                              fontSize: 15,
-                              color: AppTheme.textHint,
-                              height: 1.5,
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            fillColor: Colors.transparent,
-                            filled: true,
-                            counterText: '',
-                          ),
-                          onChanged: (_) => setState(() {}),
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _textController,
+                          builder: (context, value, child) {
+                            return TextField(
+                              controller: _textController,
+                              maxLines: null,
+                              minLines: 5,
+                              maxLength: 500,
+                              style:
+                                  const TextStyle(fontSize: 16, height: 1.5),
+                              decoration: InputDecoration(
+                                hintText: _hasTournament
+                                    ? '大会の感想を書いてみましょう！\n楽しかったこと、印象に残った試合など'
+                                    : '今日の大会はどうでしたか？\nチームメンバー募集中？\n近況を投稿してみましょう！',
+                                hintStyle: TextStyle(
+                                  fontSize: 15,
+                                  color: AppTheme.textHint,
+                                  height: 1.5,
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                fillColor: Colors.transparent,
+                                filled: true,
+                                counterText: '',
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],

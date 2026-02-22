@@ -49,7 +49,7 @@ class MyPageScreen extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection('users').doc(user.uid).snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor),
             );
@@ -535,7 +535,7 @@ class _TournamentCardsRow extends StatelessWidget {
           .limit(20)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
@@ -668,7 +668,7 @@ class _GadgetCardsRow extends StatelessWidget {
           .limit(10)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
@@ -924,7 +924,7 @@ class _RankingPreview extends StatelessWidget {
           .limit(3)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
@@ -1265,11 +1265,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           // ── ニックネーム ──
           _buildSectionLabel('ニックネーム'),
           const SizedBox(height: 8),
-          TextField(
-            controller: _nicknameCtrl,
-            maxLength: 15,
-            onChanged: (_) => setState(() {}),
-            decoration: _inputDecoration('ニックネームを入力'),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _nicknameCtrl,
+            builder: (context, value, child) {
+              return TextField(
+                controller: _nicknameCtrl,
+                maxLength: 15,
+                decoration: _inputDecoration('ニックネームを入力'),
+              );
+            },
           ),
           const SizedBox(height: 8),
 

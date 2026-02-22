@@ -188,7 +188,7 @@ class _CommentScreenState extends State<CommentScreen> {
                   .orderBy('createdAt', descending: false)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (!snapshot.hasData) {
                   return const Center(
                       child: CircularProgressIndicator(
                           color: AppTheme.primaryColor));

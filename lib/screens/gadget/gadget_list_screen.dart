@@ -112,7 +112,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: _buildQuery(uid),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
