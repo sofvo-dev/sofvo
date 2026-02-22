@@ -314,21 +314,16 @@ class MyPageScreen extends StatelessWidget {
                         }),
                       ]),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                    // ── その他 ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildSectionLabel('その他'),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildMenuGroup([
-                        _MenuItemData(Icons.leaderboard_outlined, 'ランキング', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingScreen()));
-                        }),
-                      ]),
+                    // ━━━ ランキング（トップ3プレビュー） ━━━
+                    _buildCardSection(
+                      context: context,
+                      title: 'ランキング',
+                      icon: Icons.leaderboard_rounded,
+                      seeAllTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const RankingScreen())),
+                      child: _RankingPreview(currentUid: user.uid),
                     ),
                   ]),
                 ),
@@ -358,10 +353,11 @@ class MyPageScreen extends StatelessWidget {
       BuildContext context, String count, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 2),
+          Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          const SizedBox(width: 4),
           Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
         ],
       ),
@@ -909,6 +905,99 @@ class _BadgeDef {
   final String statKey;
   final int threshold;
   const _BadgeDef(this.name, this.icon, this.color, this.statKey, this.threshold);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ランキングプレビュー（トップ3表示）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _RankingPreview extends StatelessWidget {
+  final String currentUid;
+  const _RankingPreview({required this.currentUid});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .orderBy('totalPoints', descending: true)
+          .limit(3)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+
+        final users = snapshot.data?.docs ?? [];
+        if (users.isEmpty) {
+          return const SizedBox(
+            height: 60,
+            child: Center(child: Text('ランキングデータがありません', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              for (int i = 0; i < users.length; i++) ...[
+                _buildRankRow(context, i + 1, users[i]),
+                if (i < users.length - 1) Divider(height: 1, color: Colors.grey[100]),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRankRow(BuildContext context, int rank, QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final nickname = (data['nickname'] as String?) ?? '名無し';
+    final avatarUrl = (data['avatarUrl'] as String?) ?? '';
+    final pts = _intVal(data['totalPoints']);
+    final isMe = doc.id == currentUid;
+    final rankColors = [const Color(0xFFFFD700), const Color(0xFFC0C0C0), const Color(0xFFCD7F32)];
+
+    return GestureDetector(
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => UserProfileScreen(userId: doc.id))),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        color: isMe ? AppTheme.primaryColor.withValues(alpha: 0.04) : Colors.transparent,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 28,
+              child: Icon(Icons.emoji_events, size: 20, color: rankColors[rank - 1]),
+            ),
+            const SizedBox(width: 8),
+            avatarUrl.isNotEmpty
+                ? CircleAvatar(radius: 16, backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12))
+                : CircleAvatar(radius: 16, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                    child: Text(nickname.isNotEmpty ? nickname[0] : '?',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(nickname, style: TextStyle(fontSize: 14,
+                  fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
+                  color: isMe ? AppTheme.primaryColor : AppTheme.textPrimary)),
+            ),
+            Text('$pts', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
+                color: rankColors[rank - 1])),
+            const SizedBox(width: 2),
+            Text('Pt', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _intVal(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    return 0;
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
