@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tournament_detail_screen.dart';
+import 'tournament_finance_screen.dart';
 import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -143,6 +144,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               icon: Icon(Icons.more_vert, color: AppTheme.textSecondary, size: 20),
               onSelected: (value) {
                 if (value == 'edit') _showEditTournamentSheet(doc.id, data);
+                if (value == 'finance') Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: doc.id, tournamentData: data)));
                 if (value == 'status') _showStatusDialog(doc.id, status);
                 if (value == 'duplicate') _showCreateFromTemplate(data);
                 if (value == 'save_template') _saveAsTemplate(data);
@@ -150,6 +152,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'edit', child: Text('編集')),
+                const PopupMenuItem(value: 'finance', child: Row(children: [Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('収支管理')])),
                 const PopupMenuItem(value: 'status', child: Text('ステータス変更')),
                 const PopupMenuItem(value: 'duplicate', child: Row(children: [Icon(Icons.copy, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('この大会を複製')])),
                 const PopupMenuItem(value: 'save_template', child: Row(children: [Icon(Icons.bookmark_add_outlined, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('テンプレートに保存')])),
