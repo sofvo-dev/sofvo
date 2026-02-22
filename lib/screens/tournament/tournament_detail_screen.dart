@@ -15,6 +15,7 @@ import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
 import '../chat/chat_screen.dart';
+import '../../services/notification_service.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> tournament;
@@ -831,6 +832,100 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
+  void _showAnnouncementDialog() {
+    final messageCtrl = TextEditingController();
+    final t = widget.tournament;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Icon(Icons.campaign, color: AppTheme.accentColor, size: 22),
+          const SizedBox(width: 8),
+          const Text('お知らせを送信', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('全参加者に通知が届きます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: messageCtrl,
+              maxLines: 4,
+              maxLength: 200,
+              decoration: InputDecoration(
+                hintText: '例: 持ち物の確認、集合場所の変更など',
+                hintStyle: TextStyle(fontSize: 14, color: AppTheme.textHint),
+                filled: true, fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(Icons.check_circle_outline, size: 14, color: AppTheme.textSecondary),
+              const SizedBox(width: 4),
+              Text('掲示板にも同時投稿されます', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ]),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final message = messageCtrl.text.trim();
+              if (message.isEmpty) return;
+              Navigator.pop(ctx);
+
+              final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+              final userDoc = await _firestore.collection('users').doc(uid).get();
+              final nickname = userDoc.data()?['nickname'] ?? '主催者';
+              final avatar = (userDoc.data()?['avatarUrl'] ?? '') as String;
+
+              // 掲示板に投稿（ピン留め＋お知らせラベル付き）
+              await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add({
+                'authorId': uid,
+                'authorName': nickname,
+                'authorAvatar': avatar,
+                'text': message,
+                'isOrganizer': true,
+                'pinned': true,
+                'isAnnouncement': true,
+                'likesCount': 0,
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+
+              // 全参加者に通知
+              NotificationService.sendTournamentAnnouncement(
+                tournamentId: _tournamentId,
+                tournamentName: t['name'] as String? ?? t['title'] as String? ?? '',
+                senderId: uid,
+                senderName: nickname,
+                message: message,
+              );
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('お知らせを送信しました'), backgroundColor: AppTheme.success),
+                );
+              }
+            },
+            icon: const Icon(Icons.send, size: 16),
+            label: const Text('送信'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEndTournamentDialog() {
     showDialog(
       context: context,
@@ -847,9 +942,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             onPressed: () async {
               await _firestore.collection('tournaments').doc(_tournamentId).update({'status': '終了'});
               if (ctx.mounted) Navigator.pop(ctx);
+              // 全参加者に結果通知 + タイムライン自動投稿
+              final t = widget.tournament;
+              NotificationService.sendTournamentEndNotification(
+                tournamentId: _tournamentId,
+                tournamentName: t['name'] as String? ?? t['title'] as String? ?? '',
+                tournamentDate: t['date'] as String? ?? '',
+                organizerId: t['organizerId'] as String? ?? '',
+                organizerName: t['organizerName'] as String? ?? '',
+              );
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('大会を終了しました'), backgroundColor: AppTheme.success),
+                  const SnackBar(content: Text('大会を終了しました。参加者に通知を送信しました'), backgroundColor: AppTheme.success),
                 );
               }
             },
@@ -1449,6 +1553,32 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               ],
             ),
           ),
+        // 主催者向け: お知らせ送信ボタン
+        if (!_isBoardTeam && widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: GestureDetector(
+              onTap: () => _showAnnouncementDialog(),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.campaign, size: 18, color: AppTheme.accentColor),
+                    const SizedBox(width: 8),
+                    Text('全参加者にお知らせを送信', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+                  ],
+                ),
+              ),
+            ),
+          ),
         Divider(height: 1, color: Colors.grey[200]),
 
         // 投稿一覧
@@ -1497,6 +1627,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final imageUrl = data['imageUrl'] as String? ?? '';
                   final isOrganizer = data['isOrganizer'] == true;
                   final isPinned = data['pinned'] == true;
+                  final isAnnouncement = data['isAnnouncement'] == true;
                   final createdAt = data['createdAt'] as Timestamp?;
                   final likes = data['likesCount'] ?? 0;
 
@@ -1513,14 +1644,31 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isAnnouncement ? AppTheme.accentColor.withValues(alpha: 0.04) : Colors.white,
                       borderRadius: BorderRadius.circular(12),
+                      border: isAnnouncement ? Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)) : null,
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (isPinned)
+                        if (isAnnouncement)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.campaign, size: 14, color: AppTheme.accentColor),
+                                const SizedBox(width: 4),
+                                Text('お知らせ', style: TextStyle(fontSize: 11, color: AppTheme.accentColor, fontWeight: FontWeight.bold)),
+                              ]),
+                            ),
+                          )
+                        else if (isPinned)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 6),
                             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -2314,9 +2462,58 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   // ━━━ 下部ボタン ━━━
   Widget _buildBottomButtons() {
     final status = widget.tournament['status'] as String;
-    final isDisabled = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || status.contains('完了');
+    final isEnded = status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || status.contains('完了');
+    if (isEnded) return const SizedBox.shrink();
 
-    if (isDisabled) return const SizedBox.shrink();
+    final currentTeams = widget.tournament['currentTeams'] is int ? widget.tournament['currentTeams'] as int : 0;
+    final maxTeams = widget.tournament['maxTeams'] is int ? widget.tournament['maxTeams'] as int : 0;
+    final isFull = maxTeams > 0 && currentTeams >= maxTeams;
+
+    // 満員の場合はキャンセル待ちUI表示
+    if (isFull || status == '満員') {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(children: [
+                Icon(Icons.info_outline, size: 16, color: AppTheme.warning),
+                const SizedBox(width: 8),
+                Text('現在満員です ($currentTeams/$maxTeamsチーム)', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showWaitlistSheet(context),
+                icon: const Icon(Icons.hourglass_empty, size: 18),
+                label: const Text('キャンセル待ちに登録', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.warning,
+                  side: const BorderSide(color: AppTheme.warning, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isDisabled = false;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       decoration: BoxDecoration(
@@ -2377,6 +2574,164 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ),
               ),
             ),
+    );
+  }
+
+  // ━━━ キャンセル待ち ━━━
+  void _showWaitlistSheet(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return;
+    final teamNameCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context, isScrollControlled: true, backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            Row(children: [
+              Icon(Icons.hourglass_empty, color: AppTheme.warning, size: 22),
+              const SizedBox(width: 8),
+              const Text('キャンセル待ち登録', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.warning.withValues(alpha: 0.2)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.tournament['name'] as String,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 4),
+                Text('空きが出た場合に通知が届きます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              ]),
+            ),
+            const SizedBox(height: 20),
+            const Text('チーム名', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: teamNameCtrl,
+              decoration: InputDecoration(
+                hintText: 'チーム名を入力',
+                filled: true, fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 現在のキャンセル待ち状況
+            StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection('tournaments').doc(_tournamentId)
+                  .collection('waitlist').orderBy('createdAt').snapshots(),
+              builder: (context, snap) {
+                final waitlist = snap.data?.docs ?? [];
+                final alreadyWaiting = waitlist.any((d) => (d.data() as Map<String, dynamic>)['userId'] == uid);
+                if (alreadyWaiting) {
+                  final myPosition = waitlist.indexWhere((d) => (d.data() as Map<String, dynamic>)['userId'] == uid) + 1;
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.success.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(children: [
+                      Icon(Icons.check_circle, color: AppTheme.success, size: 32),
+                      const SizedBox(height: 8),
+                      Text('キャンセル待ち登録済み', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.success)),
+                      const SizedBox(height: 4),
+                      Text('現在$myPosition番目 / ${waitlist.length}人待ち', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final myDoc = waitlist.firstWhere((d) => (d.data() as Map<String, dynamic>)['userId'] == uid);
+                            await _firestore.collection('tournaments').doc(_tournamentId)
+                                .collection('waitlist').doc(myDoc.id).delete();
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('キャンセル待ちを取り消しました'), backgroundColor: AppTheme.warning),
+                              );
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.error,
+                            side: const BorderSide(color: AppTheme.error),
+                          ),
+                          child: const Text('キャンセル待ちを取り消す'),
+                        ),
+                      ),
+                    ]),
+                  );
+                }
+
+                return Column(children: [
+                  if (waitlist.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text('現在${waitlist.length}チームがキャンセル待ち中', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final teamName = teamNameCtrl.text.trim();
+                        if (teamName.isEmpty) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('チーム名を入力してください'), backgroundColor: AppTheme.warning),
+                          );
+                          return;
+                        }
+
+                        final userDoc = await _firestore.collection('users').doc(uid).get();
+                        final nickname = userDoc.data()?['nickname'] ?? '名前なし';
+
+                        await _firestore.collection('tournaments').doc(_tournamentId)
+                            .collection('waitlist').add({
+                          'userId': uid,
+                          'userName': nickname,
+                          'teamName': teamName,
+                          'createdAt': FieldValue.serverTimestamp(),
+                        });
+
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('キャンセル待ちに登録しました（${waitlist.length + 1}番目）'),
+                              backgroundColor: AppTheme.success,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.hourglass_empty, size: 18),
+                      label: const Text('キャンセル待ちに登録', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.warning,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ]);
+              },
+            ),
+            const SizedBox(height: 8),
+          ]),
+        );
+      },
     );
   }
 
