@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../home/home_screen.dart';
 import '../tournament/tournament_search_screen.dart';
-import '../tournament/tournament_calendar_screen.dart';
+import '../recruitment/recruitment_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../profile/my_page_screen.dart';
 
@@ -21,7 +21,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const TournamentSearchScreen(),
-    const TournamentCalendarScreen(),
+    const RecruitmentScreen(),
     const ChatListScreen(),
     const MyPageScreen(),
   ];
