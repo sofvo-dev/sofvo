@@ -30,7 +30,7 @@ class FollowListScreen extends StatelessWidget {
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -43,7 +43,7 @@ class FollowListScreen extends StatelessWidget {
                   .collection(collection)
                   .get(),
               builder: (context, futureSnap) {
-                if (futureSnap.connectionState == ConnectionState.waiting) {
+                if (!futureSnap.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final docs = futureSnap.data?.docs ?? [];
@@ -87,7 +87,7 @@ class FollowListScreen extends StatelessWidget {
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance.collection('users').doc(targetUid).get(),
           builder: (context, userSnap) {
-            if (userSnap.connectionState == ConnectionState.waiting) {
+            if (!userSnap.hasData) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),

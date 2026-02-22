@@ -41,7 +41,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
             .where('memberIds', arrayContains: _currentUser!.uid)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(
                 child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }
@@ -110,7 +110,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           .where('memberIds', arrayContains: _currentUser!.uid)
           .get(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }

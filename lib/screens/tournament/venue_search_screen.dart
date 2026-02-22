@@ -186,7 +186,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection('venues').orderBy('name').snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
               final docs = snapshot.data?.docs ?? [];

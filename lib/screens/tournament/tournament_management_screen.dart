@@ -49,7 +49,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         stream: FirebaseFirestore.instance.collection('tournaments')
             .where('organizerId', isEqualTo: _currentUser!.uid).snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }
           final docs = snapshot.data?.docs ?? [];

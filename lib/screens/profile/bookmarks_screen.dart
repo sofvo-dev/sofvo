@@ -33,8 +33,8 @@ class BookmarksScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _BookmarkList(uid: uid, type: 'tournament'),
-            _BookmarkList(uid: uid, type: 'recruitment'),
+            _KeepAlivePage(child: _BookmarkList(uid: uid, type: 'tournament')),
+            _KeepAlivePage(child: _BookmarkList(uid: uid, type: 'recruitment')),
           ],
         ),
       ),
@@ -59,7 +59,7 @@ class _BookmarkList extends StatelessWidget {
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
@@ -238,5 +238,24 @@ class _BookmarkList extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

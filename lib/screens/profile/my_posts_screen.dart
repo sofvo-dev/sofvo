@@ -28,7 +28,7 @@ class MyPostsScreen extends StatelessWidget {
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(
                 child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }

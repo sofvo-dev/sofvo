@@ -276,46 +276,55 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
             ),
           ),
           const SizedBox(height: 24),
-          TextField(
-            controller: _idController,
-            style: const TextStyle(fontSize: 16),
-            decoration: InputDecoration(
-              hintText: '例: @nakamura123 またはニックネーム',
-              hintStyle: const TextStyle(fontSize: 15, color: AppTheme.textHint),
-              prefixIcon: const Icon(Icons.alternate_email, size: 22),
-              suffixIcon: _idController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 20),
-                      onPressed: () {
-                        _idController.clear();
-                        setState(() => _idResults = []);
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!)),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!)),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
-            ),
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _searchById(),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _idController,
+            builder: (context, value, child) {
+              return TextField(
+                controller: _idController,
+                style: const TextStyle(fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: '例: @nakamura123 またはニックネーム',
+                  hintStyle: const TextStyle(fontSize: 15, color: AppTheme.textHint),
+                  prefixIcon: const Icon(Icons.alternate_email, size: 22),
+                  suffixIcon: value.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            _idController.clear();
+                            setState(() => _idResults = []);
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
+                ),
+                onSubmitted: (_) => _searchById(),
+              );
+            },
           ),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _idController.text.isNotEmpty ? _searchById : null,
-            style: ElevatedButton.styleFrom(disabledBackgroundColor: Colors.grey[300]),
-            child: _idSearching
-                ? const SizedBox(height: 20, width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('検索する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _idController,
+            builder: (context, value, child) {
+              return ElevatedButton(
+                onPressed: value.text.isNotEmpty ? _searchById : null,
+                style: ElevatedButton.styleFrom(disabledBackgroundColor: Colors.grey[300]),
+                child: _idSearching
+                    ? const SizedBox(height: 20, width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('検索する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              );
+            },
           ),
           if (_idResults.isNotEmpty) ...[
             const SizedBox(height: 16),

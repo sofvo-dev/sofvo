@@ -336,8 +336,8 @@ class _ChatListScreenState extends State<ChatListScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildChatTab('dm'),
-                _buildGroupChatTab(),
+                _KeepAlivePage(child: _buildChatTab('dm')),
+                _KeepAlivePage(child: _buildGroupChatTab()),
               ],
             ),
           ),
@@ -361,7 +361,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           .where('members', arrayContains: _currentUser!.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
@@ -471,7 +471,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           .where('members', arrayContains: _currentUser!.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(
               child:
                   CircularProgressIndicator(color: AppTheme.primaryColor));
@@ -833,5 +833,24 @@ class _ChatListScreenState extends State<ChatListScreen>
     if (diff.inHours < 24) return '${diff.inHours}時間前';
     if (diff.inDays < 2) return '昨日';
     return '${date.month}/${date.day}';
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

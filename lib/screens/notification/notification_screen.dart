@@ -64,7 +64,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             .limit(50)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(
                 child: CircularProgressIndicator(
                     color: AppTheme.primaryColor));

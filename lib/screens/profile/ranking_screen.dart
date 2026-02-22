@@ -49,10 +49,10 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _RankingList(sortField: 'totalPoints', label: 'Pt'),
-          _RankingList(sortField: 'stats.tournamentsPlayed', label: '回'),
-          _RankingList(sortField: 'stats.championships', label: '回'),
+        children: [
+          _KeepAlivePage(child: const _RankingList(sortField: 'totalPoints', label: 'Pt')),
+          _KeepAlivePage(child: const _RankingList(sortField: 'stats.tournamentsPlayed', label: '回')),
+          _KeepAlivePage(child: const _RankingList(sortField: 'stats.championships', label: '回')),
         ],
       ),
     );
@@ -76,7 +76,7 @@ class _RankingList extends StatelessWidget {
           .limit(50)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
@@ -204,5 +204,24 @@ class _RankingList extends StatelessWidget {
     if (v is int) return v;
     if (v is double) return v.toInt();
     return 0;
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

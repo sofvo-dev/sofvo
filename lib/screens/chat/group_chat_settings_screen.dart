@@ -254,7 +254,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                         .collection('following')
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                      if (!snapshot.hasData) {
                         return const Center(
                           child: CircularProgressIndicator(
                             color: AppTheme.primaryColor,
@@ -1347,7 +1347,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                 .limit(9)
                 .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (!snapshot.hasData) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
                   child: Center(
@@ -1527,7 +1527,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                 .limit(5)
                 .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (!snapshot.hasData) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
                   child: Center(
@@ -1775,7 +1775,7 @@ class _AllAlbumScreen extends StatelessWidget {
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(
               child:
                   CircularProgressIndicator(color: AppTheme.primaryColor),
@@ -1886,7 +1886,7 @@ class _AllNotesScreen extends StatelessWidget {
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(
               child:
                   CircularProgressIndicator(color: AppTheme.primaryColor),

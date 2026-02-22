@@ -616,7 +616,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: StreamBuilder<QuerySnapshot>(
               stream: _messagesStream,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (!snapshot.hasData) {
                   return const Center(
                       child: CircularProgressIndicator(color: AppTheme.primaryColor));
                 }

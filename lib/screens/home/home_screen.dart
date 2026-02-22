@@ -211,8 +211,8 @@ class _HomeScreenState extends State<HomeScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildTimelineTab(),
-                _buildNoticeTab(),
+                _KeepAlivePage(child: _buildTimelineTab()),
+                _KeepAlivePage(child: _buildNoticeTab()),
               ],
             ),
           ),
@@ -240,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen>
           .collection('following')
           .snapshots(),
       builder: (context, followSnapshot) {
-        if (followSnapshot.connectionState == ConnectionState.waiting) {
+        if (!followSnapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(
                   color: AppTheme.primaryColor));
@@ -263,8 +263,7 @@ class _HomeScreenState extends State<HomeScreen>
               .limit(50)
               .snapshots(),
           builder: (context, postSnapshot) {
-            if (postSnapshot.connectionState ==
-                ConnectionState.waiting) {
+            if (!postSnapshot.hasData) {
               return const Center(
                   child: CircularProgressIndicator(
                       color: AppTheme.primaryColor));
@@ -283,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen>
 
             return RefreshIndicator(
               color: AppTheme.primaryColor,
-              onRefresh: () async { setState(() {}); await Future.delayed(const Duration(milliseconds: 500)); },
+              onRefresh: () async { setState(() {}); },
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(top: 4, bottom: 80),
@@ -655,7 +654,7 @@ class _HomeScreenState extends State<HomeScreen>
                         .orderBy('createdAt', descending: false)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                      if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                       }
                       final comments = snapshot.data?.docs ?? [];
@@ -995,7 +994,7 @@ class _HomeScreenState extends State<HomeScreen>
           .limit(30)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
@@ -1137,5 +1136,24 @@ class _HomeScreenState extends State<HomeScreen>
     if (diff.inHours < 24) return '${diff.inHours}時間前';
     if (diff.inDays < 7) return '${diff.inDays}日前';
     return '${date.month}/${date.day}';
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

@@ -205,8 +205,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                 : TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildUpcomingTab(),
-                      _buildPastTab(),
+                      _KeepAlivePage(child: _buildUpcomingTab()),
+                      _KeepAlivePage(child: _buildPastTab()),
                     ],
                   ),
           ),
@@ -731,5 +731,24 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           style: const TextStyle(
               fontSize: 12, color: AppTheme.textSecondary)),
     ]);
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
