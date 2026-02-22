@@ -430,49 +430,56 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: SizedBox(
-                                height: 42,
-                                child: _isFollowing
-                                    ? ElevatedButton.icon(
-                                        onPressed: _toggleFollow,
-                                        icon: const Icon(Icons.check, size: 16),
-                                        label: const Text('フォロー中',
-                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          side: const BorderSide(color: Colors.white, width: 1.5),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              child: GestureDetector(
+                                onTap: _toggleFollow,
+                                child: Container(
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: _isFollowing
+                                        ? Colors.white.withValues(alpha: 0.15)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: _isFollowing ? 1.5 : 0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      if (_isFollowing)
+                                        const Padding(
+                                          padding: EdgeInsets.only(right: 4),
+                                          child: Icon(Icons.check, size: 16, color: Colors.white),
                                         ),
-                                      )
-                                    : ElevatedButton(
-                                        onPressed: _toggleFollow,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: AppTheme.primaryColor,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      Text(
+                                        _isFollowing ? 'フォロー中' : 'フォローする',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: _isFollowing ? Colors.white : AppTheme.primaryColor,
                                         ),
-                                        child: const Text('フォローする',
-                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                                       ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 10),
-                            SizedBox(
-                              height: 42,
-                              child: ElevatedButton(
-                                onPressed: () => _startDmWith(widget.userId, nickname),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white.withValues(alpha: 0.15),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            GestureDetector(
+                              onTap: () => _startDmWith(widget.userId, nickname),
+                              child: Container(
+                                height: 42,
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
                                 ),
-                                child: const Text('メッセージ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                child: const Center(
+                                  child: Text('メッセージ',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                                ),
                               ),
                             ),
                           ],
