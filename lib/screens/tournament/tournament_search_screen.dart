@@ -44,6 +44,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   // ── Debounce timer for search ──
   Timer? _debounceTimer;
 
+  // ── Cached Firestore streams (prevent recreation on rebuild) ──
+  late Stream<QuerySnapshot> _tournamentStream;
+  late Stream<QuerySnapshot> _recruitmentStream;
+
   @override
   void initState() {
     super.initState();
@@ -58,8 +62,14 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         );
       }
     });
+    _refreshStreams();
     _loadFollowing();
     _loadBookmarks();
+  }
+
+  void _refreshStreams() {
+    _tournamentStream = _buildTournamentQuery().snapshots();
+    _recruitmentStream = _buildRecruitQuery().snapshots();
   }
 
   Future<void> _loadFollowing() async {
@@ -451,6 +461,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               _filterArea = 'すべて';
               _filterDateRange = null;
               _showPastTournaments = false;
+              _refreshStreams();
             }),
             child: Row(children: [
               Icon(Icons.refresh, size: 14, color: AppTheme.error),
@@ -516,7 +527,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                 color: isSelected ? c : AppTheme.textPrimary,
               )),
               trailing: isSelected ? Icon(Icons.check_circle, color: c) : null,
-              onTap: () { setState(() => _filterType = t); Navigator.pop(ctx); },
+              onTap: () { setState(() { _filterType = t; _refreshStreams(); }); Navigator.pop(ctx); },
             );
           }),
         ]),
@@ -593,8 +604,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         }
       },
       children: [
-        _buildTournamentList(_friendsOnly),
-        _buildRecruitList(_friendsOnly),
+        _KeepAlivePage(child: _buildTournamentList(_friendsOnly)),
+        _KeepAlivePage(child: _buildRecruitList(_friendsOnly)),
       ],
     );
   }
@@ -1098,9 +1109,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
   Widget _buildTournamentList(bool friendsOnly) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _buildTournamentQuery().snapshots(),
+      stream: _tournamentStream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
         final allDocs = snapshot.data?.docs ?? [];
@@ -1378,9 +1389,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
   Widget _buildRecruitList(bool friendsOnly) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _buildRecruitQuery().snapshots(),
+      stream: _recruitmentStream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
         final docs = snapshot.data?.docs ?? [];
@@ -1563,5 +1574,24 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
       child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     );
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
