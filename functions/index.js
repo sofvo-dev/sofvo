@@ -774,9 +774,16 @@ exports.seedNotices = functions.https.onRequest(async (req, res) => {
 
 exports.onGadgetWrite = functions.firestore
   .document("users/{userId}/gadgets/{gadgetId}")
-  .onWrite(async () => {
+  .onWrite(async (change) => {
+    // ユーザー向けフィールドに変更がなければスキップ（インポート起因の無限ループ防止）
+    if (change.before.exists && change.after.exists) {
+      const before = change.before.data();
+      const after = change.after.data();
+      const fields = ["name", "category", "amazonUrl", "amazonAffiliateUrl", "rakutenAffiliateUrl", "imageUrl", "memo"];
+      const changed = fields.some((f) => (before[f] || "") !== (after[f] || ""));
+      if (!changed) return;
+    }
     try {
-      // 内部HTTPリクエストで同期処理を実行
       const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
       const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncGadgetsToSheet`;
       const ac = new AbortController();
@@ -793,7 +800,20 @@ exports.onGadgetWrite = functions.firestore
 
 exports.onVenueWrite = functions.firestore
   .document("venues/{venueId}")
-  .onWrite(async () => {
+  .onWrite(async (change) => {
+    // ユーザー向けフィールドに変更がなければスキップ（インポート起因の無限ループ防止）
+    if (change.before.exists && change.after.exists) {
+      const before = change.before.data();
+      const after = change.after.data();
+      const strFields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee"];
+      const numFields = ["courts", "parking", "toilets"];
+      const boolFields = ["hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+      const strChanged = strFields.some((f) => (before[f] || "") !== (after[f] || ""));
+      const numChanged = numFields.some((f) => (before[f] || 0) !== (after[f] || 0));
+      const boolChanged = boolFields.some((f) => !!before[f] !== !!after[f]);
+      const eqChanged = JSON.stringify(before.equipments || []) !== JSON.stringify(after.equipments || []);
+      if (!strChanged && !numChanged && !boolChanged && !eqChanged) return;
+    }
     try {
       const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
       const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncVenuesToSheet`;
@@ -809,19 +829,38 @@ exports.onVenueWrite = functions.firestore
 // Google Sheets → Firestore インポート (会場) 共通ロジック
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+// 比較用: Firestore のデータとシートのデータが同じかチェック
+function isVenueDataEqual(existing, sheetData) {
+  const fields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee"];
+  for (const f of fields) {
+    if ((existing[f] || "") !== (sheetData[f] || "")) return false;
+  }
+  const numFields = ["courts", "parking", "toilets"];
+  for (const f of numFields) {
+    if ((existing[f] || 0) !== (sheetData[f] || 0)) return false;
+  }
+  const boolFields = ["hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+  for (const f of boolFields) {
+    if (!!existing[f] !== !!sheetData[f]) return false;
+  }
+  if (JSON.stringify(existing.equipments || []) !== JSON.stringify(sheetData.equipments || [])) return false;
+  return true;
+}
+
 async function doImportVenues() {
   const rows = await sheetsRead(VENUE_SHEET_ID, "会場一覧!A:T");
-  if (rows.length < 2) return { imported: 0, updated: 0, total: 0 };
+  if (rows.length < 2) return { imported: 0, updated: 0, skipped: 0, total: 0 };
 
   const db = admin.firestore();
   const dataRows = rows.slice(1);
   let imported = 0;
   let updated = 0;
+  let skipped = 0;
 
   for (const row of dataRows) {
     const venueId = (row[0] || "").trim();
     const name = (row[1] || "").trim();
-    if (!name) continue;
+    if (!name) { skipped++; continue; }
 
     const venueData = {
       name,
@@ -839,7 +878,6 @@ async function doImportVenues() {
       openTime: row[13] || "",
       closeTime: row[14] || "",
       fee: row[15] || "",
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     if (row[16]) {
@@ -854,11 +892,17 @@ async function doImportVenues() {
     if (venueId) {
       const existing = await db.collection("venues").doc(venueId).get();
       if (existing.exists) {
+        // データが変わっていなければスキップ（無限ループ防止）
+        if (isVenueDataEqual(existing.data(), venueData)) { skipped++; continue; }
+        venueData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
         await db.collection("venues").doc(venueId).update(venueData);
         updated++;
       } else {
         venueData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        venueData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
         venueData.registeredBy = "sheet_import";
+
         venueData.rating = 0;
         venueData.reviewCount = 0;
         await db.collection("venues").doc(venueId).set(venueData);
@@ -866,6 +910,7 @@ async function doImportVenues() {
       }
     } else {
       venueData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      venueData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
       venueData.registeredBy = "sheet_import";
       venueData.rating = 0;
       venueData.reviewCount = 0;
@@ -874,12 +919,21 @@ async function doImportVenues() {
     }
   }
 
-  return { imported, updated, total: dataRows.length };
+  return { imported, updated, skipped, total: dataRows.length };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Google Sheets → Firestore インポート (ガジェット) 共通ロジック
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 比較用: Firestore のデータとシートのデータが同じかチェック
+function isGadgetDataEqual(existing, sheetData) {
+  const fields = ["name", "category", "amazonUrl", "amazonAffiliateUrl", "rakutenAffiliateUrl", "imageUrl", "memo"];
+  for (const f of fields) {
+    if ((existing[f] || "") !== (sheetData[f] || "")) return false;
+  }
+  return true;
+}
 
 async function doImportGadgets() {
   const rows = await sheetsRead(GADGET_SHEET_ID, "ガジェット一覧!A:K");
@@ -905,7 +959,6 @@ async function doImportGadgets() {
       rakutenAffiliateUrl: row[7] || "",
       imageUrl: row[8] || "",
       memo: row[9] || "",
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     const userRef = db.collection("users").doc(userId);
@@ -915,16 +968,26 @@ async function doImportGadgets() {
     if (gadgetId) {
       const existing = await userRef.collection("gadgets").doc(gadgetId).get();
       if (existing.exists) {
+        // データが変わっていなければスキップ（無限ループ防止）
+        if (isGadgetDataEqual(existing.data(), gadgetData)) { skipped++; continue; }
+        gadgetData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
         await userRef.collection("gadgets").doc(gadgetId).update(gadgetData);
         updated++;
       } else {
+        gadgetData.id = gadgetId;
         gadgetData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        gadgetData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
         await userRef.collection("gadgets").doc(gadgetId).set(gadgetData);
         imported++;
       }
     } else {
       gadgetData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-      await userRef.collection("gadgets").add(gadgetData);
+      gadgetData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      const newDoc = await userRef.collection("gadgets").add(gadgetData);
+      // Flutter側と同じく、ドキュメントIDをフィールドとしても保存
+      await newDoc.update({ id: newDoc.id });
       imported++;
     }
   }
