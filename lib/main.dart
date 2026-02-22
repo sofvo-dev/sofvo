@@ -12,9 +12,13 @@ import 'services/auth_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
+import 'screens/tournament/tournament_detail_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+/// 招待リンクで渡された大会ID（?t=xxx）
+String? pendingTournamentId;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +26,12 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+
+  // Web URLパラメータから招待リンクの大会IDを取得
+  if (kIsWeb) {
+    final uri = Uri.base;
+    pendingTournamentId = uri.queryParameters['t'];
+  }
 
   // Firestoreオフラインキャッシュ（モバイルのみ）
   if (!kIsWeb) {
@@ -62,8 +72,37 @@ class SofvoApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _navigatedToTournament = false;
+
+  /// 招待リンクの大会へ自動遷移
+  Future<void> _navigateToInvitedTournament() async {
+    if (_navigatedToTournament || pendingTournamentId == null) return;
+    _navigatedToTournament = true;
+    final tid = pendingTournamentId!;
+    pendingTournamentId = null; // 一度だけ処理
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('tournaments').doc(tid).get();
+      if (!doc.exists || !mounted) return;
+      final data = doc.data()!;
+      data['id'] = doc.id;
+
+      // 次フレームでpush（buildの最中にnavigateしないように）
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data)),
+        );
+      });
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +119,8 @@ class AuthGate extends StatelessWidget {
           );
         }
         if (!snapshot.hasData) {
+          // 未ログイン時はpendingTournamentIdを保持したままログイン画面へ
+          _navigatedToTournament = false;
           return const LoginScreen();
         }
         return FutureBuilder<DocumentSnapshot>(
@@ -104,7 +145,13 @@ class AuthGate extends StatelessWidget {
             }
             BookmarkNotificationService.checkAndNotify(snapshot.data!.uid);
             PushNotificationService.initialize();
-                    return MainTabScreen();
+
+            // 招待リンクがあれば大会詳細へ自動遷移
+            if (pendingTournamentId != null) {
+              _navigateToInvitedTournament();
+            }
+
+            return const MainTabScreen();
           },
         );
       },
