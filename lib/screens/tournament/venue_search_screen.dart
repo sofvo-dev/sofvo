@@ -16,6 +16,29 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
   String _filterArea = 'すべて';
   String _sortBy = 'name'; // 'name', 'address', 'rating', 'courts'
 
+  @override
+  void initState() {
+    super.initState();
+    _loadUserArea();
+  }
+
+  Future<void> _loadUserArea() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final rawArea = doc.data()?['area'];
+    final prefecture = rawArea is String ? rawArea : (rawArea is Map ? rawArea['prefecture'] ?? '' : '');
+    if (prefecture.toString().isNotEmpty) {
+      // 都道府県名からエリアを特定
+      for (final entry in _prefectureToArea.entries) {
+        if (prefecture.toString().contains(entry.key)) {
+          if (mounted) setState(() => _filterArea = entry.value);
+          break;
+        }
+      }
+    }
+  }
+
   static const _areas = [
     'すべて', '北海道', '東北', '関東', '中部', '近畿', '中国', '四国', '九州・沖縄',
   ];
