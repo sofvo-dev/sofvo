@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -40,35 +41,25 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   DateTimeRange? _filterDateRange;
   bool _showPastTournaments = false;
 
+  // ── Debounce timer for search ──
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
-    _pageController.addListener(_onPageScroll);
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) return;
-      _pageController.animateToPage(
-        _tabController.index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      if (_tabController.indexIsChanging && _tabController.index != _currentPage) {
+        _pageController.animateToPage(
+          _tabController.index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     });
     _loadFollowing();
     _loadBookmarks();
-  }
-
-  void _onPageScroll() {
-    final page = _pageController.page;
-    if (page != null) {
-      final rounded = page.round();
-      if (rounded != _currentPage) {
-        setState(() => _currentPage = rounded);
-        if (_tabController.index != rounded) {
-          _tabController.animateTo(rounded);
-        }
-      }
-    }
   }
 
   Future<void> _loadFollowing() async {
@@ -199,7 +190,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
   @override
   void dispose() {
-    _pageController.removeListener(_onPageScroll);
+    _debounceTimer?.cancel();
     _pageController.dispose();
     _tabController.dispose();
     _searchController.dispose();
@@ -319,7 +310,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) {
+                      _debounceTimer?.cancel();
+                      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                        if (mounted) setState(() {});
+                      });
+                    },
                   ),
                 ),
               ),
@@ -589,7 +585,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     return PageView(
       controller: _pageController,
       onPageChanged: (page) {
-        setState(() => _currentPage = page);
+        if (_currentPage != page) {
+          setState(() => _currentPage = page);
+          if (_tabController.index != page) {
+            _tabController.animateTo(page);
+          }
+        }
       },
       children: [
         _buildTournamentList(_friendsOnly),
@@ -1087,9 +1088,17 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 大会リスト
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Query<Map<String, dynamic>> _buildTournamentQuery() {
+    Query<Map<String, dynamic>> q = FirebaseFirestore.instance.collection('tournaments');
+    if (_filterType != 'すべて') {
+      q = q.where('type', isEqualTo: _filterType);
+    }
+    return q;
+  }
+
   Widget _buildTournamentList(bool friendsOnly) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('tournaments').snapshots(),
+      stream: _buildTournamentQuery().snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
@@ -1112,7 +1121,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             final l = (data['location'] ?? '').toString().toLowerCase();
             if (!t.contains(query) && !l.contains(query)) return false;
           }
-          if (_filterType != 'すべて' && (data['type'] ?? '') != _filterType) return false;
           if (_filterArea != 'すべて') {
             final l = (data['location'] ?? '').toString();
             if (!l.contains(_filterArea)) return false;
@@ -1142,8 +1150,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         return RefreshIndicator(
           color: AppTheme.primaryColor,
           onRefresh: () async {
-            setState(() {});
-            await Future.delayed(const Duration(milliseconds: 500));
+            await _loadFollowing();
+            await _loadBookmarks();
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1360,9 +1368,17 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // メンバー募集リスト
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Query<Map<String, dynamic>> _buildRecruitQuery() {
+    Query<Map<String, dynamic>> q = FirebaseFirestore.instance.collection('recruitments');
+    if (_filterType != 'すべて') {
+      q = q.where('tournamentType', isEqualTo: _filterType);
+    }
+    return q;
+  }
+
   Widget _buildRecruitList(bool friendsOnly) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('recruitments').snapshots(),
+      stream: _buildRecruitQuery().snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
@@ -1380,7 +1396,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             final tn = (data['tournamentName'] ?? '').toString().toLowerCase();
             if (!nn.contains(query) && !tn.contains(query)) return false;
           }
-          if (_filterType != 'すべて' && (data['tournamentType'] ?? '') != _filterType) return false;
           if (_filterArea != 'すべて' && !(data['area'] ?? '').toString().contains(_filterArea)) return false;
           if (_filterDateRange != null) {
             final d = _parseDate(data['tournamentDate'] ?? '');
@@ -1400,8 +1415,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         return RefreshIndicator(
           color: AppTheme.primaryColor,
           onRefresh: () async {
-            setState(() {});
-            await Future.delayed(const Duration(milliseconds: 500));
+            await _loadFollowing();
+            await _loadBookmarks();
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
