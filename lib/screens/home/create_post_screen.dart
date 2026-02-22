@@ -337,10 +337,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: SafeArea(
               child: Row(
                 children: [
-                  InkWell(
+                  GestureDetector(
                     onTap:
                         _imageBytes.length >= 2 ? null : _pickImages,
-                    borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
