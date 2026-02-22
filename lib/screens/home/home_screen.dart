@@ -219,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen>
         ]),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'home_create_post',
         onPressed: _openCreatePost,
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.edit, color: Colors.white),
