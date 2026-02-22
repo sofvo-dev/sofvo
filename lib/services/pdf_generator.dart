@@ -32,7 +32,7 @@ class PdfGenerator {
           _pdfRow('会場', t['location'] ?? ''),
           if ((t['venueAddress'] ?? '').toString().isNotEmpty) _pdfRow('住所', t['venueAddress'] ?? ''),
           _pdfRow('コート数', '${t['courts'] ?? 0}コート'),
-          _pdfRow('種別', '${t['format'] ?? "4人制"} / ${t['type'] ?? "混合"}'),
+          _pdfRow('種別', t['type'] ?? '混合'),
           _pdfRow('参加費', t['entryFee'] ?? ''),
           _pdfRow('定員', '${t['maxTeams'] ?? 0}チーム'),
         ]),
@@ -46,7 +46,7 @@ class PdfGenerator {
           _pdfRow('閉会式', t['closingTime'] ?? '16:00'),
         ]),
         _pdfSection('大会ルール', [
-          _pdfRow('試合形式', '${t['format'] ?? "4人制"}（15点先取）'),
+          _pdfRow('試合形式', '15点先取'),
           _pdfRow('予選', '${preliminary['sets'] ?? 2}セットマッチ'),
           _pdfRow('ジュース', (preliminary['deuce'] ?? false) ? 'あり（${preliminary['deuceCap'] ?? 17}点キャップ）' : 'なし'),
           if (scoring['enabled'] == true) ...[
