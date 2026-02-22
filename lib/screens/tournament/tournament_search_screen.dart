@@ -22,6 +22,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
   // ── Top-level swipeable page (0=tournament, 1=recruitment) ──
   late PageController _pageController;
+  late TabController _tabController;
   int _currentPage = 0;
 
   // ── Sub-tab: friends-only toggle ──
@@ -44,6 +45,15 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     super.initState();
     _pageController = PageController(initialPage: 0);
     _pageController.addListener(_onPageScroll);
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) return;
+      _pageController.animateToPage(
+        _tabController.index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
     _loadFollowing();
     _loadBookmarks();
   }
@@ -54,6 +64,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       final rounded = page.round();
       if (rounded != _currentPage) {
         setState(() => _currentPage = rounded);
+        if (_tabController.index != rounded) {
+          _tabController.animateTo(rounded);
+        }
       }
     }
   }
@@ -188,6 +201,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   void dispose() {
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -241,8 +255,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Widget _buildHeader() {
     return Material(
       color: Colors.white,
-      elevation: 1,
-      shadowColor: Colors.black.withValues(alpha: 0.06),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Title + toggle
         Padding(
@@ -266,10 +278,20 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
         // ── メイン切替タブ (underline style) ──
         if (!_isSavedMode) ...[
-          Row(children: [
-            Expanded(child: _buildModeTab('大会をさがす', 0)),
-            Expanded(child: _buildModeTab('メンバーをさがす', 1)),
-          ]),
+          TabBar(
+            controller: _tabController,
+            labelColor: AppTheme.textPrimary,
+            unselectedLabelColor: AppTheme.textSecondary,
+            labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal),
+            indicatorColor: AppTheme.primaryColor,
+            indicatorWeight: 3,
+            dividerColor: Colors.grey[200],
+            tabs: const [
+              Tab(text: '大会をさがす'),
+              Tab(text: 'メンバーをさがす'),
+            ],
+          ),
           const SizedBox(height: 10),
 
           // ── 検索バー + フィルターボタン ──
@@ -327,40 +349,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
         const SizedBox(height: 8),
       ]),
-    );
-  }
-
-  // ── Mode tab (underline style) ──
-  Widget _buildModeTab(String label, int page) {
-    final isSelected = _currentPage == page;
-    return GestureDetector(
-      onTap: () {
-        _pageController.animateToPage(
-          page,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-              width: 2.5,
-            ),
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textHint,
-          ),
-        ),
-      ),
     );
   }
 

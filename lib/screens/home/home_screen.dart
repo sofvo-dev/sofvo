@@ -6,6 +6,7 @@ import '../../services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
 import 'create_post_screen.dart';
@@ -359,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen>
     final timeText = _formatTime(createdAt);
     final List<ImageProvider> imageProviders = [];
     for (final url in images) {
-      if (url.isNotEmpty) imageProviders.add(NetworkImage(url));
+      if (url.isNotEmpty) imageProviders.add(CachedNetworkImageProvider(url));
     }
     for (final b64 in imageBase64) {
       if (b64.isNotEmpty) {
@@ -383,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen>
               }
             },
             child: avatarUrl.isNotEmpty
-                ? CircleAvatar(radius: 22, backgroundImage: NetworkImage(avatarUrl),
+                ? CircleAvatar(radius: 22, backgroundImage: CachedNetworkImageProvider(avatarUrl),
                     backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15))
                 : CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
                     child: Text(nickname.isNotEmpty ? nickname[0] : '?',
