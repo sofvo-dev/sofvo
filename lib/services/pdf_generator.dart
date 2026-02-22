@@ -22,7 +22,7 @@ class PdfGenerator {
   static const _divider = PdfColor.fromInt(0xFFE0E0E0);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 大会要項PDF
+  // 大会要項PDF（1枚に収める）
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Future<Uint8List> generateTournamentSummary(String tournamentId) async {
     final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
@@ -36,74 +36,175 @@ class PdfGenerator {
     final fontBold = await PdfGoogleFonts.notoSansJPBold();
 
     final pdf = pw.Document();
-    pdf.addPage(pw.MultiPage(
+    pdf.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(40),
+      margin: const pw.EdgeInsets.fromLTRB(32, 28, 32, 24),
       theme: pw.ThemeData.withFont(base: font, bold: fontBold),
-      header: (context) => context.pageNumber == 1 ? pw.SizedBox.shrink() : _pageHeader(t['name'] ?? ''),
-      footer: (context) => _pageFooter(context),
-      build: (context) => [
-        // ── タイトルヘッダー ──
-        _buildTitleBanner(t['name'] ?? '\u5927\u4f1a\u8981\u9805'),
-        pw.SizedBox(height: 6),
-        pw.Center(child: pw.Text(
-          '\u30bd\u30d5\u30c8\u30d0\u30ec\u30fc\u30dc\u30fc\u30eb\u5927\u4f1a\u8981\u9805',
-          style: pw.TextStyle(fontSize: 11, color: _textMedium, letterSpacing: 2),
-        )),
-        pw.SizedBox(height: 24),
+      build: (context) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        // ── タイトルバナー ──
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          decoration: pw.BoxDecoration(color: _navy, borderRadius: pw.BorderRadius.circular(6)),
+          child: pw.Column(children: [
+            pw.Text(t['name'] ?? '\u5927\u4F1A\u8981\u9805',
+                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+            pw.SizedBox(height: 2),
+            pw.Text('\u30BD\u30D5\u30C8\u30D0\u30EC\u30FC\u30DC\u30FC\u30EB\u5927\u4F1A\u8981\u9805',
+                style: pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFFB0BEC5), letterSpacing: 1.5)),
+          ]),
+        ),
+        pw.SizedBox(height: 14),
 
-        // ── 基本情報 ──
-        _sectionCard('\u57FA\u672C\u60C5\u5831', _navy, [
-          _infoTable([
-            ['\u958B\u50AC\u65E5', t['date'] ?? ''],
-            ['\u4F1A\u5834', t['location'] ?? ''],
+        // ── 上段: 基本情報（左） + スケジュール（右） ──
+        pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          // 左カラム: 基本情報
+          pw.Expanded(flex: 5, child: _sectionCardCompact('\u57FA\u672C\u60C5\u5831', _navy, [
+            _compactRow('\u958B\u50AC\u65E5', t['date'] ?? ''),
+            _compactRow('\u4F1A\u5834', t['location'] ?? ''),
             if ((t['venueAddress'] ?? '').toString().isNotEmpty)
-              ['\u4F4F\u6240', t['venueAddress'] ?? ''],
-            ['\u30B3\u30FC\u30C8\u6570', '${t['courts'] ?? 0}\u30B3\u30FC\u30C8'],
-            ['\u7A2E\u5225', t['type'] ?? '\u6DF7\u5408'],
-            ['\u53C2\u52A0\u8CBB', t['entryFee'] ?? ''],
-            ['\u5B9A\u54E1', '${t['maxTeams'] ?? 0}\u30C1\u30FC\u30E0'],
-          ]),
-        ]),
-        pw.SizedBox(height: 16),
-
-        // ── 当日スケジュール ──
-        _sectionCard('\u5F53\u65E5\u30B9\u30B1\u30B8\u30E5\u30FC\u30EB', _accent, [
-          _scheduleTimeline([
-            [t['openTime'] ?? '8:00', '\u958B\u5834'],
-            [t['receptionTime'] ?? '8:30', '\u53D7\u4ED8'],
-            [t['openingTime'] ?? '9:00', '\u958B\u4F1A\u5F0F'],
-            [t['matchStartTime'] ?? '9:15', '\u8A66\u5408\u958B\u59CB'],
+              _compactRow('\u4F4F\u6240', t['venueAddress'] ?? ''),
+            _compactRow('\u30B3\u30FC\u30C8\u6570', '${t['courts'] ?? 0}\u30B3\u30FC\u30C8'),
+            _compactRow('\u7A2E\u5225', t['type'] ?? '\u6DF7\u5408'),
+            _compactRow('\u53C2\u52A0\u8CBB', t['entryFee'] ?? ''),
+            _compactRow('\u5B9A\u54E1', '${t['maxTeams'] ?? 0}\u30C1\u30FC\u30E0'),
+          ])),
+          pw.SizedBox(width: 12),
+          // 右カラム: スケジュール
+          pw.Expanded(flex: 4, child: _sectionCardCompact('\u5F53\u65E5\u30B9\u30B1\u30B8\u30E5\u30FC\u30EB', _accent, [
+            _scheduleRow(t['openTime'] ?? '8:00', '\u958B\u5834'),
+            _scheduleRow(t['receptionTime'] ?? '8:30', '\u53D7\u4ED8'),
+            _scheduleRow(t['openingTime'] ?? '9:00', '\u958B\u4F1A\u5F0F'),
+            _scheduleRow(t['matchStartTime'] ?? '9:15', '\u8A66\u5408\u958B\u59CB'),
             if ((t['lunchTime'] ?? '').toString().isNotEmpty)
-              [t['lunchTime'] ?? '', '\u6627\u4F11\u61A9'],
-            [t['finalTime'] ?? '14:00', '\u6C7A\u52DD\u4E88\u5B9A'],
-            [t['closingTime'] ?? '16:00', '\u9589\u4F1A\u5F0F'],
-          ]),
+              _scheduleRow(t['lunchTime'] ?? '', '\u6627\u4F11\u61A9'),
+            _scheduleRow(t['finalTime'] ?? '14:00', '\u6C7A\u52DD\u4E88\u5B9A'),
+            _scheduleRow(t['closingTime'] ?? '16:00', '\u9589\u4F1A\u5F0F'),
+          ])),
         ]),
-        pw.SizedBox(height: 16),
+        pw.SizedBox(height: 12),
 
-        // ── 大会ルール ──
-        _sectionCard('\u5927\u4F1A\u30EB\u30FC\u30EB', _green, [
-          _ruleBlock('\u8A66\u5408\u5F62\u5F0F', '15\u70B9\u5148\u53D6'),
-          _ruleBlock('\u4E88\u9078', '${preliminary['sets'] ?? 2}\u30BB\u30C3\u30C8\u30DE\u30C3\u30C1'),
-          _ruleBlock('\u30B8\u30E5\u30FC\u30B9',
-              (preliminary['deuce'] ?? false)
-                  ? '\u3042\u308A\uFF08${preliminary['deuceCap'] ?? 17}\u70B9\u30AD\u30E3\u30C3\u30D7\uFF09'
-                  : '\u306A\u3057'),
-          if ((finalRules['enabled'] ?? false) == true)
-            _ruleBlock('\u6C7A\u52DD', '${finalRules['sets'] ?? 3}\u30BB\u30C3\u30C8\u30DE\u30C3\u30C1'),
+        // ── 中段: ルール（左） + 勝ち点（右、あれば） ──
+        pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Expanded(flex: 5, child: _sectionCardCompact('\u5927\u4F1A\u30EB\u30FC\u30EB', _green, [
+            _compactRow('\u8A66\u5408\u5F62\u5F0F', '15\u70B9\u5148\u53D6'),
+            _compactRow('\u4E88\u9078', '${preliminary['sets'] ?? 2}\u30BB\u30C3\u30C8\u30DE\u30C3\u30C1'),
+            _compactRow('\u30B8\u30E5\u30FC\u30B9',
+                (preliminary['deuce'] ?? false)
+                    ? '\u3042\u308A\uFF08${preliminary['deuceCap'] ?? 17}\u70B9\u30AD\u30E3\u30C3\u30D7\uFF09'
+                    : '\u306A\u3057'),
+            if ((finalRules['enabled'] ?? false) == true)
+              _compactRow('\u6C7A\u52DD', '${finalRules['sets'] ?? 3}\u30BB\u30C3\u30C8\u30DE\u30C3\u30C1'),
+          ])),
+          if (scoring['enabled'] == true) ...[
+            pw.SizedBox(width: 12),
+            pw.Expanded(flex: 4, child: _sectionCardCompact('\u52DD\u3061\u70B9\u5236', _gold, [
+              _scoringRow('2-0 \u52DD\u3061', '${scoring['win20'] ?? 10}\u70B9'),
+              _scoringRow('1-1 \u5F97\u5931\u5DEE\u52DD\u3061', '${scoring['win11'] ?? 7}\u70B9'),
+              _scoringRow('1-1 \u5F15\u304D\u5206\u3051', '${scoring['draw'] ?? 4}\u70B9'),
+              _scoringRow('1-1 \u5F97\u5931\u5DEE\u8CA0\u3051', '${scoring['lose11'] ?? 2}\u70B9'),
+              _scoringRow('0-2 \u8CA0\u3051', '${scoring['lose02'] ?? 0}\u70B9'),
+            ])),
+          ],
         ]),
+        pw.Spacer(),
 
-        // ── 勝ち点制 ──
-        if (scoring['enabled'] == true) ...[
-          pw.SizedBox(height: 16),
-          _sectionCard('\u52DD\u3061\u70B9\u5236', _gold, [
-            _scoringTable(scoring),
+        // ── フッター ──
+        pw.Container(
+          padding: const pw.EdgeInsets.only(top: 6),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: _divider, width: 0.5)),
+          ),
+          child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Powered by Sofvo', style: pw.TextStyle(fontSize: 7, color: _textMedium)),
+            pw.Text('\u203B\u5185\u5BB9\u306F\u5909\u66F4\u306B\u306A\u308B\u5834\u5408\u304C\u3042\u308A\u307E\u3059',
+                style: pw.TextStyle(fontSize: 7, color: _textMedium)),
           ]),
-        ],
-      ],
+        ),
+      ]),
     ));
     return pdf.save();
+  }
+
+  // ── 要項用コンパクトヘルパー ──
+
+  pw.Widget _sectionCardCompact(String title, PdfColor accentColor, List<pw.Widget> children) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: _divider, width: 0.5),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+          decoration: pw.BoxDecoration(
+            color: accentColor,
+            borderRadius: const pw.BorderRadius.only(
+              topLeft: pw.Radius.circular(6),
+              topRight: pw.Radius.circular(6),
+            ),
+          ),
+          child: pw.Text(title, style: pw.TextStyle(
+            fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white,
+          )),
+        ),
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: children),
+        ),
+      ]),
+    );
+  }
+
+  pw.Widget _compactRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
+      child: pw.Row(children: [
+        pw.SizedBox(width: 70, child: pw.Text(label,
+            style: pw.TextStyle(fontSize: 8, color: _textMedium))),
+        pw.Expanded(child: pw.Text(value,
+            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _textDark))),
+      ]),
+    );
+  }
+
+  pw.Widget _scheduleRow(String time, String label) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
+      child: pw.Row(children: [
+        pw.Container(
+          width: 50,
+          padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+          decoration: pw.BoxDecoration(
+            color: _accentLight,
+            borderRadius: pw.BorderRadius.circular(3),
+          ),
+          child: pw.Text(time, style: pw.TextStyle(
+              fontSize: 8, fontWeight: pw.FontWeight.bold, color: _accent),
+              textAlign: pw.TextAlign.center),
+        ),
+        pw.SizedBox(width: 8),
+        pw.Text(label, style: pw.TextStyle(fontSize: 9, color: _textDark)),
+      ]),
+    );
+  }
+
+  pw.Widget _scoringRow(String label, String pts) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+        pw.Text(label, style: pw.TextStyle(fontSize: 8, color: _textDark)),
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 8),
+          decoration: pw.BoxDecoration(
+            color: _goldLight,
+            borderRadius: pw.BorderRadius.circular(8),
+          ),
+          child: pw.Text(pts, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _gold)),
+        ),
+      ]),
+    );
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -337,102 +438,6 @@ class PdfGenerator {
         ),
       ]),
     );
-  }
-
-  /// 基本情報テーブル（ストライプ行）
-  pw.Widget _infoTable(List<List<String>> rows) {
-    return pw.Column(children: rows.asMap().entries.map((entry) {
-      final isEven = entry.key % 2 == 0;
-      return pw.Container(
-        color: isEven ? _navyLight : PdfColors.white,
-        padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        child: pw.Row(children: [
-          pw.SizedBox(width: 100, child: pw.Text(entry.value[0],
-              style: pw.TextStyle(fontSize: 10, color: _textMedium, fontWeight: pw.FontWeight.bold))),
-          pw.Expanded(child: pw.Text(entry.value[1],
-              style: pw.TextStyle(fontSize: 11, color: _textDark))),
-        ]),
-      );
-    }).toList());
-  }
-
-  /// スケジュール タイムライン
-  pw.Widget _scheduleTimeline(List<List<String>> items) {
-    return pw.Column(children: items.asMap().entries.map((entry) {
-      final isLast = entry.key == items.length - 1;
-      return pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-        // 時刻
-        pw.SizedBox(width: 60, child: pw.Text(entry.value[0],
-            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _accent))),
-        // ドット+ライン
-        pw.Column(children: [
-          pw.Container(
-            width: 10, height: 10,
-            decoration: pw.BoxDecoration(
-              color: _accent,
-              borderRadius: pw.BorderRadius.circular(5),
-            ),
-          ),
-          if (!isLast) pw.Container(width: 2, height: 20, color: _accentLight),
-        ]),
-        pw.SizedBox(width: 12),
-        // ラベル
-        pw.Padding(
-          padding: const pw.EdgeInsets.only(top: 0),
-          child: pw.Text(entry.value[1], style: pw.TextStyle(fontSize: 11, color: _textDark)),
-        ),
-      ]);
-    }).toList());
-  }
-
-  /// ルール行
-  pw.Widget _ruleBlock(String label, String value) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 8),
-      child: pw.Row(children: [
-        pw.Container(
-          width: 6, height: 6,
-          decoration: pw.BoxDecoration(color: _green, borderRadius: pw.BorderRadius.circular(3)),
-        ),
-        pw.SizedBox(width: 10),
-        pw.SizedBox(width: 100, child: pw.Text(label,
-            style: pw.TextStyle(fontSize: 10, color: _textMedium))),
-        pw.Expanded(child: pw.Text(value,
-            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _textDark))),
-      ]),
-    );
-  }
-
-  /// 勝ち点テーブル
-  pw.Widget _scoringTable(Map<String, dynamic> scoring) {
-    final rows = [
-      ['2-0 \u52DD\u3061', '${scoring['win20'] ?? 10}\u70B9'],
-      ['1-1 \u5F97\u5931\u5DEE\u52DD\u3061', '${scoring['win11'] ?? 7}\u70B9'],
-      ['1-1 \u5F15\u304D\u5206\u3051', '${scoring['draw'] ?? 4}\u70B9'],
-      ['1-1 \u5F97\u5931\u5DEE\u8CA0\u3051', '${scoring['lose11'] ?? 2}\u70B9'],
-      ['0-2 \u8CA0\u3051', '${scoring['lose02'] ?? 0}\u70B9'],
-    ];
-    return pw.Row(children: [
-      pw.Expanded(child: pw.Column(children: rows.map((r) {
-        return pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(bottom: pw.BorderSide(color: _divider, width: 0.5)),
-          ),
-          child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-            pw.Text(r[0], style: pw.TextStyle(fontSize: 10, color: _textDark)),
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 10),
-              decoration: pw.BoxDecoration(
-                color: _goldLight,
-                borderRadius: pw.BorderRadius.circular(10),
-              ),
-              child: pw.Text(r[1], style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _gold)),
-            ),
-          ]),
-        );
-      }).toList())),
-    ]);
   }
 
   /// コートバッジ
