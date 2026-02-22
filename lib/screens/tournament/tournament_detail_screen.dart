@@ -143,8 +143,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       appBar: AppBar(
         title: const SizedBox.shrink(),
         actions: [
-          IconButton(icon: const Icon(Icons.chat_bubble_outline), onPressed: _openOrCreateTournamentChat),
-          IconButton(icon: const Icon(Icons.share), onPressed: () => _showShareSheet(context)),
+          IconButton(icon: const Icon(Icons.picture_as_pdf), onPressed: () => _showShareSheet(context)),
         ],
       ),
       body: Column(
@@ -218,10 +217,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             const Icon(Icons.calendar_today, size: 13, color: Colors.white70),
             const SizedBox(width: 4),
             Text(t['date'] as String, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-            const SizedBox(width: 12),
-            const Icon(Icons.groups, size: 13, color: Colors.white70),
-            const SizedBox(width: 4),
-            Text('$currentTeams/$maxTeams', style: const TextStyle(fontSize: 12, color: Colors.white70)),
             const SizedBox(width: 12),
             const Icon(Icons.location_on, size: 13, color: Colors.white70),
             const SizedBox(width: 3),
@@ -366,7 +361,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 _buildDivider(),
                 _buildInfoRow(Icons.grid_view, 'コート数', '${courts}コート'),
                 _buildDivider(),
-                _buildInfoRow(Icons.category, '種別', '${t['format'] ?? '4人制'} / ${t['type'] ?? '混合'}'),
+                _buildInfoRow(Icons.category, '種別', t['type'] ?? '混合'),
                 _buildDivider(),
                 _buildInfoRow(Icons.payments, '参加費', t['entryFee'] as String? ?? t['fee'] as String? ?? ''),
               ]),
