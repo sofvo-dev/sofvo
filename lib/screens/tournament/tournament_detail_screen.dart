@@ -1,6 +1,8 @@
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
@@ -2498,16 +2500,69 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   // ━━━ シェアシート ━━━
+  String _buildShareUrl() {
+    final base = Uri.base.origin;
+    return '$base/?t=$_tournamentId';
+  }
+
   void _showShareSheet(BuildContext context) {
+    final tournamentName = widget.tournament['name'] ?? '';
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('PDF\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
+            // ── 大会をシェア ──
+            const Text('\u5927\u4f1a\u3092\u30b7\u30a7\u30a2', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              _buildShareOption(
+                icon: Icons.chat_bubble,
+                label: 'LINE',
+                color: const Color(0xFF06C755),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final url = _buildShareUrl();
+                  final text = Uri.encodeComponent('$tournamentName\n$url');
+                  final lineUrl = 'https://line.me/R/share?text=$text';
+                  final uri = Uri.parse(lineUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
+              _buildShareOption(
+                icon: Icons.link,
+                label: 'URL\u30b3\u30d4\u30fc',
+                color: AppTheme.primaryColor,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  final url = _buildShareUrl();
+                  Clipboard.setData(ClipboardData(text: url));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('URL\u3092\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f'),
+                      backgroundColor: AppTheme.success,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  );
+                },
+              ),
+            ]),
+            const Divider(height: 32),
+            // ── PDFダウンロード ──
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('PDF\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            ),
+            const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.description, color: AppTheme.primaryColor),
               title: const Text('\u5927\u4f1a\u8981\u9805PDF'),
@@ -2544,33 +2599,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           ]),
         ),
       ),
-    );
-    return;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 16),
-            const Text('シェアする', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              _buildShareOption(icon: Icons.timeline, label: 'タイムライン', color: AppTheme.primaryColor, onTap: () {
-                Navigator.pop(sheetContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('タイムラインにシェアしました'), backgroundColor: AppTheme.success));
-              }),
-              _buildShareOption(icon: Icons.mail_outline, label: 'DMで送る', color: AppTheme.info, onTap: () => Navigator.pop(sheetContext)),
-              _buildShareOption(icon: Icons.chat_bubble_outline, label: 'LINEで送る', color: const Color(0xFF06C755), onTap: () => Navigator.pop(sheetContext)),
-            ]),
-          ]),
-        );
-      },
     );
   }
 
