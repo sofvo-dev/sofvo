@@ -414,8 +414,6 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                     const SizedBox(width: 6),
                     Text('· $timeText', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                    const Spacer(),
-                    _buildPostMenu(postId, isMyPost),
                   ],
                 ),
                 if (text.isNotEmpty) ...[
@@ -454,8 +452,8 @@ class _HomeScreenState extends State<HomeScreen>
                     _buildCommentButton(postId, commentsCount, nickname),
                     const SizedBox(width: 32),
                     _buildLikeButton(postId, likesCount),
-                    const SizedBox(width: 32),
-                    _buildShareButton(text, nickname),
+                    const Spacer(),
+                    _buildPostMenu(postId, isMyPost),
                   ],
                 ),
               ],
@@ -725,21 +723,6 @@ class _HomeScreenState extends State<HomeScreen>
                   fontSize: 13, color: AppTheme.textSecondary)),
         ],
       ],
-    );
-  }
-
-  Widget _buildShareButton(String text, String nickname) {
-    return GestureDetector(
-      onTap: () {
-        final shareText = '$nickname の投稿:\n$text';
-        Clipboard.setData(ClipboardData(text: shareText));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('投稿をクリップボードにコピーしました')),
-          );
-        }
-      },
-      child: const Icon(Icons.share_outlined, size: 18, color: AppTheme.textSecondary),
     );
   }
 

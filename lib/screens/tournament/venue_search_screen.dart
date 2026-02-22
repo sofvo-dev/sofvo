@@ -14,6 +14,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   String _filterArea = 'すべて';
+  String _sortBy = 'name'; // 'name', 'address', 'rating', 'courts'
 
   static const _areas = [
     'すべて', '北海道', '東北', '関東', '中部', '近畿', '中国', '四国', '九州・沖縄',
@@ -37,6 +38,25 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
       if (address.contains(entry.key) && entry.value == _filterArea) return true;
     }
     return false;
+  }
+
+  Widget _buildSortChip(String label, String value) {
+    final isSelected = _sortBy == value;
+    return GestureDetector(
+      onTap: () => setState(() => _sortBy = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.grey[100],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(label, style: TextStyle(
+          fontSize: 11,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? Colors.white : AppTheme.textSecondary,
+        )),
+      ),
+    );
   }
 
   @override
@@ -97,6 +117,24 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
           ),
         ),
         const SizedBox(height: 8),
+        // 並び替え
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Icon(Icons.sort, size: 16, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Text('並び替え:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(width: 8),
+            _buildSortChip('会場名', 'name'),
+            const SizedBox(width: 6),
+            _buildSortChip('住所', 'address'),
+            const SizedBox(width: 6),
+            _buildSortChip('評価', 'rating'),
+            const SizedBox(width: 6),
+            _buildSortChip('コート数', 'courts'),
+          ]),
+        ),
+        const SizedBox(height: 8),
         // 参加者への案内
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -138,6 +176,25 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                 if (!_matchesArea(addressOriginal)) return false;
                 return true;
               }).toList();
+              // Dart側ソート
+              filtered.sort((a, b) {
+                final da = a.data() as Map<String, dynamic>;
+                final db = b.data() as Map<String, dynamic>;
+                switch (_sortBy) {
+                  case 'address':
+                    return (da['address'] ?? '').toString().compareTo((db['address'] ?? '').toString());
+                  case 'rating':
+                    final ra = (da['rating'] is num ? (da['rating'] as num).toDouble() : 0.0);
+                    final rb = (db['rating'] is num ? (db['rating'] as num).toDouble() : 0.0);
+                    return rb.compareTo(ra); // 降順
+                  case 'courts':
+                    final ca = (da['courts'] is int ? da['courts'] as int : 0);
+                    final cb = (db['courts'] is int ? db['courts'] as int : 0);
+                    return cb.compareTo(ca); // 降順
+                  default:
+                    return (da['name'] ?? '').toString().compareTo((db['name'] ?? '').toString());
+                }
+              });
               if (filtered.isEmpty) {
                 return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.location_off, size: 48, color: Colors.grey[300]),

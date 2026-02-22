@@ -268,6 +268,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
 
   // ━━━ 次の大会ハイライト ━━━
   Widget _buildNextHighlight(Map<String, dynamic> t) {
+    const navyColor = Color(0xFF1B3A5C);
     final dateStr = t['date'] ?? '';
     int daysLeft = -1;
     String month = '', day = '', weekday = '';
@@ -295,10 +296,10 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+          border: Border.all(color: navyColor.withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                color: navyColor.withValues(alpha: 0.10),
                 blurRadius: 12,
                 offset: const Offset(0, 4)),
           ],
@@ -308,35 +309,35 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.06),
+              color: navyColor,
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+                  const BorderRadius.vertical(top: Radius.circular(15)),
             ),
             child: Row(children: [
-              Icon(Icons.star_rounded,
-                  size: 15, color: AppTheme.primaryColor),
+              const Icon(Icons.star_rounded,
+                  size: 15, color: Colors.white),
               const SizedBox(width: 5),
-              Text('次の大会',
+              const Text('次の大会',
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor)),
+                      color: Colors.white)),
               const Spacer(),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: daysLeft == 0
-                      ? AppTheme.error.withValues(alpha: 0.1)
-                      : AppTheme.primaryColor.withValues(alpha: 0.1),
+                      ? AppTheme.error.withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.timer_outlined,
                       size: 13,
                       color: daysLeft == 0
-                          ? AppTheme.error
-                          : AppTheme.primaryColor),
+                          ? const Color(0xFFFF8A80)
+                          : Colors.white),
                   const SizedBox(width: 4),
                   Text(
                       daysLeft == 0
@@ -348,8 +349,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: daysLeft == 0
-                              ? AppTheme.error
-                              : AppTheme.primaryColor)),
+                              ? const Color(0xFFFF8A80)
+                              : Colors.white)),
                 ]),
               ),
             ]),
@@ -359,7 +360,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
             padding: const EdgeInsets.all(16),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // 日付ブロック
-              _dateBlock(month, day, weekday, AppTheme.primaryColor),
+              _dateBlock(month, day, weekday, navyColor),
               const SizedBox(width: 14),
               Expanded(
                   child: Column(

@@ -19,6 +19,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Set<String> _blockedUserIds = {};
+  Set<String> _pinnedChatIds = {};
   final Map<String, String> _userNameCache = {};
 
   @override
@@ -30,6 +31,7 @@ class _ChatListScreenState extends State<ChatListScreen>
       animationDuration: const Duration(milliseconds: 200),
     );
     _loadBlockedUsers();
+    _loadPinnedChats();
   }
 
   @override
@@ -50,6 +52,36 @@ class _ChatListScreenState extends State<ChatListScreen>
       setState(() {
         _blockedUserIds = snap.docs.map((d) => d.id).toSet();
       });
+    }
+  }
+
+  Future<void> _loadPinnedChats() async {
+    if (_currentUser == null) return;
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('pinnedChats')
+        .get();
+    if (mounted) {
+      setState(() {
+        _pinnedChatIds = snap.docs.map((d) => d.id).toSet();
+      });
+    }
+  }
+
+  Future<void> _togglePin(String chatId) async {
+    if (_currentUser == null) return;
+    final ref = FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('pinnedChats')
+        .doc(chatId);
+    if (_pinnedChatIds.contains(chatId)) {
+      await ref.delete();
+      if (mounted) setState(() => _pinnedChatIds.remove(chatId));
+    } else {
+      await ref.set({'pinnedAt': FieldValue.serverTimestamp()});
+      if (mounted) setState(() => _pinnedChatIds.add(chatId));
     }
   }
 
@@ -344,8 +376,11 @@ class _ChatListScreenState extends State<ChatListScreen>
           final data = doc.data() as Map<String, dynamic>;
           return data['type'] == 'group';
         }).toList();
-        // lastMessageAt で降順ソート
+        // ピン留め優先 → lastMessageAt で降順ソート
         allChats.sort((a, b) {
+          final aPinned = _pinnedChatIds.contains(a.id);
+          final bPinned = _pinnedChatIds.contains(b.id);
+          if (aPinned != bPinned) return aPinned ? -1 : 1;
           final aTime = (a.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
           final bTime = (b.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
           if (aTime == null && bTime == null) return 0;
@@ -452,8 +487,11 @@ class _ChatListScreenState extends State<ChatListScreen>
           final data = doc.data() as Map<String, dynamic>;
           return data['type'] == type;
         }).toList();
-        // lastMessageAt で降順ソート
+        // ピン留め優先 → lastMessageAt で降順ソート
         allChats.sort((a, b) {
+          final aPinned = _pinnedChatIds.contains(a.id);
+          final bPinned = _pinnedChatIds.contains(b.id);
+          if (aPinned != bPinned) return aPinned ? -1 : 1;
           final aTime = (a.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
           final bTime = (b.data() as Map<String, dynamic>)['lastMessageAt'] as Timestamp?;
           if (aTime == null && bTime == null) return 0;
@@ -567,13 +605,18 @@ class _ChatListScreenState extends State<ChatListScreen>
       iconColor = AppTheme.primaryColor;
     }
 
+    final isPinned = _pinnedChatIds.contains(chatId);
+
     return Container(
-      color: unread
-          ? AppTheme.primaryColor.withValues(alpha: 0.02)
-          : Colors.white,
+      color: isPinned
+          ? AppTheme.primaryColor.withValues(alpha: 0.04)
+          : unread
+              ? AppTheme.primaryColor.withValues(alpha: 0.02)
+              : Colors.white,
       child: ListTile(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        onLongPress: () => _showChatMenu(chatId, isPinned),
         leading: type == 'dm'
             ? CircleAvatar(
                 radius: 24,
@@ -613,17 +656,22 @@ class _ChatListScreenState extends State<ChatListScreen>
                     color: unread
                         ? AppTheme.primaryColor
                         : AppTheme.textHint)),
-            if (unread) ...[
-              const SizedBox(height: 6),
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  shape: BoxShape.circle,
+            const SizedBox(height: 4),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              if (isPinned)
+                Icon(Icons.push_pin, size: 14, color: AppTheme.textHint),
+              if (unread) ...[
+                if (isPinned) const SizedBox(width: 4),
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ]),
           ],
         ),
         onTap: () {
@@ -643,6 +691,42 @@ class _ChatListScreenState extends State<ChatListScreen>
             otherUserId: otherUserId,
           );
         },
+      ),
+    );
+  }
+
+  void _showChatMenu(String chatId, bool isPinned) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: Icon(
+                isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                color: AppTheme.primaryColor,
+              ),
+              title: Text(isPinned ? 'ピン留めを解除' : 'ピン留め'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _togglePin(chatId);
+              },
+            ),
+          ]),
+        ),
       ),
     );
   }

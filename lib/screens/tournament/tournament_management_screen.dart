@@ -15,6 +15,26 @@ class TournamentManagementScreen extends StatefulWidget {
 class _TournamentManagementScreenState extends State<TournamentManagementScreen> {
   final _currentUser = FirebaseAuth.instance.currentUser;
 
+  static const _iconOptions = <String, IconData>{
+    'emoji_events': Icons.emoji_events,
+    'sports_volleyball': Icons.sports_volleyball,
+    'sports': Icons.sports,
+    'star': Icons.star,
+    'bolt': Icons.bolt,
+    'local_fire_department': Icons.local_fire_department,
+    'diamond': Icons.diamond,
+    'shield': Icons.shield,
+    'flag': Icons.flag,
+    'military_tech': Icons.military_tech,
+    'workspace_premium': Icons.workspace_premium,
+    'celebration': Icons.celebration,
+  };
+
+  IconData _getIcon(String? iconName) {
+    if (iconName == null || !_iconOptions.containsKey(iconName)) return Icons.emoji_events;
+    return _iconOptions[iconName]!;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_currentUser == null) {
@@ -90,8 +110,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            CircleAvatar(radius: 20, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
-                child: const Icon(Icons.emoji_events, color: AppTheme.primaryColor, size: 20)),
+            GestureDetector(
+              onTap: () => _showIconPicker(doc.id, data['icon'] as String?),
+              child: CircleAvatar(radius: 20, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
+                  child: Icon(_getIcon(data['icon'] as String?), color: AppTheme.primaryColor, size: 20)),
+            ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis),
@@ -137,6 +160,38 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         ]),
       ),
     ));
+  }
+
+  void _showIconPicker(String docId, String? currentIcon) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('アイコンを変更', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: _iconOptions.entries.map((entry) {
+            final isSelected = (currentIcon ?? 'emoji_events') == entry.key;
+            return GestureDetector(
+              onTap: () async {
+                await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({'icon': entry.key});
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: Container(
+                width: 48, height: 48,
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                  border: isSelected ? Border.all(color: AppTheme.primaryColor, width: 2) : null,
+                ),
+                child: Icon(entry.value, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary, size: 24),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   // ══════════════════════════════════════
