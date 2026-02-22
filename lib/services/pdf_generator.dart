@@ -159,7 +159,7 @@ class PdfGenerator {
               pw.SizedBox(height: 6),
               _matchTable(
                 headers: ['#', '\u30C1\u30FC\u30E0A', '\u30B9\u30B3\u30A2', '\u30C1\u30FC\u30E0B', '\u4E3B\u5BE9', '\u526F\u5BE9'],
-                data: court.value.map((m) {
+                data: court.value.map<List<String>>((m) {
                   final result = m['result'] as Map<String, dynamic>? ?? {};
                   final status = m['status'] ?? 'pending';
                   final score = status == 'completed'
@@ -167,11 +167,11 @@ class PdfGenerator {
                       : 'vs';
                   return [
                     '${m['matchOrder'] ?? ""}',
-                    m['teamAName'] ?? '',
+                    (m['teamAName'] ?? '') as String,
                     score,
-                    m['teamBName'] ?? '',
-                    m['refereeTeamName'] ?? '',
-                    m['subRefereeTeamName'] ?? '',
+                    (m['teamBName'] ?? '') as String,
+                    (m['refereeTeamName'] ?? '') as String,
+                    (m['subRefereeTeamName'] ?? '') as String,
                   ];
                 }).toList(),
                 headerColor: _navyLight,
@@ -198,9 +198,9 @@ class PdfGenerator {
             pw.SizedBox(height: 6),
             _matchTable(
               headers: ['\u9806\u4F4D', '\u30C1\u30FC\u30E0', '\u52DD\u70B9', '\u52DD', '\u8CA0', '\u5206', '\u5F97\u5931', '\u7DCF\u5F97\u70B9'],
-              data: teamsSnap.docs.asMap().entries.map((e) {
+              data: teamsSnap.docs.asMap().entries.map<List<String>>((e) {
                 final s = e.value.data();
-                return ['${e.key + 1}', s['teamName'] ?? '', '${s['matchPoints'] ?? 0}',
+                return ['${e.key + 1}', (s['teamName'] ?? '') as String, '${s['matchPoints'] ?? 0}',
                   '${s['wins'] ?? 0}', '${s['losses'] ?? 0}', '${s['draws'] ?? 0}',
                   '${s['pointDiff'] ?? 0}', '${s['totalPoints'] ?? 0}'];
               }).toList(),
