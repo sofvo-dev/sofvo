@@ -41,6 +41,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Map<String, String> _memberNames = {};
   String _groupIconUrl = '';
   int _previousMessageCount = 0;
+  String _resolvedTitle = '';
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -48,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _resolvedTitle = widget.chatTitle;
     WidgetsBinding.instance.addObserver(this);
     _markAsRead();
     _loadMuteState();
@@ -78,8 +80,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           );
           _groupIconUrl = (chatData['iconUrl'] as String?) ?? _groupIconUrl;
         });
+        // DMの場合、相手の名前を解決
+        if (widget.chatType == 'dm') _resolveDmTitle();
       }
     });
+  }
+
+  /// DMの相手の名前をmemberNamesまたはusersコレクションから取得
+  Future<void> _resolveDmTitle() async {
+    if (_currentUser == null) return;
+    final myUid = _currentUser!.uid;
+
+    // memberNamesから取得を試みる
+    final otherEntry = _memberNames.entries.where((e) => e.key != myUid);
+    if (otherEntry.isNotEmpty && otherEntry.first.value.isNotEmpty && otherEntry.first.value != 'ユーザー') {
+      if (mounted && _resolvedTitle != otherEntry.first.value) {
+        setState(() => _resolvedTitle = otherEntry.first.value);
+      }
+      return;
+    }
+
+    // memberNamesにない場合、usersコレクションから取得
+    final otherUid = _memberIds.firstWhere((id) => id != myUid, orElse: () => '');
+    if (otherUid.isEmpty) return;
+
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(otherUid).get();
+    final nickname = (userDoc.data()?['nickname'] as String?) ?? '';
+    if (nickname.isNotEmpty && mounted) {
+      setState(() => _resolvedTitle = nickname);
+      // memberNamesも修正
+      await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
+        'memberNames.$otherUid': nickname,
+      });
+    }
   }
 
   @override
@@ -530,8 +563,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final initial =
-        widget.chatTitle.isNotEmpty ? widget.chatTitle[0] : '?';
+    final displayTitle = _resolvedTitle.isNotEmpty ? _resolvedTitle : widget.chatTitle;
+    final initial = displayTitle.isNotEmpty ? displayTitle[0] : '?';
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -541,7 +574,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Navigator.push(context, MaterialPageRoute(
               builder: (_) => GroupChatSettingsScreen(
                 chatId: widget.chatId,
-                chatName: widget.chatTitle,
+                chatName: displayTitle,
               ),
             ));
           } : null,
@@ -564,7 +597,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
               const SizedBox(width: 10),
               Flexible(
-                child: Text(widget.chatTitle,
+                child: Text(displayTitle,
                     overflow: TextOverflow.ellipsis),
               ),
             ],
@@ -611,7 +644,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     final doc = messages[index];
                     final data = doc.data() as Map<String, dynamic>;
                     final isMe = data['senderId'] == _currentUser?.uid;
-                    return _buildMessageBubble(data, isMe, messageId: doc.id);
+                    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+                    DateTime? prevCreatedAt;
+                    if (index > 0) {
+                      final prevData = messages[index - 1].data() as Map<String, dynamic>;
+                      prevCreatedAt = (prevData['createdAt'] as Timestamp?)?.toDate();
+                    }
+                    final dateSep = createdAt != null ? _dateSeparatorLabel(createdAt, prevCreatedAt) : null;
+                    return Column(
+                      children: [
+                        if (dateSep != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(dateSep, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                            ),
+                          ),
+                        _buildMessageBubble(data, isMe, messageId: doc.id),
+                      ],
+                    );
                   },
                 );
               },
@@ -1154,6 +1210,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _formatMessageTime(Timestamp? timestamp) {
     if (timestamp == null) return '';
     final date = timestamp.toDate();
-    return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final msgDay = DateTime(date.year, date.month, date.day);
+    final time = '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    if (msgDay == today) return time;
+    if (msgDay == today.subtract(const Duration(days: 1))) return '昨日 $time';
+    if (date.year == now.year) return '${date.month}/${date.day} $time';
+    return '${date.year}/${date.month}/${date.day} $time';
+  }
+
+  /// 日付が変わった箇所にセパレーターを表示するか判定
+  String? _dateSeparatorLabel(DateTime current, DateTime? previous) {
+    final currentDay = DateTime(current.year, current.month, current.day);
+    if (previous != null) {
+      final prevDay = DateTime(previous.year, previous.month, previous.day);
+      if (currentDay == prevDay) return null;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (currentDay == today) return '今日';
+    if (currentDay == today.subtract(const Duration(days: 1))) return '昨日';
+    if (current.year == now.year) return '${current.month}月${current.day}日';
+    return '${current.year}年${current.month}月${current.day}日';
   }
 }

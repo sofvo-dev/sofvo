@@ -577,10 +577,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildFollowCount(String count, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(count, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 2),
+          Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          const SizedBox(width: 4),
           Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
         ],
       ),

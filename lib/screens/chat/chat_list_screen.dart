@@ -19,6 +19,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Set<String> _blockedUserIds = {};
+  final Map<String, String> _userNameCache = {};
 
   @override
   void initState() {
@@ -48,6 +49,20 @@ class _ChatListScreenState extends State<ChatListScreen>
     if (mounted) {
       setState(() {
         _blockedUserIds = snap.docs.map((d) => d.id).toSet();
+      });
+    }
+  }
+
+  /// ユーザー名をFirestoreから取得してキャッシュ + memberNamesを修正
+  Future<void> _resolveAndCacheName(String chatId, String userId) async {
+    if (_userNameCache.containsKey(userId)) return;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    final nickname = (doc.data()?['nickname'] as String?) ?? '';
+    if (nickname.isNotEmpty && mounted) {
+      setState(() => _userNameCache[userId] = nickname);
+      // Firestoreのチャットドキュメントも修正
+      await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
+        'memberNames.$userId': nickname,
       });
     }
   }
@@ -511,12 +526,25 @@ class _ChatListScreenState extends State<ChatListScreen>
     final unread = _hasUnread(data);
 
     String title;
+    String? otherUserId;
     if (type == 'dm') {
+      final members = List<String>.from(data['members'] ?? []);
+      otherUserId = members.firstWhere(
+        (m) => m != _currentUser!.uid,
+        orElse: () => '',
+      );
       final otherEntry = memberNames.entries.firstWhere(
         (e) => e.key != _currentUser!.uid,
         orElse: () => MapEntry('', 'ユーザー'),
       );
-      title = otherEntry.value as String;
+      title = (otherEntry.value as String).isNotEmpty
+          ? otherEntry.value as String
+          : 'ユーザー';
+      // memberNamesにないか'ユーザー'の場合、非同期で名前を解決
+      if (title == 'ユーザー' && otherUserId.isNotEmpty) {
+        _resolveAndCacheName(chatId, otherUserId);
+        title = _userNameCache[otherUserId] ?? 'ユーザー';
+      }
     } else {
       title = (data['name'] as String?) ?? 'チャット';
     }
