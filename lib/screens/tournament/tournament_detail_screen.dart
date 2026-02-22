@@ -438,7 +438,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               title: '大会ルール',
               titleIcon: Icons.gavel,
               child: Column(children: [
-                _buildInfoRow(Icons.sports_volleyball, '試合形式', '${t['format'] ?? '4人制'}（15点先取）'),
+                _buildInfoRow(Icons.sports_volleyball, '試合形式', '15点先取'),
                 _buildDivider(),
                 _buildInfoRow(Icons.repeat, '予選', '${livePrelim['sets'] ?? 2}セットマッチ'),
                 _buildDivider(),
