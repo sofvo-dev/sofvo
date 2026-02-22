@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../home/create_post_screen.dart';
 
 /// バッジコレクション全画面表示
 class BadgeCollectionScreen extends StatelessWidget {
@@ -234,6 +235,31 @@ class BadgeCollectionScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('閉じる'),
           ),
+          if (earned)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreatePostScreen(
+                      badgeName: badge.name,
+                      badgeIconCodePoint: badge.icon.codePoint,
+                      badgeColorValue: badge.color.toARGB32(),
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.share, size: 18),
+              label: const Text('自慢する'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: badge.color,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -346,6 +346,62 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildBadgeCard(Map<String, dynamic> data) {
+    final badgeName = data['badgeName'] as String? ?? '';
+    final iconCodePoint = data['badgeIconCodePoint'] as int? ?? 0xe3f3;
+    final colorValue = data['badgeColorValue'] as int? ?? 0xFF4CAF50;
+    final color = Color(colorValue);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.10), color.withValues(alpha: 0.03)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.15),
+              border: Border.all(color: color.withValues(alpha: 0.4), width: 2.5),
+            ),
+            child: Icon(
+              IconData(iconCodePoint, fontFamily: 'MaterialIcons'),
+              color: color,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  badgeName,
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'バッジ獲得！',
+                  style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.verified, color: color, size: 26),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPostItem(String postId, Map<String, dynamic> data) {
     final avatarUrl = _safeString(data['userAvatarUrl'], '');
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -359,6 +415,7 @@ class _HomeScreenState extends State<HomeScreen>
     final commentsCount = _safeInt(data['commentsCount']);
     final createdAt = data['createdAt'] as Timestamp?;
     final timeText = _formatTime(createdAt);
+    final hasBadge = data['badgeName'] != null;
     final List<ImageProvider> imageProviders = [];
     for (final url in images) {
       if (url.isNotEmpty) imageProviders.add(CachedNetworkImageProvider(url));
@@ -419,6 +476,10 @@ class _HomeScreenState extends State<HomeScreen>
                 if (text.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(text, style: const TextStyle(fontSize: 15, color: AppTheme.textPrimary, height: 1.5)),
+                ],
+                if (hasBadge) ...[
+                  const SizedBox(height: 10),
+                  _buildBadgeCard(data),
                 ],
                 if (imageProviders.isNotEmpty) ...[
                   const SizedBox(height: 10),
