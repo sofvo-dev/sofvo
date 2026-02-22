@@ -241,6 +241,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         ]),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'search_saved_toggle',
         onPressed: () => setState(() => _isSavedMode = !_isSavedMode),
         backgroundColor: _isSavedMode ? AppTheme.primaryColor : AppTheme.accentColor,
         child: Icon(
