@@ -145,7 +145,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       appBar: AppBar(
         title: const SizedBox.shrink(),
         actions: [
-          IconButton(icon: const Icon(Icons.picture_as_pdf), onPressed: () => _showShareSheet(context)),
+          IconButton(icon: const Icon(Icons.share), onPressed: () => _showShareOptions(context)),
+          IconButton(icon: const Icon(Icons.picture_as_pdf), onPressed: () => _showPdfSheet(context)),
         ],
       ),
       body: Column(
@@ -2505,7 +2506,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return '$base/?t=$_tournamentId';
   }
 
-  void _showShareSheet(BuildContext context) {
+  void _showShareOptions(BuildContext context) {
     final tournamentName = widget.tournament['name'] ?? '';
     showModalBottomSheet(
       context: context,
@@ -2518,9 +2519,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             Container(width: 40, height: 4,
                 decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            // ── 大会をシェア ──
             const Text('\u5927\u4f1a\u3092\u30b7\u30a7\u30a2', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               _buildShareOption(
                 icon: Icons.chat_bubble,
@@ -2556,12 +2556,25 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 },
               ),
             ]),
-            const Divider(height: 32),
-            // ── PDFダウンロード ──
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('PDF\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showPdfSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            const Text('PDF\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.description, color: AppTheme.primaryColor),
