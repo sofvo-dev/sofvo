@@ -151,9 +151,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 if (value == 'delete') _showDeleteDialog(doc.id, title);
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Text('編集')),
+                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('編集')])),
                 const PopupMenuItem(value: 'finance', child: Row(children: [Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('収支管理')])),
-                const PopupMenuItem(value: 'status', child: Text('ステータス変更')),
+                const PopupMenuItem(value: 'status', child: Row(children: [Icon(Icons.sync_outlined, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('ステータス変更')])),
                 const PopupMenuItem(value: 'duplicate', child: Row(children: [Icon(Icons.copy, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('この大会を複製')])),
                 const PopupMenuItem(value: 'save_template', child: Row(children: [Icon(Icons.bookmark_add_outlined, size: 18, color: AppTheme.textSecondary), SizedBox(width: 8), Text('テンプレートに保存')])),
                 const PopupMenuItem(value: 'delete', child: Text('削除', style: TextStyle(color: Colors.red))),
