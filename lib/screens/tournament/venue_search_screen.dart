@@ -13,54 +13,44 @@ class VenueSearchScreen extends StatefulWidget {
 class _VenueSearchScreenState extends State<VenueSearchScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  String _filterArea = 'すべて';
+  String _filterPrefecture = 'すべて';
   String _sortBy = 'name'; // 'name', 'address', 'rating', 'courts'
 
   @override
   void initState() {
     super.initState();
-    _loadUserArea();
+    _loadUserPrefecture();
   }
 
-  Future<void> _loadUserArea() async {
+  Future<void> _loadUserPrefecture() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     final rawArea = doc.data()?['area'];
-    final prefecture = rawArea is String ? rawArea : (rawArea is Map ? rawArea['prefecture'] ?? '' : '');
-    if (prefecture.toString().isNotEmpty) {
-      // 都道府県名からエリアを特定
-      for (final entry in _prefectureToArea.entries) {
-        if (prefecture.toString().contains(entry.key)) {
-          if (mounted) setState(() => _filterArea = entry.value);
-          break;
-        }
-      }
+    final pref = rawArea is String ? rawArea : (rawArea is Map ? rawArea['prefecture'] ?? '' : '');
+    if (pref.toString().isNotEmpty) {
+      final match = _prefectures.firstWhere(
+        (p) => pref.toString().contains(p),
+        orElse: () => '',
+      );
+      if (match.isNotEmpty && mounted) setState(() => _filterPrefecture = match);
     }
   }
 
-  static const _areas = [
-    'すべて', '北海道', '東北', '関東', '中部', '近畿', '中国', '四国', '九州・沖縄',
+  static const _prefectures = [
+    '北海道',
+    '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+    '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+    '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県',
+    '三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+    '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+    '徳島県', '香川県', '愛媛県', '高知県',
+    '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
   ];
 
-  // 都道府県 → エリア のマッピング
-  static const _prefectureToArea = {
-    '北海道': '北海道',
-    '青森': '東北', '岩手': '東北', '宮城': '東北', '秋田': '東北', '山形': '東北', '福島': '東北',
-    '茨城': '関東', '栃木': '関東', '群馬': '関東', '埼玉': '関東', '千葉': '関東', '東京': '関東', '神奈川': '関東',
-    '新潟': '中部', '富山': '中部', '石川': '中部', '福井': '中部', '山梨': '中部', '長野': '中部', '岐阜': '中部', '静岡': '中部', '愛知': '中部',
-    '三重': '近畿', '滋賀': '近畿', '京都': '近畿', '大阪': '近畿', '兵庫': '近畿', '奈良': '近畿', '和歌山': '近畿',
-    '鳥取': '中国', '島根': '中国', '岡山': '中国', '広島': '中国', '山口': '中国',
-    '徳島': '四国', '香川': '四国', '愛媛': '四国', '高知': '四国',
-    '福岡': '九州・沖縄', '佐賀': '九州・沖縄', '長崎': '九州・沖縄', '熊本': '九州・沖縄', '大分': '九州・沖縄', '宮崎': '九州・沖縄', '鹿児島': '九州・沖縄', '沖縄': '九州・沖縄',
-  };
-
-  bool _matchesArea(String address) {
-    if (_filterArea == 'すべて') return true;
-    for (final entry in _prefectureToArea.entries) {
-      if (address.contains(entry.key) && entry.value == _filterArea) return true;
-    }
-    return false;
+  bool _matchesPrefecture(String address) {
+    if (_filterPrefecture == 'すべて') return true;
+    return address.contains(_filterPrefecture.replaceAll(RegExp(r'[都道府県]$'), ''));
   }
 
   Widget _buildSortChip(String label, String value) {
@@ -112,31 +102,28 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
             ),
           ),
         ),
-        // エリアフィルタ
-        SizedBox(
-          height: 40,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
+        // 都道府県フィルタ
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: _areas.length,
-            itemBuilder: (context, index) {
-              final area = _areas[index];
-              final isSelected = _filterArea == area;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  label: Text(area, style: const TextStyle(fontSize: 12)),
-                  selected: isSelected,
-                  onSelected: (_) => setState(() => _filterArea = area),
-                  selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                  labelStyle: TextStyle(
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              );
-            },
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _filterPrefecture,
+                isExpanded: true,
+                icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                items: ['すべて', ..._prefectures].map((pref) =>
+                  DropdownMenuItem(value: pref, child: Text(pref)),
+                ).toList(),
+                onChanged: (v) => setState(() => _filterPrefecture = v ?? 'すべて'),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -196,7 +183,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                 final address = (data['address'] ?? '').toString().toLowerCase();
                 final addressOriginal = (data['address'] ?? '').toString();
                 if (_query.isNotEmpty && !name.contains(_query) && !address.contains(_query)) return false;
-                if (!_matchesArea(addressOriginal)) return false;
+                if (!_matchesPrefecture(addressOriginal)) return false;
                 return true;
               }).toList();
               // Dart側ソート
