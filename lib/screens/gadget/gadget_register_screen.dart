@@ -219,6 +219,12 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
         await collection.doc(_editingId).update(gadgetData);
       } else {
         gadgetData['createdAt'] = FieldValue.serverTimestamp();
+        // sortOrder: 既存の最大値+1 を設定
+        final existing = await collection.orderBy('sortOrder', descending: true).limit(1).get();
+        final maxOrder = existing.docs.isNotEmpty
+            ? ((existing.docs.first.data()['sortOrder'] as num?) ?? 0).toInt()
+            : -1;
+        gadgetData['sortOrder'] = maxOrder + 1;
         final doc = await collection.add(gadgetData);
         await doc.update({'id': doc.id});
       }
