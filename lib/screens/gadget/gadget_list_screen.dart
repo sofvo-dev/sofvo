@@ -329,7 +329,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => _editGadget(g),
+        onTap: () => _showGadgetDetail(g),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -659,6 +659,116 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
             style: ElevatedButton.styleFrom(minimumSize: const Size(200, 48)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showGadgetDetail(Map<String, dynamic> g) {
+    final name = g['name'] ?? '名前なし';
+    final category = (g['category'] ?? '') as String;
+    final imageUrl = (g['imageUrl'] ?? '') as String;
+    final memo = (g['memo'] ?? '') as String;
+    final amazonAffUrl = (g['amazonAffiliateUrl'] ?? '').toString();
+    final rakutenAffUrl = (g['rakutenAffiliateUrl'] ?? '').toString();
+    final hasAmazon = amazonAffUrl.isNotEmpty;
+    final hasRakuten = rakutenAffUrl.isNotEmpty;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            if (imageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  height: 200,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorWidget: (_, __, ___) => const SizedBox(height: 200, child: Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey))),
+                ),
+              )
+            else
+              Container(
+                height: 200,
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                child: const Center(child: Icon(Icons.devices_other, size: 48, color: Colors.grey)),
+              ),
+            const SizedBox(height: 16),
+            Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            if (category.isNotEmpty && category != 'カテゴリなし') ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(category, style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+              ),
+            ],
+            if (memo.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(memo, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5), textAlign: TextAlign.center),
+            ],
+            const SizedBox(height: 20),
+            if (hasAmazon)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.shopping_cart, size: 18),
+                  label: const Text('Amazonで見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF9900),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            if (hasAmazon && hasRakuten) const SizedBox(height: 10),
+            if (hasRakuten)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.shopping_bag, size: 18),
+                  label: const Text('楽天で見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFBF0000),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            if (!hasAmazon && !hasRakuten)
+              Text('購入リンクは登録されていません', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () { Navigator.pop(ctx); _editGadget(g); },
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('編集する', style: TextStyle(fontSize: 14)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

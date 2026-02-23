@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -720,8 +721,7 @@ class _GadgetCardsRow extends StatelessWidget {
               final memo = (d['memo'] ?? '') as String;
 
               return GestureDetector(
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const GadgetListScreen())),
+                onTap: () => _showGadgetDetail(context, d),
                 child: Container(
                   width: 140,
                   decoration: BoxDecoration(
@@ -785,6 +785,104 @@ class _GadgetCardsRow extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showGadgetDetail(BuildContext context, Map<String, dynamic> d) {
+    final name = (d['name'] ?? '') as String;
+    final category = (d['category'] ?? '') as String;
+    final imageUrl = (d['imageUrl'] ?? '') as String;
+    final memo = (d['memo'] ?? '') as String;
+    final amazonAffUrl = (d['amazonAffiliateUrl'] ?? '').toString();
+    final rakutenAffUrl = (d['rakutenAffiliateUrl'] ?? '').toString();
+    final hasAmazon = amazonAffUrl.isNotEmpty;
+    final hasRakuten = rakutenAffUrl.isNotEmpty;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            // 画像
+            if (imageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  height: 200,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorWidget: (_, __, ___) => const SizedBox(height: 200, child: Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey))),
+                ),
+              )
+            else
+              Container(
+                height: 200,
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                child: const Center(child: Icon(Icons.devices_other, size: 48, color: Colors.grey)),
+              ),
+            const SizedBox(height: 16),
+            // 商品名
+            Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            if (category.isNotEmpty && category != 'カテゴリなし') ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(category, style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+              ),
+            ],
+            if (memo.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(memo, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5), textAlign: TextAlign.center),
+            ],
+            const SizedBox(height: 20),
+            // Amazon / 楽天ボタン
+            if (hasAmazon)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.shopping_cart, size: 18),
+                  label: const Text('Amazonで見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF9900),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            if (hasAmazon && hasRakuten) const SizedBox(height: 10),
+            if (hasRakuten)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.shopping_bag, size: 18),
+                  label: const Text('楽天で見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFBF0000),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            if (!hasAmazon && !hasRakuten)
+              Text('購入リンクは登録されていません', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ],
+        ),
+      ),
     );
   }
 }
