@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../services/notification_service.dart';
+import '../profile/user_profile_screen.dart';
 
 class FollowSearchScreen extends StatefulWidget {
   const FollowSearchScreen({super.key});
@@ -387,7 +388,14 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     final bio = (user['bio'] ?? '').toString();
     final isFollowing = _followingIds.contains(uid);
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => UserProfileScreen(userId: uid)),
+        );
+      },
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -472,6 +480,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                 ),
         ],
       ),
+    ),
     );
   }
 }
