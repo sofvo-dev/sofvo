@@ -102,10 +102,8 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
           final data = doc.data();
           final sid = (data['searchId'] ?? '').toString().toLowerCase();
           final nick = (data['nickname'] ?? '').toString().toLowerCase();
-          final area = (data['area'] ?? '').toString().toLowerCase();
           if (sid.contains(lowerQuery) ||
-              nick.contains(lowerQuery) ||
-              area.contains(lowerQuery)) {
+              nick.contains(lowerQuery)) {
             data['uid'] = doc.id;
             results.add(data);
           }
@@ -225,7 +223,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'ID・ニックネーム・エリアで友達を検索できます。',
+                    '相手のIDまたはニックネームで検索できます。',
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
                   ),
                 ),
@@ -240,7 +238,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                 controller: _idController,
                 style: const TextStyle(fontSize: 16),
                 decoration: InputDecoration(
-                  hintText: '例: @nakamura123 / ニックネーム / エリア',
+                  hintText: '例: @nakamura123 またはニックネーム',
                   hintStyle: const TextStyle(fontSize: 15, color: AppTheme.textHint),
                   prefixIcon: const Icon(Icons.alternate_email, size: 22),
                   suffixIcon: value.text.isNotEmpty
