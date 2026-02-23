@@ -603,6 +603,53 @@ exports.amazonSearchDebug = functions.https.onRequest(async (req, res) => {
 // ガジェット → Google Sheets 同期
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+async function doSyncGadgetsToSheet() {
+  const usersSnap = await admin.firestore().collection("users").get();
+  const allGadgets = [];
+
+  for (const userDoc of usersSnap.docs) {
+    const userData = userDoc.data();
+    const nickname = userData.nickname || "不明";
+    const searchId = userData.searchId || userDoc.id;
+    const gadgetsSnap = await userDoc.ref.collection("gadgets")
+      .orderBy("createdAt", "desc").get();
+
+    for (const gDoc of gadgetsSnap.docs) {
+      const g = gDoc.data();
+      allGadgets.push([
+        gDoc.id,
+        searchId,
+        nickname,
+        g.name || "",
+        g.category || "カテゴリなし",
+        g.amazonUrl || "",
+        g.amazonAffiliateUrl || "",
+        g.rakutenAffiliateUrl || "",
+        g.imageUrl || "",
+        g.memo || "",
+        g.createdAt ? g.createdAt.toDate().toISOString().split("T")[0] : "",
+      ]);
+    }
+  }
+
+  const sheetName = "ガジェット一覧";
+  const values = [
+    ["ガジェットID", "ユーザーID", "ユーザー", "商品名", "カテゴリ", "Amazon URL", "Amazon Affiliate URL", "楽天 Affiliate URL", "画像URL", "メモ", "登録日"],
+    ...allGadgets,
+  ];
+
+  try {
+    await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
+  } catch (e) {
+    await sheetsAddSheet(GADGET_SHEET_ID, sheetName);
+    await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
+  }
+  const nextRow = values.length + 1;
+  await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A${nextRow}:K10000`);
+
+  return allGadgets.length;
+}
+
 exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -610,55 +657,8 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
-    // 全ユーザーのガジェットを取得
-    const usersSnap = await admin.firestore().collection("users").get();
-    const allGadgets = [];
-
-    for (const userDoc of usersSnap.docs) {
-      const userData = userDoc.data();
-      const nickname = userData.nickname || "不明";
-      const searchId = userData.searchId || userDoc.id;
-      const gadgetsSnap = await userDoc.ref.collection("gadgets")
-        .orderBy("createdAt", "desc").get();
-
-      for (const gDoc of gadgetsSnap.docs) {
-        const g = gDoc.data();
-        allGadgets.push([
-          gDoc.id,
-          searchId,
-          nickname,
-          g.name || "",
-          g.category || "カテゴリなし",
-          g.amazonUrl || "",
-          g.amazonAffiliateUrl || "",
-          g.rakutenAffiliateUrl || "",
-          g.imageUrl || "",
-          g.memo || "",
-          g.createdAt ? g.createdAt.toDate().toISOString().split("T")[0] : "",
-        ]);
-      }
-    }
-
-    const sheetName = "ガジェット一覧";
-    const values = [
-      ["ガジェットID", "ユーザーID", "ユーザー", "商品名", "カテゴリ", "Amazon URL", "Amazon Affiliate URL", "楽天 Affiliate URL", "画像URL", "メモ", "登録日"],
-      ...allGadgets,
-    ];
-
-    // 先にデータを書き込み、その後に余分な行だけクリア
-    // （書き込み失敗時にデータが消えるのを防止）
-    try {
-      await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
-    } catch (e) {
-      // シートが存在しない場合は作成してリトライ
-      await sheetsAddSheet(GADGET_SHEET_ID, sheetName);
-      await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
-    }
-    // 書き込み成功後、新データより下の古い行をクリア
-    const nextRow = values.length + 1;
-    await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A${nextRow}:K10000`);
-
-    res.json({ success: true, count: allGadgets.length });
+    const count = await doSyncGadgetsToSheet();
+    res.json({ success: true, count });
   } catch (e) {
     console.error("Gadget sync error:", e);
     res.status(500).json({ error: e.message });
@@ -669,6 +669,56 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
 // 会場 → Google Sheets 同期
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+async function doSyncVenuesToSheet() {
+  const venuesSnap = await admin.firestore().collection("venues")
+    .orderBy("name").get();
+
+  const venueRows = venuesSnap.docs.map((doc) => {
+    const v = doc.data();
+    return [
+      doc.id,
+      v.name || "",
+      v.address || "",
+      v.phone || "",
+      v.station || "",
+      v.courts || 0,
+      v.parking || 0,
+      v.toilets || 0,
+      v.hasChangeRoom ? "あり" : "なし",
+      v.hasShower ? "あり" : "なし",
+      v.hasGallery ? "あり" : "なし",
+      v.hasAC ? "あり" : "なし",
+      v.eatArea || "",
+      v.openTime || "",
+      v.closeTime || "",
+      v.fee || "",
+      (v.equipments || []).map((eq) => `${eq.name}(${eq.qty}個${eq.fee > 0 ? "/¥" + eq.fee : "/無料"})`).join(", "),
+      v.rating || 0,
+      v.reviewCount || 0,
+      v.createdAt ? v.createdAt.toDate().toISOString().split("T")[0] : "",
+    ];
+  });
+
+  const sheetName = "会場一覧";
+  const values = [
+    ["会場ID", "会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
+     "更衣室", "シャワー", "観覧席", "空調", "飲食エリア",
+     "開始時間", "終了時間", "料金", "貸出備品", "評価", "レビュー数", "登録日"],
+    ...venueRows,
+  ];
+
+  try {
+    await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
+  } catch (e) {
+    await sheetsAddSheet(VENUE_SHEET_ID, sheetName);
+    await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
+  }
+  const nextRow = values.length + 1;
+  await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A${nextRow}:T10000`);
+
+  return venueRows.length;
+}
+
 exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -676,57 +726,8 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
-    const venuesSnap = await admin.firestore().collection("venues")
-      .orderBy("name").get();
-
-    const venueRows = venuesSnap.docs.map((doc) => {
-      const v = doc.data();
-      return [
-        doc.id,
-        v.name || "",
-        v.address || "",
-        v.phone || "",
-        v.station || "",
-        v.courts || 0,
-        v.parking || 0,
-        v.toilets || 0,
-        v.hasChangeRoom ? "あり" : "なし",
-        v.hasShower ? "あり" : "なし",
-        v.hasGallery ? "あり" : "なし",
-        v.hasAC ? "あり" : "なし",
-        v.eatArea || "",
-        v.openTime || "",
-        v.closeTime || "",
-        v.fee || "",
-        (v.equipments || []).map((eq) => `${eq.name}(${eq.qty}個${eq.fee > 0 ? "/¥" + eq.fee : "/無料"})`).join(", "),
-        v.rating || 0,
-        v.reviewCount || 0,
-        v.createdAt ? v.createdAt.toDate().toISOString().split("T")[0] : "",
-      ];
-    });
-
-    const sheetName = "会場一覧";
-    const values = [
-      ["会場ID", "会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
-       "更衣室", "シャワー", "観覧席", "空調", "飲食エリア",
-       "開始時間", "終了時間", "料金", "貸出備品", "評価", "レビュー数", "登録日"],
-      ...venueRows,
-    ];
-
-    // 先にデータを書き込み、その後に余分な行だけクリア
-    // （書き込み失敗時にデータが消えるのを防止）
-    try {
-      await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
-    } catch (e) {
-      // シートが存在しない場合は作成してリトライ
-      await sheetsAddSheet(VENUE_SHEET_ID, sheetName);
-      await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
-    }
-    // 書き込み成功後、新データより下の古い行をクリア
-    const nextRow = values.length + 1;
-    await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A${nextRow}:T10000`);
-
-    res.json({ success: true, count: venueRows.length });
+    const count = await doSyncVenuesToSheet();
+    res.json({ success: true, count });
   } catch (e) {
     console.error("Venue sync error:", e);
     res.status(500).json({ error: e.message });
@@ -1056,24 +1057,40 @@ exports.importGadgetsFromSheet = functions.https.onRequest(async (req, res) => {
 // スケジュール実行: シート → Firestore 自動同期 (5分毎)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-exports.scheduledImportVenues = functions.pubsub
+exports.scheduledSyncVenues = functions.pubsub
   .schedule("every 5 minutes")
   .onRun(async () => {
+    // シート → Firestore インポート
     try {
-      const result = await doImportVenues();
-      console.log("Scheduled venue import:", JSON.stringify(result));
+      const importResult = await doImportVenues();
+      console.log("Scheduled venue import:", JSON.stringify(importResult));
     } catch (e) {
       console.error("Scheduled venue import error:", e.message);
     }
+    // Firestore → シート エクスポート
+    try {
+      const count = await doSyncVenuesToSheet();
+      console.log("Scheduled venue sync:", count, "venues");
+    } catch (e) {
+      console.error("Scheduled venue sync error:", e.message);
+    }
   });
 
-exports.scheduledImportGadgets = functions.pubsub
+exports.scheduledSyncGadgets = functions.pubsub
   .schedule("every 5 minutes")
   .onRun(async () => {
+    // シート → Firestore インポート
     try {
-      const result = await doImportGadgets();
-      console.log("Scheduled gadget import:", JSON.stringify(result));
+      const importResult = await doImportGadgets();
+      console.log("Scheduled gadget import:", JSON.stringify(importResult));
     } catch (e) {
       console.error("Scheduled gadget import error:", e.message);
+    }
+    // Firestore → シート エクスポート
+    try {
+      const count = await doSyncGadgetsToSheet();
+      console.log("Scheduled gadget sync:", count, "gadgets");
+    } catch (e) {
+      console.error("Scheduled gadget sync error:", e.message);
     }
   });
