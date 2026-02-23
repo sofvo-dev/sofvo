@@ -733,28 +733,51 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     final isPinned = _pinnedChatIds.contains(chatId);
 
+    Widget avatarWidget = type == 'dm'
+        ? CircleAvatar(
+            radius: 24,
+            backgroundColor:
+                AppTheme.primaryColor.withValues(alpha: 0.12),
+            child: Text(initial,
+                style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18)),
+          )
+        : _buildGroupLeading(data, icon, iconColor);
+
+    if (isPinned) {
+      avatarWidget = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          avatarWidget,
+          Positioned(
+            bottom: -2,
+            right: -2,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: const Icon(Icons.push_pin, size: 10, color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Container(
-      color: isPinned
-          ? AppTheme.primaryColor.withValues(alpha: 0.04)
-          : unread
-              ? AppTheme.primaryColor.withValues(alpha: 0.02)
-              : Colors.white,
+      color: unread
+          ? AppTheme.primaryColor.withValues(alpha: 0.02)
+          : Colors.white,
       child: ListTile(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         onLongPress: () => _showChatMenu(chatId, isPinned, type),
-        leading: type == 'dm'
-            ? CircleAvatar(
-                radius: 24,
-                backgroundColor:
-                    AppTheme.primaryColor.withValues(alpha: 0.12),
-                child: Text(initial,
-                    style: const TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18)),
-              )
-            : _buildGroupLeading(data, icon, iconColor),
+        leading: avatarWidget,
         title: Text(title,
             style: TextStyle(
                 fontSize: 15,
@@ -783,21 +806,15 @@ class _ChatListScreenState extends State<ChatListScreen>
                         ? AppTheme.primaryColor
                         : AppTheme.textHint)),
             const SizedBox(height: 4),
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              if (isPinned)
-                Icon(Icons.push_pin, size: 14, color: AppTheme.textHint),
-              if (unread) ...[
-                if (isPinned) const SizedBox(width: 4),
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primaryColor,
-                    shape: BoxShape.circle,
-                  ),
+            if (unread)
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ]),
+              ),
           ],
         ),
         onTap: () {
