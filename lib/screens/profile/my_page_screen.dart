@@ -530,22 +530,28 @@ class _TournamentCardsRow extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('tournaments')
-          .where('status', isEqualTo: '終了')
+          .where('organizerId', isEqualTo: userId)
           .orderBy('date', descending: true)
-          .limit(20)
+          .limit(10)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return SizedBox(
+            height: 100,
+            child: Center(
+              child: Text('データの取得に失敗しました', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            ),
+          );
+        }
         if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
-        final allTournaments = snapshot.data?.docs ?? [];
-        // ユーザーが主催 or 参加した大会をフィルタ（クライアント側）
-        // organizerId でまずフィルタ、entries はサブコレクションなので主催大会のみ表示
-        final tournaments = allTournaments.where((doc) {
+        // 終了した大会のみクライアント側でフィルタ
+        final tournaments = (snapshot.data?.docs ?? []).where((doc) {
           final d = doc.data() as Map<String, dynamic>;
-          return d['organizerId'] == userId;
-        }).take(10).toList();
+          return d['status'] == '終了';
+        }).toList();
 
         if (tournaments.isEmpty) {
           return SizedBox(
