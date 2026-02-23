@@ -15,9 +15,10 @@ class GadgetListScreen extends StatefulWidget {
 
 class _GadgetListScreenState extends State<GadgetListScreen> {
   String _filterCategory = 'すべて';
-  bool _isSpreadsheetView = false;
+  bool _isGridView = false;
   String _sortMode = 'category'; // 'category' | 'name' | 'date'
   String _userSearchId = '';
+  List<String> _categories = ['すべて', 'カテゴリなし'];
 
   @override
   void initState() {
@@ -91,20 +92,20 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
               ),
             ],
           ),
-          // 表示切り替え
+          // 表示切り替え（リスト / グリッド）
           IconButton(
             icon: Icon(
-              _isSpreadsheetView ? Icons.grid_view : Icons.table_chart_outlined,
+              _isGridView ? Icons.view_list : Icons.grid_view,
               color: Colors.white,
             ),
-            tooltip: _isSpreadsheetView ? 'カード表示' : 'スプレッドシート表示',
-            onPressed: () => setState(() => _isSpreadsheetView = !_isSpreadsheetView),
+            tooltip: _isGridView ? 'リスト表示' : 'グリッド表示',
+            onPressed: () => setState(() => _isGridView = !_isGridView),
           ),
         ],
       ),
       body: Column(
         children: [
-          // ── カテゴリフィルタ ──
+          // ── カテゴリフィルタ（ドロップダウン） ──
           _buildCategoryFilter(uid),
 
           // ── ガジェット一覧 ──
@@ -115,7 +116,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (snapshot.data!.docs.isEmpty) {
                   return _buildEmptyState();
                 }
 
@@ -128,8 +129,8 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                 // ソート適用
                 _sortGadgets(gadgets);
 
-                if (_isSpreadsheetView) {
-                  return _buildSpreadsheetView(gadgets);
+                if (_isGridView) {
+                  return _buildGridView(gadgets);
                 }
 
                 if (_sortMode == 'category' && _filterCategory == 'すべて') {
@@ -204,39 +205,58 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
           .orderBy('createdAt')
           .snapshots(),
       builder: (context, snapshot) {
-        final categories = ['すべて', 'カテゴリなし'];
+        final categories = <String>['すべて', 'カテゴリなし'];
         if (snapshot.hasData) {
           for (final doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
-            if (data['name'] != null) categories.add(data['name']);
+            if (data['name'] != null) categories.add(data['name'] as String);
           }
+        }
+        _categories = categories;
+        // 選択中のカテゴリが存在しない場合リセット
+        if (!categories.contains(_filterCategory)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _filterCategory = 'すべて');
+          });
         }
 
         return Container(
           color: Colors.white,
-          height: 48,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final cat = categories[index];
-              final isSelected = _filterCategory == cat;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(cat, style: const TextStyle(fontSize: 13)),
-                  selected: isSelected,
-                  onSelected: (_) => setState(() => _filterCategory = cat),
-                  selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                  labelStyle: TextStyle(
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              );
-            },
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: categories.contains(_filterCategory) ? _filterCategory : 'すべて',
+                isExpanded: true,
+                icon: const Icon(Icons.arrow_drop_down, size: 20, color: AppTheme.textSecondary),
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                items: categories.map((cat) => DropdownMenuItem(
+                  value: cat,
+                  child: Row(children: [
+                    Icon(
+                      cat == 'すべて' ? Icons.all_inclusive
+                          : cat == 'カテゴリなし' ? Icons.label_off_outlined
+                          : Icons.label_outlined,
+                      size: 16,
+                      color: _filterCategory == cat ? AppTheme.primaryColor : AppTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(cat, style: TextStyle(
+                      fontWeight: _filterCategory == cat ? FontWeight.bold : FontWeight.normal,
+                      color: _filterCategory == cat ? AppTheme.primaryColor : AppTheme.textPrimary,
+                    )),
+                  ]),
+                )).toList(),
+                onChanged: (v) => setState(() => _filterCategory = v ?? 'すべて'),
+              ),
+            ),
           ),
         );
       },
@@ -441,186 +461,110 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     );
   }
 
-  // ── スプレッドシート表示 ──
-  // 列順: ガジェットID, ユーザーID, ユーザー商品名, カテゴリ, Amazon URL, Amazon Affiliate URL, 楽天 Affiliate URL, 画像URL, メモ, 登録日
-  Widget _buildSpreadsheetView(List<Map<String, dynamic>> gadgets) {
-    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryColor);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(AppTheme.primaryColor.withValues(alpha: 0.06)),
-          columnSpacing: 12,
-          dataRowMinHeight: 52,
-          dataRowMaxHeight: 56,
-          columns: const [
-            DataColumn(label: Text('ガジェットID', style: headerStyle)),
-            DataColumn(label: Text('ユーザーID', style: headerStyle)),
-            DataColumn(label: Text('ユーザー商品名', style: headerStyle)),
-            DataColumn(label: Text('カテゴリ', style: headerStyle)),
-            DataColumn(label: Text('Amazon URL', style: headerStyle)),
-            DataColumn(label: Text('Amazon Affiliate', style: headerStyle)),
-            DataColumn(label: Text('楽天 Affiliate', style: headerStyle)),
-            DataColumn(label: Text('画像', style: headerStyle)),
-            DataColumn(label: Text('メモ', style: headerStyle)),
-            DataColumn(label: Text('登録日', style: headerStyle)),
-            DataColumn(label: Text('操作', style: headerStyle)),
-          ],
-          rows: gadgets.map((g) {
-            final imageUrl = (g['imageUrl'] ?? '') as String;
-            final amazonUrl = (g['amazonUrl'] ?? '') as String;
-            final amazonAffUrl = (g['amazonAffiliateUrl'] ?? '') as String;
-            final rakutenAffUrl = (g['rakutenAffiliateUrl'] ?? '') as String;
-            final createdAt = g['createdAt'];
-            String dateStr = '';
-            if (createdAt is Timestamp) {
-              final d = createdAt.toDate();
-              dateStr = '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
-            }
-            return DataRow(cells: [
-              // ガジェットID
-              DataCell(
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    (g['id'] ?? '').toString().length > 8
-                        ? '${(g['id'] ?? '').toString().substring(0, 8)}…'
-                        : (g['id'] ?? '').toString(),
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                  ),
+  // ── グリッド表示 ──
+  Widget _buildGridView(List<Map<String, dynamic>> gadgets) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.78,
+      ),
+      itemCount: gadgets.length,
+      itemBuilder: (context, index) => _buildGridCard(gadgets[index]),
+    );
+  }
+
+  Widget _buildGridCard(Map<String, dynamic> g) {
+    final imageUrl = g['imageUrl'] ?? '';
+    final name = g['name'] ?? '名前なし';
+    final category = g['category'] ?? 'カテゴリなし';
+    final amazonAffUrl = (g['amazonAffiliateUrl'] ?? '').toString();
+    final rakutenAffUrl = (g['rakutenAffiliateUrl'] ?? '').toString();
+    final hasAmazon = amazonAffUrl.isNotEmpty;
+    final hasRakuten = rakutenAffUrl.isNotEmpty;
+
+    return GestureDetector(
+      onTap: () => _showGadgetDetail(g),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 画像
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  color: Colors.grey[50],
                 ),
-              ),
-              // ユーザーID
-              DataCell(
-                Text(
-                  _userSearchId.isNotEmpty ? '@$_userSearchId' : '—',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-              // ユーザー商品名
-              DataCell(
-                SizedBox(
-                  width: 180,
-                  child: Text(g['name'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12)),
-                ),
-              ),
-              // カテゴリ
-              DataCell(Text(g['category'] ?? 'カテゴリなし', style: const TextStyle(fontSize: 12))),
-              // Amazon URL
-              DataCell(
-                amazonUrl.isNotEmpty
-                    ? GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(amazonUrl), mode: LaunchMode.externalApplication),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF9900).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
+                child: imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.open_in_new, size: 13, color: Color(0xFFFF9900)),
-                              SizedBox(width: 4),
-                              Text('開く', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
-                            ],
+                          errorWidget: (_, __, ___) => const Center(
+                            child: Icon(Icons.image_not_supported, color: AppTheme.textHint),
                           ),
                         ),
                       )
-                    : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
+                    : const Center(child: Icon(Icons.devices_other, size: 36, color: AppTheme.textHint)),
               ),
-              // Amazon Affiliate URL
-              DataCell(
-                amazonAffUrl.isNotEmpty
-                    ? GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF9900).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.open_in_new, size: 13, color: Color(0xFFFF9900)),
-                              SizedBox(width: 4),
-                              Text('Aff', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
-              ),
-              // 楽天 Affiliate URL
-              DataCell(
-                rakutenAffUrl.isNotEmpty
-                    ? GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFBF0000).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.open_in_new, size: 13, color: Color(0xFFBF0000)),
-                              SizedBox(width: 4),
-                              Text('開く', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Text('—', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
-              ),
-              // 画像URL (サムネイル表示)
-              DataCell(
-                imageUrl.isNotEmpty
-                    ? SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
-                        ),
-                      )
-                    : const Icon(Icons.image_not_supported, size: 22, color: AppTheme.textHint),
-              ),
-              // メモ
-              DataCell(
-                SizedBox(
-                  width: 120,
-                  child: Text(g['memo'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                ),
-              ),
-              // 登録日
-              DataCell(
-                Text(dateStr, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-              ),
-              // 操作
-              DataCell(Row(
-                mainAxisSize: MainAxisSize.min,
+            ),
+            // 情報
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
-                    onPressed: () => _editGadget(g),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
-                    onPressed: () => _deleteGadget(g),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
+                  Text(name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    if (category != 'カテゴリなし')
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(category,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    if (category != 'カテゴリなし' && (hasAmazon || hasRakuten))
+                      const SizedBox(width: 4),
+                    if (hasAmazon)
+                      Container(
+                        width: 8, height: 8,
+                        decoration: const BoxDecoration(color: Color(0xFFFF9900), shape: BoxShape.circle),
+                      ),
+                    if (hasAmazon && hasRakuten) const SizedBox(width: 3),
+                    if (hasRakuten)
+                      Container(
+                        width: 8, height: 8,
+                        decoration: const BoxDecoration(color: Color(0xFFBF0000), shape: BoxShape.circle),
+                      ),
+                  ]),
                 ],
-              )),
-            ]);
-          }).toList(),
+              ),
+            ),
+          ],
         ),
       ),
     );
