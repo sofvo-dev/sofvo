@@ -21,6 +21,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   String _searchQuery = '';
   Set<String> _blockedUserIds = {};
   Set<String> _pinnedChatIds = {};
+  Set<String> _hiddenChatIds = {};
   final Map<String, String> _userNameCache = {};
 
   @override
@@ -33,6 +34,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     );
     _loadBlockedUsers();
     _loadPinnedChats();
+    _loadHiddenChats();
   }
 
   @override
@@ -83,6 +85,73 @@ class _ChatListScreenState extends State<ChatListScreen>
     } else {
       await ref.set({'pinnedAt': FieldValue.serverTimestamp()});
       if (mounted) setState(() => _pinnedChatIds.add(chatId));
+    }
+  }
+
+  Future<void> _loadHiddenChats() async {
+    if (_currentUser == null) return;
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('hiddenChats')
+        .get();
+    if (mounted) {
+      setState(() {
+        _hiddenChatIds = snap.docs.map((d) => d.id).toSet();
+      });
+    }
+  }
+
+  Future<void> _toggleHide(String chatId) async {
+    if (_currentUser == null) return;
+    final ref = FirebaseFirestore.instance
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection('hiddenChats')
+        .doc(chatId);
+    if (_hiddenChatIds.contains(chatId)) {
+      await ref.delete();
+      if (mounted) setState(() => _hiddenChatIds.remove(chatId));
+    } else {
+      await ref.set({'hiddenAt': FieldValue.serverTimestamp()});
+      if (mounted) setState(() => _hiddenChatIds.add(chatId));
+    }
+  }
+
+  Future<void> _deleteChat(String chatId, String type) async {
+    if (_currentUser == null) return;
+    final myUid = _currentUser!.uid;
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+
+    if (type == 'dm') {
+      // DMの場合: 自分をmembersから除外し、非表示にする
+      await chatRef.update({
+        'members': FieldValue.arrayRemove([myUid]),
+      });
+    } else {
+      // グループの場合: 自分をmembersから除外
+      await chatRef.update({
+        'members': FieldValue.arrayRemove([myUid]),
+        'memberNames.$myUid': FieldValue.delete(),
+      });
+    }
+
+    // ピン留め・非表示も削除
+    final userRef = FirebaseFirestore.instance.collection('users').doc(myUid);
+    await userRef.collection('pinnedChats').doc(chatId).delete();
+    await userRef.collection('hiddenChats').doc(chatId).delete();
+
+    if (mounted) {
+      setState(() {
+        _pinnedChatIds.remove(chatId);
+        _hiddenChatIds.remove(chatId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('チャットを削除しました'),
+          backgroundColor: AppTheme.textSecondary,
+        ),
+      );
     }
   }
 
@@ -458,10 +527,10 @@ class _ChatListScreenState extends State<ChatListScreen>
           return _buildEmptyState('group');
         }
 
-        // type == 'group' をDart側でフィルタ
+        // type == 'group' をDart側でフィルタ（非表示チャット除外）
         final allChats = (snapshot.data?.docs ?? []).where((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          return data['type'] == 'group';
+          return data['type'] == 'group' && !_hiddenChatIds.contains(doc.id);
         }).toList();
         // ピン留め優先 → lastMessageAt で降順ソート
         allChats.sort((a, b) {
@@ -539,10 +608,10 @@ class _ChatListScreenState extends State<ChatListScreen>
           return _buildEmptyState(type);
         }
 
-        // type フィルタをDart側で適用
+        // type フィルタをDart側で適用（非表示チャット除外）
         final allChats = (snapshot.data?.docs ?? []).where((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          return data['type'] == type;
+          return data['type'] == type && !_hiddenChatIds.contains(doc.id);
         }).toList();
         // ピン留め優先 → lastMessageAt で降順ソート
         allChats.sort((a, b) {
@@ -664,34 +733,7 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     final isPinned = _pinnedChatIds.contains(chatId);
 
-    return Dismissible(
-      key: Key('chat_$chatId'),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        _togglePin(chatId);
-        return false;
-      },
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: isPinned ? Colors.grey[500] : AppTheme.accentColor,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-              color: Colors.white,
-              size: 22,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              isPinned ? '解除' : 'ピン留め',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-      child: Container(
+    return Container(
       color: isPinned
           ? AppTheme.primaryColor.withValues(alpha: 0.04)
           : unread
@@ -700,7 +742,7 @@ class _ChatListScreenState extends State<ChatListScreen>
       child: ListTile(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        onLongPress: () => _showChatMenu(chatId, isPinned),
+        onLongPress: () => _showChatMenu(chatId, isPinned, type),
         leading: type == 'dm'
             ? CircleAvatar(
                 radius: 24,
@@ -776,11 +818,10 @@ class _ChatListScreenState extends State<ChatListScreen>
           );
         },
       ),
-    ),
     );
   }
 
-  void _showChatMenu(String chatId, bool isPinned) {
+  void _showChatMenu(String chatId, bool isPinned, String type) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -810,8 +851,63 @@ class _ChatListScreenState extends State<ChatListScreen>
                 _togglePin(chatId);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.visibility_off_outlined, color: AppTheme.textSecondary),
+              title: const Text('非表示'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleHide(chatId);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('チャットを非表示にしました'),
+                    backgroundColor: AppTheme.textSecondary,
+                    action: SnackBarAction(
+                      label: '元に戻す',
+                      textColor: Colors.white,
+                      onPressed: () => _toggleHide(chatId),
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: AppTheme.error),
+              title: const Text('削除', style: TextStyle(color: AppTheme.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDeleteChat(chatId, type);
+              },
+            ),
           ]),
         ),
+      ),
+    );
+  }
+
+  void _confirmDeleteChat(String chatId, String type) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('チャットを削除'),
+        content: Text(
+          type == 'dm'
+              ? 'このトークルームを削除しますか？\nメッセージ履歴は相手側には残ります。'
+              : 'このグループから退出しますか？',
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteChat(chatId, type);
+            },
+            child: const Text('削除', style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
