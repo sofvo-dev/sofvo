@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -98,7 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   user?.email ?? '未設定',
                 ),
                 _buildDivider(),
-                _buildInfoTile(
+                _buildCopyableTile(
                   Icons.badge_outlined,
                   'ユーザーID',
                   _searchId.isNotEmpty ? '@$_searchId' : '未設定',
@@ -303,6 +304,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: AppTheme.textSecondary,
         ),
       ),
+    );
+  }
+
+  Widget _buildCopyableTile(IconData icon, String title, String value) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.primaryColor, size: 22),
+      title: Text(title, style: const TextStyle(fontSize: 15)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          if (value != '未設定') ...[
+            const SizedBox(width: 4),
+            Icon(Icons.copy, size: 16, color: Colors.grey[400]),
+          ],
+        ],
+      ),
+      onTap: value != '未設定'
+          ? () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('ユーザーIDをコピーしました'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          : null,
     );
   }
 
