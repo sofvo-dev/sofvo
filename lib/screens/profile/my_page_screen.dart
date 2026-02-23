@@ -909,7 +909,9 @@ class _GadgetCardsRow extends StatelessWidget {
                             Text(amazonPrice!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFE65100))),
                           ],
                         ),
-                      ),
+                      )
+                    else
+                      Text('価格を取得できませんでした', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                   const SizedBox(height: 16),
                   // Amazon / 楽天ボタン
@@ -934,7 +936,7 @@ class _GadgetCardsRow extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
-                        icon: const Text('R', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, fontStyle: FontStyle.italic)),
+                        icon: Image.asset('assets/images/rakuten_logo.png', height: 20, color: Colors.white),
                         label: const Text('楽天で見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFBF0000),

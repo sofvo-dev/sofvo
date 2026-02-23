@@ -190,7 +190,10 @@ function extractItem(item) {
     detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
     affiliateUrl: makeAffiliateUrl(asin),
     price:
-      item.Offers?.Listings?.[0]?.Price?.DisplayAmount || null,
+      item.Offers?.Listings?.[0]?.Price?.DisplayAmount ||
+      item.Offers?.Summaries?.[0]?.LowestPrice?.DisplayAmount ||
+      item.Offers?.Summaries?.[0]?.HighestPrice?.DisplayAmount ||
+      null,
   };
 }
 
@@ -370,6 +373,8 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
           "Images.Primary.Large",
           "Images.Primary.Medium",
           "Offers.Listings.Price",
+          "Offers.Summaries.LowestPrice",
+          "Offers.Summaries.HighestPrice",
         ],
         SearchIndex: "All",
         ItemCount: 10,
@@ -446,6 +451,8 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
           "Images.Primary.Large",
           "Images.Primary.Medium",
           "Offers.Listings.Price",
+          "Offers.Summaries.LowestPrice",
+          "Offers.Summaries.HighestPrice",
         ],
         PartnerTag: partnerTag,
         PartnerType: "Associates",
