@@ -639,20 +639,22 @@ class _TournamentCardsRow extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('tournaments')
-          .where('status', isEqualTo: '終了')
+          .where('organizerId', isEqualTo: userId)
           .orderBy('date', descending: true)
-          .limit(20)
+          .limit(10)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildEmptyCard('データの取得に失敗しました', Icons.error_outline);
+        }
         if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
-        final allTournaments = snapshot.data?.docs ?? [];
-        final tournaments = allTournaments.where((doc) {
+        final tournaments = (snapshot.data?.docs ?? []).where((doc) {
           final d = doc.data() as Map<String, dynamic>;
-          return d['organizerId'] == userId;
-        }).take(10).toList();
+          return d['status'] == '終了';
+        }).toList();
 
         if (tournaments.isEmpty) {
           return _buildEmptyCard('まだ大会結果がありません', Icons.emoji_events_outlined);
