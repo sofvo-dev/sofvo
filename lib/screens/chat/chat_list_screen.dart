@@ -487,36 +487,6 @@ class _ChatListScreenState extends State<ChatListScreen>
         return Column(
           children: [
             // グループ作成ボタン
-            InkWell(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const CreateGroupChatScreen())),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
-                  border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(Icons.group_add, color: AppTheme.primaryColor, size: 24),
-                    ),
-                    const SizedBox(width: 14),
-                    const Text('グループを作成',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primaryColor)),
-                  ],
-                ),
-              ),
-            ),
             // チャット一覧
             Expanded(
               child: chats.isEmpty
@@ -694,7 +664,34 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     final isPinned = _pinnedChatIds.contains(chatId);
 
-    return Container(
+    return Dismissible(
+      key: Key('chat_$chatId'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        _togglePin(chatId);
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        color: isPinned ? Colors.grey[500] : AppTheme.accentColor,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+              color: Colors.white,
+              size: 22,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              isPinned ? '解除' : 'ピン留め',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+      child: Container(
       color: isPinned
           ? AppTheme.primaryColor.withValues(alpha: 0.04)
           : unread
@@ -779,6 +776,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           );
         },
       ),
+    ),
     );
   }
 
