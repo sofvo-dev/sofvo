@@ -16,15 +16,10 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   late TabController _tabController;
   final _currentUser = FirebaseAuth.instance.currentUser;
 
-  // ID検索
+  // ID・ニックネーム検索
   final _idController = TextEditingController();
   bool _idSearching = false;
   List<Map<String, dynamic>> _idResults = [];
-
-  // ユーザー検索
-  final _userSearchController = TextEditingController();
-  bool _userSearching = false;
-  List<Map<String, dynamic>> _userResults = [];
 
   // フォロー状態キャッシュ
   final Set<String> _followingIds = {};
@@ -33,7 +28,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _loadFollowing();
     _loadMySearchId();
   }
@@ -67,17 +62,17 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   void dispose() {
     _tabController.dispose();
     _idController.dispose();
-    _userSearchController.dispose();
     super.dispose();
   }
 
-  // ── ID検索 ──
+  // ── ID・ニックネーム検索 ──
   Future<void> _searchById() async {
     final query = _idController.text.trim().replaceAll('@', '');
     if (query.isEmpty) return;
     setState(() => _idSearching = true);
 
     try {
+      // まず searchId の完全一致を試す
       final snap = await FirebaseFirestore.instance
           .collection('users')
           .where('searchId', isEqualTo: query)
@@ -85,26 +80,32 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
           .get();
 
       List<Map<String, dynamic>> results = [];
+      final addedUids = <String>{};
       for (final doc in snap.docs) {
         if (doc.id == _currentUser?.uid) continue;
         final data = doc.data();
         data['uid'] = doc.id;
         results.add(data);
+        addedUids.add(doc.id);
       }
 
-      // searchId が完全一致しない場合、部分一致も試す
+      // 完全一致がない場合、ID・ニックネーム・エリアで部分一致検索
       if (results.isEmpty) {
         final allSnap = await FirebaseFirestore.instance
             .collection('users')
             .limit(100)
             .get();
+        final lowerQuery = query.toLowerCase();
         for (final doc in allSnap.docs) {
           if (doc.id == _currentUser?.uid) continue;
+          if (addedUids.contains(doc.id)) continue;
           final data = doc.data();
           final sid = (data['searchId'] ?? '').toString().toLowerCase();
           final nick = (data['nickname'] ?? '').toString().toLowerCase();
-          if (sid.contains(query.toLowerCase()) ||
-              nick.contains(query.toLowerCase())) {
+          final area = (data['area'] ?? '').toString().toLowerCase();
+          if (sid.contains(lowerQuery) ||
+              nick.contains(lowerQuery) ||
+              area.contains(lowerQuery)) {
             data['uid'] = doc.id;
             results.add(data);
           }
@@ -117,48 +118,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
       });
     } catch (e) {
       setState(() => _idSearching = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('検索エラー: $e'), backgroundColor: AppTheme.error));
-      }
-    }
-  }
-
-  // ── ユーザー検索 ──
-  Future<void> _searchUsers() async {
-    setState(() => _userSearching = true);
-
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .limit(100)
-          .get();
-
-      final query = _userSearchController.text.trim().toLowerCase();
-      List<Map<String, dynamic>> results = [];
-
-      for (final doc in snap.docs) {
-        if (doc.id == _currentUser?.uid) continue;
-        final data = doc.data();
-        final nickname = (data['nickname'] ?? '').toString().toLowerCase();
-        final area = (data['area'] ?? '').toString().toLowerCase();
-        final bio = (data['bio'] ?? '').toString().toLowerCase();
-
-        if (query.isEmpty ||
-            nickname.contains(query) ||
-            area.contains(query) ||
-            bio.contains(query)) {
-          data['uid'] = doc.id;
-          results.add(data);
-        }
-      }
-
-      setState(() {
-        _userResults = results;
-        _userSearching = false;
-      });
-    } catch (e) {
-      setState(() => _userSearching = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('検索エラー: $e'), backgroundColor: AppTheme.error));
@@ -229,9 +188,8 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
           indicatorColor: AppTheme.accentColor,
           indicatorWeight: 3,
           tabs: const [
-            Tab(text: 'ID検索'),
+            Tab(text: 'ID・ニックネーム検索'),
             Tab(text: 'QRコード'),
-            Tab(text: 'ユーザー検索'),
           ],
         ),
       ),
@@ -240,7 +198,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         children: [
           _buildIdSearchTab(),
           _buildQrCodeTab(),
-          _buildUserSearchTab(),
         ],
       ),
     );
@@ -268,7 +225,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    '相手のSofvo IDまたはニックネームを入力して検索できます。',
+                    'ID・ニックネーム・エリアで友達を検索できます。',
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
                   ),
                 ),
@@ -283,7 +240,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                 controller: _idController,
                 style: const TextStyle(fontSize: 16),
                 decoration: InputDecoration(
-                  hintText: '例: @nakamura123 またはニックネーム',
+                  hintText: '例: @nakamura123 / ニックネーム / エリア',
                   hintStyle: const TextStyle(fontSize: 15, color: AppTheme.textHint),
                   prefixIcon: const Icon(Icons.alternate_email, size: 22),
                   suffixIcon: value.text.isNotEmpty
@@ -412,76 +369,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
           ),
         ],
       ),
-    );
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ユーザー検索タブ
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━
-  Widget _buildUserSearchTab() {
-    return Column(
-      children: [
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _userSearchController,
-                  style: const TextStyle(fontSize: 15),
-                  decoration: InputDecoration(
-                    hintText: 'ニックネーム・エリアで検索',
-                    hintStyle: const TextStyle(fontSize: 15, color: AppTheme.textHint),
-                    prefixIcon: const Icon(Icons.search, size: 22),
-                    filled: true,
-                    fillColor: AppTheme.backgroundColor,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                  ),
-                  onSubmitted: (_) => _searchUsers(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _searchUsers,
-                style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                child: const Text('検索', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _userSearching
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
-              : _userResults.isNotEmpty
-                  ? ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _userResults.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _buildUserCard(_userResults[index]),
-                        );
-                      },
-                    )
-                  : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.person_search, size: 64, color: AppTheme.textHint),
-                          const SizedBox(height: 16),
-                          const Text('ニックネームやエリアで\nユーザーを検索できます',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 15, color: AppTheme.textSecondary, height: 1.5)),
-                        ],
-                      ),
-                    ),
-        ),
-      ],
     );
   }
 
