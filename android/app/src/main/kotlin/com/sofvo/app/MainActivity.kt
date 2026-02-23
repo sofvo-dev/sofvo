@@ -1,4 +1,4 @@
-package com.example.sofvo
+package com.sofvo.app
 
 import io.flutter.embedding.android.FlutterActivity
 
