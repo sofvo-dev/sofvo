@@ -89,44 +89,54 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
         ],
       ),
       body: Column(children: [
+        // 検索窓 + 都道府県フィルタ（横並び）
         Padding(
-          padding: const EdgeInsets.all(16),
-          child: TextField(
-            controller: _searchCtrl,
-            onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-            decoration: InputDecoration(
-              hintText: '会場名・住所で検索',
-              prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondary),
-              filled: true, fillColor: AppTheme.backgroundColor,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            ),
-          ),
-        ),
-        // 都道府県フィルタ
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _filterPrefecture,
-                isExpanded: true,
-                icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
-                style: const TextStyle(fontSize: 14, color: Colors.black87),
-                items: ['すべて', ..._prefectures].map((pref) =>
-                  DropdownMenuItem(value: pref, child: Text(pref)),
-                ).toList(),
-                onChanged: (v) => setState(() => _filterPrefecture = v ?? 'すべて'),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+          child: Row(children: [
+            // 検索窓
+            Expanded(
+              child: SizedBox(
+                height: 38,
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: '会場名・住所で検索',
+                    hintStyle: const TextStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondary),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 36),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                    filled: true, fillColor: AppTheme.backgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  ),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            // 都道府県ドロップダウン
+            Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _filterPrefecture,
+                  icon: const Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  items: ['すべて', ..._prefectures].map((pref) =>
+                    DropdownMenuItem(value: pref, child: Text(pref)),
+                  ).toList(),
+                  onChanged: (v) => setState(() => _filterPrefecture = v ?? 'すべて'),
+                ),
+              ),
+            ),
+          ]),
         ),
-        const SizedBox(height: 8),
         // 並び替え
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
