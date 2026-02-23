@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
+import LayoutShell from "@/components/LayoutShell";
 
 export const metadata: Metadata = {
-  title: "Sofvo PC - ソフトバレーボール大会ライブ",
+  title: "Sofvo PC - ソフトバレーボール大会管理",
   description:
-    "ソフトバレーボール大会のスコア・順位をリアルタイムで表示するPC版サイト",
+    "ソフトバレーボール大会の管理・スコア・順位をリアルタイムで表示するPC版サイト",
 };
 
 export default function RootLayout({
@@ -14,7 +16,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AuthProvider>
+          <LayoutShell>{children}</LayoutShell>
+        </AuthProvider>
+      </body>
     </html>
   );
 }
