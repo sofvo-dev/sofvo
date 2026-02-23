@@ -360,7 +360,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 _buildInfoRow(Icons.location_on, '会場', t['location'] as String? ?? t['venue'] as String? ?? ''),
                 if ((t['venueAddress'] ?? '').toString().isNotEmpty) ...[
                   _buildDivider(),
-                  _buildInfoRow(Icons.map, '住所', t['venueAddress'] as String? ?? ''),
+                  _buildAddressRow(t['venueAddress'] as String? ?? ''),
                 ],
                 _buildDivider(),
                 _buildInfoRow(Icons.grid_view, 'コート数', '${courts}コート'),
@@ -3053,6 +3053,33 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           Text(value, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
         ])),
       ]),
+    );
+  }
+
+  Widget _buildAddressRow(String address) {
+    return GestureDetector(
+      onTap: () {
+        final encoded = Uri.encodeComponent(address);
+        final uri = Uri.parse('https://www.google.com/maps/search/$encoded');
+        launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.map, size: 16, color: AppTheme.primaryColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('住所', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 2),
+            Text(address, style: const TextStyle(fontSize: 14, color: AppTheme.primaryColor, fontWeight: FontWeight.w500, decoration: TextDecoration.underline)),
+          ])),
+          const Icon(Icons.open_in_new, size: 14, color: AppTheme.primaryColor),
+        ]),
+      ),
     );
   }
 

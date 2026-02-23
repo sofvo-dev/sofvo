@@ -33,50 +33,61 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     final uid = _currentUser?.uid;
     if (uid == null) return;
     if (mounted) setState(() => _loading = true);
-    final tournSnap =
-        await FirebaseFirestore.instance.collection('tournaments').get();
-    final upcoming = <Map<String, dynamic>>[];
-    final past = <Map<String, dynamic>>[];
 
-    for (final doc in tournSnap.docs) {
-      final data = doc.data();
-      final isOrganizer = data['organizerId'] == uid;
-      final entriesSnap = await doc.reference
-          .collection('entries')
-          .where('enteredBy', isEqualTo: uid)
-          .limit(1)
-          .get();
-      final isEntered = entriesSnap.docs.isNotEmpty;
-      if (!isOrganizer && !isEntered) continue;
+    try {
+      final tournSnap =
+          await FirebaseFirestore.instance.collection('tournaments').get();
+      final upcoming = <Map<String, dynamic>>[];
+      final past = <Map<String, dynamic>>[];
 
-      final teamName = isEntered
-          ? (entriesSnap.docs.first.data()['teamName'] ?? '')
-          : '主催者';
-      final status = data['status'] ?? '準備中';
-      final entry = {
-        ...data,
-        'id': doc.id,
-        'teamName': teamName,
-        'isOrganizer': isOrganizer,
-        'isEntered': isEntered,
-      };
+      for (final doc in tournSnap.docs) {
+        final data = doc.data();
+        final isOrganizer = data['organizerId'] == uid;
+        final entriesSnap = await doc.reference
+            .collection('entries')
+            .where('enteredBy', isEqualTo: uid)
+            .limit(1)
+            .get();
+        final isEntered = entriesSnap.docs.isNotEmpty;
+        if (!isOrganizer && !isEntered) continue;
 
-      if (status == '終了') {
-        past.add(entry);
-      } else {
-        upcoming.add(entry);
+        final teamName = isEntered
+            ? (entriesSnap.docs.first.data()['teamName'] ?? '')
+            : '主催者';
+        final status = data['status'] ?? '準備中';
+        final entry = {
+          ...data,
+          'id': doc.id,
+          'teamName': teamName,
+          'isOrganizer': isOrganizer,
+          'isEntered': isEntered,
+        };
+
+        if (status == '終了') {
+          past.add(entry);
+        } else {
+          upcoming.add(entry);
+        }
       }
-    }
 
-    upcoming.sort((a, b) => (a['date'] ?? '').compareTo(b['date'] ?? ''));
-    past.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+      upcoming.sort((a, b) => (a['date'] ?? '').compareTo(b['date'] ?? ''));
+      past.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
 
-    if (mounted) {
-      setState(() {
-        _upcoming = upcoming;
-        _past = past;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _upcoming = upcoming;
+          _past = past;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _upcoming = [];
+          _past = [];
+          _loading = false;
+        });
+      }
     }
   }
 

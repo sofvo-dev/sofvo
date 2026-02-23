@@ -38,13 +38,13 @@ class _RecruitmentManagementScreenState
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _buildEmptyState();
+          }
+
           if (!snapshot.hasData) {
             return const Center(
                 child: CircularProgressIndicator(color: AppTheme.primaryColor));
-          }
-
-          if (snapshot.hasError) {
-            return _buildEmptyState();
           }
 
           final docs = snapshot.data?.docs ?? [];

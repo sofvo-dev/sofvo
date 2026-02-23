@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 
 class VenueSearchScreen extends StatefulWidget {
@@ -307,11 +308,15 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
               ),
             ]),
             const SizedBox(height: 6),
-            Row(children: [
-              const Icon(Icons.location_on, size: 14, color: AppTheme.textSecondary),
-              const SizedBox(width: 4),
-              Expanded(child: Text(address, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
-            ]),
+            GestureDetector(
+              onTap: () => _openMap(address),
+              child: Row(children: [
+                const Icon(Icons.location_on, size: 14, color: AppTheme.primaryColor),
+                const SizedBox(width: 4),
+                Expanded(child: Text(address, style: const TextStyle(fontSize: 13, color: AppTheme.primaryColor, decoration: TextDecoration.underline))),
+                const Icon(Icons.open_in_new, size: 12, color: AppTheme.primaryColor),
+              ]),
+            ),
             const SizedBox(height: 8),
             Wrap(spacing: 12, runSpacing: 6, children: [
               if (courts > 0) _chip(Icons.grid_view, '$courtsコート'),
@@ -376,8 +381,19 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                   ]),
                   const SizedBox(height: 12),
 
-                  // 住所
-                  _detailRow(Icons.location_on, address),
+                  // 住所（タップでマップ）
+                  GestureDetector(
+                    onTap: () => _openMap(address),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Icon(Icons.location_on, size: 18, color: AppTheme.primaryColor),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(address, style: const TextStyle(fontSize: 14, height: 1.4, color: AppTheme.primaryColor, decoration: TextDecoration.underline))),
+                        const Icon(Icons.open_in_new, size: 14, color: AppTheme.primaryColor),
+                      ]),
+                    ),
+                  ),
                   if (phone.isNotEmpty) _detailRow(Icons.phone, phone),
                   if (station.isNotEmpty) _detailRow(Icons.train, station),
                   if (openTime.isNotEmpty || closeTime.isNotEmpty) _detailRow(Icons.access_time, '$openTime 〜 $closeTime'),
@@ -448,6 +464,12 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
         ),
       ),
     );
+  }
+
+  void _openMap(String address) {
+    final encoded = Uri.encodeComponent(address);
+    final uri = Uri.parse('https://www.google.com/maps/search/$encoded');
+    launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Widget _detailRow(IconData icon, String text) {
