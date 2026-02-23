@@ -290,9 +290,6 @@ class MyPageScreen extends StatelessWidget {
                         _MenuItemData(Icons.location_city_outlined, '会場を登録・検索', () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
                         }),
-                        _MenuItemData(Icons.devices_other_outlined, 'ガジェット管理', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const GadgetListScreen()));
-                        }),
                       ]),
                     ),
                     const SizedBox(height: 20),
