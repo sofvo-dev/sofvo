@@ -255,7 +255,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
     final address = data['address'] ?? '';
     final phone = data['phone'] ?? '';
     final parking = data['parking'] ?? 0;
-    final toilets = data['toilets'] ?? 0;
+    final hasToilet = data['hasToilet'] ?? false;
     final courts = data['courts'] ?? 0;
     final hasAC = data['hasAC'] ?? false;
     final hasChangeRoom = data['hasChangeRoom'] ?? false;
@@ -273,7 +273,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
           if (widget.pickerMode) {
             Navigator.pop(context, {
               'id': docId, 'name': name, 'address': address,
-              'phone': phone, 'parking': parking, 'toilets': toilets,
+              'phone': phone, 'parking': parking, 'hasToilet': hasToilet,
               'courts': courts,
             });
           } else {
@@ -320,7 +320,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
               if (courts > 0) _chip(Icons.grid_view, '$courtsコート'),
               if (phone.isNotEmpty) _chip(Icons.phone, phone),
               if (parking > 0) _chip(Icons.local_parking, '$parking台'),
-              if (toilets > 0) _chip(Icons.wc, '$toilets箇所'),
+              if (hasToilet) _chip(Icons.wc, 'トイレあり'),
               if (hasAC) _chip(Icons.ac_unit, '空調あり'),
               if (hasChangeRoom) _chip(Icons.checkroom, '更衣室あり'),
             ]),
@@ -335,7 +335,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
     final address = data['address'] ?? '';
     final phone = (data['phone'] ?? '').toString();
     final parking = data['parking'] ?? 0;
-    final toilets = data['toilets'] ?? 0;
+    final hasToilet = data['hasToilet'] ?? false;
     final courts = data['courts'] ?? 0;
     final hasAC = data['hasAC'] ?? false;
     final hasChangeRoom = data['hasChangeRoom'] ?? false;
@@ -395,7 +395,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                   Wrap(spacing: 12, runSpacing: 8, children: [
                     if (courts > 0) _detailChip(Icons.grid_view, '$courtsコート'),
                     if (parking > 0) _detailChip(Icons.local_parking, '駐車場 $parking台'),
-                    if (toilets > 0) _detailChip(Icons.wc, 'トイレ $toilets箇所'),
+                    if (hasToilet) _detailChip(Icons.wc, 'トイレあり'),
                     if (hasAC) _detailChip(Icons.ac_unit, '空調あり'),
                     if (hasChangeRoom) _detailChip(Icons.checkroom, '更衣室あり'),
                     if (hasShower) _detailChip(Icons.shower, 'シャワーあり'),
@@ -502,12 +502,12 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
   final _phoneCtrl = TextEditingController();
   final _courtsCtrl = TextEditingController();
   final _parkingCtrl = TextEditingController();
-  final _toiletsCtrl = TextEditingController();
   final _stationCtrl = TextEditingController();
   final _openTimeCtrl = TextEditingController(text: '8:00');
   final _closeTimeCtrl = TextEditingController(text: '22:00');
   final _feeCtrl = TextEditingController();
   final _eatAreaCtrl = TextEditingController();
+  bool _hasToilet = false;
   bool _hasChangeRoom = false;
   bool _hasShower = false;
   bool _hasGallery = false;
@@ -531,12 +531,12 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
       _phoneCtrl.text = (v['phone'] as String?) ?? '';
       _courtsCtrl.text = (v['courts'] ?? 0) > 0 ? '${v['courts']}' : '';
       _parkingCtrl.text = (v['parking'] ?? 0) > 0 ? '${v['parking']}' : '';
-      _toiletsCtrl.text = (v['toilets'] ?? 0) > 0 ? '${v['toilets']}' : '';
       _stationCtrl.text = (v['station'] as String?) ?? '';
       _openTimeCtrl.text = (v['openTime'] as String?) ?? '8:00';
       _closeTimeCtrl.text = (v['closeTime'] as String?) ?? '22:00';
       _feeCtrl.text = (v['fee'] as String?) ?? '';
       _eatAreaCtrl.text = (v['eatArea'] as String?) ?? '';
+      _hasToilet = v['hasToilet'] ?? false;
       _hasChangeRoom = v['hasChangeRoom'] ?? false;
       _hasShower = v['hasShower'] ?? false;
       _hasGallery = v['hasGallery'] ?? false;
@@ -608,11 +608,9 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
               _label('駐車場(台数)'), _field(_parkingCtrl, '例: 100', keyboard: TextInputType.number),
             ])),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _label('トイレ(箇所)'), _field(_toiletsCtrl, '例: 3', keyboard: TextInputType.number),
-            ])),
           ]),
           const SizedBox(height: 8),
+          _switchRow('トイレ', _hasToilet, (v) => setState(() => _hasToilet = v)),
           _switchRow('更衣室', _hasChangeRoom, (v) => setState(() => _hasChangeRoom = v)),
           _switchRow('シャワー', _hasShower, (v) => setState(() => _hasShower = v)),
           _switchRow('観覧席/ギャラリー', _hasGallery, (v) => setState(() => _hasGallery = v)),
@@ -704,7 +702,7 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
         'station': _stationCtrl.text.trim(),
         'courts': int.tryParse(_courtsCtrl.text) ?? 0,
         'parking': int.tryParse(_parkingCtrl.text) ?? 0,
-        'toilets': int.tryParse(_toiletsCtrl.text) ?? 0,
+        'hasToilet': _hasToilet,
         'hasChangeRoom': _hasChangeRoom,
         'hasShower': _hasShower,
         'hasGallery': _hasGallery,
