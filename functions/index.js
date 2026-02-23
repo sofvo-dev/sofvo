@@ -735,6 +735,38 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 会場データ全クリア（Firestore + Sheets）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.clearVenues = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const db = admin.firestore();
+
+    // 1. Firestore の venues コレクションを全削除
+    const venuesSnap = await db.collection("venues").get();
+    const batch = db.batch();
+    venuesSnap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    const deletedCount = venuesSnap.size;
+
+    // 2. Google Sheets の会場一覧シートをヘッダーだけ残してクリア
+    const sheetName = "会場一覧";
+    await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A2:T10000`);
+
+    console.log(`Cleared ${deletedCount} venues from Firestore and Sheets`);
+    res.json({ success: true, deletedFromFirestore: deletedCount });
+  } catch (e) {
+    console.error("Clear venues error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // お知らせ初期データ登録（1回だけ実行）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
