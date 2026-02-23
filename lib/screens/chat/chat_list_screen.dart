@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import 'chat_screen.dart';
 import 'create_group_chat_screen.dart';
+import '../follow/follow_search_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -225,24 +226,45 @@ class _ChatListScreenState extends State<ChatListScreen>
                                   color: AppTheme.textSecondary)),
                         );
                       }
+                      // Resolve missing nicknames
+                      for (final doc in followDocs) {
+                        final data = doc.data() as Map<String, dynamic>? ?? {};
+                        final nickname = (data['nickname'] as String?) ?? '';
+                        if (nickname.isNotEmpty) {
+                          _userNameCache[doc.id] = nickname;
+                        } else if (!_userNameCache.containsKey(doc.id)) {
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(doc.id)
+                              .get()
+                              .then((userDoc) {
+                            final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
+                            if (resolved.isNotEmpty && mounted) {
+                              setState(() => _userNameCache[doc.id] = resolved);
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(_currentUser!.uid)
+                                  .collection('following')
+                                  .doc(doc.id)
+                                  .update({'nickname': resolved});
+                            }
+                          });
+                        }
+                      }
                       return ListView.separated(
                         controller: scrollController,
                         itemCount: followDocs.length,
                         separatorBuilder: (_, __) => Divider(
                             height: 1, color: Colors.grey[100]),
                         itemBuilder: (_, i) {
-                          final followData = followDocs[i].data()
-                              as Map<String, dynamic>?;
                           final uid = followDocs[i].id;
-                          final name =
-                              (followData?['nickname'] as String?) ??
-                                  'ユーザー';
+                          final name = _userNameCache[uid] ?? 'ユーザー';
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundColor: AppTheme.primaryColor
                                   .withValues(alpha: 0.12),
                               child: Text(
-                                name.isNotEmpty ? name[0] : '?',
+                                name.isNotEmpty && name != 'ユーザー' ? name[0] : '?',
                                 style: const TextStyle(
                                     color: AppTheme.primaryColor,
                                     fontWeight: FontWeight.bold),
@@ -280,9 +302,74 @@ class _ChatListScreenState extends State<ChatListScreen>
             color: Colors.white,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: const Text('チャット',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('チャット',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    PopupMenuButton<String>(
+                      icon: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.add, color: AppTheme.primaryColor, size: 22),
+                      ),
+                      offset: const Offset(0, 40),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'dm':
+                            _showNewDmSheet();
+                            break;
+                          case 'group':
+                            Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const CreateGroupChatScreen()));
+                            break;
+                          case 'friend':
+                            Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const FollowSearchScreen()));
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'dm',
+                          child: Row(
+                            children: [
+                              Icon(Icons.chat_bubble_outline, size: 20, color: AppTheme.textPrimary),
+                              const SizedBox(width: 12),
+                              const Text('トークルームを作成'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'group',
+                          child: Row(
+                            children: [
+                              Icon(Icons.group_add_outlined, size: 20, color: AppTheme.textPrimary),
+                              const SizedBox(width: 12),
+                              const Text('グループ作成'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'friend',
+                          child: Row(
+                            children: [
+                              Icon(Icons.person_add_outlined, size: 20, color: AppTheme.textPrimary),
+                              const SizedBox(width: 12),
+                              const Text('友だち追加'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 10),
               // 検索バー

@@ -147,6 +147,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     } else {
       // フォロー
       await myRef.collection('following').doc(targetUid).set({
+        'nickname': targetName,
         'createdAt': FieldValue.serverTimestamp(),
       });
       await targetRef.collection('followers').doc(myUid).set({

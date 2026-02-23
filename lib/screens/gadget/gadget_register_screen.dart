@@ -32,7 +32,11 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   bool _isSaving = false;
   bool _isSearching = false;
   bool _isFetchingUrl = false;
+  bool _isLoadingMore = false;
   List<AmazonProduct> _searchResults = [];
+  int _searchPage = 1;
+  bool _hasMoreResults = false;
+  String _lastSearchKeyword = '';
   String? _editingId;
 
   @override
@@ -70,12 +74,16 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
     setState(() {
       _isSearching = true;
       _searchResults = [];
+      _searchPage = 1;
+      _hasMoreResults = false;
+      _lastSearchKeyword = keyword;
       _showEmptyHint = false;
     });
     try {
       final results = await AmazonSearchService.searchProducts(keyword);
       setState(() {
         _searchResults = results;
+        _hasMoreResults = results.length >= 10;
         _showEmptyHint = results.isEmpty;
       });
     } catch (_) {
@@ -90,6 +98,34 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       }
     } finally {
       setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _loadMoreResults() async {
+    if (_isLoadingMore || !_hasMoreResults) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextPage = _searchPage + 1;
+      final results = await AmazonSearchService.searchProducts(
+        _lastSearchKeyword,
+        page: nextPage,
+      );
+      setState(() {
+        _searchPage = nextPage;
+        _searchResults.addAll(results);
+        _hasMoreResults = results.length >= 10;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('追加読み込みに失敗しました'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -369,21 +405,32 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                 if (_searchResults.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   const Divider(),
-                  Row(children: [
-                    Text('${_searchResults.length}件見つかりました',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: _openAmazonSearch,
-                      child: const Text('Amazonで更に探す',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFFF9900), decoration: TextDecoration.underline)),
-                    ),
-                  ]),
+                  Text('${_searchResults.length}件見つかりました',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                   const SizedBox(height: 4),
                   const Text('タップして商品を選択してください',
                       style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
                   const SizedBox(height: 4),
                   ...(_searchResults.map((p) => _buildSearchResultTile(p))),
+                  if (_hasMoreResults) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _isLoadingMore ? null : _loadMoreResults,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFFF9900),
+                          side: const BorderSide(color: Color(0xFFFF9900)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: _isLoadingMore
+                            ? const SizedBox(width: 18, height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9900)))
+                            : const Text('さらに読み込む', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
                 ],
                 if (_showEmptyHint) ...[
                   const SizedBox(height: 12),

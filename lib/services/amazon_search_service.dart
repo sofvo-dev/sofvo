@@ -45,11 +45,11 @@ class AmazonSearchService {
 
   /// Amazon商品をキーワードで検索
   /// Cloud Functions経由（PA-API → スクレイピング フォールバック）
-  static Future<List<AmazonProduct>> searchProducts(String keyword) async {
+  static Future<List<AmazonProduct>> searchProducts(String keyword, {int page = 1}) async {
     if (keyword.trim().isEmpty) return [];
 
     final uri = Uri.parse('$_baseUrl/amazonSearch')
-        .replace(queryParameters: {'q': keyword});
+        .replace(queryParameters: {'q': keyword, 'page': page.toString()});
 
     final response = await http.get(uri).timeout(
       const Duration(seconds: 15),

@@ -194,28 +194,46 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
   Widget _buildCategoryFilter(String uid) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('gadgetCategories')
-          .orderBy('createdAt')
-          .snapshots(),
-      builder: (context, snapshot) {
-        final categories = <String>['すべて', 'カテゴリなし'];
-        if (snapshot.hasData) {
-          for (final doc in snapshot.data!.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            if (data['name'] != null) categories.add(data['name'] as String);
-          }
-        }
-        _categories = categories;
-        // 選択中のカテゴリが存在しない場合リセット
-        if (!categories.contains(_filterCategory)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _filterCategory = 'すべて');
-          });
-        }
+          .collection('users').doc(uid).collection('gadgetCategories')
+          .orderBy('createdAt').snapshots(),
+      builder: (context, catSnapshot) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users').doc(uid).collection('gadgets')
+              .snapshots(),
+          builder: (context, gadgetSnapshot) {
+            final categories = <String>['すべて', 'カテゴリなし'];
+            final seen = <String>{'すべて', 'カテゴリなし'};
 
-        return Container(
+            // gadgetCategoriesコレクションから
+            if (catSnapshot.hasData) {
+              for (final doc in catSnapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final name = data['name'] as String?;
+                if (name != null && name.isNotEmpty && seen.add(name)) {
+                  categories.add(name);
+                }
+              }
+            }
+            // gadgetドキュメントのcategoryフィールドから（未登録カテゴリを補完）
+            if (gadgetSnapshot.hasData) {
+              for (final doc in gadgetSnapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final cat = (data['category'] ?? '') as String;
+                if (cat.isNotEmpty && cat != 'カテゴリなし' && seen.add(cat)) {
+                  categories.add(cat);
+                }
+              }
+            }
+            _categories = categories;
+            // 選択中のカテゴリが存在しない場合リセット
+            if (!categories.contains(_filterCategory)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _filterCategory = 'すべて');
+              });
+            }
+
+            return Container(
           color: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Container(
@@ -253,6 +271,8 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
               ),
             ),
           ),
+            );
+          },
         );
       },
     );
@@ -698,7 +718,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
-                        icon: Image.asset('assets/images/rakuten_logo.png', height: 20, color: Colors.white),
+                        icon: const Text('R', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, fontStyle: FontStyle.italic)),
                         label: const Text('楽天で見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFBF0000),

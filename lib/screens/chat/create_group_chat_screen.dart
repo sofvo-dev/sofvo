@@ -26,6 +26,7 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
   // Step 1 state
   final Map<String, String> _selectedMembers = {}; // uid -> nickname
   String _searchQuery = '';
+  final Map<String, String> _nameCache = {}; // uid -> resolved nickname
 
   // Step 2 state
   Uint8List? _pickedImageBytes;
@@ -364,13 +365,39 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
                         );
                       }
 
+                      // Resolve missing nicknames from users collection
+                      for (final doc in followDocs) {
+                        final data = doc.data() as Map<String, dynamic>? ?? {};
+                        final nickname = (data['nickname'] as String?) ?? '';
+                        if (nickname.isNotEmpty) {
+                          _nameCache[doc.id] = nickname;
+                        } else if (!_nameCache.containsKey(doc.id)) {
+                          // Fetch from users collection
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(doc.id)
+                              .get()
+                              .then((userDoc) {
+                            final name = (userDoc.data()?['nickname'] as String?) ?? '';
+                            if (name.isNotEmpty && mounted) {
+                              setState(() => _nameCache[doc.id] = name);
+                              // Also update the following doc for future reads
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(_currentUser!.uid)
+                                  .collection('following')
+                                  .doc(doc.id)
+                                  .update({'nickname': name});
+                            }
+                          });
+                        }
+                      }
+
                       // Filter by search query
                       final filteredDocs = followDocs.where((doc) {
                         if (_searchQuery.isEmpty) return true;
-                        final data = doc.data() as Map<String, dynamic>? ?? {};
-                        final nickname =
-                            ((data['nickname'] as String?) ?? '').toLowerCase();
-                        return nickname.contains(_searchQuery);
+                        final name = (_nameCache[doc.id] ?? '').toLowerCase();
+                        return name.contains(_searchQuery);
                       }).toList();
 
                       if (filteredDocs.isEmpty) {
@@ -393,12 +420,10 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
                         itemBuilder: (_, index) {
                           final doc = filteredDocs[index];
                           final uid = doc.id;
-                          final data = doc.data() as Map<String, dynamic>? ?? {};
-                          final nickname =
-                              (data['nickname'] as String?) ?? 'ユーザー';
+                          final nickname = _nameCache[uid] ?? 'ユーザー';
                           final isSelected = _selectedMembers.containsKey(uid);
                           final initial =
-                              nickname.isNotEmpty ? nickname[0] : '?';
+                              nickname.isNotEmpty && nickname != 'ユーザー' ? nickname[0] : '?';
 
                           return Container(
                             color: Colors.white,
