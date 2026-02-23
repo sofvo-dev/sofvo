@@ -352,6 +352,7 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   const keyword = req.query.q;
+  const page = parseInt(req.query.page) || 1;
   if (!keyword) {
     res.status(400).json({ error: "Missing query parameter: q" });
     return;
@@ -378,6 +379,7 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
         ],
         SearchIndex: "All",
         ItemCount: 10,
+        ItemPage: page,
         PartnerTag: partnerTag,
         PartnerType: "Associates",
         Marketplace: "www.amazon.co.jp",
@@ -471,7 +473,20 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
       if (response.ok) {
         const items = data.ItemsResult?.Items || [];
         if (items.length > 0) {
-          res.json(extractItem(items[0]));
+          const result = extractItem(items[0]);
+          // PA-APIで価格が取れなかった場合、スクレイピングで価格だけ補完
+          if (!result.price) {
+            try {
+              const scraped = await scrapeAmazonProduct(asin);
+              if (scraped.price) {
+                result.price = scraped.price;
+                console.log(`[amazonProduct] Price supplemented by scraping: ${scraped.price}`);
+              }
+            } catch (e) {
+              console.warn(`[amazonProduct] Price scraping supplement failed: ${e.message}`);
+            }
+          }
+          res.json(result);
           return;
         }
       }
