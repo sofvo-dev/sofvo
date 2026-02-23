@@ -124,6 +124,9 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: _buildQuery(uid),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _buildEmptyState();
+                }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                 }
@@ -131,11 +134,17 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                   return _buildEmptyState();
                 }
 
-                final gadgets = snapshot.data!.docs.map((doc) {
+                var gadgets = snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   data['id'] = doc.id;
                   return data;
                 }).toList();
+
+                // カテゴリフィルタ適用（クライアント側）
+                gadgets = _applyFilter(gadgets);
+                if (gadgets.isEmpty) {
+                  return _buildEmptyState();
+                }
 
                 // ソート適用
                 _sortGadgets(gadgets);
@@ -243,22 +252,24 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
   }
 
   Stream<QuerySnapshot> _buildQuery(String uid) {
-    var query = FirebaseFirestore.instance
+    // カテゴリフィルタはクライアント側で適用（複合インデックス不要）
+    return FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection('gadgets')
-        .orderBy('createdAt', descending: true);
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
 
-    if (_filterCategory != 'すべて') {
-      query = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('gadgets')
-          .where('category', isEqualTo: _filterCategory)
-          .orderBy('createdAt', descending: true);
-    }
-
-    return query.snapshots();
+  List<Map<String, dynamic>> _applyFilter(List<Map<String, dynamic>> gadgets) {
+    if (_filterCategory == 'すべて') return gadgets;
+    return gadgets.where((g) {
+      final cat = (g['category'] ?? '') as String;
+      if (_filterCategory == 'カテゴリなし') {
+        return cat.isEmpty || cat == 'カテゴリなし';
+      }
+      return cat == _filterCategory;
+    }).toList();
   }
 
   Widget _buildCategoryFilter(String uid) {
