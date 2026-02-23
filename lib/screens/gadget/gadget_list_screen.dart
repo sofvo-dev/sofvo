@@ -327,28 +327,44 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
               // ドラッグハンドル
               Icon(Icons.drag_handle, size: 20, color: Colors.grey[350]),
               const SizedBox(width: 8),
-              // 画像
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[200]!),
-                  color: Colors.grey[50],
-                ),
-                child: imageUrl.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(9),
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.contain,
-                          placeholder: (_, __) => const Center(
-                            child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
-                          ),
-                          errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, color: AppTheme.textHint),
-                        ),
-                      )
-                    : const Icon(Icons.devices_other, size: 32, color: AppTheme.textHint),
+              // 画像 + カテゴリ
+              Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey[200]!),
+                      color: Colors.grey[50],
+                    ),
+                    child: imageUrl.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              fit: BoxFit.contain,
+                              placeholder: (_, __) => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
+                              ),
+                              errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, color: AppTheme.textHint),
+                            ),
+                          )
+                        : const Icon(Icons.devices_other, size: 32, color: AppTheme.textHint),
+                  ),
+                  if (category != 'カテゴリなし') ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(category,
+                          style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(width: 12),
               // 情報
@@ -362,16 +378,6 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                     const SizedBox(height: 4),
                     Wrap(spacing: 6, runSpacing: 4, children: [
-                      if (category != 'カテゴリなし')
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(category,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
-                        ),
                       if (hasAmazon)
                         GestureDetector(
                           onTap: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
