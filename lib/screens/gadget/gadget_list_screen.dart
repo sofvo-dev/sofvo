@@ -16,7 +16,6 @@ class GadgetListScreen extends StatefulWidget {
 class _GadgetListScreenState extends State<GadgetListScreen> {
   String _filterCategory = 'すべて';
   bool _isGridView = false;
-  String _sortMode = 'manual'; // 'manual' | 'category' | 'name' | 'date'
   String _userSearchId = '';
   List<String> _categories = ['すべて', 'カテゴリなし'];
 
@@ -51,58 +50,6 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
       appBar: AppBar(
         title: const Text('ガジェット管理'),
         actions: [
-          // 並び替え
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort, color: Colors.white),
-            tooltip: '並び替え',
-            onSelected: (val) => setState(() => _sortMode = val),
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'manual',
-                child: Row(children: [
-                  Icon(Icons.swap_vert, size: 18,
-                      color: _sortMode == 'manual' ? AppTheme.primaryColor : AppTheme.textSecondary),
-                  const SizedBox(width: 8),
-                  Text('手動', style: TextStyle(
-                    fontWeight: _sortMode == 'manual' ? FontWeight.bold : FontWeight.normal,
-                    color: _sortMode == 'manual' ? AppTheme.primaryColor : AppTheme.textPrimary)),
-                ]),
-              ),
-              PopupMenuItem(
-                value: 'category',
-                child: Row(children: [
-                  Icon(Icons.label_outlined, size: 18,
-                      color: _sortMode == 'category' ? AppTheme.primaryColor : AppTheme.textSecondary),
-                  const SizedBox(width: 8),
-                  Text('カテゴリ順', style: TextStyle(
-                    fontWeight: _sortMode == 'category' ? FontWeight.bold : FontWeight.normal,
-                    color: _sortMode == 'category' ? AppTheme.primaryColor : AppTheme.textPrimary)),
-                ]),
-              ),
-              PopupMenuItem(
-                value: 'name',
-                child: Row(children: [
-                  Icon(Icons.sort_by_alpha, size: 18,
-                      color: _sortMode == 'name' ? AppTheme.primaryColor : AppTheme.textSecondary),
-                  const SizedBox(width: 8),
-                  Text('名前順', style: TextStyle(
-                    fontWeight: _sortMode == 'name' ? FontWeight.bold : FontWeight.normal,
-                    color: _sortMode == 'name' ? AppTheme.primaryColor : AppTheme.textPrimary)),
-                ]),
-              ),
-              PopupMenuItem(
-                value: 'date',
-                child: Row(children: [
-                  Icon(Icons.access_time, size: 18,
-                      color: _sortMode == 'date' ? AppTheme.primaryColor : AppTheme.textSecondary),
-                  const SizedBox(width: 8),
-                  Text('登録日順', style: TextStyle(
-                    fontWeight: _sortMode == 'date' ? FontWeight.bold : FontWeight.normal,
-                    color: _sortMode == 'date' ? AppTheme.primaryColor : AppTheme.textPrimary)),
-                ]),
-              ),
-            ],
-          ),
           // 表示切り替え（リスト / グリッド）
           IconButton(
             icon: Icon(
@@ -146,24 +93,21 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                   return _buildEmptyState();
                 }
 
-                // ソート適用
-                _sortGadgets(gadgets);
+                // sortOrder順にソート
+                gadgets.sort((a, b) {
+                  final orderA = (a['sortOrder'] as num?) ?? 999999;
+                  final orderB = (b['sortOrder'] as num?) ?? 999999;
+                  return orderA.compareTo(orderB);
+                });
 
-                // 手動モード：sortOrder未設定の場合は初期化
-                if (_sortMode == 'manual') {
-                  final hasMissing = gadgets.any((g) => g['sortOrder'] == null);
-                  if (hasMissing) {
-                    _initSortOrders(gadgets);
-                  }
-                  return _buildManualSortView(gadgets);
+                // sortOrder未設定の場合は初期化
+                final hasMissing = gadgets.any((g) => g['sortOrder'] == null);
+                if (hasMissing) {
+                  _initSortOrders(gadgets);
                 }
 
                 if (_isGridView) {
                   return _buildGridView(gadgets);
-                }
-
-                if (_sortMode == 'category' && _filterCategory == 'すべて') {
-                  return _buildGroupedCardView(gadgets);
                 }
                 return _buildCardView(gadgets);
               },
@@ -185,49 +129,23 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     );
   }
 
-  void _sortGadgets(List<Map<String, dynamic>> gadgets) {
-    switch (_sortMode) {
-      case 'manual':
-        gadgets.sort((a, b) {
-          final orderA = (a['sortOrder'] as num?) ?? 999999;
-          final orderB = (b['sortOrder'] as num?) ?? 999999;
-          return orderA.compareTo(orderB);
-        });
-        break;
-      case 'name':
-        gadgets.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
-        break;
-      case 'category':
-        gadgets.sort((a, b) {
-          final catA = (a['category'] ?? 'カテゴリなし').toString();
-          final catB = (b['category'] ?? 'カテゴリなし').toString();
-          final catCmp = catA.compareTo(catB);
-          if (catCmp != 0) return catCmp;
-          return (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString());
-        });
-        break;
-      case 'date':
-      default:
-        // FirestoreからcreatedAt descで取得済み。そのまま。
-        break;
-    }
-  }
-
-  Future<void> _moveGadget(List<Map<String, dynamic>> gadgets, int fromIndex, int toIndex) async {
+  Future<void> _onReorder(List<Map<String, dynamic>> gadgets, int oldIndex, int newIndex) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    if (toIndex < 0 || toIndex >= gadgets.length) return;
+    if (oldIndex == newIndex) return;
+    // ReorderableListViewの仕様: 下に移動する場合newIndexが1大きい
+    if (newIndex > oldIndex) newIndex--;
 
     final col = FirebaseFirestore.instance.collection('users').doc(uid).collection('gadgets');
-    final fromId = gadgets[fromIndex]['id'] as String;
-    final toId = gadgets[toIndex]['id'] as String;
-    final fromOrder = (gadgets[fromIndex]['sortOrder'] as num?) ?? fromIndex;
-    final toOrder = (gadgets[toIndex]['sortOrder'] as num?) ?? toIndex;
-
-    // 2つのドキュメントのsortOrderを入れ替え
     final batch = FirebaseFirestore.instance.batch();
-    batch.update(col.doc(fromId), {'sortOrder': toOrder});
-    batch.update(col.doc(toId), {'sortOrder': fromOrder});
+
+    // リスト内で移動を反映して全アイテムのsortOrderを再設定
+    final item = gadgets.removeAt(oldIndex);
+    gadgets.insert(newIndex, item);
+
+    for (var i = 0; i < gadgets.length; i++) {
+      batch.update(col.doc(gadgets[i]['id'] as String), {'sortOrder': i});
+    }
     await batch.commit();
   }
 
@@ -339,193 +257,28 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     );
   }
 
-  // ── カテゴリグループ表示 ──
-  Widget _buildGroupedCardView(List<Map<String, dynamic>> gadgets) {
-    final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final g in gadgets) {
-      final cat = (g['category'] ?? 'カテゴリなし') as String;
-      grouped.putIfAbsent(cat, () => []).add(g);
-    }
-
-    final sortedKeys = grouped.keys.toList()
-      ..sort((a, b) {
-        if (a == 'カテゴリなし') return 1;
-        if (b == 'カテゴリなし') return -1;
-        return a.compareTo(b);
-      });
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: sortedKeys.length,
-      itemBuilder: (context, index) {
-        final category = sortedKeys[index];
-        final items = grouped[category]!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (index > 0) const SizedBox(height: 8),
-            // カテゴリヘッダー
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    category == 'カテゴリなし' ? Icons.label_off_outlined : Icons.label_outlined,
-                    size: 16, color: AppTheme.primaryColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(category,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                  const Spacer(),
-                  Text('${items.length}件',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...items.map((g) => _buildGadgetCard(g)),
-          ],
-        );
-      },
-    );
-  }
-
-  // ── カード表示 ──
+  // ── リスト表示（長押しドラッグで並び替え） ──
   Widget _buildCardView(List<Map<String, dynamic>> gadgets) {
-    return ListView.builder(
+    return ReorderableListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: gadgets.length,
+      onReorder: (oldIndex, newIndex) => _onReorder(gadgets, oldIndex, newIndex),
+      proxyDecorator: (child, index, animation) {
+        return Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.transparent,
+          child: child,
+        );
+      },
       itemBuilder: (context, index) {
         final g = gadgets[index];
-        return _buildGadgetCard(g);
+        return _buildGadgetCard(g, key: ValueKey(g['id']));
       },
     );
   }
 
-  // ── 手動並び替え表示 ──
-  Widget _buildManualSortView(List<Map<String, dynamic>> gadgets) {
-    return Column(
-      children: [
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(children: [
-            Icon(Icons.swap_vert, size: 16, color: AppTheme.primaryColor),
-            const SizedBox(width: 6),
-            Text('上下ボタンで並び替えできます',
-                style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w500)),
-          ]),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: gadgets.length,
-            itemBuilder: (context, index) {
-              final g = gadgets[index];
-              return _buildManualSortCard(g, gadgets, index);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildManualSortCard(Map<String, dynamic> g, List<Map<String, dynamic>> gadgets, int index) {
-    final imageUrl = g['imageUrl'] ?? '';
-    final name = g['name'] ?? '名前なし';
-    final category = g['category'] ?? 'カテゴリなし';
-    final isFirst = index == 0;
-    final isLast = index == gadgets.length - 1;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            // 順番表示
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text('${index + 1}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // 画像
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!),
-                color: Colors.grey[50],
-              ),
-              child: imageUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(7),
-                      child: CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.contain),
-                    )
-                  : const Icon(Icons.devices_other, size: 24, color: AppTheme.textHint),
-            ),
-            const SizedBox(width: 10),
-            // 名前 + カテゴリ
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                  if (category != 'カテゴリなし')
-                    Text(category, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                ],
-              ),
-            ),
-            // 上下ボタン
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _moveButton(Icons.keyboard_arrow_up, isFirst, () => _moveGadget(gadgets, index, index - 1)),
-                _moveButton(Icons.keyboard_arrow_down, isLast, () => _moveGadget(gadgets, index, index + 1)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _moveButton(IconData icon, bool disabled, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: disabled ? null : onTap,
-      child: Container(
-        width: 32,
-        height: 28,
-        decoration: BoxDecoration(
-          color: disabled ? Colors.grey[100] : AppTheme.primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(icon, size: 20,
-            color: disabled ? Colors.grey[300] : AppTheme.primaryColor),
-      ),
-    );
-  }
-
-  Widget _buildGadgetCard(Map<String, dynamic> g) {
+  Widget _buildGadgetCard(Map<String, dynamic> g, {Key? key}) {
     final imageUrl = g['imageUrl'] ?? '';
     final name = g['name'] ?? '名前なし';
     final category = g['category'] ?? 'カテゴリなし';
@@ -536,6 +289,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
     final hasRakuten = rakutenAffUrl.isNotEmpty;
 
     return Container(
+      key: key,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -549,6 +303,9 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
+              // ドラッグハンドル
+              Icon(Icons.drag_handle, size: 20, color: Colors.grey[350]),
+              const SizedBox(width: 8),
               // 画像
               Container(
                 width: 72,
