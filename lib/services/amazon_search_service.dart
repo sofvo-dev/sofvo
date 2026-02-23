@@ -94,6 +94,22 @@ class AmazonSearchService {
     return null;
   }
 
+  /// ASINからリアルタイム価格を取得
+  static Future<String?> fetchPrice(String asin) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/amazonProduct')
+          .replace(queryParameters: {'asin': asin});
+      final response = await http.get(uri).timeout(
+        const Duration(seconds: 10),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['price'] as String?;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Amazon URLから商品情報を取得（Cloud Functions経由）
   static Future<AmazonProduct?> fetchProductByUrl(String url) async {
     final asin = extractAsin(url);
