@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_theme.dart';
 import 'gadget_register_screen.dart';
 
@@ -619,7 +620,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
-                  icon: const Icon(Icons.shopping_cart, size: 18),
+                  icon: const FaIcon(FontAwesomeIcons.amazon, size: 18),
                   label: const Text('Amazonで見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF9900),
@@ -635,7 +636,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
-                  icon: const Icon(Icons.shopping_bag, size: 18),
+                  icon: const Text('R', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, fontStyle: FontStyle.italic)),
                   label: const Text('楽天で見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFBF0000),
