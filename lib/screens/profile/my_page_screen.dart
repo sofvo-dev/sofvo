@@ -677,15 +677,20 @@ class _GadgetCardsRow extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users').doc(userId).collection('gadgets')
-          .orderBy('createdAt', descending: true)
-          .limit(10)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
-        final gadgets = snapshot.data?.docs ?? [];
+        final gadgets = (snapshot.data?.docs ?? []).toList()
+          ..sort((a, b) {
+            final dataA = a.data() as Map<String, dynamic>;
+            final dataB = b.data() as Map<String, dynamic>;
+            final orderA = (dataA['sortOrder'] as num?) ?? 999999;
+            final orderB = (dataB['sortOrder'] as num?) ?? 999999;
+            return orderA.compareTo(orderB);
+          });
 
         if (gadgets.isEmpty) {
           return SizedBox(
