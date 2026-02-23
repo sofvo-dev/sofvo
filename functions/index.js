@@ -683,7 +683,7 @@ async function doSyncVenuesToSheet() {
       v.station || "",
       v.courts || 0,
       v.parking || 0,
-      v.toilets || 0,
+      v.hasToilet ? "あり" : "なし",
       v.hasChangeRoom ? "あり" : "なし",
       v.hasShower ? "あり" : "なし",
       v.hasGallery ? "あり" : "なし",
@@ -877,8 +877,8 @@ exports.onVenueWrite = functions.firestore
       const before = change.before.data();
       const after = change.after.data();
       const strFields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee"];
-      const numFields = ["courts", "parking", "toilets"];
-      const boolFields = ["hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+      const numFields = ["courts", "parking"];
+      const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
       const strChanged = strFields.some((f) => (before[f] || "") !== (after[f] || ""));
       const numChanged = numFields.some((f) => (before[f] || 0) !== (after[f] || 0));
       const boolChanged = boolFields.some((f) => !!before[f] !== !!after[f]);
@@ -906,11 +906,11 @@ function isVenueDataEqual(existing, sheetData) {
   for (const f of fields) {
     if ((existing[f] || "") !== (sheetData[f] || "")) return false;
   }
-  const numFields = ["courts", "parking", "toilets"];
+  const numFields = ["courts", "parking"];
   for (const f of numFields) {
     if ((existing[f] || 0) !== (sheetData[f] || 0)) return false;
   }
-  const boolFields = ["hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+  const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
   for (const f of boolFields) {
     if (!!existing[f] !== !!sheetData[f]) return false;
   }
@@ -940,7 +940,7 @@ async function doImportVenues() {
       station: row[4] || "",
       courts: parseInt(row[5]) || 0,
       parking: parseInt(row[6]) || 0,
-      toilets: parseInt(row[7]) || 0,
+      hasToilet: (row[7] || "").trim() === "あり",
       hasChangeRoom: (row[8] || "").trim() === "あり",
       hasShower: (row[9] || "").trim() === "あり",
       hasGallery: (row[10] || "").trim() === "あり",
