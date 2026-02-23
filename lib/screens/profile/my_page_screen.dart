@@ -858,7 +858,7 @@ class _GadgetCardsRow extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () => launchUrl(Uri.parse(amazonAffUrl), mode: LaunchMode.externalApplication),
-                  icon: const FaIcon(FontAwesomeIcons.amazon, size: 18),
+                  icon: const FaIcon(FontAwesomeIcons.amazon, size: 18, color: Colors.white),
                   label: const Text('Amazonで見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF9900),
