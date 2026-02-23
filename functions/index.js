@@ -617,6 +617,7 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
     for (const userDoc of usersSnap.docs) {
       const userData = userDoc.data();
       const nickname = userData.nickname || "不明";
+      const searchId = userData.searchId || userDoc.id;
       const gadgetsSnap = await userDoc.ref.collection("gadgets")
         .orderBy("createdAt", "desc").get();
 
@@ -624,7 +625,7 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
         const g = gDoc.data();
         allGadgets.push([
           gDoc.id,
-          userDoc.id,
+          searchId,
           nickname,
           g.name || "",
           g.category || "カテゴリなし",
@@ -945,11 +946,25 @@ async function doImportGadgets() {
   let updated = 0;
   let skipped = 0;
 
+  // searchId → Firebase UID のマッピングを事前に構築
+  const usersSnap = await db.collection("users").get();
+  const searchIdToUid = {};
+  for (const uDoc of usersSnap.docs) {
+    const sId = (uDoc.data().searchId || "").trim();
+    if (sId) searchIdToUid[sId] = uDoc.id;
+    // Firebase UID でも引けるようにフォールバック
+    searchIdToUid[uDoc.id] = uDoc.id;
+  }
+
   for (const row of dataRows) {
     const gadgetId = (row[0] || "").trim();
-    const userId = (row[1] || "").trim();
+    const userIdOrSearchId = (row[1] || "").trim();
     const name = (row[3] || "").trim();
-    if (!userId || !name) { skipped++; continue; }
+    if (!userIdOrSearchId || !name) { skipped++; continue; }
+
+    // searchId または Firebase UID からユーザーを解決
+    const resolvedUid = searchIdToUid[userIdOrSearchId];
+    if (!resolvedUid) { skipped++; continue; }
 
     const gadgetData = {
       name,
@@ -961,9 +976,7 @@ async function doImportGadgets() {
       memo: row[9] || "",
     };
 
-    const userRef = db.collection("users").doc(userId);
-    const userDoc = await userRef.get();
-    if (!userDoc.exists) { skipped++; continue; }
+    const userRef = db.collection("users").doc(resolvedUid);
 
     if (gadgetId) {
       const existing = await userRef.collection("gadgets").doc(gadgetId).get();
