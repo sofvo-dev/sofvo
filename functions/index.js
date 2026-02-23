@@ -807,6 +807,33 @@ exports.onGadgetWrite = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Firestore トリガー: ユーザープロフィール変更時にガジェットシート再同期
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.onUserWrite = functions.firestore
+  .document("users/{userId}")
+  .onWrite(async (change) => {
+    // searchId または nickname が変わった場合のみシート再同期
+    if (change.before.exists && change.after.exists) {
+      const before = change.before.data();
+      const after = change.after.data();
+      if ((before.searchId || "") === (after.searchId || "") &&
+          (before.nickname || "") === (after.nickname || "")) {
+        return;
+      }
+    }
+    try {
+      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+      const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncGadgetsToSheet`;
+      const ac = new AbortController();
+      const tid = setTimeout(() => ac.abort(), 30000);
+      await fetch(syncUrl, { method: "POST", signal: ac.signal }).finally(() => clearTimeout(tid));
+    } catch (e) {
+      console.warn("Auto user-profile gadget sync failed (non-critical):", e.message);
+    }
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Firestore トリガー: 会場変更時に自動同期
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
