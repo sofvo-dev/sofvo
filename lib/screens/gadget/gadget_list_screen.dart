@@ -170,12 +170,11 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
   }
 
   Stream<QuerySnapshot> _buildQuery(String uid) {
-    // カテゴリフィルタはクライアント側で適用（複合インデックス不要）
+    // orderByなし：sortOrderはクライアント側でソート、全ドキュメントを取得
     return FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection('gadgets')
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
