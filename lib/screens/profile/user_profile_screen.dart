@@ -640,8 +640,6 @@ class _TournamentCardsRow extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('tournaments')
           .where('organizerId', isEqualTo: userId)
-          .orderBy('date', descending: true)
-          .limit(10)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -651,10 +649,19 @@ class _TournamentCardsRow extends StatelessWidget {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
+        // 終了した大会のみクライアント側でフィルタ＆日付降順ソート
         final tournaments = (snapshot.data?.docs ?? []).where((doc) {
           final d = doc.data() as Map<String, dynamic>;
           return d['status'] == '終了';
-        }).toList();
+        }).toList()
+          ..sort((a, b) {
+            final da = ((a.data() as Map<String, dynamic>)['date'] ?? '') as String;
+            final db = ((b.data() as Map<String, dynamic>)['date'] ?? '') as String;
+            return db.compareTo(da);
+          });
+        if (tournaments.length > 10) {
+          tournaments.removeRange(10, tournaments.length);
+        }
 
         if (tournaments.isEmpty) {
           return _buildEmptyCard('まだ大会結果がありません', Icons.emoji_events_outlined);
