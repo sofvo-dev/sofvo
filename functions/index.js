@@ -639,20 +639,24 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
       }
     }
 
-    // シートをクリアしてヘッダー＋データを書き込む
     const sheetName = "ガジェット一覧";
-    const clearRes = await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A:K`);
-    if (!clearRes.ok) {
-      // シートがない場合は作成
-      await sheetsAddSheet(GADGET_SHEET_ID, sheetName);
-    }
-
     const values = [
       ["ガジェットID", "ユーザーID", "ユーザー", "商品名", "カテゴリ", "Amazon URL", "Amazon Affiliate URL", "楽天 Affiliate URL", "画像URL", "メモ", "登録日"],
       ...allGadgets,
     ];
 
-    await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
+    // 先にデータを書き込み、その後に余分な行だけクリア
+    // （書き込み失敗時にデータが消えるのを防止）
+    try {
+      await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
+    } catch (e) {
+      // シートが存在しない場合は作成してリトライ
+      await sheetsAddSheet(GADGET_SHEET_ID, sheetName);
+      await sheetsUpdate(GADGET_SHEET_ID, `${sheetName}!A1`, values);
+    }
+    // 書き込み成功後、新データより下の古い行をクリア
+    const nextRow = values.length + 1;
+    await sheetsClear(GADGET_SHEET_ID, `${sheetName}!A${nextRow}:K10000`);
 
     res.json({ success: true, count: allGadgets.length });
   } catch (e) {
@@ -702,11 +706,6 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
     });
 
     const sheetName = "会場一覧";
-    const clearRes = await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A:T`);
-    if (!clearRes.ok) {
-      await sheetsAddSheet(VENUE_SHEET_ID, sheetName);
-    }
-
     const values = [
       ["会場ID", "会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
        "更衣室", "シャワー", "観覧席", "空調", "飲食エリア",
@@ -714,7 +713,18 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
       ...venueRows,
     ];
 
-    await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
+    // 先にデータを書き込み、その後に余分な行だけクリア
+    // （書き込み失敗時にデータが消えるのを防止）
+    try {
+      await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
+    } catch (e) {
+      // シートが存在しない場合は作成してリトライ
+      await sheetsAddSheet(VENUE_SHEET_ID, sheetName);
+      await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
+    }
+    // 書き込み成功後、新データより下の古い行をクリア
+    const nextRow = values.length + 1;
+    await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A${nextRow}:T10000`);
 
     res.json({ success: true, count: venueRows.length });
   } catch (e) {
