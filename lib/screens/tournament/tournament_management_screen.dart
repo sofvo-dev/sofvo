@@ -511,7 +511,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     final tpc = (maxTeams / actualCourts).ceil();
                     final matchesPerCourt = tpc * (tpc - 1) ~/ 2;
                     final prelimRounds = (tournamentRules?['preliminary'] as Map<String, dynamic>?)?['rounds'] ?? 1;
-                    const minutesPerMatch = 20;
+                    const minutesPerMatch = 10;
                     final totalPrelimMinutes = matchesPerCourt * minutesPerMatch * (prelimRounds as int);
                     final parts = matchStartTime.split(':');
                     final startH = int.tryParse(parts[0]) ?? 9;
@@ -835,7 +835,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     final tpc = (maxTeams / actualCourts).ceil();
                     final matchesPerCourt = tpc * (tpc - 1) ~/ 2;
                     final prelimRoundsVal = (tournamentRules?['preliminary'] as Map<String, dynamic>?)?['rounds'] ?? 1;
-                    const minutesPerMatch = 20;
+                    const minutesPerMatch = 10;
                     final totalPrelimMinutes = matchesPerCourt * minutesPerMatch * (prelimRoundsVal as int);
                     final msParts = matchStartTime.split(':');
                     final startH = int.tryParse(msParts[0]) ?? 9;
