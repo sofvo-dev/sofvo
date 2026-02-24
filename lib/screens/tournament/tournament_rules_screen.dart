@@ -172,16 +172,15 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     // 1コート内の総当たり試合数 = n*(n-1)/2
     final matchesPerCourt = actualTeamsPerCourt * (actualTeamsPerCourt - 1) ~/ 2;
 
-    // 1試合の所要時間（分）: セット時間 + コートチェンジ等
-    // 1セット約8分想定
-    // 1セットマッチ = 8分, 2セットマッチ(必ず2セット) = 16分, 2セット先取(2〜3セット) = 平均20分
+    // 1試合の所要時間（分）: 1セット10分 + コートチェンジ等
+    // 1セットマッチ = 10分, 2セットマッチ(必ず2セット) = 20分, 2セット先取(2〜3セット) = 平均25分
     const matchOverhead = 3; // コートチェンジ・審判交代
-    final prelimMatchMin = (_prelimSets == 1 ? 8 : (_prelimSets == 2 ? 16 : 20)) + matchOverhead;
+    final prelimMatchMin = (_prelimSets == 1 ? 10 : (_prelimSets == 2 ? 20 : 25)) + matchOverhead;
     final totalPrelimTime = matchesPerCourt * prelimMatchMin * _prelimRounds;
 
     // 決勝トーナメントの試合数
     // 決勝の2セット先取はフルセットになりやすいので長めに見積もる
-    final finalMatchMin = (_finalSets == 2 ? 16 : 24) + matchOverhead;
+    final finalMatchMin = (_finalSets == 2 ? 20 : 30) + matchOverhead;
     int finalMatches = 0;
     if (_hasFinal) {
       if (_finalFormat == '順位別複数') {
@@ -505,8 +504,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           // ── Preliminary ──
           _collapsibleSection('予選ルール', Icons.sports_volleyball, _prelimColor, _prelimOpen, (v) => setState(() => _prelimOpen = v), [
             _choiceRow('予選ラウンド数', [1, 2], _prelimRounds, (v) => setState(() => _prelimRounds = v), _prelimColor),
-            _choiceRow('セット数', [1, 2, 3], _prelimSets, (v) => setState(() => _prelimSets = v), _prelimColor,
-                labels: {1: '1セットマッチ', 2: '2セットマッチ', 3: '2セット先取'}),
+            _setFormatSelector([1, 2, 3], _prelimSets, (v) => setState(() => _prelimSets = v), _prelimColor),
             _switchRow('ジュース（17点キャップ）', _prelimDeuce, (v) => setState(() { _prelimDeuce = v; if (v) _prelimDeuceCap = 17; }), _prelimColor),
           ]),
           const SizedBox(height: 12),
@@ -547,8 +545,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
               _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,
                 _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
               const SizedBox(height: 12),
-              _choiceRow('セット数', [2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor,
-                  labels: {2: '2セットマッチ', 3: '2セット先取'}),
+              _setFormatSelector([2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor),
               _switchRow('ジュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
               _switchRow('3位決定戦', _thirdPlace, (v) => setState(() => _thirdPlace = v), _finalColor),
               _switchRow('敗者復活戦', _loserRevival, (v) => setState(() => _loserRevival = v), _finalColor),
@@ -615,6 +612,42 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
         ),
+      ]),
+    );
+  }
+
+  static const _setFormats = <int, Map<String, String>>{
+    1: {'title': '1セットマッチ', 'sub': '1セットのみ'},
+    2: {'title': '2セットマッチ', 'sub': '必ず2セット'},
+    3: {'title': '2セット先取', 'sub': '最大3セット'},
+  };
+
+  Widget _setFormatSelector(List<int> options, int selected, ValueChanged<int> onChanged, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('セット数', style: TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+        const SizedBox(height: 8),
+        Row(children: options.map((o) {
+          final sel = o == selected;
+          final fmt = _setFormats[o]!;
+          return Expanded(child: GestureDetector(
+            onTap: () => onChanged(o),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: sel ? color : Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(fmt['title']!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: sel ? Colors.white : AppTheme.textPrimary)),
+                const SizedBox(height: 2),
+                Text(fmt['sub']!, style: TextStyle(fontSize: 10, color: sel ? Colors.white70 : AppTheme.textSecondary)),
+              ]),
+            ),
+          ));
+        }).toList()),
       ]),
     );
   }
