@@ -207,9 +207,12 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       'totalTeams': totalTeams,
       'actualTeamsPerCourt': actualTeamsPerCourt,
       'matchesPerCourt': matchesPerCourt * _prelimRounds,
+      'totalMatches': matchesPerCourt * _prelimRounds * courts,
       'prelimMinutes': totalPrelimTime,
       'finalMatches': finalMatches,
       'finalMinutes': totalFinalTime,
+      'lunchMinutes': lunchMin,
+      'overheadMinutes': overheadMin,
       'totalMinutes': totalMinutes,
       'availableMinutes': availableMinutes,
       'fits': fits,
@@ -224,18 +227,152 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     } catch (_) { return null; }
   }
 
-  String _suggestRuleText() {
-    final s = _calcSuggestion();
+  Widget _buildSchedulePredictionCard(Map<String, dynamic> s, bool fits) {
+    final courts = s['courts'] as int;
+    final totalTeams = s['totalTeams'] as int;
+    final teamsPerCourt = s['actualTeamsPerCourt'] as int;
+    final matchesPerCourt = s['matchesPerCourt'] as int;
+    final totalMatches = s['totalMatches'] as int;
+    final prelimMin = s['prelimMinutes'] as int;
+    final finalMatches = s['finalMatches'] as int;
+    final finalMin = s['finalMinutes'] as int;
+    final lunchMin = s['lunchMinutes'] as int;
+    final overheadMin = s['overheadMinutes'] as int;
+    final totalMin = s['totalMinutes'] as int;
+    final availableMin = s['availableMinutes'] as int;
     final hours = (s['hours'] as double).toStringAsFixed(1);
-    final teamLine = '${s['totalTeams']}チーム → ${s['courts']}コート（${s['actualTeamsPerCourt']}チーム/コート）';
-    final prelimLine = '予選: ${s['matchesPerCourt']}試合/コート（約${s['prelimMinutes']}分）';
-    final finalLine = _hasFinal ? '\n決勝: ${s['finalMatches']}試合（約${s['finalMinutes']}分）' : '';
-    final timeLine = '予想合計: 約${s['totalMinutes']}分 / 利用可能: ${hours}h（${s['availableMinutes']}分）';
-    if (s['fits'] == true) {
-      return '$teamLine\n$prelimLine$finalLine\n$timeLine\n✅ 時間内に収まります';
-    } else {
-      return '$teamLine\n$prelimLine$finalLine\n$timeLine\n⚠️ 時間超過の可能性あり → セット数を減らすか昼休憩を短縮';
-    }
+    final progressRatio = availableMin > 0 ? (totalMin / availableMin).clamp(0.0, 1.5) : 0.0;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [_suggestColor.withValues(alpha: 0.08), _suggestColor.withValues(alpha: 0.03)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _suggestColor.withValues(alpha: 0.25)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: _suggestColor.withValues(alpha: 0.1),
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+          ),
+          child: Row(children: [
+            Icon(Icons.auto_awesome, color: _suggestColor, size: 20),
+            const SizedBox(width: 8),
+            Text('スケジュール予測', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _suggestColor)),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: fits ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(fits ? '余裕あり' : '時間超過', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+          ]),
+        ),
+
+        Padding(padding: const EdgeInsets.fromLTRB(16, 14, 16, 0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          // Team / Court summary row
+          Row(children: [
+            Expanded(child: _predictionTile(Icons.groups, '$totalTeams', 'チーム')),
+            Container(width: 1, height: 32, color: Colors.grey.withValues(alpha: 0.2)),
+            Expanded(child: _predictionTile(Icons.sports_volleyball, '$courts', 'コート')),
+            Container(width: 1, height: 32, color: Colors.grey.withValues(alpha: 0.2)),
+            Expanded(child: _predictionTile(Icons.grid_view, '$teamsPerCourt', 'チーム/コート')),
+          ]),
+          const SizedBox(height: 14),
+
+          // Time breakdown
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(10)),
+            child: Column(children: [
+              _timeBreakdownRow('予選リーグ', '$matchesPerCourt試合/コート × $courts面', '${prelimMin}分'),
+              if (_hasFinal) ...[
+                const SizedBox(height: 6),
+                _timeBreakdownRow('決勝', '$finalMatches試合', '${finalMin}分'),
+              ],
+              if (lunchMin > 0) ...[
+                const SizedBox(height: 6),
+                _timeBreakdownRow('昼休憩', '', '${lunchMin}分'),
+              ],
+              const SizedBox(height: 6),
+              _timeBreakdownRow('開閉会式等', '', '${overheadMin}分'),
+              const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1)),
+              Row(children: [
+                const Text('合計', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text('${totalMin}分', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: fits ? const Color(0xFF4CAF50) : const Color(0xFFFF9800))),
+              ]),
+            ]),
+          ),
+          const SizedBox(height: 12),
+
+          // Progress bar
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text('利用可能: ${hours}h（${availableMin}分）', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              const Spacer(),
+              Text(
+                fits ? '${availableMin - totalMin}分の余裕' : '${totalMin - availableMin}分オーバー',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: fits ? const Color(0xFF4CAF50) : const Color(0xFFFF9800)),
+              ),
+            ]),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progressRatio.toDouble(),
+                minHeight: 8,
+                backgroundColor: Colors.grey.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation(fits ? const Color(0xFF4CAF50) : const Color(0xFFFF9800)),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 14),
+
+          // Apply button
+          SizedBox(width: double.infinity, child: OutlinedButton.icon(
+            onPressed: _applyAutoSuggestion,
+            icon: Icon(Icons.auto_fix_high, size: 18, color: _suggestColor),
+            label: Text('おすすめルールを適用', style: TextStyle(color: _suggestColor, fontWeight: FontWeight.w600)),
+            style: OutlinedButton.styleFrom(side: BorderSide(color: _suggestColor), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          )),
+          const SizedBox(height: 14),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _predictionTile(IconData icon, String value, String label) {
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 16, color: AppTheme.textSecondary),
+        const SizedBox(width: 4),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      ]),
+      const SizedBox(height: 2),
+      Text(label, style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+    ]);
+  }
+
+  Widget _timeBreakdownRow(String label, String detail, String time) {
+    return Row(children: [
+      Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+      if (detail.isNotEmpty) ...[
+        const SizedBox(width: 6),
+        Text(detail, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+      ],
+      const Spacer(),
+      Text(time, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+    ]);
   }
 
   void _applyAutoSuggestion() {
@@ -331,7 +468,6 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final suggestion = _suggestRuleText();
     final calc = _calcSuggestion();
     final fits = calc['fits'] as bool;
 
@@ -362,31 +498,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
           // ── Auto Suggest Card ──
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [_suggestColor.withValues(alpha:0.1), _suggestColor.withValues(alpha:0.05)]),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _suggestColor.withValues(alpha:0.3)),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(Icons.auto_awesome, color: _suggestColor, size: 20),
-                const SizedBox(width: 8),
-                Text('スケジュール予測', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _suggestColor)),
-              ]),
-              const SizedBox(height: 10),
-              Text(suggestion, style: TextStyle(fontSize: 13, color: fits ? AppTheme.textPrimary : Colors.orange[800], height: 1.5)),
-              const SizedBox(height: 12),
-              SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                onPressed: _applyAutoSuggestion,
-                icon: Icon(Icons.auto_fix_high, size: 18, color: _suggestColor),
-                label: Text('おすすめルールを適用', style: TextStyle(color: _suggestColor, fontWeight: FontWeight.w600)),
-                style: OutlinedButton.styleFrom(side: BorderSide(color: _suggestColor), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              )),
-            ]),
-          ),
+          _buildSchedulePredictionCard(calc, fits),
           const SizedBox(height: 16),
 
           // ── Teams per court ──
