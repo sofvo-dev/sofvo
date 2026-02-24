@@ -174,13 +174,13 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
 
     // 1試合の所要時間（分）: セット時間 + コートチェンジ等
     // 1セット約8分想定
-    // 1セットマッチ = 8分, 2セットマッチ = 16分, 3セットマッチ(2セット先取) = 平均20分(2〜3セット)
+    // 1セットマッチ = 8分, 2セットマッチ(必ず2セット) = 16分, 2セット先取(2〜3セット) = 平均20分
     const matchOverhead = 3; // コートチェンジ・審判交代
     final prelimMatchMin = (_prelimSets == 1 ? 8 : (_prelimSets == 2 ? 16 : 20)) + matchOverhead;
     final totalPrelimTime = matchesPerCourt * prelimMatchMin * _prelimRounds;
 
     // 決勝トーナメントの試合数
-    // 決勝は3セットマッチだとフルセットになりやすいので長めに見積もる
+    // 決勝の2セット先取はフルセットになりやすいので長めに見積もる
     final finalMatchMin = (_finalSets == 2 ? 16 : 24) + matchOverhead;
     int finalMatches = 0;
     if (_hasFinal) {
@@ -433,7 +433,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     final r = rules as Map<String, dynamic>;
     final p = r['preliminary'] as Map<String, dynamic>? ?? {};
     final f = r['final'] as Map<String, dynamic>? ?? {};
-    return '予選${p['sets'] ?? 2}セット / 決勝${f['enabled'] == true ? '${f['sets'] ?? 3}セット' : 'なし'}';
+    String setLabel(int sets) => sets == 1 ? '1セットマッチ' : (sets == 2 ? '2セットマッチ' : '2セット先取');
+    return '予選: ${setLabel((p['sets'] ?? 2) as int)} / 決勝: ${f['enabled'] == true ? setLabel((f['sets'] ?? 3) as int) : 'なし'}';
   }
 
   @override
@@ -505,7 +506,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           _collapsibleSection('予選ルール', Icons.sports_volleyball, _prelimColor, _prelimOpen, (v) => setState(() => _prelimOpen = v), [
             _choiceRow('予選ラウンド数', [1, 2], _prelimRounds, (v) => setState(() => _prelimRounds = v), _prelimColor),
             _choiceRow('セット数', [1, 2, 3], _prelimSets, (v) => setState(() => _prelimSets = v), _prelimColor,
-                labels: {1: '1セットマッチ', 2: '2セットマッチ', 3: '3セットマッチ'}),
+                labels: {1: '1セットマッチ', 2: '2セットマッチ', 3: '2セット先取'}),
             _switchRow('ジュース（17点キャップ）', _prelimDeuce, (v) => setState(() { _prelimDeuce = v; if (v) _prelimDeuceCap = 17; }), _prelimColor),
           ]),
           const SizedBox(height: 12),
@@ -547,7 +548,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                 _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
               const SizedBox(height: 12),
               _choiceRow('セット数', [2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor,
-                  labels: {2: '2セットマッチ', 3: '3セットマッチ'}),
+                  labels: {2: '2セットマッチ', 3: '2セット先取'}),
               _switchRow('ジュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
               _switchRow('3位決定戦', _thirdPlace, (v) => setState(() => _thirdPlace = v), _finalColor),
               _switchRow('敗者復活戦', _loserRevival, (v) => setState(() => _loserRevival = v), _finalColor),
