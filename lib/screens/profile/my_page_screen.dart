@@ -93,7 +93,7 @@ class MyPageScreen extends StatelessWidget {
                   child: SafeArea(
                     bottom: false,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 8, 14),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
                       child: Column(
                         children: [
                           // ── トップバー ──
