@@ -97,13 +97,9 @@ class PdfGenerator {
           ])),
           if (scoring['enabled'] == true) ...[
             pw.SizedBox(width: 12),
-            pw.Expanded(flex: 4, child: _sectionCardCompact('\u52DD\u3061\u70B9\u5236', _gold, [
-              _scoringRow('2-0 \u52DD\u3061', '${scoring['win20'] ?? 10}\u70B9'),
-              _scoringRow('1-1 \u5F97\u5931\u5DEE\u52DD\u3061', '${scoring['win11'] ?? 7}\u70B9'),
-              _scoringRow('1-1 \u5F15\u304D\u5206\u3051', '${scoring['draw'] ?? 4}\u70B9'),
-              _scoringRow('1-1 \u5F97\u5931\u5DEE\u8CA0\u3051', '${scoring['lose11'] ?? 2}\u70B9'),
-              _scoringRow('0-2 \u8CA0\u3051', '${scoring['lose02'] ?? 0}\u70B9'),
-            ])),
+            pw.Expanded(flex: 4, child: _sectionCardCompact('\u52DD\u3061\u70B9\u5236', _gold,
+              _pdfScoringRows(preliminary['sets'] ?? 2, scoring),
+            )),
           ],
         ]),
         pw.Spacer(),
@@ -187,6 +183,31 @@ class PdfGenerator {
         pw.Text(label, style: pw.TextStyle(fontSize: 9, color: _textDark)),
       ]),
     );
+  }
+
+  List<pw.Widget> _pdfScoringRows(int sets, Map<String, dynamic> scoring) {
+    switch (sets) {
+      case 1:
+        return [
+          _scoringRow('\u52DD\u5229', '${scoring['win'] ?? 3}\u70B9'),
+          _scoringRow('\u6557\u5317', '${scoring['lose'] ?? 0}\u70B9'),
+        ];
+      case 3:
+        return [
+          _scoringRow('2-0 \u52DD\u3061', '${scoring['win20'] ?? 10}\u70B9'),
+          _scoringRow('2-1 \u52DD\u3061', '${scoring['win21'] ?? 7}\u70B9'),
+          _scoringRow('1-2 \u8CA0\u3051', '${scoring['lose12'] ?? 2}\u70B9'),
+          _scoringRow('0-2 \u8CA0\u3051', '${scoring['lose02'] ?? 0}\u70B9'),
+        ];
+      default:
+        return [
+          _scoringRow('2-0 \u52DD\u3061', '${scoring['win20'] ?? 10}\u70B9'),
+          _scoringRow('1-1 \u5F97\u5931\u5DEE\u52DD\u3061', '${scoring['win11'] ?? 7}\u70B9'),
+          _scoringRow('1-1 \u5F15\u304D\u5206\u3051', '${scoring['draw'] ?? 4}\u70B9'),
+          _scoringRow('1-1 \u5F97\u5931\u5DEE\u8CA0\u3051', '${scoring['lose11'] ?? 2}\u70B9'),
+          _scoringRow('0-2 \u8CA0\u3051', '${scoring['lose02'] ?? 0}\u70B9'),
+        ];
+    }
   }
 
   pw.Widget _scoringRow(String label, String pts) {

@@ -488,25 +488,38 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               child: Column(children: [
                 _buildInfoRow(Icons.sports_volleyball, '試合形式', '15点先取'),
                 _buildDivider(),
-                _buildInfoRow(Icons.repeat, '予選', '${livePrelim['sets'] ?? 2}セットマッチ'),
+                _buildInfoRow(Icons.repeat, '予選R1', _setFormatDisplayLabel(livePrelim['sets'] ?? 2)),
                 _buildDivider(),
-                _buildInfoRow(Icons.swap_vert, 'ジュース', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
-                if (liveScoring.isNotEmpty) ...[
+                _buildInfoRow(Icons.swap_vert, 'デュースR1', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                if ((livePrelim['rounds'] ?? 1) == 2 && livePrelim['round2'] != null) ...[
+                  _buildDivider(),
+                  _buildInfoRow(Icons.repeat, '予選R2', _setFormatDisplayLabel((livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2)),
+                  _buildDivider(),
+                  _buildInfoRow(Icons.swap_vert, 'デュースR2', ((livePrelim['round2'] as Map<String, dynamic>?)?['deuce'] ?? false) ? 'あり（${(livePrelim['round2'] as Map<String, dynamic>?)?['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                ],
+                if (liveScoring.isNotEmpty && (liveScoring['enabled'] ?? true)) ...[
                   _buildDivider(),
                   _buildInfoRow(Icons.emoji_events, '勝ち点制', 'あり'),
-                  if (liveScoring['win20'] != null) ...[
-                    _buildDivider(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        _buildPointRow('2-0 勝ち', liveScoring['win20']),
-                        _buildPointRow('1-1 得失差勝ち', liveScoring['win11']),
-                        _buildPointRow('1-1 引き分け', liveScoring['draw']),
-                        _buildPointRow('1-1 得失差負け', liveScoring['lose11']),
-                        _buildPointRow('0-2 負け', liveScoring['lose02']),
-                      ]),
-                    ),
-                  ],
+                  _buildDivider(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      if ((livePrelim['rounds'] ?? 1) == 2) ...[
+                        Padding(padding: const EdgeInsets.only(bottom: 4),
+                          child: Text('ラウンド1', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                      ],
+                      ..._buildScoringRowsForFormat(livePrelim['sets'] ?? 2, liveScoring),
+                      if ((livePrelim['rounds'] ?? 1) == 2 && liveScoring['round2'] != null) ...[
+                        const SizedBox(height: 8),
+                        Padding(padding: const EdgeInsets.only(bottom: 4),
+                          child: Text('ラウンド2', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                        ..._buildScoringRowsForFormat(
+                          (livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2,
+                          liveScoring['round2'] as Map<String, dynamic>? ?? liveScoring,
+                        ),
+                      ],
+                    ]),
+                  ),
                 ],
                 if ((liveFinal['enabled'] ?? false) == true) ...[
                   _buildDivider(),
@@ -727,6 +740,39 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         Text('${points ?? 0}点', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
       ]),
     );
+  }
+
+  static String _setFormatDisplayLabel(int sets) {
+    switch (sets) {
+      case 1: return '1セットマッチ';
+      case 3: return '2セット先取';
+      default: return '2セットマッチ';
+    }
+  }
+
+  List<Widget> _buildScoringRowsForFormat(int sets, Map<String, dynamic> scoring) {
+    switch (sets) {
+      case 1:
+        return [
+          _buildPointRow('勝利', scoring['win'] ?? 3),
+          _buildPointRow('敗北', scoring['lose'] ?? 0),
+        ];
+      case 3:
+        return [
+          _buildPointRow('2-0 勝ち', scoring['win20'] ?? 10),
+          _buildPointRow('2-1 勝ち', scoring['win21'] ?? 7),
+          _buildPointRow('1-2 負け', scoring['lose12'] ?? 2),
+          _buildPointRow('0-2 負け', scoring['lose02'] ?? 0),
+        ];
+      default:
+        return [
+          _buildPointRow('2-0 勝ち', scoring['win20'] ?? 10),
+          _buildPointRow('1-1 得失差勝ち', scoring['win11'] ?? 7),
+          _buildPointRow('1-1 引き分け', scoring['draw'] ?? 4),
+          _buildPointRow('1-1 得失差負け', scoring['lose11'] ?? 2),
+          _buildPointRow('0-2 負け', scoring['lose02'] ?? 0),
+        ];
+    }
   }
 
   Widget _buildFlowStep(int step, String label, bool isCurrent, bool isCompleted, {bool isLast = false}) {
