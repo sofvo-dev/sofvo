@@ -120,9 +120,10 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     final o = r['other'] as Map<String, dynamic>? ?? {};
     final m = r['management'] as Map<String, dynamic>? ?? {};
     setState(() {
-      _courtCount = m['courtCount'] ?? widget.courtCount ?? 2;
-      _maxTeams = m['maxTeams'] ?? widget.maxTeams ?? 8;
-      _entryFee = m['entryFee'] ?? 3000;
+      // widget params (from creation screen) always take priority over saved rules
+      _courtCount = widget.courtCount ?? m['courtCount'] ?? 2;
+      _maxTeams = widget.maxTeams ?? m['maxTeams'] ?? 8;
+      _entryFee = widget.entryFee ?? m['entryFee'] ?? 3000;
       _prelimRounds = p['rounds'] ?? 1;
 
       if (_prelimRounds == 2 && p['round1'] != null) {
