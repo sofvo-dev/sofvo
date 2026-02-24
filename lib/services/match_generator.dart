@@ -229,6 +229,45 @@ class MatchGenerator {
     }
     return matches;
   }
+  /// Resolve scoring config for a specific round
+  /// Handles both per-round (round1/round2 sub-objects) and flat scoring formats
+  Map<String, dynamic> _resolveRoundScoring(Map<String, dynamic> rules, int roundNumber) {
+    final scoring = rules['scoring'] as Map<String, dynamic>? ?? {};
+    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
+    final rounds = preliminary['rounds'] ?? 1;
+
+    // Check for per-round scoring
+    if (rounds == 2) {
+      final roundKey = 'round$roundNumber';
+      final roundScoring = scoring[roundKey] as Map<String, dynamic>?;
+      if (roundScoring != null) return roundScoring;
+    }
+
+    // Flat scoring (backwards compatible)
+    return scoring;
+  }
+
+  /// Resolve preliminary config for a specific round
+  Map<String, dynamic> _resolveRoundPreliminary(Map<String, dynamic> rules, int roundNumber) {
+    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
+    final rounds = preliminary['rounds'] ?? 1;
+
+    if (rounds == 2) {
+      final roundKey = 'round$roundNumber';
+      final roundPrelim = preliminary[roundKey] as Map<String, dynamic>?;
+      if (roundPrelim != null) return roundPrelim;
+    }
+
+    // Flat format (backwards compatible)
+    return preliminary;
+  }
+
+  /// Determine set format for a round (1=1セットマッチ, 2=2セットマッチ, 3=2セット先取)
+  int _getSetFormat(Map<String, dynamic> rules, int roundNumber) {
+    final roundPrelim = _resolveRoundPreliminary(rules, roundNumber);
+    return roundPrelim['sets'] ?? 2;
+  }
+
   Future<void> updateStandings({
     required String tournamentId,
     required int roundNumber,
@@ -240,13 +279,12 @@ class MatchGenerator {
     // Get tournament rules for scoring
     final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
     final rules = tournDoc.data()?['rules'] as Map<String, dynamic>? ?? {};
-    final scoring = rules['scoring'] as Map<String, dynamic>? ?? {};
-    final useMatchPoints = scoring['enabled'] ?? true;
-    final win20 = scoring['win20'] ?? 10;
-    final win11 = scoring['win11'] ?? 7;
-    final draw = scoring['draw'] ?? 4;
-    final lose11 = scoring['lose11'] ?? 2;
-    final lose02 = scoring['lose02'] ?? 0;
+    final topScoring = rules['scoring'] as Map<String, dynamic>? ?? {};
+    final useMatchPoints = topScoring['enabled'] ?? true;
+
+    // Resolve scoring for this specific round
+    final scoring = _resolveRoundScoring(rules, roundNumber);
+    final setFormat = _getSetFormat(rules, roundNumber);
 
     // Get completed matches for this court
     final matchesSnap = await roundRef.collection('matches')
@@ -271,32 +309,77 @@ class MatchGenerator {
       stats.putIfAbsent(teamBId, () => _emptyStats(match['teamBName']));
 
       if (useMatchPoints) {
-        // 2-set match point system
         int mpA, mpB;
-        if (setsA == 2 && setsB == 0) {
-          mpA = win20; mpB = lose02;
-          stats[teamAId]!['wins']++;
-          stats[teamBId]!['losses']++;
-        } else if (setsA == 0 && setsB == 2) {
-          mpA = lose02; mpB = win20;
-          stats[teamBId]!['wins']++;
-          stats[teamAId]!['losses']++;
-        } else {
-          // 1-1 tie: decide by point diff
-          if (totalA > totalB) {
-            mpA = win11; mpB = lose11;
+
+        if (setFormat == 1) {
+          // 1-set match: simple win/lose
+          final win = scoring['win'] ?? 3;
+          final lose = scoring['lose'] ?? 0;
+          if (setsA > setsB) {
+            mpA = win; mpB = lose;
             stats[teamAId]!['wins']++;
             stats[teamBId]!['losses']++;
-          } else if (totalA < totalB) {
-            mpA = lose11; mpB = win11;
+          } else {
+            mpA = lose; mpB = win;
+            stats[teamBId]!['wins']++;
+            stats[teamAId]!['losses']++;
+          }
+        } else if (setFormat == 3) {
+          // 3-set match (2セット先取): 2-0, 2-1, 1-2, 0-2
+          final win20 = scoring['win20'] ?? 5;
+          final win21 = scoring['win21'] ?? 3;
+          final lose12 = scoring['lose12'] ?? 1;
+          final lose02 = scoring['lose02'] ?? 0;
+          if (setsA == 2 && setsB == 0) {
+            mpA = win20; mpB = lose02;
+            stats[teamAId]!['wins']++;
+            stats[teamBId]!['losses']++;
+          } else if (setsA == 2 && setsB == 1) {
+            mpA = win21; mpB = lose12;
+            stats[teamAId]!['wins']++;
+            stats[teamBId]!['losses']++;
+          } else if (setsA == 1 && setsB == 2) {
+            mpA = lose12; mpB = win21;
             stats[teamBId]!['wins']++;
             stats[teamAId]!['losses']++;
           } else {
-            mpA = draw; mpB = draw;
-            stats[teamAId]!['draws']++;
-            stats[teamBId]!['draws']++;
+            mpA = lose02; mpB = win20;
+            stats[teamBId]!['wins']++;
+            stats[teamAId]!['losses']++;
+          }
+        } else {
+          // 2-set match (default): 2-0, 1-1, 0-2
+          final win20 = scoring['win20'] ?? 10;
+          final win11 = scoring['win11'] ?? 7;
+          final draw = scoring['draw'] ?? 4;
+          final lose11 = scoring['lose11'] ?? 2;
+          final lose02 = scoring['lose02'] ?? 0;
+          if (setsA == 2 && setsB == 0) {
+            mpA = win20; mpB = lose02;
+            stats[teamAId]!['wins']++;
+            stats[teamBId]!['losses']++;
+          } else if (setsA == 0 && setsB == 2) {
+            mpA = lose02; mpB = win20;
+            stats[teamBId]!['wins']++;
+            stats[teamAId]!['losses']++;
+          } else {
+            // 1-1 tie: decide by point diff
+            if (totalA > totalB) {
+              mpA = win11; mpB = lose11;
+              stats[teamAId]!['wins']++;
+              stats[teamBId]!['losses']++;
+            } else if (totalA < totalB) {
+              mpA = lose11; mpB = win11;
+              stats[teamBId]!['wins']++;
+              stats[teamAId]!['losses']++;
+            } else {
+              mpA = draw; mpB = draw;
+              stats[teamAId]!['draws']++;
+              stats[teamBId]!['draws']++;
+            }
           }
         }
+
         stats[teamAId]!['matchPoints'] += mpA;
         stats[teamBId]!['matchPoints'] += mpB;
       } else {
