@@ -819,6 +819,14 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     }
   }
 
+  /// プリセットカテゴリを追加して即座に選択する
+  Future<void> _addAndSelectCategory(String name) async {
+    await _addCategory(name);
+    if (mounted) {
+      widget.onSelected(name);
+    }
+  }
+
   Future<void> _deleteCategory(String docId) async {
     try {
       await FirebaseFirestore.instance
@@ -964,7 +972,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                                 return ActionChip(
                                   avatar: const Icon(Icons.add, size: 16),
                                   label: Text(preset, style: const TextStyle(fontSize: 13)),
-                                  onPressed: () => _addCategory(preset),
+                                  onPressed: () => _addAndSelectCategory(preset),
                                   backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.08),
                                   side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                                 );
