@@ -439,9 +439,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                 _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
               const SizedBox(height: 12),
               _choiceRow('セット数', [2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor),
-              _switchRow('ジュース', _finalDeuce, (v) => setState(() => _finalDeuce = v), _finalColor),
-              if (_finalDeuce)
-                _choiceRow('ジュース上限', [17, 21, 25], _finalDeuceCap, (v) => setState(() => _finalDeuceCap = v), _finalColor),
+              _switchRow('ジュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
               _switchRow('3位決定戦', _thirdPlace, (v) => setState(() => _thirdPlace = v), _finalColor),
               _switchRow('敗者復活戦', _loserRevival, (v) => setState(() => _loserRevival = v), _finalColor),
             ],
