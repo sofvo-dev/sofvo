@@ -98,7 +98,10 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      nameCtrl.dispose();
+      amountCtrl.dispose();
+    });
   }
 
   void _confirmDelete(String docId, String name) {

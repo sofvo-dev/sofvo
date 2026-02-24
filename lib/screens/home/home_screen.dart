@@ -787,7 +787,7 @@ class _HomeScreenState extends State<HomeScreen>
           },
         );
       },
-    );
+    ).then((_) => commentController.dispose());
   }
   Widget _buildStaticActionButton(IconData icon, String count) {
     return Row(
