@@ -396,7 +396,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                       if (hasRakuten)
                         GestureDetector(
                           onTap: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
-                          child: const Text('楽天', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
+                          child: Image.asset('assets/images/rakuten_logo.png', height: 14),
                         ),
                     ]),
                     if (memo.isNotEmpty) ...[
@@ -523,7 +523,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                         const Text('Amazon', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFFF9900))),
                       if (hasAmazon && hasRakuten) const SizedBox(width: 6),
                       if (hasRakuten)
-                        const Text('楽天', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFBF0000))),
+                        Image.asset('assets/images/rakuten_logo.png', height: 12),
                     ]),
                   ],
                 ],
@@ -650,7 +650,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () => launchUrl(Uri.parse(rakutenAffUrl), mode: LaunchMode.externalApplication),
-                    icon: const Text('R', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, fontStyle: FontStyle.italic)),
+                    icon: Image.asset('assets/images/rakuten_logo.png', height: 20),
                     label: const Text('楽天で見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFBF0000),
