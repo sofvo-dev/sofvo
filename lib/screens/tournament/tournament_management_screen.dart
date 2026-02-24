@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'tournament_detail_screen.dart';
 import 'tournament_finance_screen.dart';
@@ -955,14 +956,59 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
         Expanded(
           child: GestureDetector(
-            onTap: () async {
+            onTap: () {
               final parts = value.split(':');
-              final h = int.tryParse(parts[0]) ?? 8;
-              final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-              final picked = await showTimePicker(context: ctx, initialTime: TimeOfDay(hour: h, minute: m));
-              if (picked != null) {
-                onChanged('${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}');
-              }
+              var h = int.tryParse(parts[0]) ?? 8;
+              var m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+              final hourCtrl = FixedExtentScrollController(initialItem: h);
+              final minCtrl = FixedExtentScrollController(initialItem: m);
+              showModalBottomSheet(
+                context: ctx,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                builder: (_) => SizedBox(
+                  height: 280,
+                  child: Column(children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+                          const Text('時刻を選択', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          TextButton(
+                            onPressed: () {
+                              onChanged('${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}');
+                              Navigator.pop(ctx);
+                            },
+                            child: const Text('完了', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: Row(children: [
+                        Expanded(
+                          child: CupertinoPicker(
+                            scrollController: hourCtrl,
+                            itemExtent: 40,
+                            onSelectedItemChanged: (i) => h = i,
+                            children: List.generate(24, (i) => Center(child: Text('${i.toString().padLeft(2, '0')}時', style: const TextStyle(fontSize: 20)))),
+                          ),
+                        ),
+                        Expanded(
+                          child: CupertinoPicker(
+                            scrollController: minCtrl,
+                            itemExtent: 40,
+                            onSelectedItemChanged: (i) => m = i,
+                            children: List.generate(60, (i) => Center(child: Text('${i.toString().padLeft(2, '0')}分', style: const TextStyle(fontSize: 20)))),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ]),
+                ),
+              );
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
