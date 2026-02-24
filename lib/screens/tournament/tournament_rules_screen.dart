@@ -25,7 +25,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   int _courtCount = 2;
   int _maxTeams = 8;
   int _entryFee = 3000;
-  int get _teamsPerCourt => (_maxTeams / _courtCount).ceil();
+  int get _teamsPerCourt => _courtCount > 0 ? (_maxTeams / _courtCount).ceil() : _maxTeams;
 
   // Preliminary - Round 1 (also used as shared settings when rounds=1)
   int _prelimRounds = 1;

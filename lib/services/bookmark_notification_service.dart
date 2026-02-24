@@ -80,11 +80,11 @@ class BookmarkNotificationService {
 
     if (existing.docs.isNotEmpty) {
       await existing.docs.first.reference.delete();
-      print('BOOKMARK REMOVED: \$targetId');
+      // bookmark removed
       return;
     }
 
-    print('BOOKMARK ADDING: \$targetId type=\$type');
+    // bookmark adding
     await ref.add({
       'targetId': targetId,
       'type': type,
@@ -92,7 +92,7 @@ class BookmarkNotificationService {
       'alerts': [],
       ...metadata,
     });
-    print('BOOKMARK ADDED: \$targetId');
+    // bookmark added
   }
 
   static Stream<QuerySnapshot> bookmarkStream(String uid, String type) {
