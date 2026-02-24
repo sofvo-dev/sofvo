@@ -333,19 +333,32 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               const SizedBox(height: 16),
               Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2')),
+                  const Text('使用コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2'),
+                    onChanged: (_) => setSheetState(() {})),
                 ])),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('最大チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8')),
+                  const Text('募集チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8'),
+                    onChanged: (_) => setSheetState(() {})),
                 ])),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('参加費(円)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
-                ])),
+              ]),
+              const SizedBox(height: 8),
+              Builder(builder: (_) {
+                final courts = int.tryParse(courtsCtrl.text) ?? 2;
+                final teams = int.tryParse(maxTeamsCtrl.text) ?? 8;
+                final tpc = courts > 0 ? (teams / courts).ceil() : teams;
+                return Container(
+                  width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                  child: Text('1コート $tpc チーム（自動計算）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                );
+              }),
+              const SizedBox(height: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('参加費（円）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
               ]),
               const SizedBox(height: 16),
               const Text('カテゴリ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -477,19 +490,32 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               const SizedBox(height: 16),
               Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2')),
+                  const Text('使用コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2'),
+                    onChanged: (_) => setSheetState(() {})),
                 ])),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('最大チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8')),
+                  const Text('募集チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8'),
+                    onChanged: (_) => setSheetState(() {})),
                 ])),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('参加費(円)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
-                ])),
+              ]),
+              const SizedBox(height: 8),
+              Builder(builder: (_) {
+                final courts = int.tryParse(courtsCtrl.text) ?? 2;
+                final teams = int.tryParse(maxTeamsCtrl.text) ?? 8;
+                final tpc = courts > 0 ? (teams / courts).ceil() : teams;
+                return Container(
+                  width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                  child: Text('1コート $tpc チーム（自動計算）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                );
+              }),
+              const SizedBox(height: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('参加費（円）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
               ]),
               const SizedBox(height: 16),
               const Text('カテゴリ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -804,19 +830,32 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               const SizedBox(height: 16),
               Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2')),
+                  const Text('使用コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2'),
+                    onChanged: (_) => setSheetState(() {})),
                 ])),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('最大チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8')),
+                  const Text('募集チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8'),
+                    onChanged: (_) => setSheetState(() {})),
                 ])),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('参加費(円)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
-                ])),
+              ]),
+              const SizedBox(height: 8),
+              Builder(builder: (_) {
+                final courts = int.tryParse(courtsCtrl.text) ?? 2;
+                final teams = int.tryParse(maxTeamsCtrl.text) ?? 8;
+                final tpc = courts > 0 ? (teams / courts).ceil() : teams;
+                return Container(
+                  width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                  child: Text('1コート $tpc チーム（自動計算）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                );
+              }),
+              const SizedBox(height: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('参加費（円）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
               ]),
               const SizedBox(height: 16),
               const Text('カテゴリ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
