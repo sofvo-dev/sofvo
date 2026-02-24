@@ -270,21 +270,11 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     // 1コート内の総当たり試合数 = n*(n-1)/2
     final matchesPerCourt = actualTeamsPerCourt * (actualTeamsPerCourt - 1) ~/ 2;
 
-    // 1試合の所要時間（分）: 1セット10分 + コートチェンジ等
-    // 1セットマッチ = 10分, 2セットマッチ(必ず2セット) = 20分, 2セット先取(2〜3セット) = 平均25分
-    const matchOverhead = 3; // コートチェンジ・審判交代
-    int totalPrelimTime;
-    if (_prelimRounds == 2) {
-      final r1MatchMin = (_prelimSets == 1 ? 10 : (_prelimSets == 2 ? 20 : 25)) + matchOverhead;
-      final r2MatchMin = (_r2Sets == 1 ? 10 : (_r2Sets == 2 ? 20 : 25)) + matchOverhead;
-      totalPrelimTime = matchesPerCourt * r1MatchMin + matchesPerCourt * r2MatchMin;
-    } else {
-      final prelimMatchMin = (_prelimSets == 1 ? 10 : (_prelimSets == 2 ? 20 : 25)) + matchOverhead;
-      totalPrelimTime = matchesPerCourt * prelimMatchMin * _prelimRounds;
-    }
+    // 1試合の所要時間: 一律10分
+    const matchMin = 10;
+    final totalPrelimTime = matchesPerCourt * matchMin * _prelimRounds;
 
     // 順位決定戦の試合数
-    final finalMatchMin = (_finalSets == 1 ? 10 : (_finalSets == 2 ? 20 : 30)) + matchOverhead;
     int finalMatches = 0;
     if (_hasFinal) {
       if (_finalFormat == '順位別複数') {
@@ -298,7 +288,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     }
     // 決勝は複数コート並行可能
     final finalCourtCount = _hasFinal ? courts.clamp(1, finalMatches) : 1;
-    final totalFinalTime = ((finalMatches / finalCourtCount).ceil()) * finalMatchMin;
+    final totalFinalTime = ((finalMatches / finalCourtCount).ceil()) * matchMin;
 
     final lunchMin = _lunchBreak == 'なし' ? 0 : int.tryParse(_lunchBreak.replaceAll('分', '')) ?? 0;
     final overheadMin = 15; // 開閉会式・移行時間
