@@ -69,7 +69,22 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     final matchData = matchDoc.data() as Map<String, dynamic>? ?? {};
     final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
     final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
-    final setCount = widget.isBracket ? (finalRules['sets'] ?? 3) : (preliminary['sets'] ?? 2);
+
+    // Resolve set count: for brackets use final rules, for prelim use per-round rules
+    int setCount;
+    if (widget.isBracket) {
+      setCount = finalRules['sets'] ?? 3;
+    } else {
+      final roundNumber = int.tryParse(widget.roundId.replaceAll('round_', '')) ?? 1;
+      final rounds = preliminary['rounds'] ?? 1;
+      if (rounds == 2) {
+        final roundKey = 'round$roundNumber';
+        final roundPrelim = preliminary[roundKey] as Map<String, dynamic>? ?? {};
+        setCount = roundPrelim['sets'] ?? preliminary['sets'] ?? 2;
+      } else {
+        setCount = preliminary['sets'] ?? 2;
+      }
+    }
 
     final existingSets = matchData['sets'] as List<dynamic>? ?? [];
 
@@ -395,8 +410,26 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             }
             final preliminary = _rules?['preliminary'] as Map<String, dynamic>? ?? {};
             final finalRules = _rules?['final'] as Map<String, dynamic>? ?? {};
-            final hasDeuce = widget.isBracket ? (finalRules['deuce'] ?? true) : (preliminary['deuce'] ?? false);
-            final deuceCap = widget.isBracket ? (finalRules['deuceCap'] ?? 17) : (preliminary['deuceCap'] ?? 17);
+
+            // Resolve deuce settings per round
+            bool hasDeuce;
+            int deuceCap;
+            if (widget.isBracket) {
+              hasDeuce = finalRules['deuce'] ?? true;
+              deuceCap = finalRules['deuceCap'] ?? 17;
+            } else {
+              final roundNumber = int.tryParse(widget.roundId.replaceAll('round_', '')) ?? 1;
+              final rounds = preliminary['rounds'] ?? 1;
+              if (rounds == 2) {
+                final roundKey = 'round$roundNumber';
+                final roundPrelim = preliminary[roundKey] as Map<String, dynamic>? ?? {};
+                hasDeuce = roundPrelim['deuce'] ?? preliminary['deuce'] ?? false;
+                deuceCap = roundPrelim['deuceCap'] ?? preliminary['deuceCap'] ?? 17;
+              } else {
+                hasDeuce = preliminary['deuce'] ?? false;
+                deuceCap = preliminary['deuceCap'] ?? 17;
+              }
+            }
             const target = 15;
             final high = a >= b ? a : b;
             final low = a >= b ? b : a;
