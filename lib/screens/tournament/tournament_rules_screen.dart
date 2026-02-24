@@ -6,9 +6,10 @@ import '../../config/app_theme.dart';
 class TournamentRulesScreen extends StatefulWidget {
   final Map<String, dynamic>? initialRules;
   final int? courtCount;
+  final int? maxTeams;
   final String? startTime;
   final String? endTime;
-  const TournamentRulesScreen({super.key, this.initialRules, this.courtCount, this.startTime, this.endTime});
+  const TournamentRulesScreen({super.key, this.initialRules, this.courtCount, this.maxTeams, this.startTime, this.endTime});
   @override
   State<TournamentRulesScreen> createState() => _TournamentRulesScreenState();
 }
@@ -162,28 +163,52 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       final e = _parseTime(widget.endTime!);
       if (s != null && e != null) hours = e.difference(s).inMinutes / 60.0;
     }
-    final totalTeams = courts * _teamsPerCourt;
-    int matchesPerCourt;
-    switch (_teamsPerCourt) {
-      case 3: matchesPerCourt = 3; break;
-      case 5: matchesPerCourt = 10; break;
-      default: matchesPerCourt = 6;
+
+    // チーム数: 管理画面から渡された値を優先、なければコート数×1コートチーム数
+    final totalTeams = widget.maxTeams ?? (courts * _teamsPerCourt);
+    // 実際の1コートあたりのチーム数を算出
+    final actualTeamsPerCourt = (totalTeams / courts).ceil();
+
+    // 1コート内の総当たり試合数 = n*(n-1)/2
+    final matchesPerCourt = actualTeamsPerCourt * (actualTeamsPerCourt - 1) ~/ 2;
+
+    // 1試合の所要時間（分）: セット時間 + コートチェンジ等
+    const matchOverhead = 3; // コートチェンジ・審判交代
+    final setMinutes = _prelimSets == 1 ? 10 : (_prelimSets == 2 ? 18 : 28);
+    final prelimMatchMin = setMinutes + matchOverhead;
+    final totalPrelimTime = matchesPerCourt * prelimMatchMin * _prelimRounds;
+
+    // 決勝トーナメントの試合数
+    final finalSetMin = (_finalSets == 2 ? 18 : 28) + matchOverhead;
+    int finalMatches = 0;
+    if (_hasFinal) {
+      if (_finalFormat == '順位別複数') {
+        // 各区分4チームトーナメント想定: 準決2 + 決勝1 (+3位決定戦1)
+        final matchesPerTier = _thirdPlace ? 4 : 3;
+        finalMatches = matchesPerTier * _finalTierCount;
+      } else {
+        // 全チーム一本トーナメント: ラウンド数 = ceil(log2(totalTeams))
+        final rounds = (totalTeams > 1) ? (totalTeams - 1).bitLength : 1;
+        finalMatches = rounds + (_thirdPlace ? 1 : 0);
+      }
     }
-    final prelimMinutes = _prelimSets == 1 ? 12 : (_prelimSets == 2 ? 20 : 30);
-    final totalPrelimTime = matchesPerCourt * prelimMinutes * _prelimRounds;
-    final finalMinutes = _finalSets == 2 ? 20 : 35;
-    final finalMatches = _hasFinal ? (_thirdPlace ? 3 : 2) : 0;
-    final totalFinalTime = finalMatches * finalMinutes;
+    // 決勝は複数コート並行可能
+    final finalCourtCount = _hasFinal ? courts.clamp(1, finalMatches) : 1;
+    final totalFinalTime = ((finalMatches / finalCourtCount).ceil()) * finalSetMin;
+
     final lunchMin = _lunchBreak == 'なし' ? 0 : int.tryParse(_lunchBreak.replaceAll('分', '')) ?? 0;
-    final totalMinutes = totalPrelimTime + totalFinalTime + lunchMin + 30; // +30 for opening/closing
+    final overheadMin = 15; // 開閉会式・移行時間
+    final totalMinutes = totalPrelimTime + totalFinalTime + lunchMin + overheadMin;
     final availableMinutes = (hours * 60).round();
     final fits = totalMinutes <= availableMinutes;
 
     return {
       'courts': courts,
       'totalTeams': totalTeams,
+      'actualTeamsPerCourt': actualTeamsPerCourt,
       'matchesPerCourt': matchesPerCourt * _prelimRounds,
       'prelimMinutes': totalPrelimTime,
+      'finalMatches': finalMatches,
       'finalMinutes': totalFinalTime,
       'totalMinutes': totalMinutes,
       'availableMinutes': availableMinutes,
@@ -202,18 +227,14 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   String _suggestRuleText() {
     final s = _calcSuggestion();
     final hours = (s['hours'] as double).toStringAsFixed(1);
+    final teamLine = '${s['totalTeams']}チーム → ${s['courts']}コート（${s['actualTeamsPerCourt']}チーム/コート）';
+    final prelimLine = '予選: ${s['matchesPerCourt']}試合/コート（約${s['prelimMinutes']}分）';
+    final finalLine = _hasFinal ? '\n決勝: ${s['finalMatches']}試合（約${s['finalMinutes']}分）' : '';
+    final timeLine = '予想合計: 約${s['totalMinutes']}分 / 利用可能: ${hours}h（${s['availableMinutes']}分）';
     if (s['fits'] == true) {
-      return '${s['courts']}コート × ${_teamsPerCourt}チーム = ${s['totalTeams']}チーム\n'
-          '予選${s['matchesPerCourt']}試合/コート（約${s['prelimMinutes']}分）'
-          '${_hasFinal ? ' + 決勝（約${s['finalMinutes']}分）' : ''}\n'
-          '予想合計: 約${s['totalMinutes']}分 / 利用可能: ${hours}h（${s['availableMinutes']}分）\n'
-          '✅ 時間内に収まります';
+      return '$teamLine\n$prelimLine$finalLine\n$timeLine\n✅ 時間内に収まります';
     } else {
-      return '${s['courts']}コート × ${_teamsPerCourt}チーム = ${s['totalTeams']}チーム\n'
-          '予選${s['matchesPerCourt']}試合/コート（約${s['prelimMinutes']}分）'
-          '${_hasFinal ? ' + 決勝（約${s['finalMinutes']}分）' : ''}\n'
-          '予想合計: 約${s['totalMinutes']}分 / 利用可能: ${hours}h（${s['availableMinutes']}分）\n'
-          '⚠️ 時間超過の可能性あり → セット数を減らすか昼休憩を短縮';
+      return '$teamLine\n$prelimLine$finalLine\n$timeLine\n⚠️ 時間超過の可能性あり → セット数を減らすか昼休憩を短縮';
     }
   }
 

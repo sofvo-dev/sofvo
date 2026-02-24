@@ -359,7 +359,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               SizedBox(width: double.infinity, child: OutlinedButton.icon(
                 onPressed: () async {
                   final result = await Navigator.push<Map<String, dynamic>>(context,
-                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text))));
+                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text))));
                   if (result != null) setSheetState(() => tournamentRules = result);
                 },
                 icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
@@ -567,7 +567,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               SizedBox(width: double.infinity, child: OutlinedButton.icon(
                 onPressed: () async {
                   final result = await Navigator.push<Map<String, dynamic>>(context,
-                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text))));
+                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), startTime: matchStartTime, endTime: finalTime)));
                   if (result != null) setSheetState(() => tournamentRules = result);
                 },
                 icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
@@ -891,7 +891,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               SizedBox(width: double.infinity, child: OutlinedButton.icon(
                 onPressed: () async {
                   final result = await Navigator.push<Map<String, dynamic>>(context,
-                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text))));
+                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), startTime: matchStartTime, endTime: finalTime)));
                   if (result != null) setSheetState(() => tournamentRules = result);
                 },
                 icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
