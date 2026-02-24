@@ -411,10 +411,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     Map<String, dynamic>? selectedVenue;
     String openTime = '8:00';
     String receptionTime = '8:30';
+    String captainMeetingTime = '8:45';
     String openingTime = '9:00';
     String matchStartTime = '9:15';
-    String finalTime = '14:00';
-    String closingTime = '16:00';
+    String finalTime = '15:00';
+    String closingTime = '15:30';
 
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: Colors.white,
@@ -518,12 +519,15 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     final finalsStart = startMinutes + totalPrelimMinutes + 15;
                     final closingStart = finalsStart + 60;
                     String fmt(int m) => '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+                    final endTime = finalsStart + 60;
+                    final clearOutTime = endTime + 30;
                     setSheetState(() {
                       openTime = fmt(startMinutes - 75);
                       receptionTime = fmt(startMinutes - 45);
+                      captainMeetingTime = fmt(startMinutes - 30);
                       openingTime = fmt(startMinutes - 15);
-                      finalTime = fmt(finalsStart);
-                      closingTime = fmt(closingStart);
+                      finalTime = fmt(endTime);
+                      closingTime = fmt(clearOutTime);
                     });
                     ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
@@ -549,12 +553,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
                 child: Column(children: [
-                  _buildTimeRow('開場', openTime, (v) => setSheetState(() => openTime = v), ctx),
+                  _buildTimeRow('会場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
                   _buildTimeRow('受付', receptionTime, (v) => setSheetState(() => receptionTime = v), ctx),
+                  _buildTimeRow('代表者会議', captainMeetingTime, (v) => setSheetState(() => captainMeetingTime = v), ctx),
                   _buildTimeRow('開会式', openingTime, (v) => setSheetState(() => openingTime = v), ctx),
-                  _buildTimeRow('試合開始', matchStartTime, (v) => setSheetState(() => matchStartTime = v), ctx),
-                  _buildTimeRow('決勝予定', finalTime, (v) => setSheetState(() => finalTime = v), ctx),
-                  _buildTimeRow('閉会式', closingTime, (v) => setSheetState(() => closingTime = v), ctx),
+                  _buildTimeRow('試合開始 *', matchStartTime, (v) => setSheetState(() => matchStartTime = v), ctx),
+                  _buildTimeRow('終了 *', finalTime, (v) => setSheetState(() => finalTime = v), ctx),
+                  _buildTimeRow('完全撤退', closingTime, (v) => setSheetState(() => closingTime = v), ctx),
                 ]),
               ),
               const SizedBox(height: 16),
@@ -584,7 +589,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
                           'currentTeams': 0, 'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
                           'status': '募集中', 'organizerId': _currentUser!.uid, 'organizerName': nickname,
-                          'openTime': openTime, 'receptionTime': receptionTime, 'openingTime': openingTime,
+                          'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
                           'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                           'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
                         });
@@ -729,10 +734,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     }
     String openTime = (templateData['openTime'] ?? '8:00') as String;
     String receptionTime = (templateData['receptionTime'] ?? '8:30') as String;
+    String captainMeetingTime = (templateData['captainMeetingTime'] ?? '8:45') as String;
     String openingTime = (templateData['openingTime'] ?? '9:00') as String;
     String matchStartTime = (templateData['matchStartTime'] ?? '9:15') as String;
-    String finalTime = (templateData['finalTime'] ?? '14:00') as String;
-    String closingTime = (templateData['closingTime'] ?? '16:00') as String;
+    String finalTime = (templateData['finalTime'] ?? '15:00') as String;
+    String closingTime = (templateData['closingTime'] ?? '15:30') as String;
 
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: Colors.white,
@@ -837,12 +843,15 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     final finalsStart = startMinutes + totalPrelimMinutes + 15;
                     final closingStart = finalsStart + 60;
                     String fmt(int m) => '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+                    final endTime = finalsStart + 60;
+                    final clearOutTime = endTime + 30;
                     setSheetState(() {
                       openTime = fmt(startMinutes - 75);
                       receptionTime = fmt(startMinutes - 45);
+                      captainMeetingTime = fmt(startMinutes - 30);
                       openingTime = fmt(startMinutes - 15);
-                      finalTime = fmt(finalsStart);
-                      closingTime = fmt(closingStart);
+                      finalTime = fmt(endTime);
+                      closingTime = fmt(clearOutTime);
                     });
                     ScaffoldMessenger.of(ctx).showSnackBar(
                       SnackBar(
@@ -868,12 +877,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
                 child: Column(children: [
-                  _buildTimeRow('開場', openTime, (v) => setSheetState(() => openTime = v), ctx),
+                  _buildTimeRow('会場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
                   _buildTimeRow('受付', receptionTime, (v) => setSheetState(() => receptionTime = v), ctx),
+                  _buildTimeRow('代表者会議', captainMeetingTime, (v) => setSheetState(() => captainMeetingTime = v), ctx),
                   _buildTimeRow('開会式', openingTime, (v) => setSheetState(() => openingTime = v), ctx),
-                  _buildTimeRow('試合開始', matchStartTime, (v) => setSheetState(() => matchStartTime = v), ctx),
-                  _buildTimeRow('決勝予定', finalTime, (v) => setSheetState(() => finalTime = v), ctx),
-                  _buildTimeRow('閉会式', closingTime, (v) => setSheetState(() => closingTime = v), ctx),
+                  _buildTimeRow('試合開始 *', matchStartTime, (v) => setSheetState(() => matchStartTime = v), ctx),
+                  _buildTimeRow('終了 *', finalTime, (v) => setSheetState(() => finalTime = v), ctx),
+                  _buildTimeRow('完全撤退', closingTime, (v) => setSheetState(() => closingTime = v), ctx),
                 ]),
               ),
               const SizedBox(height: 16),
@@ -903,7 +913,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
                           'currentTeams': 0, 'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
                           'status': '募集中', 'organizerId': _currentUser!.uid, 'organizerName': nickname,
-                          'openTime': openTime, 'receptionTime': receptionTime, 'openingTime': openingTime,
+                          'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
                           'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                           'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
                         });
