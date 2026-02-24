@@ -72,14 +72,13 @@ class PdfGenerator {
           pw.SizedBox(width: 12),
           // 右カラム: スケジュール
           pw.Expanded(flex: 4, child: _sectionCardCompact('\u5F53\u65E5\u30B9\u30B1\u30B8\u30E5\u30FC\u30EB', _accent, [
-            _scheduleRow(t['openTime'] ?? '8:00', '\u958B\u5834'),
-            _scheduleRow(t['receptionTime'] ?? '8:30', '\u53D7\u4ED8'),
-            _scheduleRow(t['openingTime'] ?? '9:00', '\u958B\u4F1A\u5F0F'),
-            _scheduleRow(t['matchStartTime'] ?? '9:15', '\u8A66\u5408\u958B\u59CB'),
-            if ((t['lunchTime'] ?? '').toString().isNotEmpty)
-              _scheduleRow(t['lunchTime'] ?? '', '\u6627\u4F11\u61A9'),
-            _scheduleRow(t['finalTime'] ?? '14:00', '\u6C7A\u52DD\u4E88\u5B9A'),
-            _scheduleRow(t['closingTime'] ?? '16:00', '\u9589\u4F1A\u5F0F'),
+            _scheduleRow(t['openTime'] ?? '8:00', '会場'),
+            _scheduleRow(t['receptionTime'] ?? '8:30', '受付'),
+            _scheduleRow(t['captainMeetingTime'] ?? '8:45', '代表者会議'),
+            _scheduleRow(t['openingTime'] ?? '9:00', '開会式'),
+            _scheduleRow(t['matchStartTime'] ?? '9:15', '試合開始'),
+            _scheduleRow(t['finalTime'] ?? '15:00', '終了'),
+            _scheduleRow(t['closingTime'] ?? '15:30', '完全撤退'),
           ])),
         ]),
         pw.SizedBox(height: 12),
