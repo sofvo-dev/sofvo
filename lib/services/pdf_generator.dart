@@ -366,8 +366,19 @@ class PdfGenerator {
 
     for (var bDoc in bracketsSnap.docs) {
       final bData = bDoc.data();
+      final isRoundRobin = bData['type'] == 'round_robin';
       final matchesSnap = await bDoc.reference.collection('matches')
           .orderBy('matchNumber').get();
+
+      final titleSuffix = isRoundRobin ? '\u30EA\u30FC\u30B0' : '\u30C8\u30FC\u30CA\u30E1\u30F3\u30C8';
+      final bracketName = bData['bracketName'] ?? '\u9806\u4F4D\u6C7A\u5B9A';
+
+      // For round-robin, load standings
+      List<Map<String, dynamic>>? standingsList;
+      if (isRoundRobin) {
+        final standingsSnap = await bDoc.reference.collection('standings').orderBy('rank').get();
+        standingsList = standingsSnap.docs.map((d) => d.data()).toList();
+      }
 
       pdf.addPage(pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -376,15 +387,18 @@ class PdfGenerator {
         header: (context) => _pageHeader(t['name'] ?? ''),
         footer: (context) => _pageFooter(context),
         build: (context) => [
-          _buildTitleBanner('${bData['bracketName'] ?? "\u6C7A\u52DD"}\u30C8\u30FC\u30CA\u30E1\u30F3\u30C8'),
+          _buildTitleBanner('$bracketName$titleSuffix'),
           pw.SizedBox(height: 20),
+          if (standingsList != null && standingsList.isNotEmpty) ...[
+            _buildStandingsTable(standingsList),
+            pw.SizedBox(height: 16),
+          ],
           ...matchesSnap.docs.map((mDoc) {
             final m = mDoc.data();
             final result = m['result'] as Map<String, dynamic>? ?? {};
             final status = m['status'] ?? 'pending';
             final roundLabel = m['round'] == 'semi' ? '\u6E96\u6C7A\u52DD' :
-                m['round'] == 'final' ? '\u6C7A\u52DD' :
-                m['round'] == '3rd' ? '3\u4F4D\u6C7A\u5B9A\u6226' : (m['round'] ?? '');
+                m['round'] == 'final' ? '\u6C7A\u52DD' : '';
             final isCompleted = status == 'completed';
             final score = isCompleted
                 ? '${result['setsA'] ?? 0} - ${result['setsB'] ?? 0}'
@@ -494,6 +508,22 @@ class PdfGenerator {
       headerHeight: 32,
       headers: headers,
       data: data,
+    );
+  }
+
+  /// 順位表（総当たり順位決定戦用）
+  pw.Widget _buildStandingsTable(List<Map<String, dynamic>> standings) {
+    return _buildTable(
+      headers: ['#', '\u30C1\u30FC\u30E0', '\u52DD\u70B9', '\u52DD', '\u8CA0', '\u5F15', '\u5F97\u5931\u70B9\u5DEE'],
+      data: standings.map((s) => [
+        '${s['rank'] ?? '-'}',
+        s['teamName'] ?? '',
+        '${s['matchPoints'] ?? 0}',
+        '${s['wins'] ?? 0}',
+        '${s['losses'] ?? 0}',
+        '${s['draws'] ?? 0}',
+        '${s['pointDiff'] ?? 0}',
+      ]).toList(),
     );
   }
 

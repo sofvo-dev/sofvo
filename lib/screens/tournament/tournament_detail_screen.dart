@@ -44,7 +44,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   void initState() {
     super.initState();
     final status = widget.tournament['status'] as String;
-    _isEntryDeadlinePassed = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid;
+    _isEntryDeadlinePassed = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid;
     _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
     _tabController = TabController(
       length: _isEntryDeadlinePassed ? 5 : 4,
@@ -187,6 +187,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       case '準備中': statusColor = AppTheme.warning; break;
       case '開催中': statusColor = AppTheme.primaryColor; break;
       case '決勝中': statusColor = Colors.amber; break;
+      case '順位決定中': statusColor = Colors.amber; break;
       default: statusColor = AppTheme.textSecondary;
     }
 
@@ -523,11 +524,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ],
                 if ((liveFinal['enabled'] ?? false) == true) ...[
                   _buildDivider(),
-                  _buildInfoRow(Icons.emoji_events, '決勝', '${liveFinal['sets'] ?? 3}セットマッチ${(liveFinal['deuce'] ?? false) ? '（ジュースあり）' : ''}'),
-                  if (liveFinal['thirdPlace'] == true) ...[
-                    _buildDivider(),
-                    _buildInfoRow(Icons.looks_3, '3位決定戦', 'あり'),
-                  ],
+                  _buildInfoRow(Icons.emoji_events, '順位決定戦',
+                    '${liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'} / ${liveFinal['sets'] ?? 3}セットマッチ${(liveFinal['deuce'] ?? false) ? '（ジュースあり）' : ''}'),
                 ],
               ]),
             ),
@@ -576,7 +574,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 _buildFlowStep(2, '予選リーグ（ラウンドロビン）', liveStatus == '開催中', false),
                 if ((livePrelim['rounds'] ?? 1) > 1)
                   _buildFlowStep(3, '予選2（ランク別再編成）', false, false),
-                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 4 : 3, '決勝トーナメント', liveStatus == '決勝中', false),
+                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 4 : 3, '順位決定戦', liveStatus == '順位決定中', false),
                 _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '結果発表・表彰', liveStatus == '終了', false, isLast: true),
               ]),
             ),
@@ -591,7 +589,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       .collection('brackets').snapshots(),
                   builder: (context, bracketSnap) {
                     if (!bracketSnap.hasData || bracketSnap.data!.docs.isEmpty) {
-                      return const Text('決勝データがまだありません', style: TextStyle(color: AppTheme.textSecondary));
+                      return const Text('順位決定戦のデータがまだありません', style: TextStyle(color: AppTheme.textSecondary));
                     }
                     return Column(
                       children: bracketSnap.data!.docs.map((bDoc) {
@@ -603,7 +601,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             final matches = mSnap.data!.docs;
                             final finalMatch = matches.where((m) =>
                               (m.data() as Map<String, dynamic>)['round'] == 'final').firstOrNull;
-                            if (finalMatch == null) return const Text('決勝が完了していません');
+                            if (finalMatch == null) return const Text('順位決定戦が完了していません');
                             final fm = finalMatch.data() as Map<String, dynamic>;
                             final result = fm['result'] as Map<String, dynamic>? ?? {};
                             final winnerId = result['winner'] ?? '';
@@ -912,10 +910,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           if (prelimRounds >= 2)
             _actionChip('予選2 生成', Icons.replay, () => _generateMatches(2)),
           if (finalEnabled)
-            _actionChip('決勝生成', Icons.emoji_events, _generateFinals),
+            _actionChip('順位決定戦生成', Icons.emoji_events, _generateFinals),
           _actionChip('リセット', Icons.refresh, _resetRounds),
         ]),
-        if (tournData['status'] == '開催中' || tournData['status'] == '決勝中') ...[
+        if (tournData['status'] == '開催中' || tournData['status'] == '決勝中' || tournData['status'] == '順位決定中') ...[
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
@@ -1307,16 +1305,63 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildBracketSection(String bracketId, Map<String, dynamic> bData, bool isOrganizer) {
+    final isRoundRobin = bData['type'] == 'round_robin';
+    final sectionTitle = isRoundRobin
+        ? '${bData['bracketName'] ?? ''}リーグ'
+        : '${bData['bracketName'] ?? '順位決定'}トーナメント';
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(children: [
           const Icon(Icons.emoji_events, size: 20, color: Colors.amber),
           const SizedBox(width: 8),
-          Text('${bData['bracketName'] ?? '決勝'}トーナメント',
+          Text(sectionTitle,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
         ]),
       ),
+      // Standings for round-robin
+      if (isRoundRobin)
+        StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('tournaments').doc(_tournamentId)
+              .collection('brackets').doc(bracketId)
+              .collection('standings').orderBy('rank').snapshots(),
+          builder: (context, standingsSnap) {
+            if (!standingsSnap.hasData || standingsSnap.data!.docs.isEmpty) return const SizedBox();
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withValues(alpha: 0.2))),
+              child: Column(children: [
+                Row(children: const [
+                  SizedBox(width: 28, child: Text('#', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                  Expanded(child: Text('チーム', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                  SizedBox(width: 40, child: Text('勝点', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                  SizedBox(width: 40, child: Text('勝', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                  SizedBox(width: 40, child: Text('負', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                  SizedBox(width: 40, child: Text('得失', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                ]),
+                const Divider(height: 12),
+                ...standingsSnap.data!.docs.map((doc) {
+                  final d = doc.data() as Map<String, dynamic>;
+                  final rank = d['rank'] ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(children: [
+                      SizedBox(width: 28, child: Text('$rank', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: rank == 1 ? Colors.amber[800] : AppTheme.textPrimary))),
+                      Expanded(child: Text(d['teamName'] ?? '', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                      SizedBox(width: 40, child: Text('${d['matchPoints'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                      SizedBox(width: 40, child: Text('${d['wins'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
+                      SizedBox(width: 40, child: Text('${d['losses'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
+                      SizedBox(width: 40, child: Text('${d['pointDiff'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
+                    ]),
+                  );
+                }),
+              ]),
+            );
+          },
+        ),
+      // Match list
       StreamBuilder<QuerySnapshot>(
         stream: _firestore.collection('tournaments').doc(_tournamentId)
             .collection('brackets').doc(bracketId)
@@ -1327,7 +1372,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             final m = mDoc.data() as Map<String, dynamic>;
             final status = m['status'] ?? 'pending';
             final result = m['result'] as Map<String, dynamic>? ?? {};
-            final roundLabel = m['round'] == 'semi' ? '準決勝' : (m['round'] == 'final' ? '決勝' : (m['round'] == '3rd' ? '3位決定戦' : ''));
+            final roundLabel = m['round'] == 'semi' ? '準決勝' : (m['round'] == 'final' ? '決勝' : '');
 
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -1476,7 +1521,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('決勝トーナメントを生成しました！'), backgroundColor: AppTheme.success));
+            const SnackBar(content: Text('順位決定戦を生成しました！'), backgroundColor: AppTheme.success));
       }
     } catch (e) {
       if (mounted) {
@@ -2618,7 +2663,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   // ━━━ 下部ボタン ━━━
   Widget _buildBottomButtons() {
     final status = widget.tournament['status'] as String;
-    final isEnded = status == '開催済み' || status == '開催中' || status == '決勝中' || status == '終了' || status.contains('完了');
+    final isEnded = status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了');
     if (isEnded) return const SizedBox.shrink();
 
     final currentTeams = widget.tournament['currentTeams'] is int ? widget.tournament['currentTeams'] as int : 0;

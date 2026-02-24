@@ -314,6 +314,7 @@ class _TournamentCalendarScreenState extends State<TournamentCalendarScreen> {
       case '準備中': statusColor = AppTheme.warning; break;
       case '開催中': statusColor = AppTheme.primaryColor; break;
       case '決勝中': statusColor = Colors.amber; break;
+      case '順位決定中': statusColor = Colors.amber; break;
       default: statusColor = AppTheme.textSecondary;
     }
 

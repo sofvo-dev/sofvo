@@ -434,7 +434,7 @@ class MatchGenerator {
     };
   }
 
-  /// Generate final tournament brackets
+  /// Generate final brackets / round-robin groups (順位決定戦)
   Future<void> generateFinals({
     required String tournamentId,
   }) async {
@@ -442,13 +442,28 @@ class MatchGenerator {
     final tournData = tournDoc.data()!;
     final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
     final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
+    final type = finalRules['type'] ?? 'tournament';
     final format = finalRules['format'] ?? '順位別複数';
 
     // Get overall standings
+    final sorted = await _getOverallSortedStandings(tournamentId);
+
+    if (type == 'round_robin') {
+      // 総当たり方式: split into tier groups and generate round-robin
+      await _generateRoundRobinFinals(tournamentId, sorted, finalRules);
+    } else if (format == '順位別複数') {
+      await _generateTierBrackets(tournamentId, sorted, finalRules);
+    } else {
+      await _generateSingleBracket(tournamentId, sorted);
+    }
+
+    await _firestore.collection('tournaments').doc(tournamentId).update({'status': '順位決定中'});
+  }
+
+  /// Aggregate and sort all team stats across preliminary rounds
+  Future<List<MapEntry<String, Map<String, dynamic>>>> _getOverallSortedStandings(String tournamentId) async {
     final roundsSnap = await _firestore.collection('tournaments').doc(tournamentId)
         .collection('rounds').get();
-
-    // Aggregate all team stats across rounds
     final overallStats = <String, Map<String, dynamic>>{};
 
     for (var roundDoc in roundsSnap.docs) {
@@ -471,8 +486,270 @@ class MatchGenerator {
       }
     }
 
-    // Sort overall
-    final sorted = overallStats.entries.toList()
+    return overallStats.entries.toList()
+      ..sort((a, b) {
+        final mp = (b.value['matchPoints'] as int).compareTo(a.value['matchPoints'] as int);
+        if (mp != 0) return mp;
+        final pd = (b.value['pointDiff'] as int).compareTo(a.value['pointDiff'] as int);
+        if (pd != 0) return pd;
+        return (b.value['totalPoints'] as int).compareTo(a.value['totalPoints'] as int);
+      });
+  }
+
+  /// Generate round-robin finals (総当たり順位決定戦)
+  Future<void> _generateRoundRobinFinals(
+    String tournamentId,
+    List<MapEntry<String, Map<String, dynamic>>> sorted,
+    Map<String, dynamic> finalRules,
+  ) async {
+    final brackets = _splitIntoGroups(sorted, 4);
+    final bracketNames = ['上位', '中上位', '中位', '中下位', '下位', 'エンジョイ'];
+
+    for (int b = 0; b < brackets.length; b++) {
+      final bracket = brackets[b];
+      final bracketName = b < bracketNames.length ? bracketNames[b] : '第${b + 1}グループ';
+      final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
+          .collection('brackets').doc('bracket_${b + 1}');
+
+      await bracketRef.set({
+        'bracketNumber': b + 1,
+        'bracketName': bracketName,
+        'teamCount': bracket.length,
+        'type': 'round_robin',
+        'status': 'pending',
+      });
+
+      // Generate round-robin matches
+      int matchNum = 1;
+      for (int i = 0; i < bracket.length; i++) {
+        for (int j = i + 1; j < bracket.length; j++) {
+          await bracketRef.collection('matches').add({
+            'round': 'round-robin', 'matchNumber': matchNum++,
+            'teamAId': bracket[i].key, 'teamAName': bracket[i].value['teamName'],
+            'teamBId': bracket[j].key, 'teamBName': bracket[j].value['teamName'],
+            'status': 'pending', 'sets': [], 'result': {},
+          });
+        }
+      }
+
+      // Initialize standings for this bracket
+      for (var team in bracket) {
+        await bracketRef.collection('standings').doc(team.key).set({
+          'teamId': team.key,
+          'teamName': team.value['teamName'],
+          'matchPoints': 0, 'pointDiff': 0, 'totalPoints': 0,
+          'wins': 0, 'losses': 0, 'draws': 0, 'rank': 0,
+        });
+      }
+    }
+  }
+
+  /// Generate tier-based tournament brackets (順位別トーナメント)
+  Future<void> _generateTierBrackets(
+    String tournamentId,
+    List<MapEntry<String, Map<String, dynamic>>> sorted,
+    Map<String, dynamic> finalRules,
+  ) async {
+    final brackets = _splitIntoGroups(sorted, 4);
+    final bracketNames = ['上位', '中上位', '中位', '中下位', '下位', 'エンジョイ'];
+
+    for (int b = 0; b < brackets.length; b++) {
+      final bracket = brackets[b];
+      final bracketName = b < bracketNames.length ? bracketNames[b] : '第${b + 1}ブラケット';
+      final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
+          .collection('brackets').doc('bracket_${b + 1}');
+
+      await bracketRef.set({
+        'bracketNumber': b + 1,
+        'bracketName': bracketName,
+        'teamCount': bracket.length,
+        'type': 'tournament',
+        'status': 'pending',
+      });
+
+      if (bracket.length >= 4) {
+        // Semi-finals: 1st vs 4th, 2nd vs 3rd
+        await bracketRef.collection('matches').add({
+          'round': 'semi', 'matchNumber': 1,
+          'teamAId': bracket[0].key, 'teamAName': bracket[0].value['teamName'],
+          'teamBId': bracket[3].key, 'teamBName': bracket[3].value['teamName'],
+          'status': 'pending', 'sets': [], 'result': {},
+        });
+        await bracketRef.collection('matches').add({
+          'round': 'semi', 'matchNumber': 2,
+          'teamAId': bracket[1].key, 'teamAName': bracket[1].value['teamName'],
+          'teamBId': bracket[2].key, 'teamBName': bracket[2].value['teamName'],
+          'status': 'pending', 'sets': [], 'result': {},
+        });
+        // Final placeholder
+        await bracketRef.collection('matches').add({
+          'round': 'final', 'matchNumber': 3,
+          'teamAId': '', 'teamAName': '準決勝①勝者',
+          'teamBId': '', 'teamBName': '準決勝②勝者',
+          'status': 'waiting', 'sets': [], 'result': {},
+        });
+      } else if (bracket.length == 3) {
+        // Round-robin for 3 teams
+        int matchNum = 1;
+        for (int i = 0; i < bracket.length; i++) {
+          for (int j = i + 1; j < bracket.length; j++) {
+            await bracketRef.collection('matches').add({
+              'round': 'round-robin', 'matchNumber': matchNum++,
+              'teamAId': bracket[i].key, 'teamAName': bracket[i].value['teamName'],
+              'teamBId': bracket[j].key, 'teamBName': bracket[j].value['teamName'],
+              'status': 'pending', 'sets': [], 'result': {},
+            });
+          }
+        }
+      } else if (bracket.length == 2) {
+        await bracketRef.collection('matches').add({
+          'round': 'final', 'matchNumber': 1,
+          'teamAId': bracket[0].key, 'teamAName': bracket[0].value['teamName'],
+          'teamBId': bracket[1].key, 'teamBName': bracket[1].value['teamName'],
+          'status': 'pending', 'sets': [], 'result': {},
+        });
+      }
+    }
+  }
+
+  /// Generate single elimination bracket for all teams
+  Future<void> _generateSingleBracket(
+    String tournamentId,
+    List<MapEntry<String, Map<String, dynamic>>> sorted,
+  ) async {
+    final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
+        .collection('brackets').doc('bracket_main');
+    await bracketRef.set({
+      'bracketNumber': 1, 'bracketName': '順位決定戦',
+      'teamCount': sorted.length, 'type': 'tournament', 'status': 'pending',
+    });
+    for (int i = 0; i < sorted.length ~/ 2; i++) {
+      final a = sorted[i];
+      final b = sorted[sorted.length - 1 - i];
+      await bracketRef.collection('matches').add({
+        'round': 'round1', 'matchNumber': i + 1,
+        'teamAId': a.key, 'teamAName': a.value['teamName'],
+        'teamBId': b.key, 'teamBName': b.value['teamName'],
+        'status': 'pending', 'sets': [], 'result': {},
+      });
+    }
+  }
+
+  /// Split sorted teams into groups of N
+  List<List<MapEntry<String, Map<String, dynamic>>>> _splitIntoGroups(
+    List<MapEntry<String, Map<String, dynamic>>> sorted, int groupSize) {
+    final groups = <List<MapEntry<String, Map<String, dynamic>>>>[];
+    for (int i = 0; i < sorted.length; i += groupSize) {
+      final end = (i + groupSize).clamp(0, sorted.length);
+      groups.add(sorted.sublist(i, end));
+    }
+    return groups;
+  }
+
+  /// After a bracket semi-final is completed, update final match
+  Future<void> updateBracketProgression({
+    required String tournamentId,
+    required String bracketId,
+  }) async {
+    final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
+        .collection('brackets').doc(bracketId);
+    final matchesSnap = await bracketRef.collection('matches').orderBy('matchNumber').get();
+
+    final semiMatches = matchesSnap.docs.where((d) => (d.data())['round'] == 'semi').toList();
+    final finalMatch = matchesSnap.docs.where((d) => (d.data())['round'] == 'final').firstOrNull;
+
+    if (semiMatches.length < 2) return;
+
+    final semi1 = semiMatches[0].data();
+    final semi2 = semiMatches[1].data();
+
+    if (semi1['status'] != 'completed' || semi2['status'] != 'completed') return;
+
+    final result1 = semi1['result'] as Map<String, dynamic>? ?? {};
+    final result2 = semi2['result'] as Map<String, dynamic>? ?? {};
+
+    final winner1Id = result1['winner'] ?? '';
+    final winner1Name = winner1Id == semi1['teamAId'] ? semi1['teamAName'] : semi1['teamBName'];
+
+    final winner2Id = result2['winner'] ?? '';
+    final winner2Name = winner2Id == semi2['teamAId'] ? semi2['teamAName'] : semi2['teamBName'];
+
+    if (finalMatch != null) {
+      await finalMatch.reference.update({
+        'teamAId': winner1Id, 'teamAName': winner1Name,
+        'teamBId': winner2Id, 'teamBName': winner2Name,
+        'status': 'pending',
+      });
+    }
+  }
+
+  /// Update standings for round-robin bracket (順位決定戦 総当たり)
+  Future<void> updateBracketStandings({
+    required String tournamentId,
+    required String bracketId,
+  }) async {
+    final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
+    final rules = tournDoc.data()?['rules'] as Map<String, dynamic>? ?? {};
+    final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
+    final setFormat = finalRules['sets'] ?? 3;
+    final scoringMap = finalRules['scoring'] as Map<String, dynamic>? ?? {};
+    final useMatchPoints = scoringMap.isNotEmpty;
+
+    final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
+        .collection('brackets').doc(bracketId);
+    final matchesSnap = await bracketRef.collection('matches')
+        .where('status', isEqualTo: 'completed').get();
+
+    final stats = <String, Map<String, dynamic>>{};
+
+    for (var matchDoc in matchesSnap.docs) {
+      final match = matchDoc.data();
+      final result = match['result'] as Map<String, dynamic>? ?? {};
+      final teamAId = match['teamAId'] as String;
+      final teamBId = match['teamBId'] as String;
+      final setsA = result['setsA'] ?? 0;
+      final setsB = result['setsB'] ?? 0;
+      final totalA = result['totalPointsA'] ?? 0;
+      final totalB = result['totalPointsB'] ?? 0;
+
+      stats.putIfAbsent(teamAId, () => _emptyStats(match['teamAName']));
+      stats.putIfAbsent(teamBId, () => _emptyStats(match['teamBName']));
+
+      if (useMatchPoints) {
+        final mpResult = _calculateMatchPointsForFormat(
+          setFormat: setFormat, setsA: setsA, setsB: setsB,
+          totalA: totalA, totalB: totalB, scoring: scoringMap,
+        );
+        stats[teamAId]!['matchPoints'] += mpResult[0];
+        stats[teamBId]!['matchPoints'] += mpResult[1];
+        if (mpResult[0] > mpResult[1]) {
+          stats[teamAId]!['wins']++; stats[teamBId]!['losses']++;
+        } else if (mpResult[1] > mpResult[0]) {
+          stats[teamBId]!['wins']++; stats[teamAId]!['losses']++;
+        } else {
+          stats[teamAId]!['draws']++; stats[teamBId]!['draws']++;
+        }
+      } else {
+        if (setsA > setsB) {
+          stats[teamAId]!['wins']++; stats[teamBId]!['losses']++;
+          stats[teamAId]!['matchPoints'] += 2;
+        } else if (setsB > setsA) {
+          stats[teamBId]!['wins']++; stats[teamAId]!['losses']++;
+          stats[teamBId]!['matchPoints'] += 2;
+        } else {
+          stats[teamAId]!['draws']++; stats[teamBId]!['draws']++;
+          stats[teamAId]!['matchPoints'] += 1; stats[teamBId]!['matchPoints'] += 1;
+        }
+      }
+
+      stats[teamAId]!['totalPoints'] += totalA;
+      stats[teamBId]!['totalPoints'] += totalB;
+      stats[teamAId]!['pointDiff'] += (totalA - totalB);
+      stats[teamBId]!['pointDiff'] += (totalB - totalA);
+    }
+
+    // Sort and assign ranks
+    final sorted = stats.entries.toList()
       ..sort((a, b) {
         final mp = (b.value['matchPoints'] as int).compareTo(a.value['matchPoints'] as int);
         if (mp != 0) return mp;
@@ -481,150 +758,11 @@ class MatchGenerator {
         return (b.value['totalPoints'] as int).compareTo(a.value['totalPoints'] as int);
       });
 
-    if (format == '順位別複数') {
-      // Split into brackets of 4 teams
-      final brackets = <List<MapEntry<String, Map<String, dynamic>>>>[];
-      for (int i = 0; i < sorted.length; i += 4) {
-        final end = (i + 4).clamp(0, sorted.length);
-        brackets.add(sorted.sublist(i, end));
-      }
-
-      final bracketNames = ['上位', '中上位', '中位', '中下位', '下位', 'エンジョイ'];
-      for (int b = 0; b < brackets.length; b++) {
-        final bracket = brackets[b];
-        final bracketName = b < bracketNames.length ? bracketNames[b] : '第${b + 1}ブラケット';
-        final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
-            .collection('brackets').doc('bracket_${b + 1}');
-
-        await bracketRef.set({
-          'bracketNumber': b + 1,
-          'bracketName': bracketName,
-          'teamCount': bracket.length,
-          'status': 'pending',
-        });
-
-        if (bracket.length >= 4) {
-          // Semi-finals: 1st vs 4th, 2nd vs 3rd
-          await bracketRef.collection('matches').add({
-            'round': 'semi', 'matchNumber': 1,
-            'teamAId': bracket[0].key, 'teamAName': bracket[0].value['teamName'],
-            'teamBId': bracket[3].key, 'teamBName': bracket[3].value['teamName'],
-            'status': 'pending', 'sets': [], 'result': {},
-          });
-          await bracketRef.collection('matches').add({
-            'round': 'semi', 'matchNumber': 2,
-            'teamAId': bracket[1].key, 'teamAName': bracket[1].value['teamName'],
-            'teamBId': bracket[2].key, 'teamBName': bracket[2].value['teamName'],
-            'status': 'pending', 'sets': [], 'result': {},
-          });
-          // Final and 3rd place match placeholders
-          await bracketRef.collection('matches').add({
-            'round': 'final', 'matchNumber': 3,
-            'teamAId': '', 'teamAName': '準決勝①勝者',
-            'teamBId': '', 'teamBName': '準決勝②勝者',
-            'status': 'waiting', 'sets': [], 'result': {},
-          });
-          if (finalRules['thirdPlace'] == true) {
-            await bracketRef.collection('matches').add({
-              'round': '3rd', 'matchNumber': 4,
-              'teamAId': '', 'teamAName': '準決勝①敗者',
-              'teamBId': '', 'teamBName': '準決勝②敗者',
-              'status': 'waiting', 'sets': [], 'result': {},
-            });
-          }
-        } else if (bracket.length == 3) {
-          // Round-robin for 3 teams
-          for (int i = 0; i < bracket.length; i++) {
-            for (int j = i + 1; j < bracket.length; j++) {
-              await bracketRef.collection('matches').add({
-                'round': 'round-robin', 'matchNumber': i * 10 + j,
-                'teamAId': bracket[i].key, 'teamAName': bracket[i].value['teamName'],
-                'teamBId': bracket[j].key, 'teamBName': bracket[j].value['teamName'],
-                'status': 'pending', 'sets': [], 'result': {},
-              });
-            }
-          }
-        } else if (bracket.length == 2) {
-          // Single match
-          await bracketRef.collection('matches').add({
-            'round': 'final', 'matchNumber': 1,
-            'teamAId': bracket[0].key, 'teamAName': bracket[0].value['teamName'],
-            'teamBId': bracket[1].key, 'teamBName': bracket[1].value['teamName'],
-            'status': 'pending', 'sets': [], 'result': {},
-          });
-        }
-      }
-    } else {
-      // Single elimination bracket for all teams
-      final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
-          .collection('brackets').doc('bracket_main');
-      await bracketRef.set({
-        'bracketNumber': 1, 'bracketName': '決勝トーナメント',
-        'teamCount': sorted.length, 'status': 'pending',
-      });
-      // Generate bracket matches (simplified: first round pairings)
-      for (int i = 0; i < sorted.length ~/ 2; i++) {
-        final a = sorted[i];
-        final b = sorted[sorted.length - 1 - i];
-        await bracketRef.collection('matches').add({
-          'round': 'round1', 'matchNumber': i + 1,
-          'teamAId': a.key, 'teamAName': a.value['teamName'],
-          'teamBId': b.key, 'teamBName': b.value['teamName'],
-          'status': 'pending', 'sets': [], 'result': {},
-        });
-      }
-    }
-
-    await _firestore.collection('tournaments').doc(tournamentId).update({'status': '決勝中'});
-  }
-
-  /// After a bracket semi-final is completed, update final/3rd place matches
-  Future<void> updateBracketProgression({
-    required String tournamentId,
-    required String bracketId,
-  }) async {
-    final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
-        .collection('brackets').doc(bracketId);
-    final matchesSnap = await bracketRef.collection('matches').orderBy('matchNumber').get();
-    
-    final semiMatches = matchesSnap.docs.where((d) => (d.data())['round'] == 'semi').toList();
-    final finalMatch = matchesSnap.docs.where((d) => (d.data())['round'] == 'final').firstOrNull;
-    final thirdMatch = matchesSnap.docs.where((d) => (d.data())['round'] == '3rd').firstOrNull;
-    
-    if (semiMatches.length < 2) return;
-    
-    final semi1 = semiMatches[0].data();
-    final semi2 = semiMatches[1].data();
-    
-    if (semi1['status'] != 'completed' || semi2['status'] != 'completed') return;
-    
-    final result1 = semi1['result'] as Map<String, dynamic>? ?? {};
-    final result2 = semi2['result'] as Map<String, dynamic>? ?? {};
-    
-    final winner1Id = result1['winner'] ?? '';
-    final winner1Name = winner1Id == semi1['teamAId'] ? semi1['teamAName'] : semi1['teamBName'];
-    final loser1Id = winner1Id == semi1['teamAId'] ? semi1['teamBId'] : semi1['teamAId'];
-    final loser1Name = winner1Id == semi1['teamAId'] ? semi1['teamBName'] : semi1['teamAName'];
-    
-    final winner2Id = result2['winner'] ?? '';
-    final winner2Name = winner2Id == semi2['teamAId'] ? semi2['teamAName'] : semi2['teamBName'];
-    final loser2Id = winner2Id == semi2['teamAId'] ? semi2['teamBId'] : semi2['teamAId'];
-    final loser2Name = winner2Id == semi2['teamAId'] ? semi2['teamBName'] : semi2['teamAName'];
-    
-    if (finalMatch != null) {
-      await finalMatch.reference.update({
-        'teamAId': winner1Id, 'teamAName': winner1Name,
-        'teamBId': winner2Id, 'teamBName': winner2Name,
-        'status': 'pending',
-      });
-    }
-    
-    if (thirdMatch != null) {
-      await thirdMatch.reference.update({
-        'teamAId': loser1Id, 'teamAName': loser1Name,
-        'teamBId': loser2Id, 'teamBName': loser2Name,
-        'status': 'pending',
-      });
+    for (int i = 0; i < sorted.length; i++) {
+      final teamId = sorted[i].key;
+      final teamStats = sorted[i].value;
+      teamStats['rank'] = i + 1;
+      await bracketRef.collection('standings').doc(teamId).set(teamStats);
     }
   }
 

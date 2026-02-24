@@ -204,9 +204,17 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
         await _firestore.collection('tournaments').doc(widget.tournamentId)
             .collection('brackets').doc(widget.bracketId)
             .collection('matches').doc(widget.matchId).update(updateData);
-        // Update bracket progression (semi -> final)
-        await MatchGenerator().updateBracketProgression(
-          tournamentId: widget.tournamentId, bracketId: widget.bracketId!);
+        // Check bracket type: round-robin updates standings, tournament updates progression
+        final bracketDoc = await _firestore.collection('tournaments').doc(widget.tournamentId)
+            .collection('brackets').doc(widget.bracketId).get();
+        final bracketType = bracketDoc.data()?['type'] ?? 'tournament';
+        if (bracketType == 'round_robin') {
+          await MatchGenerator().updateBracketStandings(
+            tournamentId: widget.tournamentId, bracketId: widget.bracketId!);
+        } else {
+          await MatchGenerator().updateBracketProgression(
+            tournamentId: widget.tournamentId, bracketId: widget.bracketId!);
+        }
       } else {
         await _firestore.collection('tournaments').doc(widget.tournamentId)
             .collection('rounds').doc(widget.roundId)
