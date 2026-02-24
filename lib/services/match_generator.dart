@@ -309,79 +309,23 @@ class MatchGenerator {
       stats.putIfAbsent(teamBId, () => _emptyStats(match['teamBName']));
 
       if (useMatchPoints) {
-        int mpA, mpB;
-
-        if (setFormat == 1) {
-          // 1-set match: simple win/lose
-          final win = scoring['win'] ?? 3;
-          final lose = scoring['lose'] ?? 0;
-          if (setsA > setsB) {
-            mpA = win; mpB = lose;
-            stats[teamAId]!['wins']++;
-            stats[teamBId]!['losses']++;
-          } else {
-            mpA = lose; mpB = win;
-            stats[teamBId]!['wins']++;
-            stats[teamAId]!['losses']++;
-          }
-        } else if (setFormat == 3) {
-          // 3-set match (2セット先取): 2-0, 2-1, 1-2, 0-2
-          final win20 = scoring['win20'] ?? 5;
-          final win21 = scoring['win21'] ?? 3;
-          final lose12 = scoring['lose12'] ?? 1;
-          final lose02 = scoring['lose02'] ?? 0;
-          if (setsA == 2 && setsB == 0) {
-            mpA = win20; mpB = lose02;
-            stats[teamAId]!['wins']++;
-            stats[teamBId]!['losses']++;
-          } else if (setsA == 2 && setsB == 1) {
-            mpA = win21; mpB = lose12;
-            stats[teamAId]!['wins']++;
-            stats[teamBId]!['losses']++;
-          } else if (setsA == 1 && setsB == 2) {
-            mpA = lose12; mpB = win21;
-            stats[teamBId]!['wins']++;
-            stats[teamAId]!['losses']++;
-          } else {
-            mpA = lose02; mpB = win20;
-            stats[teamBId]!['wins']++;
-            stats[teamAId]!['losses']++;
-          }
+        final mpResult = _calculateMatchPointsForFormat(
+          setFormat: setFormat, setsA: setsA, setsB: setsB,
+          totalA: totalA, totalB: totalB, scoring: scoring,
+        );
+        stats[teamAId]!['matchPoints'] += mpResult[0];
+        stats[teamBId]!['matchPoints'] += mpResult[1];
+        // Determine win/loss/draw
+        if (mpResult[0] > mpResult[1]) {
+          stats[teamAId]!['wins']++;
+          stats[teamBId]!['losses']++;
+        } else if (mpResult[1] > mpResult[0]) {
+          stats[teamBId]!['wins']++;
+          stats[teamAId]!['losses']++;
         } else {
-          // 2-set match (default): 2-0, 1-1, 0-2
-          final win20 = scoring['win20'] ?? 10;
-          final win11 = scoring['win11'] ?? 7;
-          final draw = scoring['draw'] ?? 4;
-          final lose11 = scoring['lose11'] ?? 2;
-          final lose02 = scoring['lose02'] ?? 0;
-          if (setsA == 2 && setsB == 0) {
-            mpA = win20; mpB = lose02;
-            stats[teamAId]!['wins']++;
-            stats[teamBId]!['losses']++;
-          } else if (setsA == 0 && setsB == 2) {
-            mpA = lose02; mpB = win20;
-            stats[teamBId]!['wins']++;
-            stats[teamAId]!['losses']++;
-          } else {
-            // 1-1 tie: decide by point diff
-            if (totalA > totalB) {
-              mpA = win11; mpB = lose11;
-              stats[teamAId]!['wins']++;
-              stats[teamBId]!['losses']++;
-            } else if (totalA < totalB) {
-              mpA = lose11; mpB = win11;
-              stats[teamBId]!['wins']++;
-              stats[teamAId]!['losses']++;
-            } else {
-              mpA = draw; mpB = draw;
-              stats[teamAId]!['draws']++;
-              stats[teamBId]!['draws']++;
-            }
-          }
+          stats[teamAId]!['draws']++;
+          stats[teamBId]!['draws']++;
         }
-
-        stats[teamAId]!['matchPoints'] += mpA;
-        stats[teamBId]!['matchPoints'] += mpB;
       } else {
         // Simple win/loss
         if (setsA > setsB) {
@@ -393,10 +337,21 @@ class MatchGenerator {
           stats[teamAId]!['losses']++;
           stats[teamBId]!['matchPoints'] += 2;
         } else {
-          stats[teamAId]!['draws']++;
-          stats[teamBId]!['draws']++;
-          stats[teamAId]!['matchPoints'] += 1;
-          stats[teamBId]!['matchPoints'] += 1;
+          // 1-1 or tie: use point diff
+          if (totalA > totalB) {
+            stats[teamAId]!['wins']++;
+            stats[teamBId]!['losses']++;
+            stats[teamAId]!['matchPoints'] += 2;
+          } else if (totalB > totalA) {
+            stats[teamBId]!['wins']++;
+            stats[teamAId]!['losses']++;
+            stats[teamBId]!['matchPoints'] += 2;
+          } else {
+            stats[teamAId]!['draws']++;
+            stats[teamBId]!['draws']++;
+            stats[teamAId]!['matchPoints'] += 1;
+            stats[teamBId]!['matchPoints'] += 1;
+          }
         }
       }
 
@@ -423,6 +378,46 @@ class MatchGenerator {
       final teamStats = sorted[i].value;
       teamStats['rank'] = i + 1;
       await standingRef.collection('teams').doc(teamId).update(teamStats);
+    }
+  }
+
+  /// セット形式に応じたマッチポイント計算（[mpA, mpB]を返す）
+  List<int> _calculateMatchPointsForFormat({
+    required int setFormat,
+    required int setsA,
+    required int setsB,
+    required int totalA,
+    required int totalB,
+    required Map<String, dynamic> scoring,
+  }) {
+    if (setFormat == 1) {
+      final winPts = scoring['win'] ?? 3;
+      final losePts = scoring['lose'] ?? 0;
+      if (totalA > totalB) return [winPts, losePts];
+      if (totalB > totalA) return [losePts, winPts];
+      return [((winPts as int) ~/ 2), ((winPts as int) ~/ 2)];
+    } else if (setFormat == 3) {
+      final win20 = scoring['win20'] ?? 10;
+      final win21 = scoring['win21'] ?? 7;
+      final lose12 = scoring['lose12'] ?? 2;
+      final lose02 = scoring['lose02'] ?? 0;
+      if (setsA == 2 && setsB == 0) return [win20, lose02];
+      if (setsA == 0 && setsB == 2) return [lose02, win20];
+      if (setsA == 2 && setsB == 1) return [win21, lose12];
+      if (setsA == 1 && setsB == 2) return [lose12, win21];
+      return [0, 0];
+    } else {
+      // 2セットマッチ
+      final win20 = scoring['win20'] ?? 10;
+      final win11 = scoring['win11'] ?? 7;
+      final draw = scoring['draw'] ?? 4;
+      final lose11 = scoring['lose11'] ?? 2;
+      final lose02 = scoring['lose02'] ?? 0;
+      if (setsA == 2 && setsB == 0) return [win20, lose02];
+      if (setsA == 0 && setsB == 2) return [lose02, win20];
+      if (totalA > totalB) return [win11, lose11];
+      if (totalA < totalB) return [lose11, win11];
+      return [draw, draw];
     }
   }
 
