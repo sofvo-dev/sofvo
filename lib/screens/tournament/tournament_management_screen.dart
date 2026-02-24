@@ -497,7 +497,53 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               }).toList()),
               const SizedBox(height: 24),
               // ── スケジュール設定 ──
-              const Text('当日スケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Row(children: [
+                const Text('当日スケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {
+                    final courts = int.tryParse(courtsCtrl.text) ?? 2;
+                    final maxTeams = int.tryParse(maxTeamsCtrl.text) ?? 8;
+                    final teamsPerCourt = (tournamentRules?['management'] as Map<String, dynamic>?)?['teamsPerCourt'] ?? 4;
+                    final actualCourts = ((maxTeams / teamsPerCourt).ceil()).clamp(1, courts);
+                    final tpc = (maxTeams / actualCourts).ceil();
+                    final matchesPerCourt = tpc * (tpc - 1) ~/ 2;
+                    final prelimRounds = (tournamentRules?['preliminary'] as Map<String, dynamic>?)?['rounds'] ?? 1;
+                    const minutesPerMatch = 20;
+                    final totalPrelimMinutes = matchesPerCourt * minutesPerMatch * (prelimRounds as int);
+                    final parts = matchStartTime.split(':');
+                    final startH = int.tryParse(parts[0]) ?? 9;
+                    final startM = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+                    final startMinutes = startH * 60 + startM;
+                    final finalsStart = startMinutes + totalPrelimMinutes + 15;
+                    final closingStart = finalsStart + 60;
+                    String fmt(int m) => '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+                    setSheetState(() {
+                      openTime = fmt(startMinutes - 75);
+                      receptionTime = fmt(startMinutes - 45);
+                      openingTime = fmt(startMinutes - 15);
+                      finalTime = fmt(finalsStart);
+                      closingTime = fmt(closingStart);
+                    });
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(
+                        content: Text('予選 $matchesPerCourt試合×${prelimRounds}R（各${minutesPerMatch}分）で自動計算しました'),
+                        backgroundColor: AppTheme.success,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.auto_fix_high, size: 14, color: AppTheme.accentColor),
+                      const SizedBox(width: 4),
+                      Text('自動計算', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+                    ]),
+                  ),
+                ),
+              ]),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -770,7 +816,53 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     selectedColor: AppTheme.primaryColor.withValues(alpha:0.15));
               }).toList()),
               const SizedBox(height: 24),
-              const Text('当日スケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Row(children: [
+                const Text('当日スケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {
+                    final courts = int.tryParse(courtsCtrl.text) ?? 2;
+                    final maxTeams = int.tryParse(maxTeamsCtrl.text) ?? 8;
+                    final teamsPerCourt = (tournamentRules?['management'] as Map<String, dynamic>?)?['teamsPerCourt'] ?? 4;
+                    final actualCourts = ((maxTeams / teamsPerCourt).ceil()).clamp(1, courts);
+                    final tpc = (maxTeams / actualCourts).ceil();
+                    final matchesPerCourt = tpc * (tpc - 1) ~/ 2;
+                    final prelimRoundsVal = (tournamentRules?['preliminary'] as Map<String, dynamic>?)?['rounds'] ?? 1;
+                    const minutesPerMatch = 20;
+                    final totalPrelimMinutes = matchesPerCourt * minutesPerMatch * (prelimRoundsVal as int);
+                    final msParts = matchStartTime.split(':');
+                    final startH = int.tryParse(msParts[0]) ?? 9;
+                    final startM = int.tryParse(msParts.length > 1 ? msParts[1] : '0') ?? 0;
+                    final startMinutes = startH * 60 + startM;
+                    final finalsStart = startMinutes + totalPrelimMinutes + 15;
+                    final closingStart = finalsStart + 60;
+                    String fmt(int m) => '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+                    setSheetState(() {
+                      openTime = fmt(startMinutes - 75);
+                      receptionTime = fmt(startMinutes - 45);
+                      openingTime = fmt(startMinutes - 15);
+                      finalTime = fmt(finalsStart);
+                      closingTime = fmt(closingStart);
+                    });
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(
+                        content: Text('予選 $matchesPerCourt試合×${prelimRoundsVal}R（各${minutesPerMatch}分）で自動計算しました'),
+                        backgroundColor: AppTheme.success,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.auto_fix_high, size: 14, color: AppTheme.accentColor),
+                      const SizedBox(width: 4),
+                      Text('自動計算', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+                    ]),
+                  ),
+                ),
+              ]),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(14),

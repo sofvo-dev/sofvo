@@ -118,6 +118,7 @@ class MatchGenerator {
   }
 
   /// Rank-based assignment for round 2
+  /// 同順位のチームを同じコートにまとめ、上位→下位のブラケットを形成する
   Future<List<List<Map<String, dynamic>>>> _assignByRanking(
       String tournamentId, List<Map<String, dynamic>> entries,
       int courtCount, int teamsPerCourt) async {
@@ -126,7 +127,7 @@ class MatchGenerator {
         .collection('rounds').doc('round_1');
     final standingsSnap = await round1Ref.collection('standings').get();
 
-    // Collect all team rankings
+    // Collect all team rankings (rank within their court)
     final teamRankings = <String, int>{};
     for (var courtDoc in standingsSnap.docs) {
       final teamsSnap = await courtDoc.reference.collection('teams')
@@ -147,16 +148,22 @@ class MatchGenerator {
       rankGroups[rank]!.add(entry);
     }
 
-    // Distribute to courts: same-rank teams go to same court
+    // 同順位チームを同じコートにグループ化
+    // 例: 2コート×4チーム → コートA: 1位+2位チーム、コートB: 3位+4位チーム
     final sortedRanks = rankGroups.keys.toList()..sort();
     final actualCourts = (entries.length / teamsPerCourt).ceil().clamp(1, courtCount);
     final courts = List.generate(actualCourts, (_) => <Map<String, dynamic>>[]);
 
+    // 順位グループを順番にコートに詰めていく
     int courtIdx = 0;
     for (var rank in sortedRanks) {
       final group = rankGroups[rank]!..shuffle();
+      // この順位グループ全体を現在のコートに入れる
       for (var team in group) {
-        courts[courtIdx % actualCourts].add(team);
+        courts[courtIdx].add(team);
+      }
+      // コートがteamsPerCourt以上になったら次のコートへ
+      if (courts[courtIdx].length >= teamsPerCourt && courtIdx < actualCourts - 1) {
         courtIdx++;
       }
     }

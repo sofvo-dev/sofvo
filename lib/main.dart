@@ -20,6 +20,9 @@ final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<Scaffol
 /// 招待リンクで渡された大会ID（?t=xxx）
 String? pendingTournamentId;
 
+/// セルフチェックイン用の大会ID（?checkin=xxx）
+String? pendingCheckInTournamentId;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -31,6 +34,7 @@ void main() async {
   if (kIsWeb) {
     final uri = Uri.base;
     pendingTournamentId = uri.queryParameters['t'];
+    pendingCheckInTournamentId = uri.queryParameters['checkin'];
   }
 
   // Firestoreオフラインキャッシュ（モバイルのみ）
@@ -104,6 +108,26 @@ class _AuthGateState extends State<AuthGate> {
     } catch (_) {}
   }
 
+  /// セルフチェックイン用の自動遷移
+  Future<void> _handlePendingCheckIn() async {
+    if (pendingCheckInTournamentId == null) return;
+    final tid = pendingCheckInTournamentId!;
+    pendingCheckInTournamentId = null;
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('tournaments').doc(tid).get();
+      if (!doc.exists || !mounted) return;
+      final data = doc.data()!;
+      data['id'] = doc.id;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data, autoCheckIn: true)),
+        );
+      });
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
@@ -149,6 +173,10 @@ class _AuthGateState extends State<AuthGate> {
             // 招待リンクがあれば大会詳細へ自動遷移
             if (pendingTournamentId != null) {
               _navigateToInvitedTournament();
+            }
+            // セルフチェックインリンク
+            if (pendingCheckInTournamentId != null) {
+              _handlePendingCheckIn();
             }
 
             return const MainTabScreen();
