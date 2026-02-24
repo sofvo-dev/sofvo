@@ -180,7 +180,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
 
     // 決勝トーナメントの試合数
     // 決勝の2セット先取はフルセットになりやすいので長めに見積もる
-    final finalMatchMin = (_finalSets == 2 ? 20 : 30) + matchOverhead;
+    final finalMatchMin = (_finalSets == 1 ? 10 : (_finalSets == 2 ? 20 : 30)) + matchOverhead;
     int finalMatches = 0;
     if (_hasFinal) {
       if (_finalFormat == '順位別複数') {
@@ -505,7 +505,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           _collapsibleSection('予選ルール', Icons.sports_volleyball, _prelimColor, _prelimOpen, (v) => setState(() => _prelimOpen = v), [
             _choiceRow('予選ラウンド数', [1, 2], _prelimRounds, (v) => setState(() => _prelimRounds = v), _prelimColor),
             _setFormatSelector([1, 2, 3], _prelimSets, (v) => setState(() => _prelimSets = v), _prelimColor),
-            _switchRow('ジュース（17点キャップ）', _prelimDeuce, (v) => setState(() { _prelimDeuce = v; if (v) _prelimDeuceCap = 17; }), _prelimColor),
+            _switchRow('デュース（17点キャップ）', _prelimDeuce, (v) => setState(() { _prelimDeuce = v; if (v) _prelimDeuceCap = 17; }), _prelimColor),
           ]),
           const SizedBox(height: 12),
 
@@ -545,8 +545,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
               _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,
                 _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
               const SizedBox(height: 12),
-              _setFormatSelector([2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor),
-              _switchRow('ジュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
+              _setFormatSelector([1, 2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor),
+              _switchRow('デュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
               _switchRow('3位決定戦', _thirdPlace, (v) => setState(() => _thirdPlace = v), _finalColor),
               _switchRow('敗者復活戦', _loserRevival, (v) => setState(() => _loserRevival = v), _finalColor),
             ],
