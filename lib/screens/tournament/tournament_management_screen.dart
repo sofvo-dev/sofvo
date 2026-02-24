@@ -360,7 +360,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 onPressed: () async {
                   final result = await Navigator.push<Map<String, dynamic>>(context,
                     MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text))));
-                  if (result != null) setSheetState(() => tournamentRules = result);
+                  if (result != null) setSheetState(() {
+                    tournamentRules = result;
+                    final mgmt = result['management'] as Map<String, dynamic>? ?? {};
+                    if (mgmt['courtCount'] != null) courtsCtrl.text = '${mgmt['courtCount']}';
+                    if (mgmt['maxTeams'] != null) maxTeamsCtrl.text = '${mgmt['maxTeams']}';
+                    if (mgmt['entryFee'] != null) feeCtrl.text = '${mgmt['entryFee']}';
+                  });
                 },
                 icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
                 label: Text(tournamentRules != null ? 'ルール設定済み ✓' : 'ルールを設定する',
@@ -568,7 +574,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 onPressed: () async {
                   final result = await Navigator.push<Map<String, dynamic>>(context,
                     MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), startTime: matchStartTime, endTime: finalTime)));
-                  if (result != null) setSheetState(() => tournamentRules = result);
+                  if (result != null) setSheetState(() {
+                    tournamentRules = result;
+                    final mgmt = result['management'] as Map<String, dynamic>? ?? {};
+                    if (mgmt['courtCount'] != null) courtsCtrl.text = '${mgmt['courtCount']}';
+                    if (mgmt['maxTeams'] != null) maxTeamsCtrl.text = '${mgmt['maxTeams']}';
+                    if (mgmt['entryFee'] != null) feeCtrl.text = '${mgmt['entryFee']}';
+                  });
                 },
                 icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
                 label: Text(tournamentRules != null ? 'ルール設定済み ✓' : 'ルールを設定する',
@@ -892,7 +904,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 onPressed: () async {
                   final result = await Navigator.push<Map<String, dynamic>>(context,
                     MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), startTime: matchStartTime, endTime: finalTime)));
-                  if (result != null) setSheetState(() => tournamentRules = result);
+                  if (result != null) setSheetState(() {
+                    tournamentRules = result;
+                    final mgmt = result['management'] as Map<String, dynamic>? ?? {};
+                    if (mgmt['courtCount'] != null) courtsCtrl.text = '${mgmt['courtCount']}';
+                    if (mgmt['maxTeams'] != null) maxTeamsCtrl.text = '${mgmt['maxTeams']}';
+                    if (mgmt['entryFee'] != null) feeCtrl.text = '${mgmt['entryFee']}';
+                  });
                 },
                 icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
                 label: Text(tournamentRules != null ? 'ルール設定済み' : 'ルールを設定する',

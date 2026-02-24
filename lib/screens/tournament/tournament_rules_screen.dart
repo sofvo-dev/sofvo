@@ -20,8 +20,11 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   static const Color _otherColor = Color(0xFF607D8B);
   static const Color _suggestColor = Color(0xFF2196F3);
 
-  // Court settings
-  int _teamsPerCourt = 4;
+  // Court / Team / Fee settings
+  int _courtCount = 2;
+  int _maxTeams = 8;
+  int _entryFee = 3000;
+  int get _teamsPerCourt => (_maxTeams / _courtCount).ceil();
 
   // Preliminary - Round 1 (also used as shared settings when rounds=1)
   int _prelimRounds = 1;
@@ -99,7 +102,9 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize scoring maps to match default set format
+    // Initialize from widget params
+    _courtCount = widget.courtCount ?? 2;
+    _maxTeams = widget.maxTeams ?? 8;
     _r1Scoring = Map<String, int>.from(_defaultScoringForFormat(_prelimSets));
     _r2Scoring = Map<String, int>.from(_defaultScoringForFormat(_r2Sets));
     if (widget.initialRules != null) _loadRules(widget.initialRules!);
@@ -112,7 +117,9 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     final o = r['other'] as Map<String, dynamic>? ?? {};
     final m = r['management'] as Map<String, dynamic>? ?? {};
     setState(() {
-      _teamsPerCourt = m['teamsPerCourt'] ?? 4;
+      _courtCount = m['courtCount'] ?? widget.courtCount ?? 2;
+      _maxTeams = m['maxTeams'] ?? widget.maxTeams ?? 8;
+      _entryFee = m['entryFee'] ?? 3000;
       _prelimRounds = p['rounds'] ?? 1;
 
       if (_prelimRounds == 2 && p['round1'] != null) {
@@ -197,7 +204,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     }
 
     return {
-      'management': {'teamsPerCourt': _teamsPerCourt},
+      'management': {'courtCount': _courtCount, 'maxTeams': _maxTeams, 'entryFee': _entryFee, 'teamsPerCourt': _teamsPerCourt},
       'preliminary': prelim,
       'scoring': scoring,
       'final': {
@@ -217,7 +224,9 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   // ── Reset to defaults ──
   void _resetDefaults() {
     setState(() {
-      _teamsPerCourt = 4;
+      _courtCount = widget.courtCount ?? 2;
+      _maxTeams = widget.maxTeams ?? 8;
+      _entryFee = 3000;
       _prelimRounds = 1;
       _prelimSets = 2; _prelimDeuce = false; _prelimDeuceCap = 17;
       _r2Sets = 2; _r2Deuce = false; _r2DeuceCap = 17;
@@ -236,7 +245,6 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   // ── Kabirunrun Cup preset ──
   void _applyKabirunrunPreset() {
     setState(() {
-      _teamsPerCourt = 4;
       _prelimRounds = 1;
       _prelimSets = 2; _prelimDeuce = false; _prelimDeuceCap = 17;
       _r2Sets = 2; _r2Deuce = false; _r2DeuceCap = 17;
@@ -254,7 +262,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
 
   // ── Auto suggest ──
   Map<String, dynamic> _calcSuggestion() {
-    final courts = widget.courtCount ?? 4;
+    final courts = _courtCount;
     double hours = 8;
     if (widget.startTime != null && widget.endTime != null) {
       final s = _parseTime(widget.startTime!);
@@ -262,10 +270,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       if (s != null && e != null) hours = e.difference(s).inMinutes / 60.0;
     }
 
-    // チーム数: 管理画面から渡された値を優先、なければコート数×1コートチーム数
-    final totalTeams = widget.maxTeams ?? (courts * _teamsPerCourt);
-    // 実際の1コートあたりのチーム数を算出
-    final actualTeamsPerCourt = (totalTeams / courts).ceil();
+    final totalTeams = _maxTeams;
+    final actualTeamsPerCourt = _teamsPerCourt;
 
     // 1コート内の総当たり試合数 = n*(n-1)/2
     final matchesPerCourt = actualTeamsPerCourt * (actualTeamsPerCourt - 1) ~/ 2;
@@ -465,6 +471,46 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     ]);
   }
 
+  Widget _numberInputField(String label, int value, ValueChanged<int> onChanged, {int step = 1}) {
+    final ctrl = TextEditingController(text: '$value');
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 6),
+      Row(children: [
+        GestureDetector(
+          onTap: () { onChanged(value - step); },
+          child: Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.remove, size: 18),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+          ),
+          onChanged: (t) { final v = int.tryParse(t); if (v != null) onChanged(v); },
+        )),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () { onChanged(value + step); },
+          child: Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.add, size: 18),
+          ),
+        ),
+      ]),
+    ]);
+  }
+
   // ── Template save/load ──
   Future<void> _saveTemplate() async {
     final nameCtrl = TextEditingController();
@@ -573,39 +619,27 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // ── Teams per court (only when maxTeams not provided) ──
-          if (widget.maxTeams == null) ...[
+          // ── コート数・チーム数・参加費 ──
           Container(
             width: double.infinity, padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2))]),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('1コートのチーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Row(children: [
+                Expanded(child: _numberInputField('使用コート数', _courtCount, (v) => setState(() => _courtCount = v.clamp(1, 20)))),
+                const SizedBox(width: 12),
+                Expanded(child: _numberInputField('募集チーム数', _maxTeams, (v) => setState(() => _maxTeams = v.clamp(2, 100)))),
+              ]),
               const SizedBox(height: 8),
-              Row(children: [3, 4, 5].map((n) {
-                final sel = _teamsPerCourt == n;
-                final matches = n == 3 ? 3 : (n == 4 ? 6 : 10);
-                return Expanded(child: GestureDetector(
-                  onTap: () => setState(() => _teamsPerCourt = n),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: sel ? AppTheme.primaryColor : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(10),
-                      border: sel ? null : Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Column(children: [
-                      Text('$nチーム', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: sel ? Colors.white : AppTheme.textPrimary)),
-                      const SizedBox(height: 4),
-                      Text('$matches試合', style: TextStyle(fontSize: 11, color: sel ? Colors.white70 : AppTheme.textSecondary)),
-                    ]),
-                  ),
-                ));
-              }).toList()),
+              Container(
+                width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                child: Text('1コート $_teamsPerCourt チーム（自動計算）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              ),
+              const SizedBox(height: 12),
+              _numberInputField('参加費（円）', _entryFee, (v) => setState(() => _entryFee = v.clamp(0, 99999)), step: 500),
             ]),
           ),
           const SizedBox(height: 16),
-          ],
 
           // ── Preliminary ──
           _collapsibleSection('予選ルール', Icons.sports_volleyball, _prelimColor, _prelimOpen, (v) => setState(() => _prelimOpen = v), [
