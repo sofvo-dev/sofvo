@@ -9,6 +9,7 @@ import '../../config/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'score_input_screen.dart';
 import 'checkin_screen.dart';
+import 'mvp_voting_screen.dart';
 import '../../services/match_generator.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
@@ -19,7 +20,8 @@ import '../../services/notification_service.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> tournament;
-  const TournamentDetailScreen({super.key, required this.tournament});
+  final bool autoCheckIn;
+  const TournamentDetailScreen({super.key, required this.tournament, this.autoCheckIn = false});
   @override
   State<TournamentDetailScreen> createState() => _TournamentDetailScreenState();
 }
@@ -48,7 +50,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       length: _isEntryDeadlinePassed ? 5 : 4,
       vsync: this,
     );
-    _loadMyTeams();
+    _loadMyTeams().then((_) {
+      if (widget.autoCheckIn) _performSelfCheckIn();
+    });
   }
 
   @override
@@ -70,6 +74,51 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       _myEntryTeamId = teamIds.isNotEmpty ? teamIds.first : "";
     });
   }
+  /// セルフチェックイン（参加者がQRスキャンまたはボタンで自分のチームをチェックイン）
+  Future<void> _performSelfCheckIn() async {
+    if (_myEntryTeamId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('この大会にエントリーしていないためチェックインできません'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+    // 重複チェック
+    final existing = await _firestore.collection('tournaments').doc(_tournamentId)
+        .collection('checkIns').where('teamId', isEqualTo: _myEntryTeamId).limit(1).get();
+    if (existing.docs.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('すでにチェックイン済みです'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+    // チーム名取得
+    final entrySnap = await _firestore.collection('tournaments').doc(_tournamentId)
+        .collection('entries').where('teamId', isEqualTo: _myEntryTeamId).limit(1).get();
+    final teamName = entrySnap.docs.isNotEmpty ? (entrySnap.docs.first.data()['teamName'] ?? '') : '';
+    // チェックイン登録
+    await _firestore.collection('tournaments').doc(_tournamentId).collection('checkIns').add({
+      'teamId': _myEntryTeamId,
+      'teamName': teamName,
+      'checkedInAt': FieldValue.serverTimestamp(),
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('$teamName チェックイン完了！'),
+          ]),
+          backgroundColor: AppTheme.success,
+        ),
+      );
+    }
+  }
+
   // ── 大会チャットを開く or 作成 ──
   Future<void> _openOrCreateTournamentChat() async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -555,6 +604,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                               const SizedBox(height: 8),
                               _buildResultRow(Icons.star, '準優勝', runnerUp ?? '', AppTheme.primaryColor),
                               const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                                    builder: (_) => MvpVotingScreen(
+                                      tournamentId: _tournamentId,
+                                      tournamentName: widget.tournament['title'] ?? widget.tournament['name'] ?? '',
+                                    ),
+                                  )),
+                                  icon: const Icon(Icons.how_to_vote, size: 18),
+                                  label: const Text('MVP投票'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.amber[700],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
@@ -1451,6 +1520,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             Icon(Icons.qr_code, size: 14, color: AppTheme.primaryColor),
                             const SizedBox(width: 4),
                             Text('QR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: _performSelfCheckIn,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: AppTheme.success.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.check_circle_outline, size: 14, color: AppTheme.success),
+                            const SizedBox(width: 4),
+                            Text('チェックイン', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.success)),
                           ]),
                         ),
                       ),
