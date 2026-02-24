@@ -950,6 +950,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
   }
 
   Widget _buildTimeRow(String label, String value, Function(String) onChanged, BuildContext ctx) {
+    final isRequired = label.contains('*');
+    final isEmpty = value.isEmpty || value == '--:--';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
@@ -957,11 +959,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         Expanded(
           child: GestureDetector(
             onTap: () {
-              final parts = value.split(':');
+              final parts = (isEmpty ? '08:00' : value).split(':');
               var h = int.tryParse(parts[0]) ?? 8;
-              var m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+              var m = ((int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0) ~/ 5) * 5;
               final hourCtrl = FixedExtentScrollController(initialItem: h);
-              final minCtrl = FixedExtentScrollController(initialItem: m);
+              final minCtrl = FixedExtentScrollController(initialItem: m ~/ 5);
               showModalBottomSheet(
                 context: ctx,
                 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -1000,8 +1002,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           child: CupertinoPicker(
                             scrollController: minCtrl,
                             itemExtent: 40,
-                            onSelectedItemChanged: (i) => m = i,
-                            children: List.generate(60, (i) => Center(child: Text('${i.toString().padLeft(2, '0')}分', style: const TextStyle(fontSize: 20)))),
+                            onSelectedItemChanged: (i) => m = i * 5,
+                            children: List.generate(12, (i) => Center(child: Text('${(i * 5).toString().padLeft(2, '0')}分', style: const TextStyle(fontSize: 20)))),
                           ),
                         ),
                       ]),
@@ -1013,10 +1015,18 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey[200]!)),
-              child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              child: Text(isEmpty ? '--:--' : value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isEmpty ? Colors.grey[400] : null)),
             ),
           ),
         ),
+        if (!isRequired && !isEmpty)
+          GestureDetector(
+            onTap: () => onChanged('--:--'),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Icon(Icons.close, size: 18, color: Colors.grey[400]),
+            ),
+          ),
       ]),
     );
   }
