@@ -7,9 +7,10 @@ class TournamentRulesScreen extends StatefulWidget {
   final Map<String, dynamic>? initialRules;
   final int? courtCount;
   final int? maxTeams;
+  final int? entryFee;
   final String? startTime;
   final String? endTime;
-  const TournamentRulesScreen({super.key, this.initialRules, this.courtCount, this.maxTeams, this.startTime, this.endTime});
+  const TournamentRulesScreen({super.key, this.initialRules, this.courtCount, this.maxTeams, this.entryFee, this.startTime, this.endTime});
   @override
   State<TournamentRulesScreen> createState() => _TournamentRulesScreenState();
 }
@@ -106,6 +107,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     // Initialize from widget params
     _courtCount = widget.courtCount ?? 2;
     _maxTeams = widget.maxTeams ?? 8;
+    _entryFee = widget.entryFee ?? 3000;
     _r1Scoring = Map<String, int>.from(_defaultScoringForFormat(_prelimSets));
     _r2Scoring = Map<String, int>.from(_defaultScoringForFormat(_r2Sets));
     if (widget.initialRules != null) _loadRules(widget.initialRules!);
@@ -479,6 +481,19 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     ]);
   }
 
+  Widget _readOnlyInfoChip(IconData icon, String label, String value) {
+    return Expanded(child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+      child: Column(children: [
+        Icon(icon, size: 16, color: AppTheme.textSecondary),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+      ]),
+    ));
+  }
+
   Widget _numberInputField(String label, int value, ValueChanged<int> onChanged, {int step = 1}) {
     final ctrl = TextEditingController(text: '$value');
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -627,24 +642,24 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // ── コート数・チーム数・参加費 ──
+          // ── コート数・チーム数（参照表示のみ） ──
           Container(
             width: double.infinity, padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2))]),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: _numberInputField('使用コート数', _courtCount, (v) => setState(() => _courtCount = v.clamp(1, 20)))),
-                const SizedBox(width: 12),
-                Expanded(child: _numberInputField('募集チーム数', _maxTeams, (v) => setState(() => _maxTeams = v.clamp(2, 100)))),
+                Icon(Icons.info_outline, size: 16, color: AppTheme.textSecondary),
+                const SizedBox(width: 6),
+                Text('大会基本情報', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
               ]),
               const SizedBox(height: 8),
-              Container(
-                width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
-                child: Text('1コート $_teamsPerCourt チーム（自動計算）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-              ),
-              const SizedBox(height: 12),
-              _numberInputField('参加費（円）', _entryFee, (v) => setState(() => _entryFee = v.clamp(0, 99999)), step: 500),
+              Row(children: [
+                _readOnlyInfoChip(Icons.grid_view, 'コート数', '$_courtCount'),
+                const SizedBox(width: 12),
+                _readOnlyInfoChip(Icons.group, 'チーム数', '$_maxTeams'),
+                const SizedBox(width: 12),
+                _readOnlyInfoChip(Icons.sports_volleyball, '1コート', '$_teamsPerCourt チーム'),
+              ]),
             ]),
           ),
           const SizedBox(height: 16),
