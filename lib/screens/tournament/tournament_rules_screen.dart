@@ -39,15 +39,13 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   Map<String, int> _r1Scoring = {'win20': 10, 'win11': 7, 'draw': 4, 'lose11': 2, 'lose02': 0};
   Map<String, int> _r2Scoring = {'win20': 10, 'win11': 7, 'draw': 4, 'lose11': 2, 'lose02': 0};
 
-  // Final (順位決定戦)
+  // Final (順位決定戦) - tournament only
   bool _hasFinal = true;
-  String _finalType = 'tournament'; // 'tournament' or 'round_robin'
   int _finalSets = 3;
   bool _finalDeuce = true;
   int _finalDeuceCap = 17;
   String _finalFormat = '順位別複数';
   int _finalTierCount = 3; // 2=上・中, 3=上・中・下
-  Map<String, int> _finalScoring = {'win20': 5, 'win21': 3, 'lose12': 1, 'lose02': 0};
 
   // Other
   bool _uniformRequired = false;
@@ -161,19 +159,11 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
 
       _useMatchPoints = s['enabled'] ?? true;
       _hasFinal = f['enabled'] ?? true;
-      _finalType = f['type'] ?? 'tournament';
       _finalSets = f['sets'] ?? 3;
       _finalDeuce = f['deuce'] ?? true;
       _finalDeuceCap = f['deuceCap'] ?? 17;
       _finalFormat = f['format'] ?? '順位別複数';
       _finalTierCount = f['tierCount'] ?? 3;
-      final fs = f['scoring'] as Map<String, dynamic>?;
-      if (fs != null) {
-        _finalScoring = {};
-        fs.forEach((k, v) { if (v is int) _finalScoring[k] = v; });
-      } else {
-        _finalScoring = Map<String, int>.from(_defaultScoringForFormat(_finalSets));
-      }
       _uniformRequired = o['uniformRequired'] ?? false;
       _snsVideoAllowed = o['snsVideoAllowed'] ?? true;
       _lunchBreak = o['lunchBreak'] ?? 'なし';
@@ -211,11 +201,10 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       'preliminary': prelim,
       'scoring': scoring,
       'final': {
-        'enabled': _hasFinal, 'type': _finalType,
+        'enabled': _hasFinal,
         'sets': _finalSets, 'points': 15,
         'deuce': _finalDeuce, 'deuceCap': _finalDeuceCap,
         'format': _finalFormat, 'tierCount': _finalTierCount,
-        if (_finalType == 'round_robin') 'scoring': Map<String, int>.from(_finalScoring),
       },
       'other': {
         'uniformRequired': _uniformRequired,
@@ -235,9 +224,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       _useMatchPoints = true;
       _r1Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
       _r2Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
-      _hasFinal = true; _finalType = 'tournament'; _finalSets = 3; _finalDeuce = true; _finalDeuceCap = 17;
+      _hasFinal = true; _finalSets = 3; _finalDeuce = true; _finalDeuceCap = 17;
       _finalFormat = '順位別複数'; _finalTierCount = 3;
-      _finalScoring = Map<String, int>.from(_defaultScoringForFormat(3));
       _uniformRequired = false; _snsVideoAllowed = true; _lunchBreak = 'なし';
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -255,9 +243,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       _useMatchPoints = true;
       _r1Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
       _r2Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
-      _hasFinal = true; _finalType = 'tournament'; _finalSets = 3; _finalDeuce = true; _finalDeuceCap = 17;
+      _hasFinal = true; _finalSets = 3; _finalDeuce = true; _finalDeuceCap = 17;
       _finalFormat = '順位別複数';
-      _finalScoring = Map<String, int>.from(_defaultScoringForFormat(3));
       _uniformRequired = true; _snsVideoAllowed = false; _lunchBreak = 'なし';
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -300,12 +287,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     final finalMatchMin = (_finalSets == 1 ? 10 : (_finalSets == 2 ? 20 : 30)) + matchOverhead;
     int finalMatches = 0;
     if (_hasFinal) {
-      if (_finalType == 'round_robin') {
-        // 総当たり: 4チーム×区分数, 各区分6試合
-        final teamsPerTier = 4;
-        final matchesPerTierRR = teamsPerTier * (teamsPerTier - 1) ~/ 2;
-        finalMatches = matchesPerTierRR * _finalTierCount;
-      } else if (_finalFormat == '順位別複数') {
+      if (_finalFormat == '順位別複数') {
         // 各区分4チームトーナメント想定: 準決2 + 決勝1
         finalMatches = 3 * _finalTierCount;
       } else {
@@ -707,46 +689,21 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             if (_hasFinal) ...[
               const SizedBox(height: 8),
               const Padding(padding: EdgeInsets.only(bottom: 8),
-                child: Text('方式', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-              _formatCard('トーナメント', '勝ち抜き方式で順位を決定', Icons.account_tree,
-                _finalType == 'tournament', () => setState(() => _finalType = 'tournament'), _finalColor),
+                child: Text('トーナメント形式', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+              _formatCard('順位別複数', '順位帯ごとにトーナメント', Icons.view_column,
+                _finalFormat == '順位別複数', () => setState(() => _finalFormat = '順位別複数'), _finalColor),
+              if (_finalFormat == '順位別複数')
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, top: 4, bottom: 4),
+                  child: _choiceRow('区分数', [2, 3], _finalTierCount, (v) => setState(() => _finalTierCount = v), _finalColor,
+                    labels: {2: '上・中', 3: '上・中・下'}),
+                ),
               const SizedBox(height: 8),
-              _formatCard('総当たり（勝ち点制）', '予選と同様に総当たりで\n勝ち点により順位を決定', Icons.grid_view,
-                _finalType == 'round_robin', () => setState(() => _finalType = 'round_robin'), _finalColor),
+              _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,
+                _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
               const SizedBox(height: 12),
-              if (_finalType == 'tournament') ...[
-                const Padding(padding: EdgeInsets.only(bottom: 8),
-                  child: Text('トーナメント形式', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-                _formatCard('順位別複数', '順位帯ごとにトーナメント', Icons.view_column,
-                  _finalFormat == '順位別複数', () => setState(() => _finalFormat = '順位別複数'), _finalColor),
-                if (_finalFormat == '順位別複数')
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16, top: 4, bottom: 4),
-                    child: _choiceRow('区分数', [2, 3], _finalTierCount, (v) => setState(() => _finalTierCount = v), _finalColor,
-                      labels: {2: '上・中', 3: '上・中・下'}),
-                  ),
-                const SizedBox(height: 8),
-                _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,
-                  _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
-                const SizedBox(height: 12),
-              ],
-              if (_finalType == 'round_robin') ...[
-                _choiceRow('区分数', [2, 3], _finalTierCount, (v) => setState(() => _finalTierCount = v), _finalColor,
-                  labels: {2: '上・中', 3: '上・中・下'}),
-              ],
-              _setFormatSelector([1, 2, 3], _finalSets, (v) {
-                setState(() {
-                  _finalSets = v;
-                  if (_finalType == 'round_robin') _onSetFormatChanged(v, _finalScoring);
-                });
-              }, _finalColor),
+              _setFormatSelector([1, 2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor),
               _switchRow('デュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
-              if (_finalType == 'round_robin') ...[
-                const SizedBox(height: 8),
-                const Padding(padding: EdgeInsets.only(bottom: 4),
-                  child: Text('勝ち点設定', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-                ..._buildScoringWidgets(_finalSets, _finalScoring),
-              ],
             ],
           ]),
           const SizedBox(height: 12),
