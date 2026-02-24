@@ -44,6 +44,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   bool _thirdPlace = true;
   bool _loserRevival = false;
   String _finalFormat = '順位別複数';
+  int _finalTierCount = 3; // 2=上・中, 3=上・中・下
 
   // Other
   bool _uniformRequired = false;
@@ -87,6 +88,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       _thirdPlace = f['thirdPlace'] ?? true;
       _loserRevival = f['loserRevival'] ?? false;
       _finalFormat = f['format'] ?? '順位別複数';
+      _finalTierCount = f['tierCount'] ?? 3;
       _uniformRequired = o['uniformRequired'] ?? false;
       _snsVideoAllowed = o['snsVideoAllowed'] ?? true;
       _lunchBreak = o['lunchBreak'] ?? 'なし';
@@ -109,7 +111,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         'enabled': _hasFinal, 'sets': _finalSets, 'points': 15,
         'deuce': _finalDeuce, 'deuceCap': _finalDeuceCap,
         'thirdPlace': _thirdPlace, 'loserRevival': _loserRevival,
-        'format': _finalFormat,
+        'format': _finalFormat, 'tierCount': _finalTierCount,
       },
       'other': {
         'uniformRequired': _uniformRequired,
@@ -430,8 +432,14 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
               const SizedBox(height: 8),
               const Padding(padding: EdgeInsets.only(bottom: 8),
                 child: Text('トーナメント方式', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-              _formatCard('順位別複数', '上位・中位・下位など\n順位帯ごとにトーナメント', Icons.view_column,
+              _formatCard('順位別複数', '順位帯ごとにトーナメント', Icons.view_column,
                 _finalFormat == '順位別複数', () => setState(() => _finalFormat = '順位別複数'), _finalColor),
+              if (_finalFormat == '順位別複数')
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, top: 4, bottom: 4),
+                  child: _choiceRow('区分数', [2, 3], _finalTierCount, (v) => setState(() => _finalTierCount = v), _finalColor,
+                    labels: {2: '上・中', 3: '上・中・下'}),
+                ),
               const SizedBox(height: 8),
               _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,
                 _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
@@ -503,13 +511,14 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     );
   }
 
-  Widget _choiceRow(String label, List<int> options, int selected, ValueChanged<int> onChanged, Color color) {
+  Widget _choiceRow(String label, List<int> options, int selected, ValueChanged<int> onChanged, Color color, {Map<int, String>? labels}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
         Expanded(flex: 4, child: Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary))),
         Expanded(flex: 6, child: Wrap(spacing: 6, children: options.map((o) {
           final isSelected = o == selected;
+          final displayText = labels?[o] ?? '$o';
           return GestureDetector(
             onTap: () => onChanged(o),
             child: Container(
@@ -518,7 +527,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                 color: isSelected ? color : Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text('$o', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppTheme.textSecondary)),
+              child: Text(displayText, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppTheme.textSecondary)),
             ),
           );
         }).toList())),
