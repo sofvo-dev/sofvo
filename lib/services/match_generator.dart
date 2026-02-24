@@ -104,7 +104,8 @@ class MatchGenerator {
     final courts = <List<Map<String, dynamic>>>[];
 
     // Calculate actual courts needed
-    final actualCourts = (shuffled.length / teamsPerCourt).ceil().clamp(1, courtCount);
+    final safeTpc = teamsPerCourt > 0 ? teamsPerCourt : 1;
+    final actualCourts = (shuffled.length / safeTpc).ceil().clamp(1, courtCount);
 
     for (int i = 0; i < actualCourts; i++) {
       courts.add([]);

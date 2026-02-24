@@ -84,6 +84,7 @@ class _MvpVotingScreenState extends State<MvpVotingScreen> {
       });
     }
 
+    if (!mounted) return;
     setState(() {
       _hasVoted = true;
       _myVoteTeamId = teamId;

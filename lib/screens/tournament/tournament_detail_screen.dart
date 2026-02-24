@@ -51,7 +51,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       vsync: this,
     );
     _loadMyTeams().then((_) {
-      if (widget.autoCheckIn) _performSelfCheckIn();
+      if (mounted && widget.autoCheckIn) _performSelfCheckIn();
     });
   }
 
@@ -2456,7 +2456,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                                 leading: fAvatar.toString().isNotEmpty
                                     ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
                                     : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
-                                        child: Text(fName.toString()[0], style: TextStyle(color: AppTheme.primaryColor))),
+                                        child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?', style: TextStyle(color: AppTheme.primaryColor))),
                                 title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
                                 trailing: isSelected
                                     ? const Icon(Icons.check_circle, color: AppTheme.primaryColor)
