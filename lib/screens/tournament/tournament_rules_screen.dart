@@ -173,13 +173,15 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     final matchesPerCourt = actualTeamsPerCourt * (actualTeamsPerCourt - 1) ~/ 2;
 
     // 1試合の所要時間（分）: セット時間 + コートチェンジ等
+    // 1セット約8分想定
+    // 1セットマッチ = 8分, 2セットマッチ = 16分, 3セットマッチ(2セット先取) = 平均20分(2〜3セット)
     const matchOverhead = 3; // コートチェンジ・審判交代
-    final setMinutes = _prelimSets == 1 ? 10 : (_prelimSets == 2 ? 18 : 28);
-    final prelimMatchMin = setMinutes + matchOverhead;
+    final prelimMatchMin = (_prelimSets == 1 ? 8 : (_prelimSets == 2 ? 16 : 20)) + matchOverhead;
     final totalPrelimTime = matchesPerCourt * prelimMatchMin * _prelimRounds;
 
     // 決勝トーナメントの試合数
-    final finalSetMin = (_finalSets == 2 ? 18 : 28) + matchOverhead;
+    // 決勝は3セットマッチだとフルセットになりやすいので長めに見積もる
+    final finalMatchMin = (_finalSets == 2 ? 16 : 24) + matchOverhead;
     int finalMatches = 0;
     if (_hasFinal) {
       if (_finalFormat == '順位別複数') {
@@ -194,7 +196,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     }
     // 決勝は複数コート並行可能
     final finalCourtCount = _hasFinal ? courts.clamp(1, finalMatches) : 1;
-    final totalFinalTime = ((finalMatches / finalCourtCount).ceil()) * finalSetMin;
+    final totalFinalTime = ((finalMatches / finalCourtCount).ceil()) * finalMatchMin;
 
     final lunchMin = _lunchBreak == 'なし' ? 0 : int.tryParse(_lunchBreak.replaceAll('分', '')) ?? 0;
     final overheadMin = 15; // 開閉会式・移行時間
@@ -285,7 +287,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             Container(width: 1, height: 32, color: Colors.grey.withValues(alpha: 0.2)),
             Expanded(child: _predictionTile(Icons.sports_volleyball, '$courts', 'コート')),
             Container(width: 1, height: 32, color: Colors.grey.withValues(alpha: 0.2)),
-            Expanded(child: _predictionTile(Icons.grid_view, '$teamsPerCourt', 'チーム/コート')),
+            Expanded(child: _predictionTile(Icons.grid_view, '${teamsPerCourt}チーム', '1コートあたり')),
           ]),
           const SizedBox(height: 14),
 
@@ -337,15 +339,6 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             ),
           ]),
           const SizedBox(height: 14),
-
-          // Apply button
-          SizedBox(width: double.infinity, child: OutlinedButton.icon(
-            onPressed: _applyAutoSuggestion,
-            icon: Icon(Icons.auto_fix_high, size: 18, color: _suggestColor),
-            label: Text('おすすめルールを適用', style: TextStyle(color: _suggestColor, fontWeight: FontWeight.w600)),
-            style: OutlinedButton.styleFrom(side: BorderSide(color: _suggestColor), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-          )),
-          const SizedBox(height: 14),
         ])),
       ]),
     );
@@ -373,29 +366,6 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       const Spacer(),
       Text(time, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
     ]);
-  }
-
-  void _applyAutoSuggestion() {
-    final s = _calcSuggestion();
-    final available = s['availableMinutes'] as int;
-    setState(() {
-      if (available >= 480) {
-        _prelimRounds = 2; _prelimSets = 2; _prelimDeuce = false;
-        _hasFinal = true; _finalSets = 3; _finalDeuce = true;
-      } else if (available >= 360) {
-        _prelimRounds = 1; _prelimSets = 2; _prelimDeuce = false;
-        _hasFinal = true; _finalSets = 3; _finalDeuce = true;
-      } else if (available >= 240) {
-        _prelimRounds = 1; _prelimSets = 2; _prelimDeuce = false;
-        _hasFinal = true; _finalSets = 2; _finalDeuce = false;
-      } else {
-        _prelimRounds = 1; _prelimSets = 1; _prelimDeuce = false;
-        _hasFinal = false;
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('おすすめルールを適用しました'), duration: Duration(seconds: 1)),
-    );
   }
 
   // ── Template save/load ──
@@ -497,10 +467,6 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // ── Auto Suggest Card ──
-          _buildSchedulePredictionCard(calc, fits),
-          const SizedBox(height: 16),
-
           // ── Teams per court (only when maxTeams not provided) ──
           if (widget.maxTeams == null) ...[
           Container(
@@ -538,7 +504,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           // ── Preliminary ──
           _collapsibleSection('予選ルール', Icons.sports_volleyball, _prelimColor, _prelimOpen, (v) => setState(() => _prelimOpen = v), [
             _choiceRow('予選ラウンド数', [1, 2], _prelimRounds, (v) => setState(() => _prelimRounds = v), _prelimColor),
-            _choiceRow('セット数', [1, 2, 3], _prelimSets, (v) => setState(() => _prelimSets = v), _prelimColor),
+            _choiceRow('セット数', [1, 2, 3], _prelimSets, (v) => setState(() => _prelimSets = v), _prelimColor,
+                labels: {1: '1セットマッチ', 2: '2セットマッチ', 3: '3セットマッチ'}),
             _switchRow('ジュース（17点キャップ）', _prelimDeuce, (v) => setState(() { _prelimDeuce = v; if (v) _prelimDeuceCap = 17; }), _prelimColor),
           ]),
           const SizedBox(height: 12),
@@ -579,7 +546,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
               _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,
                 _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
               const SizedBox(height: 12),
-              _choiceRow('セット数', [2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor),
+              _choiceRow('セット数', [2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor,
+                  labels: {2: '2セットマッチ', 3: '3セットマッチ'}),
               _switchRow('ジュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
               _switchRow('3位決定戦', _thirdPlace, (v) => setState(() => _thirdPlace = v), _finalColor),
               _switchRow('敗者復活戦', _loserRevival, (v) => setState(() => _loserRevival = v), _finalColor),
@@ -593,6 +561,10 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             _switchRow('SNS動画投稿許可', _snsVideoAllowed, (v) => setState(() => _snsVideoAllowed = v), _otherColor),
             _stringChoiceRow('昼休憩', ['なし', '30分', '45分', '60分'], _lunchBreak, (v) => setState(() => _lunchBreak = v)),
           ]),
+          const SizedBox(height: 16),
+
+          // ── Schedule Prediction Card ──
+          _buildSchedulePredictionCard(calc, fits),
           const SizedBox(height: 24),
 
           // ── Save button ──
