@@ -434,7 +434,7 @@ class MatchGenerator {
     };
   }
 
-  /// Generate final brackets / round-robin groups (順位決定戦)
+  /// Generate final tournament brackets (順位決定戦)
   Future<void> generateFinals({
     required String tournamentId,
   }) async {
@@ -442,16 +442,12 @@ class MatchGenerator {
     final tournData = tournDoc.data()!;
     final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
     final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
-    final type = finalRules['type'] ?? 'tournament';
     final format = finalRules['format'] ?? '順位別複数';
 
     // Get overall standings
     final sorted = await _getOverallSortedStandings(tournamentId);
 
-    if (type == 'round_robin') {
-      // 総当たり方式: split into tier groups and generate round-robin
-      await _generateRoundRobinFinals(tournamentId, sorted, finalRules);
-    } else if (format == '順位別複数') {
+    if (format == '順位別複数') {
       await _generateTierBrackets(tournamentId, sorted, finalRules);
     } else {
       await _generateSingleBracket(tournamentId, sorted);
@@ -494,54 +490,6 @@ class MatchGenerator {
         if (pd != 0) return pd;
         return (b.value['totalPoints'] as int).compareTo(a.value['totalPoints'] as int);
       });
-  }
-
-  /// Generate round-robin finals (総当たり順位決定戦)
-  Future<void> _generateRoundRobinFinals(
-    String tournamentId,
-    List<MapEntry<String, Map<String, dynamic>>> sorted,
-    Map<String, dynamic> finalRules,
-  ) async {
-    final brackets = _splitIntoGroups(sorted, 4);
-    final bracketNames = ['上位', '中上位', '中位', '中下位', '下位', 'エンジョイ'];
-
-    for (int b = 0; b < brackets.length; b++) {
-      final bracket = brackets[b];
-      final bracketName = b < bracketNames.length ? bracketNames[b] : '第${b + 1}グループ';
-      final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
-          .collection('brackets').doc('bracket_${b + 1}');
-
-      await bracketRef.set({
-        'bracketNumber': b + 1,
-        'bracketName': bracketName,
-        'teamCount': bracket.length,
-        'type': 'round_robin',
-        'status': 'pending',
-      });
-
-      // Generate round-robin matches
-      int matchNum = 1;
-      for (int i = 0; i < bracket.length; i++) {
-        for (int j = i + 1; j < bracket.length; j++) {
-          await bracketRef.collection('matches').add({
-            'round': 'round-robin', 'matchNumber': matchNum++,
-            'teamAId': bracket[i].key, 'teamAName': bracket[i].value['teamName'],
-            'teamBId': bracket[j].key, 'teamBName': bracket[j].value['teamName'],
-            'status': 'pending', 'sets': [], 'result': {},
-          });
-        }
-      }
-
-      // Initialize standings for this bracket
-      for (var team in bracket) {
-        await bracketRef.collection('standings').doc(team.key).set({
-          'teamId': team.key,
-          'teamName': team.value['teamName'],
-          'matchPoints': 0, 'pointDiff': 0, 'totalPoints': 0,
-          'wins': 0, 'losses': 0, 'draws': 0, 'rank': 0,
-        });
-      }
-    }
   }
 
   /// Generate tier-based tournament brackets (順位別トーナメント)
@@ -680,89 +628,6 @@ class MatchGenerator {
         'teamBId': winner2Id, 'teamBName': winner2Name,
         'status': 'pending',
       });
-    }
-  }
-
-  /// Update standings for round-robin bracket (順位決定戦 総当たり)
-  Future<void> updateBracketStandings({
-    required String tournamentId,
-    required String bracketId,
-  }) async {
-    final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
-    final rules = tournDoc.data()?['rules'] as Map<String, dynamic>? ?? {};
-    final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
-    final setFormat = finalRules['sets'] ?? 3;
-    final scoringMap = finalRules['scoring'] as Map<String, dynamic>? ?? {};
-    final useMatchPoints = scoringMap.isNotEmpty;
-
-    final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
-        .collection('brackets').doc(bracketId);
-    final matchesSnap = await bracketRef.collection('matches')
-        .where('status', isEqualTo: 'completed').get();
-
-    final stats = <String, Map<String, dynamic>>{};
-
-    for (var matchDoc in matchesSnap.docs) {
-      final match = matchDoc.data();
-      final result = match['result'] as Map<String, dynamic>? ?? {};
-      final teamAId = match['teamAId'] as String;
-      final teamBId = match['teamBId'] as String;
-      final setsA = result['setsA'] ?? 0;
-      final setsB = result['setsB'] ?? 0;
-      final totalA = result['totalPointsA'] ?? 0;
-      final totalB = result['totalPointsB'] ?? 0;
-
-      stats.putIfAbsent(teamAId, () => _emptyStats(match['teamAName']));
-      stats.putIfAbsent(teamBId, () => _emptyStats(match['teamBName']));
-
-      if (useMatchPoints) {
-        final mpResult = _calculateMatchPointsForFormat(
-          setFormat: setFormat, setsA: setsA, setsB: setsB,
-          totalA: totalA, totalB: totalB, scoring: scoringMap,
-        );
-        stats[teamAId]!['matchPoints'] += mpResult[0];
-        stats[teamBId]!['matchPoints'] += mpResult[1];
-        if (mpResult[0] > mpResult[1]) {
-          stats[teamAId]!['wins']++; stats[teamBId]!['losses']++;
-        } else if (mpResult[1] > mpResult[0]) {
-          stats[teamBId]!['wins']++; stats[teamAId]!['losses']++;
-        } else {
-          stats[teamAId]!['draws']++; stats[teamBId]!['draws']++;
-        }
-      } else {
-        if (setsA > setsB) {
-          stats[teamAId]!['wins']++; stats[teamBId]!['losses']++;
-          stats[teamAId]!['matchPoints'] += 2;
-        } else if (setsB > setsA) {
-          stats[teamBId]!['wins']++; stats[teamAId]!['losses']++;
-          stats[teamBId]!['matchPoints'] += 2;
-        } else {
-          stats[teamAId]!['draws']++; stats[teamBId]!['draws']++;
-          stats[teamAId]!['matchPoints'] += 1; stats[teamBId]!['matchPoints'] += 1;
-        }
-      }
-
-      stats[teamAId]!['totalPoints'] += totalA;
-      stats[teamBId]!['totalPoints'] += totalB;
-      stats[teamAId]!['pointDiff'] += (totalA - totalB);
-      stats[teamBId]!['pointDiff'] += (totalB - totalA);
-    }
-
-    // Sort and assign ranks
-    final sorted = stats.entries.toList()
-      ..sort((a, b) {
-        final mp = (b.value['matchPoints'] as int).compareTo(a.value['matchPoints'] as int);
-        if (mp != 0) return mp;
-        final pd = (b.value['pointDiff'] as int).compareTo(a.value['pointDiff'] as int);
-        if (pd != 0) return pd;
-        return (b.value['totalPoints'] as int).compareTo(a.value['totalPoints'] as int);
-      });
-
-    for (int i = 0; i < sorted.length; i++) {
-      final teamId = sorted[i].key;
-      final teamStats = sorted[i].value;
-      teamStats['rank'] = i + 1;
-      await bracketRef.collection('standings').doc(teamId).set(teamStats);
     }
   }
 

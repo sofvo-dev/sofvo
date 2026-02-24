@@ -1305,63 +1305,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildBracketSection(String bracketId, Map<String, dynamic> bData, bool isOrganizer) {
-    final isRoundRobin = bData['type'] == 'round_robin';
-    final sectionTitle = isRoundRobin
-        ? '${bData['bracketName'] ?? ''}リーグ'
-        : '${bData['bracketName'] ?? '順位決定'}トーナメント';
-
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(children: [
           const Icon(Icons.emoji_events, size: 20, color: Colors.amber),
           const SizedBox(width: 8),
-          Text(sectionTitle,
+          Text('${bData['bracketName'] ?? '順位決定'}トーナメント',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
         ]),
       ),
-      // Standings for round-robin
-      if (isRoundRobin)
-        StreamBuilder<QuerySnapshot>(
-          stream: _firestore.collection('tournaments').doc(_tournamentId)
-              .collection('brackets').doc(bracketId)
-              .collection('standings').orderBy('rank').snapshots(),
-          builder: (context, standingsSnap) {
-            if (!standingsSnap.hasData || standingsSnap.data!.docs.isEmpty) return const SizedBox();
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withValues(alpha: 0.2))),
-              child: Column(children: [
-                Row(children: const [
-                  SizedBox(width: 28, child: Text('#', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                  Expanded(child: Text('チーム', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                  SizedBox(width: 40, child: Text('勝点', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                  SizedBox(width: 40, child: Text('勝', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                  SizedBox(width: 40, child: Text('負', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                  SizedBox(width: 40, child: Text('得失', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                ]),
-                const Divider(height: 12),
-                ...standingsSnap.data!.docs.map((doc) {
-                  final d = doc.data() as Map<String, dynamic>;
-                  final rank = d['rank'] ?? 0;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Row(children: [
-                      SizedBox(width: 28, child: Text('$rank', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: rank == 1 ? Colors.amber[800] : AppTheme.textPrimary))),
-                      Expanded(child: Text(d['teamName'] ?? '', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
-                      SizedBox(width: 40, child: Text('${d['matchPoints'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
-                      SizedBox(width: 40, child: Text('${d['wins'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
-                      SizedBox(width: 40, child: Text('${d['losses'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
-                      SizedBox(width: 40, child: Text('${d['pointDiff'] ?? 0}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
-                    ]),
-                  );
-                }),
-              ]),
-            );
-          },
-        ),
-      // Match list
       StreamBuilder<QuerySnapshot>(
         stream: _firestore.collection('tournaments').doc(_tournamentId)
             .collection('brackets').doc(bracketId)
