@@ -501,7 +501,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           _buildSchedulePredictionCard(calc, fits),
           const SizedBox(height: 16),
 
-          // ── Teams per court ──
+          // ── Teams per court (only when maxTeams not provided) ──
+          if (widget.maxTeams == null) ...[
           Container(
             width: double.infinity, padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.04), blurRadius: 8, offset: const Offset(0, 2))]),
@@ -532,6 +533,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             ]),
           ),
           const SizedBox(height: 16),
+          ],
 
           // ── Preliminary ──
           _collapsibleSection('予選ルール', Icons.sports_volleyball, _prelimColor, _prelimOpen, (v) => setState(() => _prelimOpen = v), [
