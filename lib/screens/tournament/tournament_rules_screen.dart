@@ -402,9 +402,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
           _collapsibleSection('予選ルール', Icons.sports_volleyball, _prelimColor, _prelimOpen, (v) => setState(() => _prelimOpen = v), [
             _choiceRow('予選ラウンド数', [1, 2], _prelimRounds, (v) => setState(() => _prelimRounds = v), _prelimColor),
             _choiceRow('セット数', [1, 2, 3], _prelimSets, (v) => setState(() => _prelimSets = v), _prelimColor),
-            _switchRow('ジュース（デュース）', _prelimDeuce, (v) => setState(() => _prelimDeuce = v), _prelimColor),
-            if (_prelimDeuce)
-              _choiceRow('ジュース上限', [17, 21, 25], _prelimDeuceCap, (v) => setState(() => _prelimDeuceCap = v), _prelimColor),
+            _switchRow('ジュース（17点キャップ）', _prelimDeuce, (v) => setState(() { _prelimDeuce = v; if (v) _prelimDeuceCap = 17; }), _prelimColor),
           ]),
           const SizedBox(height: 12),
 
