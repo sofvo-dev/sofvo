@@ -102,6 +102,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         statusColor = AppTheme.primaryColor;
         break;
       case '決勝中':
+      case '順位決定中':
         statusColor = Colors.amber;
         break;
       default:
@@ -436,6 +437,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         sc = AppTheme.primaryColor;
         break;
       case '決勝中':
+      case '順位決定中':
         sc = Colors.amber;
         break;
       default:
