@@ -61,40 +61,14 @@ class _HomeScreenState extends State<HomeScreen>
     if (result == true) setState(() {});
   }
 
-  void _showFullImage(BuildContext context, ImageProvider imageProvider) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: Stack(
-          alignment: Alignment.topRight,
-          children: [
-            InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image(image: imageProvider, fit: BoxFit.contain),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: GestureDetector(
-                onTap: () => Navigator.pop(ctx),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: const Icon(Icons.close,
-                      color: Colors.white, size: 22),
-                ),
-              ),
-            ),
-          ],
+  void _showFullImage(BuildContext context, List<ImageProvider> images, int initialIndex) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (_, __, ___) => _FullScreenImageViewer(
+          images: images,
+          initialIndex: initialIndex,
         ),
       ),
     );
@@ -501,7 +475,7 @@ class _HomeScreenState extends State<HomeScreen>
                   const SizedBox(height: 10),
                   imageProviders.length == 1
                       ? GestureDetector(
-                          onTap: () => _showFullImage(context, imageProviders[0]),
+                          onTap: () => _showFullImage(context, imageProviders, 0),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image(image: imageProviders[0], width: double.infinity, height: 200, fit: BoxFit.cover),
@@ -514,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen>
                             itemCount: imageProviders.length,
                             separatorBuilder: (_, __) => const SizedBox(width: 8),
                             itemBuilder: (_, i) => GestureDetector(
-                              onTap: () => _showFullImage(context, imageProviders[i]),
+                              onTap: () => _showFullImage(context, imageProviders, i),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
                                 child: Image(image: imageProviders[i], width: 160, height: 160, fit: BoxFit.cover),
@@ -1136,6 +1110,133 @@ class _HomeScreenState extends State<HomeScreen>
     if (diff.inHours < 24) return '${diff.inHours}時間前';
     if (diff.inDays < 7) return '${diff.inDays}日前';
     return '${date.month}/${date.day}';
+  }
+}
+
+// ── X風フルスクリーン画像ビューア ──
+class _FullScreenImageViewer extends StatefulWidget {
+  final List<ImageProvider> images;
+  final int initialIndex;
+
+  const _FullScreenImageViewer({
+    required this.images,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+  double _verticalDrag = 0;
+  double _opacity = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _verticalDrag += details.delta.dy;
+      _opacity = (1 - (_verticalDrag.abs() / 300)).clamp(0.3, 1.0);
+    });
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    if (_verticalDrag.abs() > 100) {
+      Navigator.pop(context);
+    } else {
+      setState(() {
+        _verticalDrag = 0;
+        _opacity = 1.0;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black.withValues(alpha: _opacity),
+      body: GestureDetector(
+        onVerticalDragUpdate: _onVerticalDragUpdate,
+        onVerticalDragEnd: _onVerticalDragEnd,
+        child: Stack(
+          children: [
+            // 画像 PageView
+            Transform.translate(
+              offset: Offset(0, _verticalDrag),
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.images.length,
+                onPageChanged: (i) => setState(() => _currentIndex = i),
+                itemBuilder: (_, i) => Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image(
+                      image: widget.images[i],
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 閉じるボタン
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 12,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+            // ページインジケーター (2枚以上の場合のみ)
+            if (widget.images.length > 1)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 14,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_currentIndex + 1} / ${widget.images.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
