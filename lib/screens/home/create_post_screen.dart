@@ -469,6 +469,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               ),
                               Positioned(
                                 top: 6,
+                                left: 6,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 6,
                                 right: 6,
                                 child: GestureDetector(
                                   onTap: () => _removeImage(index),
