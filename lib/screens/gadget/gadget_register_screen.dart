@@ -793,8 +793,8 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     super.dispose();
   }
 
-  Future<void> _addCategory([String? name]) async {
-    name = name ?? _newCategoryCtrl.text.trim();
+  Future<void> _addCustomCategory() async {
+    final name = _newCategoryCtrl.text.trim();
     if (name.isEmpty) return;
 
     setState(() => _isAdding = true);
@@ -808,22 +808,15 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
         'createdAt': FieldValue.serverTimestamp(),
       });
       _newCategoryCtrl.clear();
-      setState(() => _isAdding = false);
+      if (mounted) widget.onSelected(name);
     } catch (e) {
-      setState(() => _isAdding = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
         );
       }
-    }
-  }
-
-  /// プリセットカテゴリを追加して即座に選択する
-  Future<void> _addAndSelectCategory(String name) async {
-    await _addCategory(name);
-    if (mounted) {
-      widget.onSelected(name);
+    } finally {
+      if (mounted) setState(() => _isAdding = false);
     }
   }
 
@@ -873,7 +866,6 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
               ),
               const SizedBox(height: 8),
 
-              // ── カテゴリ一覧 ──
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
@@ -883,86 +875,48 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                       .orderBy('createdAt')
                       .snapshots(),
                   builder: (context, snapshot) {
-                    final categories = <Map<String, dynamic>>[
-                      {'id': '__none__', 'name': 'カテゴリなし'},
-                    ];
-
-                    final existingNames = <String>{'カテゴリなし'};
+                    // ユーザーが追加したカスタムカテゴリ（プリセットと重複するものは除外）
+                    final presetSet = <String>{..._presetCategories, 'カテゴリなし'};
+                    final customCategories = <Map<String, dynamic>>[];
                     if (snapshot.hasData) {
                       for (final doc in snapshot.data!.docs) {
                         final data = doc.data() as Map<String, dynamic>;
                         final name = data['name'] ?? '';
-                        categories.add({'id': doc.id, 'name': name});
-                        existingNames.add(name);
+                        if (!presetSet.contains(name)) {
+                          customCategories.add({'id': doc.id, 'name': name});
+                        }
                       }
                     }
-
-                    final availablePresets = _presetCategories
-                        .where((p) => !existingNames.contains(p))
-                        .toList();
 
                     return ListView(
                       controller: scrollCtrl,
                       padding: EdgeInsets.zero,
                       children: [
-                        // ── マイカテゴリ ──
-                        _buildSectionHeader('マイカテゴリ'),
-                        ...categories.map((cat) {
-                          final name = cat['name'] as String;
-                          final isSelected = name == widget.selected;
-                          final isDefault = cat['id'] == '__none__';
+                        // ── プリセットカテゴリ（常に表示、タップで即選択） ──
+                        ..._presetCategories.map((name) => _buildCategoryTile(name)),
 
-                          return ListTile(
-                            leading: Icon(
-                              isSelected ? Icons.check_circle : Icons.circle_outlined,
-                              color: isSelected ? AppTheme.primaryColor : Colors.grey[350],
-                              size: 22,
-                            ),
-                            title: Text(
-                              name,
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
-                              ),
-                            ),
-                            trailing: isDefault
-                                ? null
-                                : IconButton(
-                                    icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.error),
-                                    onPressed: () => _deleteCategory(cat['id']),
-                                  ),
-                            dense: true,
-                            onTap: () => widget.onSelected(name),
-                          );
-                        }),
-
-                        // ── おすすめから追加 ──
-                        if (availablePresets.isNotEmpty) ...[
+                        // ── ユーザー追加カテゴリ ──
+                        if (customCategories.isNotEmpty) ...[
                           const Divider(height: 24),
-                          _buildSectionHeader('おすすめから追加', subtitle: 'タップで即選択'),
-                          ...availablePresets.map((preset) {
-                            return ListTile(
-                              leading: Icon(
-                                Icons.add_circle_outline,
-                                color: AppTheme.primaryColor.withValues(alpha: 0.6),
-                                size: 22,
+                          _buildSectionHeader('追加したカテゴリ'),
+                          ...customCategories.map((cat) {
+                            return _buildCategoryTile(
+                              cat['name'] as String,
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.error),
+                                onPressed: () => _deleteCategory(cat['id']),
                               ),
-                              title: Text(
-                                preset,
-                                style: TextStyle(
-                                  color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              dense: true,
-                              onTap: () => _addAndSelectCategory(preset),
                             );
                           }),
                         ],
 
-                        // ── 新しく作成 ──
+                        // ── カテゴリなし ──
                         const Divider(height: 24),
-                        _buildSectionHeader('新しく作成'),
+                        _buildCategoryTile('カテゴリなし'),
+
+                        // ── カスタム作成 ──
+                        const Divider(height: 24),
+                        _buildSectionHeader('カテゴリが見つからない場合'),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                           child: Row(
@@ -989,14 +943,14 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                                       borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
                                     ),
                                   ),
-                                  onSubmitted: (_) => _addCategory(),
+                                  onSubmitted: (_) => _addCustomCategory(),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               SizedBox(
                                 height: 44,
                                 child: ElevatedButton(
-                                  onPressed: _isAdding ? null : _addCategory,
+                                  onPressed: _isAdding ? null : _addCustomCategory,
                                   style: ElevatedButton.styleFrom(
                                     minimumSize: const Size(56, 44),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1022,20 +976,32 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     );
   }
 
-  Widget _buildSectionHeader(String title, {String? subtitle}) {
+  Widget _buildCategoryTile(String name, {Widget? trailing}) {
+    final isSelected = name == widget.selected;
+    return ListTile(
+      leading: Icon(
+        isSelected ? Icons.check_circle : Icons.circle_outlined,
+        color: isSelected ? AppTheme.primaryColor : Colors.grey[350],
+        size: 22,
+      ),
+      title: Text(
+        name,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+        ),
+      ),
+      trailing: trailing,
+      dense: true,
+      onTap: () => widget.onSelected(name),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-      child: Row(
-        children: [
-          Text(title,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
-          if (subtitle != null) ...[
-            const SizedBox(width: 6),
-            Text(subtitle,
-                style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
-          ],
-        ],
-      ),
+      child: Text(title,
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
     );
   }
 }
