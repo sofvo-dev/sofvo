@@ -871,58 +871,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                 child: Text('カテゴリを選択',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               ),
-              const SizedBox(height: 12),
-
-              // ── 新規作成 ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _newCategoryCtrl,
-                        decoration: InputDecoration(
-                          hintText: '新しいカテゴリ名',
-                          hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textHint),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-                          ),
-                        ),
-                        onSubmitted: (_) => _addCategory(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      height: 44,
-                      child: ElevatedButton(
-                        onPressed: _isAdding ? null : _addCategory,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(56, 44),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: _isAdding
-                            ? const SizedBox(width: 20, height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Text('追加', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Divider(),
+              const SizedBox(height: 8),
 
               // ── カテゴリ一覧 ──
               Expanded(
@@ -948,42 +897,16 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                       }
                     }
 
-                    // まだ追加されていないプリセットカテゴリ
                     final availablePresets = _presetCategories
                         .where((p) => !existingNames.contains(p))
                         .toList();
 
                     return ListView(
                       controller: scrollCtrl,
+                      padding: EdgeInsets.zero,
                       children: [
-                        // プリセット候補チップ
-                        if (availablePresets.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                            child: Text('おすすめカテゴリ',
-                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: availablePresets.map((preset) {
-                                return ActionChip(
-                                  avatar: const Icon(Icons.add, size: 16),
-                                  label: Text(preset, style: const TextStyle(fontSize: 13)),
-                                  onPressed: () => _addAndSelectCategory(preset),
-                                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.08),
-                                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Divider(),
-                        ],
-
-                        // 既存カテゴリ一覧
+                        // ── マイカテゴリ ──
+                        _buildSectionHeader('マイカテゴリ'),
                         ...categories.map((cat) {
                           final name = cat['name'] as String;
                           final isSelected = name == widget.selected;
@@ -991,8 +914,9 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
 
                           return ListTile(
                             leading: Icon(
-                              isDefault ? Icons.label_off_outlined : Icons.label_outlined,
-                              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                              isSelected ? Icons.check_circle : Icons.circle_outlined,
+                              color: isSelected ? AppTheme.primaryColor : Colors.grey[350],
+                              size: 22,
                             ),
                             title: Text(
                               name,
@@ -1007,10 +931,85 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                                     icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.error),
                                     onPressed: () => _deleteCategory(cat['id']),
                                   ),
-                            selected: isSelected,
+                            dense: true,
                             onTap: () => widget.onSelected(name),
                           );
                         }),
+
+                        // ── おすすめから追加 ──
+                        if (availablePresets.isNotEmpty) ...[
+                          const Divider(height: 24),
+                          _buildSectionHeader('おすすめから追加', subtitle: 'タップで即選択'),
+                          ...availablePresets.map((preset) {
+                            return ListTile(
+                              leading: Icon(
+                                Icons.add_circle_outline,
+                                color: AppTheme.primaryColor.withValues(alpha: 0.6),
+                                size: 22,
+                              ),
+                              title: Text(
+                                preset,
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              dense: true,
+                              onTap: () => _addAndSelectCategory(preset),
+                            );
+                          }),
+                        ],
+
+                        // ── 新しく作成 ──
+                        const Divider(height: 24),
+                        _buildSectionHeader('新しく作成'),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _newCategoryCtrl,
+                                  decoration: InputDecoration(
+                                    hintText: 'カテゴリ名を入力',
+                                    hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textHint),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: Colors.grey[300]!),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                                    ),
+                                  ),
+                                  onSubmitted: (_) => _addCategory(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                height: 44,
+                                child: ElevatedButton(
+                                  onPressed: _isAdding ? null : _addCategory,
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(56, 44),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: _isAdding
+                                      ? const SizedBox(width: 20, height: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : const Text('作成', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     );
                   },
@@ -1020,6 +1019,23 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSectionHeader(String title, {String? subtitle}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+      child: Row(
+        children: [
+          Text(title,
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+          if (subtitle != null) ...[
+            const SizedBox(width: 6),
+            Text(subtitle,
+                style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
+          ],
+        ],
+      ),
     );
   }
 }
