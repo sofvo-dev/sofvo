@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import '../../services/media_service.dart';
@@ -31,6 +32,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<Uint8List> _imageBytes = [];
   final List<String> _imageNames = [];
   bool _isLoading = false;
+  String _avatarUrl = '';
+  String _nickname = '';
 
   bool get _hasBadge => widget.badgeName != null;
   bool get _hasTournament => widget.tournamentName != null;
@@ -38,8 +41,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   void initState() {
     super.initState();
+    _loadUserProfile();
     if (_hasBadge) {
       _textController.text = '「${widget.badgeName}」バッジを獲得しました！';
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final data = doc.data() ?? {};
+    if (mounted) {
+      setState(() {
+        final raw = data['avatarUrl'];
+        _avatarUrl = (raw is String) ? raw : '';
+        final nick = data['nickname'];
+        _nickname = (nick is String && nick.isNotEmpty) ? nick : '名無し';
+      });
     }
   }
 
@@ -359,15 +381,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor:
-                            AppTheme.primaryColor.withValues(alpha: 0.12),
-                        child: const Icon(
-                          Icons.person,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
+                      _avatarUrl.isNotEmpty
+                          ? CircleAvatar(
+                              radius: 22,
+                              backgroundImage:
+                                  CachedNetworkImageProvider(_avatarUrl),
+                              backgroundColor: AppTheme.primaryColor
+                                  .withValues(alpha: 0.12),
+                            )
+                          : CircleAvatar(
+                              radius: 22,
+                              backgroundColor: AppTheme.primaryColor
+                                  .withValues(alpha: 0.12),
+                              child: Text(
+                                _nickname.isNotEmpty ? _nickname[0] : '?',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ValueListenableBuilder<TextEditingValue>(
@@ -572,14 +606,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    '${_textController.text.length} / 500',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _textController.text.length > 450
-                          ? AppTheme.warning
-                          : AppTheme.textHint,
-                    ),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _textController,
+                    builder: (context, value, child) {
+                      return Text(
+                        '${value.text.length} / 500',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: value.text.length > 450
+                              ? AppTheme.warning
+                              : AppTheme.textHint,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
