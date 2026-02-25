@@ -50,12 +50,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
-    final remaining = 2 - _imageBytes.length;
+    final remaining = 5 - _imageBytes.length;
     if (remaining <= 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('無料プランでは画像は最大2枚までです'),
+            content: const Text('画像は最大5枚までです'),
             backgroundColor: AppTheme.warning,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -105,7 +105,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (images.length > remaining && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('無料プランでは画像は最大2枚までです'),
+            content: const Text('画像は最大5枚までです'),
             backgroundColor: AppTheme.warning,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -513,12 +513,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 children: [
                   GestureDetector(
                     onTap:
-                        _imageBytes.length >= 2 ? null : _pickImages,
+                        _imageBytes.length >= 5 ? null : _pickImages,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: _imageBytes.length >= 2
+                        color: _imageBytes.length >= 5
                             ? Colors.grey[100]
                             : AppTheme.primaryColor
                                 .withValues(alpha: 0.08),
@@ -528,7 +528,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         children: [
                           Icon(
                             Icons.image_outlined,
-                            color: _imageBytes.length >= 2
+                            color: _imageBytes.length >= 5
                                 ? AppTheme.textHint
                                 : AppTheme.primaryColor,
                             size: 22,
@@ -537,11 +537,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           Text(
                             _imageBytes.isEmpty
                                 ? '画像を追加'
-                                : '${_imageBytes.length}/2枚',
+                                : '${_imageBytes.length}/5枚',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: _imageBytes.length >= 2
+                              color: _imageBytes.length >= 5
                                   ? AppTheme.textHint
                                   : AppTheme.primaryColor,
                             ),
