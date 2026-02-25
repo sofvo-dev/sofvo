@@ -1665,7 +1665,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 icon: Icon(Icons.image, color: AppTheme.primaryColor, size: 24),
                 onPressed: () async {
                   final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
-                  if (picked != null) setState(() => _selectedBoardImage = picked);
+                  if (picked != null && mounted) setState(() => _selectedBoardImage = picked);
                 },
               ),
               const SizedBox(width: 4),
@@ -1989,16 +1989,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         maxWidth: 1024,
         maxHeight: 1024,
       );
-      if (picked == null) return;
+      if (picked == null || !mounted) return;
 
       // ローディング表示
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-        );
-      }
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      );
 
       final bytes = await picked.readAsBytes();
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
@@ -2192,15 +2190,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         maxWidth: 1024,
         maxHeight: 1024,
       );
-      if (picked == null) return;
+      if (picked == null || !mounted) return;
 
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-        );
-      }
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      );
 
       final bytes = await picked.readAsBytes();
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
