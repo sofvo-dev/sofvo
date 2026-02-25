@@ -29,6 +29,7 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final _textController = TextEditingController();
+  final _picker = ImagePicker();
   final List<Uint8List> _imageBytes = [];
   final List<String> _imageNames = [];
   bool _isLoading = false;
@@ -50,18 +51,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Future<void> _loadUserProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    final data = doc.data() ?? {};
-    if (mounted) {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (!mounted) return;
+      final data = doc.data() ?? {};
       setState(() {
         final raw = data['avatarUrl'];
         _avatarUrl = (raw is String) ? raw : '';
         final nick = data['nickname'];
         _nickname = (nick is String && nick.isNotEmpty) ? nick : '名無し';
       });
+    } catch (_) {
+      // Firestore読み込み失敗時はプレースホルダーのまま
     }
   }
 
@@ -71,36 +75,40 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppTheme.error : AppTheme.warning,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
   Future<void> _pickImages() async {
     final remaining = 5 - _imageBytes.length;
     if (remaining <= 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('画像は最大5枚までです'),
-            backgroundColor: AppTheme.warning,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        );
-      }
+      _showSnackBar('画像は最大5枚までです');
       return;
     }
 
     try {
-      final picker = ImagePicker();
-      final images = await picker.pickMultiImage(
+      final images = await _picker.pickMultiImage(
         imageQuality: MediaService.imageQuality,
         maxWidth: MediaService.imageMaxWidth.toDouble(),
         maxHeight: MediaService.imageMaxHeight.toDouble(),
       );
-      if (images.isEmpty) return;
+      if (images.isEmpty || !mounted) return;
 
       final selected = images.take(remaining).toList();
       var oversized = false;
+      var added = false;
 
       for (final image in selected) {
         final bytes = await image.readAsBytes();
+        if (!mounted) return;
 
         if (!MediaService.validateFileSize(
             bytes.length, maxMB: MediaService.maxImageSizeMB)) {
@@ -110,49 +118,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
         _imageBytes.add(bytes);
         _imageNames.add(image.name);
+        added = true;
       }
 
-      if (oversized && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                '${MediaService.maxImageSizeMB}MBを超える画像はスキップしました'),
-            backgroundColor: AppTheme.warning,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        );
+      if (oversized) {
+        _showSnackBar('${MediaService.maxImageSizeMB}MBを超える画像はスキップしました');
+      }
+      if (images.length > remaining) {
+        _showSnackBar('画像は最大5枚までです');
       }
 
-      if (images.length > remaining && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('画像は最大5枚までです'),
-            backgroundColor: AppTheme.warning,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        );
-      }
-
-      setState(() {});
+      if (added) setState(() {});
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('画像の選択に失敗しました: $e'),
-            backgroundColor: AppTheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
+      _showSnackBar('画像の選択に失敗しました: $e', isError: true);
     }
   }
 
   void _removeImage(int index) {
+    if (index < 0 || index >= _imageBytes.length) return;
     setState(() {
       _imageBytes.removeAt(index);
       _imageNames.removeAt(index);
@@ -162,16 +145,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Future<void> _submitPost() async {
     final text = _textController.text.trim();
     if (text.isEmpty && _imageBytes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('テキストまたは画像を追加してください'),
-          backgroundColor: AppTheme.warning,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      );
+      _showSnackBar('テキストまたは画像を追加してください');
       return;
     }
 
@@ -181,40 +155,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('ログインしてください');
 
-      // ユーザー情報取得
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      final userData = userDoc.data() ?? {};
-
-      String safeString(dynamic value) {
-        if (value is String) return value;
-        if (value is Map) return value.values.join(' ');
-        return value?.toString() ?? '';
-      }
-
-      final nickname = safeString(userData['nickname']).isEmpty
-          ? '名無し'
-          : safeString(userData['nickname']);
-
       // 画像をFirebase Storageに並列アップロード
-      final uploadFutures = <Future<String>>[];
-      for (int i = 0; i < _imageBytes.length; i++) {
-        final fileName = MediaService.generateFileName(_imageNames[i]);
-        uploadFutures.add(MediaService.uploadImage(
-          bytes: _imageBytes[i],
-          storagePath: 'post_images/${user.uid}',
-          fileName: fileName,
-        ));
-      }
-      final imageUrls = await Future.wait(uploadFutures);
+      final imageUrls = await Future.wait(
+        List.generate(_imageBytes.length, (i) {
+          final fileName = MediaService.generateFileName(_imageNames[i]);
+          return MediaService.uploadImage(
+            bytes: _imageBytes[i],
+            storagePath: 'post_images/${user.uid}',
+            fileName: fileName,
+          );
+        }),
+      );
+      if (!mounted) return;
 
-      // 投稿をFirestoreに保存
+      // 投稿をFirestoreに保存（initStateで取得済みのユーザー情報を再利用）
       final postData = <String, dynamic>{
         'userId': user.uid,
-        'userNickname': nickname,
-        'userAvatarUrl': safeString(userData['avatarUrl']),
+        'userNickname': _nickname,
+        'userAvatarUrl': _avatarUrl,
         'text': text,
         'images': imageUrls,
         'likesCount': 0,
@@ -233,22 +191,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       await FirebaseFirestore.instance.collection('posts').add(postData);
 
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('投稿に失敗しました: $e'),
-            backgroundColor: AppTheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }
+      _showSnackBar('投稿に失敗しました: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -295,11 +240,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               color: color.withValues(alpha: 0.15),
               border: Border.all(color: color.withValues(alpha: 0.4), width: 2.5),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 30,
-            ),
+            child: Icon(icon, color: color, size: 30),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -404,34 +345,28 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: ValueListenableBuilder<TextEditingValue>(
-                          valueListenable: _textController,
-                          builder: (context, value, child) {
-                            return TextField(
-                              controller: _textController,
-                              maxLines: null,
-                              minLines: 5,
-                              maxLength: 500,
-                              style:
-                                  const TextStyle(fontSize: 16, height: 1.5),
-                              decoration: InputDecoration(
-                                hintText: _hasTournament
-                                    ? '大会の感想を書いてみましょう！\n楽しかったこと、印象に残った試合など'
-                                    : '今日の大会はどうでしたか？\nチームメンバー募集中？\n近況を投稿してみましょう！',
-                                hintStyle: TextStyle(
-                                  fontSize: 15,
-                                  color: AppTheme.textHint,
-                                  height: 1.5,
-                                ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                fillColor: Colors.transparent,
-                                filled: true,
-                                counterText: '',
-                              ),
-                            );
-                          },
+                        child: TextField(
+                          controller: _textController,
+                          maxLines: null,
+                          minLines: 5,
+                          maxLength: 500,
+                          style: const TextStyle(fontSize: 16, height: 1.5),
+                          decoration: InputDecoration(
+                            hintText: _hasTournament
+                                ? '大会の感想を書いてみましょう！\n楽しかったこと、印象に残った試合など'
+                                : '今日の大会はどうでしたか？\nチームメンバー募集中？\n近況を投稿してみましょう！',
+                            hintStyle: TextStyle(
+                              fontSize: 15,
+                              color: AppTheme.textHint,
+                              height: 1.5,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            fillColor: Colors.transparent,
+                            filled: true,
+                            counterText: '',
+                          ),
                         ),
                       ),
                     ],
@@ -507,7 +442,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 child: Container(
                                   width: 24,
                                   height: 24,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     color: AppTheme.primaryColor,
                                     shape: BoxShape.circle,
                                   ),
