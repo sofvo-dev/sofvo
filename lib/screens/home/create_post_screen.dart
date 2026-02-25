@@ -68,6 +68,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     try {
       final picker = ImagePicker();
       final images = await picker.pickMultiImage(
+        limit: remaining,
         imageQuality: MediaService.imageQuality,
         maxWidth: MediaService.imageMaxWidth.toDouble(),
         maxHeight: MediaService.imageMaxHeight.toDouble(),
