@@ -50,7 +50,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
-    if (_imageBytes.length >= 2) {
+    final remaining = 2 - _imageBytes.length;
+    if (remaining <= 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -66,36 +67,53 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     try {
       final picker = ImagePicker();
-      final image = await picker.pickImage(
-        source: ImageSource.gallery,
+      final images = await picker.pickMultiImage(
         imageQuality: MediaService.imageQuality,
         maxWidth: MediaService.imageMaxWidth.toDouble(),
         maxHeight: MediaService.imageMaxHeight.toDouble(),
       );
-      if (image == null) return;
+      if (images.isEmpty) return;
 
-      final bytes = await image.readAsBytes();
+      final selected = images.take(remaining).toList();
+      var oversized = false;
 
-      if (!MediaService.validateFileSize(
-          bytes.length, maxMB: MediaService.maxImageSizeMB)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  '画像サイズが${MediaService.maxImageSizeMB}MBを超えています'),
-              backgroundColor: AppTheme.warning,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          );
+      for (final image in selected) {
+        final bytes = await image.readAsBytes();
+
+        if (!MediaService.validateFileSize(
+            bytes.length, maxMB: MediaService.maxImageSizeMB)) {
+          oversized = true;
+          continue;
         }
-        return;
-      }
 
-      setState(() {
         _imageBytes.add(bytes);
         _imageNames.add(image.name);
-      });
+      }
+
+      if (oversized && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${MediaService.maxImageSizeMB}MBを超える画像はスキップしました'),
+            backgroundColor: AppTheme.warning,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+
+      if (images.length > remaining && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('無料プランでは画像は最大2枚までです'),
+            backgroundColor: AppTheme.warning,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+
+      setState(() {});
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
