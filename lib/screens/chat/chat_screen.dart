@@ -235,6 +235,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         maxHeight: 1024,
       );
       if (picked == null) return;
+      if (!mounted) return;
 
       setState(() => _isSending = true);
 
@@ -247,8 +248,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               backgroundColor: AppTheme.warning,
             ),
           );
+          setState(() => _isSending = false);
         }
-        setState(() => _isSending = false);
         return;
       }
       final fileName =

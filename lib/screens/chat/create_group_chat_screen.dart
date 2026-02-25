@@ -59,9 +59,10 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
       maxWidth: 512,
       maxHeight: 512,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
 
     final bytes = await picked.readAsBytes();
+    if (!mounted) return;
     setState(() {
       _pickedImageBytes = bytes;
       _pickedImageName = picked.name;

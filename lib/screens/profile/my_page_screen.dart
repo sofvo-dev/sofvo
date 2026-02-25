@@ -1206,7 +1206,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         maxHeight: 512,
         imageQuality: 80,
       );
-      if (picked == null) return;
+      if (picked == null || !mounted) return;
 
       setState(() => _isUploadingAvatar = true);
 
@@ -1234,12 +1234,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           .doc(uid)
           .update({'avatarUrl': downloadUrl});
 
-      setState(() {
-        _avatarUrl = downloadUrl;
-        _isUploadingAvatar = false;
-      });
-
       if (mounted) {
+        setState(() {
+          _avatarUrl = downloadUrl;
+          _isUploadingAvatar = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('アバターを更新しました'),
@@ -1248,8 +1248,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         );
       }
     } catch (e) {
-      setState(() => _isUploadingAvatar = false);
       if (mounted) {
+        setState(() => _isUploadingAvatar = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('アバターのアップロードに失敗しました: $e'),

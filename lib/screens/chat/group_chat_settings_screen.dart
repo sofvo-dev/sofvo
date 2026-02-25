@@ -94,7 +94,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
         maxWidth: 512,
         maxHeight: 512,
       );
-      if (picked == null) return;
+      if (picked == null || !mounted) return;
 
       _showLoadingDialog('アイコンを更新中...');
 
@@ -488,7 +488,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
         maxWidth: 1024,
         maxHeight: 1024,
       );
-      if (picked == null) return;
+      if (picked == null || !mounted) return;
 
       _showLoadingDialog('写真をアップロード中...');
 
