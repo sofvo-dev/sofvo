@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/app_theme.dart';
 import '../../services/notification_service.dart';
 import '../profile/user_profile_screen.dart';
@@ -314,6 +317,8 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   // QRコードタブ
   // ━━━━━━━━━━━━━━━━━━━━━━━━━
   Widget _buildQrCodeTab() {
+    final qrData = _mySearchId.isNotEmpty ? 'sofvo://friend/$_mySearchId' : '';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -337,39 +342,135 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                 const Text('相手にこのQRコードを読み取ってもらいましょう',
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                 const SizedBox(height: 20),
-                Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.2), width: 2),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                if (qrData.isNotEmpty)
+                  Column(
                     children: [
-                      Icon(Icons.qr_code_2, size: 120, color: AppTheme.primaryColor),
-                      const SizedBox(height: 8),
-                      Text(_mySearchId.isNotEmpty ? '@$_mySearchId' : '未設定',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      QrImageView(
+                        data: qrData,
+                        version: QrVersions.auto,
+                        size: 180,
+                        backgroundColor: Colors.white,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.roundedRect,
+                          color: Color(0xFF333333),
+                        ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.roundedRect,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text('@$_mySearchId',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                     ],
+                  )
+                else
+                  Container(
+                    width: 180,
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.qr_code_2, size: 48, color: AppTheme.textHint),
+                        SizedBox(height: 8),
+                        Text('IDが未設定です', style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                        Text('プロフィールでIDを設定してください', style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('カメラ機能はネイティブアプリで利用できます'), backgroundColor: AppTheme.info));
-            },
+            onPressed: _openFriendScanner,
             icon: const Icon(Icons.qr_code_scanner, size: 22),
             label: const Text('QRコードを読み取る', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+  }
+
+  void _openFriendScanner() {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('カメラ機能はネイティブアプリで利用できます'), backgroundColor: AppTheme.info),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FriendQRScannerPage(
+          onScanned: (code) async {
+            Navigator.pop(context);
+            await _handleFriendQR(code);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleFriendQR(String code) async {
+    // フォーマット: sofvo://friend/{searchId}
+    if (!code.startsWith('sofvo://friend/')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('友達追加用のQRコードではありません'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+
+    final searchId = code.replaceFirst('sofvo://friend/', '').trim();
+    if (searchId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QRコードの形式が正しくありません'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+
+    // 自分自身チェック
+    if (searchId == _mySearchId) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('自分のQRコードです'), backgroundColor: AppTheme.info),
+        );
+      }
+      return;
+    }
+
+    // ユーザー検索
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .where('searchId', isEqualTo: searchId)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ユーザーが見つかりませんでした'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+
+    final userId = snap.docs.first.id;
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => UserProfileScreen(userId: userId)),
+      );
+    }
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -482,6 +583,79 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         ],
       ),
     ),
+    );
+  }
+}
+
+// ━━━ 友達QRスキャナーページ ━━━
+class _FriendQRScannerPage extends StatefulWidget {
+  final Function(String) onScanned;
+  const _FriendQRScannerPage({required this.onScanned});
+
+  @override
+  State<_FriendQRScannerPage> createState() => _FriendQRScannerPageState();
+}
+
+class _FriendQRScannerPageState extends State<_FriendQRScannerPage> {
+  final MobileScannerController _controller = MobileScannerController();
+  bool _hasScanned = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('友達のQRコードをスキャン'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.flash_on),
+            onPressed: () => _controller.toggleTorch(),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              if (_hasScanned) return;
+              final barcode = capture.barcodes.firstOrNull;
+              if (barcode?.rawValue != null) {
+                setState(() => _hasScanned = true);
+                widget.onScanned(barcode!.rawValue!);
+              }
+            },
+          ),
+          Center(
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppTheme.accentColor, width: 3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 60,
+            left: 0,
+            right: 0,
+            child: const Text(
+              '相手のQRコードを枠内に合わせてください',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
