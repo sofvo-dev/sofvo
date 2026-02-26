@@ -118,6 +118,10 @@ export default function MyPagePage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <QuickLink href="/tournaments/manage" icon="📋" label="大会管理" />
         <QuickLink href="/tournaments/create" icon="➕" label="大会作成" />
+        <QuickLink href="/teams" icon="👥" label="チーム管理" />
+        <QuickLink href="/gadgets" icon="🎒" label="ガジェット" />
+        <QuickLink href="/badges" icon="🏅" label="バッジ" />
+        <QuickLink href="/bookmarks" icon="🔖" label="ブックマーク" />
         <QuickLink href="/rankings" icon="🏆" label="ランキング" />
         <QuickLink href="/settings" icon="⚙️" label="設定" />
       </div>

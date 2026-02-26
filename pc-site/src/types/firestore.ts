@@ -10,7 +10,7 @@ export interface MatchResult {
   setsB: number;
   totalPointsA: number;
   totalPointsB: number;
-  winner: string; // teamId or "引き分け"
+  winner: string;
 }
 
 /** 試合データ */
@@ -152,7 +152,7 @@ export interface Tournament {
   currentTeams: number;
   entryFee?: number;
   format?: string;
-  type: string; // "メンズ" | "レディース" | "混合"
+  type: string;
   status: string;
   organizerId: string;
   organizerName?: string;
@@ -161,6 +161,8 @@ export interface Tournament {
   schedule?: TournamentSchedule;
   deadline?: string;
   area?: string;
+  icon?: string;
+  createdAt?: unknown;
 }
 
 /** エントリー */
@@ -169,10 +171,189 @@ export interface Entry {
   teamName: string;
   enteredBy: string;
   enteredAt: unknown;
+  memberUids?: string[];
 }
 
 /** ブラケット試合 */
 export interface BracketMatch extends Match {
   round?: number;
   position?: number;
+}
+
+/** 投稿 */
+export interface Post {
+  id: string;
+  userId: string;
+  userNickname: string;
+  userAvatarUrl?: string;
+  text: string;
+  images?: string[];
+  imageBase64?: string;
+  likesCount: number;
+  commentsCount: number;
+  badgeName?: string;
+  tournamentId?: string;
+  createdAt: unknown;
+}
+
+/** コメント */
+export interface PostComment {
+  id: string;
+  userId: string;
+  userNickname: string;
+  userAvatarUrl?: string;
+  text: string;
+  createdAt: unknown;
+}
+
+/** チャットルーム */
+export interface ChatRoom {
+  id: string;
+  type: "dm" | "group" | "tournament";
+  name?: string;
+  members: string[];
+  memberNames: Record<string, string>;
+  linkedId?: string;
+  lastMessage?: string;
+  lastMessageAt?: unknown;
+  lastRead?: Record<string, unknown>;
+  createdAt?: unknown;
+}
+
+/** チャットメッセージ */
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  text: string;
+  imageUrl?: string;
+  createdAt: unknown;
+  editedAt?: unknown;
+}
+
+/** 募集 */
+export interface Recruitment {
+  id: string;
+  userId: string;
+  userNickname?: string;
+  title: string;
+  tournament?: string;
+  tournamentId?: string;
+  status: string;
+  needed?: number;
+  approvedCount?: number;
+  pendingCount?: number;
+  experienceLevel?: string;
+  text?: string;
+  createdAt: unknown;
+}
+
+/** チーム */
+export interface Team {
+  id: string;
+  name: string;
+  ownerId: string;
+  memberIds: string[];
+  memberNames: Record<string, string>;
+  memberAvatars?: Record<string, string>;
+  isMain?: boolean;
+  createdAt?: unknown;
+}
+
+/** ガジェット */
+export interface Gadget {
+  id: string;
+  name: string;
+  category: string;
+  description?: string;
+  imageUrl?: string;
+  url?: string;
+  memo?: string;
+  createdAt: unknown;
+}
+
+/** 通知 */
+export interface AppNotification {
+  id: string;
+  type: "like" | "comment" | "follow" | "system";
+  senderId?: string;
+  senderName?: string;
+  senderAvatar?: string;
+  message: string;
+  read: boolean;
+  createdAt: unknown;
+}
+
+/** ブックマーク */
+export interface Bookmark {
+  id: string;
+  type: "tournament" | "recruitment";
+  targetId: string;
+  title: string;
+  date?: string;
+  location?: string;
+  status?: string;
+  alerts?: string[];
+  createdAt: unknown;
+}
+
+/** 会場 */
+export interface Venue {
+  id: string;
+  name: string;
+  address: string;
+  courts?: number;
+  rating?: number;
+  createdBy?: string;
+  createdAt?: unknown;
+}
+
+/** バッジ定義 */
+export interface BadgeDefinition {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  threshold: number;
+  currentValue: number;
+}
+
+/** テンプレート */
+export interface TournamentTemplate {
+  id: string;
+  name: string;
+  type?: string;
+  maxTeams?: number;
+  courts?: number;
+  location?: string;
+  memo?: string;
+  format?: string;
+  rules?: TournamentRules;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
+/** 大会収支の支出 */
+export interface Expense {
+  id: string;
+  name: string;
+  amount: number;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
+/** チェックイン */
+export interface CheckIn {
+  teamId: string;
+  teamName: string;
+  checkedInAt: unknown;
+}
+
+/** お知らせ */
+export interface Notice {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  createdAt: unknown;
 }

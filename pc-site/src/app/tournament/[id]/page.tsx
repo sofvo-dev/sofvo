@@ -17,6 +17,7 @@ import Standings from "@/components/Standings";
 import BracketView from "@/components/BracketView";
 import TournamentInfo from "@/components/TournamentInfo";
 import TeamList from "@/components/TeamList";
+import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 
 type Tab = "info" | "scoreboard" | "standings" | "bracket" | "teams";
@@ -35,6 +36,7 @@ export default function TournamentPage({
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const { user } = useAuth();
 
   // 大会データのリアルタイムリスナー
   useEffect(() => {
@@ -212,6 +214,21 @@ export default function TournamentPage({
           </div>
         </div>
       </div>
+
+      {/* Manage button for organizer */}
+      {user && tournament.organizerId === user.uid && (
+        <div className="mb-4">
+          <Link
+            href={`/tournament/${tournamentId}/manage`}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            管理パネル
+          </Link>
+        </div>
+      )}
 
       {/* タブ & ラウンド選択 */}
       <div className="flex items-center justify-between mb-6">

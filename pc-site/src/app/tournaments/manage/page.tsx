@@ -103,10 +103,7 @@ export default function TournamentManagePage() {
       ) : (
         <div className="space-y-3">
           {tournaments.map((t) => (
-            <Link
-              key={t.id}
-              href={`/tournament/${t.id}`}
-              className="flex items-center gap-6 bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-primary/30 transition-all group"
+            <div key={t.id} className="flex items-center gap-6 bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-primary/30 transition-all group"
             >
               <div className="flex-shrink-0">
                 <StatusBadge status={t.status} />
@@ -121,10 +118,15 @@ export default function TournamentManagePage() {
                   <span>{t.currentTeams ?? 0}/{t.maxTeams}チーム</span>
                 </div>
               </div>
-              <svg className="w-5 h-5 text-muted group-hover:text-primary transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </Link>
+              <div className="flex gap-2 flex-shrink-0">
+                <Link href={`/tournament/${t.id}`} className="px-3 py-1.5 text-xs text-muted border border-gray-200 rounded-lg hover:text-primary hover:border-primary/30 transition-colors">
+                  詳細
+                </Link>
+                <Link href={`/tournament/${t.id}/manage`} className="px-3 py-1.5 text-xs text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors">
+                  管理
+                </Link>
+              </div>
+            </div>
           ))}
         </div>
       )}

@@ -83,3 +83,20 @@ textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
 }
+
+/* 共通入力フィールド */
+.input-field {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+input[type="time"] {
+  outline: none;
+}
+input[type="time"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
+}
