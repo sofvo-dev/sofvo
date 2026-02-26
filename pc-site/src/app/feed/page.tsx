@@ -385,13 +385,13 @@ export default function FeedPage() {
 
                   {/* Images */}
                   {post.images && post.images.length > 0 && (
-                    <div className="mb-3">
+                    <div className={`mb-3 ${post.images.length > 1 ? "grid grid-cols-2 gap-2" : ""}`}>
                       {post.images.map((img, i) => (
                         <img
                           key={i}
                           src={img}
                           alt=""
-                          className="rounded-lg max-h-80 w-full object-cover"
+                          className="rounded-xl max-h-80 w-full object-cover border border-gray-100"
                         />
                       ))}
                     </div>

@@ -16,45 +16,49 @@ interface NavSection {
   items: NavItem[];
 }
 
+/* スマホアプリの5タブ構成に対応:
+   ホーム / さがす / マイ大会 / チャット / マイページ
+   + PC版で追加のサブ項目 */
 const navSections: NavSection[] = [
   {
     title: "",
     items: [
-      { href: "/", label: "ダッシュボード", icon: "home" },
-    ],
-  },
-  {
-    title: "大会",
-    items: [
-      { href: "/tournaments", label: "大会一覧", icon: "trophy" },
-      { href: "/tournaments/manage", label: "大会管理", icon: "clipboard", authRequired: true },
-      { href: "/calendar", label: "カレンダー", icon: "calendar" },
-      { href: "/venues", label: "会場管理", icon: "map" },
-    ],
-  },
-  {
-    title: "コミュニティ",
-    items: [
+      { href: "/", label: "ホーム", icon: "home" },
       { href: "/feed", label: "タイムライン", icon: "feed" },
-      { href: "/recruitment", label: "メンバー募集", icon: "megaphone" },
-      { href: "/chat", label: "チャット", icon: "chat", authRequired: true },
     ],
   },
   {
-    title: "マイデータ",
+    title: "さがす",
     items: [
-      { href: "/mypage", label: "マイページ", icon: "user", authRequired: true },
-      { href: "/teams", label: "チーム管理", icon: "users", authRequired: true },
+      { href: "/tournaments", label: "大会をさがす", icon: "search" },
+      { href: "/recruitment", label: "メンバー募集", icon: "megaphone" },
+      { href: "/rankings", label: "ランキング", icon: "ranking" },
+      { href: "/venues", label: "会場", icon: "map" },
+    ],
+  },
+  {
+    title: "マイ大会",
+    items: [
+      { href: "/tournaments/manage", label: "大会管理", icon: "clipboard", authRequired: true },
+      { href: "/tournaments/create", label: "大会作成", icon: "plus", authRequired: true },
+      { href: "/calendar", label: "カレンダー", icon: "calendar", authRequired: true },
+    ],
+  },
+  {
+    title: "チャット",
+    items: [
+      { href: "/chat", label: "メッセージ", icon: "chat", authRequired: true },
+    ],
+  },
+  {
+    title: "マイページ",
+    items: [
+      { href: "/mypage", label: "プロフィール", icon: "user", authRequired: true },
+      { href: "/teams", label: "チーム", icon: "users", authRequired: true },
       { href: "/gadgets", label: "ガジェット", icon: "gadget", authRequired: true },
       { href: "/badges", label: "バッジ", icon: "badge", authRequired: true },
       { href: "/bookmarks", label: "ブックマーク", icon: "bookmark", authRequired: true },
       { href: "/notifications", label: "通知", icon: "bell", authRequired: true },
-    ],
-  },
-  {
-    title: "その他",
-    items: [
-      { href: "/rankings", label: "ランキング", icon: "ranking" },
       { href: "/settings", label: "設定", icon: "settings", authRequired: true },
     ],
   },
@@ -66,6 +70,10 @@ function NavIcon({ icon, className }: { icon: string; className?: string }) {
   switch (icon) {
     case "home":
       return <svg {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>;
+    case "search":
+      return <svg {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>;
+    case "plus":
+      return <svg {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>;
     case "trophy":
       return <svg {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0116.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a7.454 7.454 0 01-.982 3.172M9.497 14.25a7.454 7.454 0 01-.981-3.172" /></svg>;
     case "clipboard":
