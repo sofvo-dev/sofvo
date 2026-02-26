@@ -22,9 +22,29 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Rebase branch on latest main
+      - name: Detect changed files
+        id: detect
         run: |
           git fetch origin main
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          if echo "$CHANGED" | grep -q '^pc-site/'; then
+            echo "pc_site=true" >> $GITHUB_OUTPUT
+          else
+            echo "pc_site=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Flutter = pc-site以外のソースファイルが変更された場合
+          if echo "$CHANGED" | grep -qvE '^(pc-site/|\.github/)'; then
+            echo "flutter=true" >> $GITHUB_OUTPUT
+          else
+            echo "flutter=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rebase branch on latest main
+        run: |
           git rebase origin/main
           git push origin HEAD:${GITHUB_REF_NAME} --force-with-lease
 
@@ -55,27 +75,30 @@ jobs:
             echo "Merged successfully"
           fi
 
-      # GITHUB_TOKENによるマージはfirebase-deploy.ymlをトリガーしないため
-      # ここで直接ビルド・デプロイを実行
       - name: Checkout main after merge
         run: |
           git fetch origin main
           git checkout origin/main
 
+      # ========== Flutter ビルド & デプロイ ==========
       - name: Setup Flutter
+        if: steps.detect.outputs.flutter == 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.0'
           channel: 'stable'
           cache: true
 
-      - name: Install dependencies
+      - name: Flutter - Install dependencies
+        if: steps.detect.outputs.flutter == 'true'
         run: flutter pub get
 
-      - name: Build web
+      - name: Flutter - Build web
+        if: steps.detect.outputs.flutter == 'true'
         run: flutter build web --release
 
-      - name: Copy website files (LP, terms, privacy, etc.)
+      - name: Flutter - Copy website files
+        if: steps.detect.outputs.flutter == 'true'
         run: |
           mkdir -p build/web/lp
           cp website/index.html build/web/lp/
@@ -84,10 +107,30 @@ jobs:
           cp website/contact.html build/web/
           cp website/404.html build/web/
 
-      - name: Deploy to Firebase Hosting
+      - name: Flutter - Deploy to Firebase Hosting
+        if: steps.detect.outputs.flutter == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: sofvo-19d84
+
+      # ========== Next.js (pc-site) ビルド & デプロイ ==========
+      - name: Setup Node.js
+        if: steps.detect.outputs.pc_site == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: pc-site/package-lock.json
+
+      - name: Next.js - Install dependencies
+        if: steps.detect.outputs.pc_site == 'true'
+        run: npm ci
+        working-directory: pc-site
+
+      - name: Next.js - Build
+        if: steps.detect.outputs.pc_site == 'true'
+        run: npm run build
+        working-directory: pc-site
