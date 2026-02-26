@@ -289,7 +289,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       if (parts.length == 3) {
         final d = DateTime(int.parse(parts[0]), int.parse(parts[1]),
             int.parse(parts[2]));
-        daysLeft = d.difference(DateTime.now()).inDays;
+        final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        daysLeft = d.difference(today).inDays;
         if (daysLeft < 0) daysLeft = 0;
         month = '${int.parse(parts[1])}月';
         day = parts[2];
