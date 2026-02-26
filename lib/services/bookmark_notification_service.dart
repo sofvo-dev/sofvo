@@ -30,7 +30,8 @@ class BookmarkNotificationService {
           final parts = deadline.toString().split('/');
           if (parts.length >= 3) {
             final deadlineDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-            final daysLeft = deadlineDate.difference(DateTime.now()).inDays;
+            final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+            final daysLeft = deadlineDate.difference(today).inDays;
             if (daysLeft <= 3 && daysLeft >= 0) {
               notifications.add('deadline');
             }
