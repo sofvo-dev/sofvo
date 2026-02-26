@@ -350,14 +350,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                         version: QrVersions.auto,
                         size: 180,
                         backgroundColor: Colors.white,
-                        eyeStyle: const QrEyeStyle(
-                          eyeShape: QrEyeShape.roundedRect,
-                          color: Color(0xFF333333),
-                        ),
-                        dataModuleStyle: const QrDataModuleStyle(
-                          dataModuleShape: QrDataModuleShape.roundedRect,
-                          color: Color(0xFF333333),
-                        ),
                       ),
                       const SizedBox(height: 12),
                       Text('@$_mySearchId',
