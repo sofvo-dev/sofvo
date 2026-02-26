@@ -1,20 +1,36 @@
 # sofvo
 
-A new Flutter project.
+ソフトバレーボール マッチングアプリ
 
-## Getting Started
+## 主な機能
 
-This project is a starting point for a Flutter application.
+- **大会管理** - 大会の作成・エントリー・トーナメント進行・スコア入力・MVP投票・QRチェックイン
+- **チーム管理** - チーム作成・メンバー管理・チャット
+- **メンバー募集** - 大会への参加メンバー募集・応募
+- **タイムライン** - 投稿・コメント・いいね
+- **友達検索** - ID/ニックネーム検索・QRコードで友達追加
+- **チャット** - 1対1・グループチャット（画像/ファイル送信対応）
+- **プロフィール** - 戦績・バッジ・ランキング・ブックマーク
+- **ガジェット** - 使用機材の登録・Amazon商品検索連携
+- **通知** - プッシュ通知・フォロー通知・大会リマインド
 
-A few resources to get you started if this is your first Flutter project:
+## 技術スタック
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- **Flutter** (Web / iOS / Android)
+- **Firebase** - Auth, Firestore, Storage, Messaging
+- **認証** - Google / Apple サインイン
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## セットアップ
 
-cd ~/Desktop/sofvo && flutter run -d chrome
+```bash
+flutter pub get
+flutter run -d chrome       # Web
+flutter run -d ios          # iOS
+flutter run -d android      # Android
+```
 
+## デプロイ
+
+```bash
+./deploy.sh
+```
