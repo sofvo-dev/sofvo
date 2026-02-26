@@ -113,15 +113,12 @@ export default function Sidebar() {
   if (pathname === "/login" || pathname === "/register") return null;
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-white/80 backdrop-blur-xl border-r border-gray-200/60 flex flex-col z-40">
+    <aside className="fixed left-0 top-0 h-screen w-60 gradient-navy flex flex-col z-40">
       {/* Logo */}
-      <div className="h-16 flex items-center px-5 border-b border-gray-100/60 flex-shrink-0">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 gradient-primary rounded-xl flex items-center justify-center shadow-md shadow-primary/20 group-hover:shadow-lg group-hover:shadow-primary/30 transition-shadow">
-            <span className="text-white font-bold text-sm">S</span>
-          </div>
-          <span className="text-lg font-bold text-foreground">Sofvo</span>
-          <span className="text-[10px] text-primary bg-primary/8 px-1.5 py-0.5 rounded-md font-semibold border border-primary/10">PC</span>
+      <div className="h-16 flex items-center px-5 border-b border-white/10 flex-shrink-0">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="text-xl font-black text-white tracking-widest" style={{ fontFamily: "'Montserrat', sans-serif" }}>Sofvo</span>
+          <span className="text-[10px] text-accent bg-accent/15 px-1.5 py-0.5 rounded font-bold border border-accent/20">PC</span>
         </Link>
       </div>
 
@@ -130,7 +127,7 @@ export default function Sidebar() {
         {navSections.map((section, si) => (
           <div key={si}>
             {section.title && (
-              <div className="px-3 mb-2 text-[10px] font-bold text-muted/50 uppercase tracking-widest">
+              <div className="px-3 mb-2 text-[10px] font-bold text-white/30 uppercase tracking-widest">
                 {section.title}
               </div>
             )}
@@ -144,14 +141,14 @@ export default function Sidebar() {
                     href={item.href}
                     className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
                       active
-                        ? "bg-primary/10 text-primary shadow-sm shadow-primary/5"
-                        : "text-muted hover:bg-gray-50/80 hover:text-foreground hover:translate-x-0.5"
+                        ? "bg-white/15 text-white"
+                        : "text-white/55 hover:bg-white/8 hover:text-white/90"
                     }`}
                   >
-                    <NavIcon icon={item.icon} className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${active ? "text-primary" : ""}`} />
+                    <NavIcon icon={item.icon} className={`w-[18px] h-[18px] flex-shrink-0 ${active ? "text-accent" : ""}`} />
                     {item.label}
                     {active && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
                     )}
                   </Link>
                 );
@@ -162,19 +159,19 @@ export default function Sidebar() {
       </nav>
 
       {/* User section */}
-      <div className="border-t border-gray-100/60 p-3 flex-shrink-0">
+      <div className="border-t border-white/10 p-3 flex-shrink-0">
         {user && profile ? (
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-gray-50/80 transition-colors">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary-light/20 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0 overflow-hidden ring-2 ring-primary/10">
+          <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors">
+            <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden ring-2 ring-white/20">
               {profile.avatarUrl ? (
-                <img src={profile.avatarUrl} alt="" className="w-9 h-9 rounded-xl object-cover" />
+                <img src={profile.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
               ) : (
                 profile.nickname?.charAt(0) || "U"
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-foreground truncate">{profile.nickname}</div>
-              <button onClick={signOut} className="text-[11px] text-muted hover:text-error transition-colors">
+              <div className="text-sm font-semibold text-white truncate">{profile.nickname}</div>
+              <button onClick={signOut} className="text-[11px] text-white/40 hover:text-white/70 transition-colors">
                 ログアウト
               </button>
             </div>
@@ -182,7 +179,7 @@ export default function Sidebar() {
         ) : (
           <Link
             href="/login"
-            className="btn-primary w-full text-center"
+            className="flex items-center justify-center gap-2 px-3 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent-light transition-colors"
           >
             ログイン
           </Link>
