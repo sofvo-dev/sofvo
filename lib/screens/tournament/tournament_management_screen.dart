@@ -1076,8 +1076,6 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     );
   }
 
-  
-
   Widget _buildInfoChip(IconData icon, String text) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(icon, size: 14, color: AppTheme.textSecondary), const SizedBox(width: 4),

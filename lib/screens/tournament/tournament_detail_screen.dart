@@ -62,7 +62,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     super.dispose();
   }
 
-
   Future<void> _loadMyTeams() async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isEmpty || _tournamentId.isEmpty) return;
@@ -422,7 +421,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ),
             const SizedBox(height: 12),
 
-
             // ━━━ Schedule ━━━
             _buildCard(
               title: '当日スケジュール',
@@ -724,8 +722,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       ]),
     ]);
   }
-
-  
 
   Widget _buildPointRow(String label, dynamic points) {
     return Padding(
@@ -1386,8 +1382,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       }
     }
   }
-
-
 
   Future<void> _resetRounds() async {
     final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
