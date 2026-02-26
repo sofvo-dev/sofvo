@@ -152,7 +152,6 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     });
   }
 
-
   Future<void> _autoSave() async {
     if (_match == null) return;
     final sets = <Map<String, dynamic>>[];

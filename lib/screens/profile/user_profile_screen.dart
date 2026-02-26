@@ -1131,7 +1131,6 @@ class _RecentPostsSection extends StatelessWidget {
   }
 }
 
-
 // ── 空カード（共通） ──
 Widget _buildEmptyCard(String message, IconData icon) {
   return SizedBox(
