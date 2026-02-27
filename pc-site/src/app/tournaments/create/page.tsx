@@ -38,6 +38,39 @@ const stepMeta: Record<Step, { icon: React.ReactNode; desc: string }> = {
   },
 };
 
+// セット形式に応じた勝ち点のデフォルト値
+function defaultScoringForSets(sets: number): Record<string, number> {
+  switch (sets) {
+    case 1: return { win: 3, lose: 0 };
+    case 2: return { win20: 10, win11: 7, draw: 4, lose11: 2, lose02: 0 };
+    case 3: return { win20: 5, win21: 3, lose12: 1, lose02: 0 };
+    default: return { win20: 10, win11: 7, draw: 4, lose11: 2, lose02: 0 };
+  }
+}
+
+function scoringLabels(sets: number): { key: string; label: string }[] {
+  switch (sets) {
+    case 1: return [
+      { key: "win", label: "勝利" },
+      { key: "lose", label: "敗北" },
+    ];
+    case 2: return [
+      { key: "win20", label: "2-0 勝利" },
+      { key: "win11", label: "1-1 得失点差勝ち" },
+      { key: "draw", label: "1-1 同点" },
+      { key: "lose11", label: "1-1 得失点差負け" },
+      { key: "lose02", label: "0-2 敗北" },
+    ];
+    case 3: return [
+      { key: "win20", label: "2-0 勝利" },
+      { key: "win21", label: "2-1 勝利" },
+      { key: "lose12", label: "1-2 敗北" },
+      { key: "lose02", label: "0-2 敗北" },
+    ];
+    default: return [];
+  }
+}
+
 export default function CreateTournamentPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -59,33 +92,33 @@ export default function CreateTournamentPage() {
 
   // Rules - Preliminary
   const [prelRounds, setPrelRounds] = useState(1);
-  const [prelSets, setPrelSets] = useState(3);
-  const [prelPoints, setPrelPoints] = useState(15);
+  const [prelSets, setPrelSets] = useState(2);
   const [prelDeuce, setPrelDeuce] = useState(false);
   const [prelDeuceCap, setPrelDeuceCap] = useState(17);
 
+  // Rules - Round 2 (when prelRounds=2)
+  const [r2SameAsR1, setR2SameAsR1] = useState(true);
+  const [r2Sets, setR2Sets] = useState(2);
+  const [r2Deuce, setR2Deuce] = useState(false);
+  const [r2DeuceCap, setR2DeuceCap] = useState(17);
+
   // Rules - Scoring
   const [scoringEnabled, setScoringEnabled] = useState(true);
-  const [win20, setWin20] = useState(3);
-  const [win11, setWin11] = useState(2);
-  const [draw, setDraw] = useState(1);
-  const [lose11, setLose11] = useState(1);
-  const [lose02, setLose02] = useState(0);
+  const [r1Scoring, setR1Scoring] = useState<Record<string, number>>(defaultScoringForSets(2));
+  const [r2Scoring, setR2Scoring] = useState<Record<string, number>>(defaultScoringForSets(2));
 
   // Rules - Finals
   const [finalEnabled, setFinalEnabled] = useState(true);
   const [finalSets, setFinalSets] = useState(3);
-  const [finalPoints, setFinalPoints] = useState(21);
   const [finalDeuce, setFinalDeuce] = useState(true);
-  const [finalDeuceCap, setFinalDeuceCap] = useState(25);
-  const [finalFormat, setFinalFormat] = useState("トーナメント");
-  const [thirdPlace, setThirdPlace] = useState(true);
-  const [loserRevival, setLoserRevival] = useState(false);
+  const [finalDeuceCap, setFinalDeuceCap] = useState(17);
+  const [finalFormat, setFinalFormat] = useState("順位別複数");
+  const [finalTierCount, setFinalTierCount] = useState(3);
 
   // Rules - Other
   const [uniformRequired, setUniformRequired] = useState(false);
   const [snsVideoAllowed, setSnsVideoAllowed] = useState(true);
-  const [lunchBreak, setLunchBreak] = useState(false);
+  const [lunchBreak, setLunchBreak] = useState("なし");
 
   // Schedule
   const [openTime, setOpenTime] = useState("");
@@ -130,6 +163,28 @@ export default function CreateTournamentPage() {
     setSubmitting(true);
     setError("");
     try {
+      // Build preliminary rules
+      const preliminaryRules: Record<string, unknown> = {
+        rounds: prelRounds,
+        sets: prelSets,
+        points: 15,
+        deuce: prelDeuce,
+        deuceCap: prelDeuceCap,
+      };
+      if (prelRounds === 2) {
+        preliminaryRules.round1 = { sets: prelSets, points: 15, deuce: prelDeuce, deuceCap: prelDeuceCap };
+        preliminaryRules.round2 = r2SameAsR1
+          ? { sets: prelSets, points: 15, deuce: prelDeuce, deuceCap: prelDeuceCap }
+          : { sets: r2Sets, points: 15, deuce: r2Deuce, deuceCap: r2DeuceCap };
+      }
+
+      // Build scoring rules
+      const scoringRules: Record<string, unknown> = { enabled: scoringEnabled, ...r1Scoring };
+      if (prelRounds === 2) {
+        scoringRules.round1 = { ...r1Scoring };
+        scoringRules.round2 = r2SameAsR1 ? { ...r1Scoring } : { ...r2Scoring };
+      }
+
       const docRef = await addDoc(collection(db, "tournaments"), {
         title, date, location, venueAddress, area, type, format, maxTeams, courts, entryFee, deadline,
         currentTeams: 0,
@@ -139,9 +194,9 @@ export default function CreateTournamentPage() {
         createdAt: Timestamp.now(),
         rules: {
           management: { teamsPerCourt },
-          preliminary: { rounds: prelRounds, sets: prelSets, points: prelPoints, deuce: prelDeuce, deuceCap: prelDeuceCap },
-          scoring: { enabled: scoringEnabled, win20, win11, draw, lose11, lose02 },
-          final: { enabled: finalEnabled, sets: finalSets, points: finalPoints, deuce: finalDeuce, deuceCap: finalDeuceCap, format: finalFormat, thirdPlace, loserRevival },
+          preliminary: preliminaryRules,
+          scoring: scoringRules,
+          final: { enabled: finalEnabled, sets: finalSets, points: 15, deuce: finalDeuce, deuceCap: finalDeuceCap, format: finalFormat, tierCount: finalTierCount },
           other: { uniformRequired, snsVideoAllowed, lunchBreak },
         },
         schedule: { openTime, receptionTime, ceremonyTime, matchStartTime, lunch: lunchTime, finalsTime, closingTime },
@@ -163,6 +218,21 @@ export default function CreateTournamentPage() {
 
   const stepIndex = steps.findIndex((s) => s.key === step);
 
+  // Helper to update scoring when set format changes
+  const handlePrelSetsChange = (newSets: number) => {
+    setPrelSets(newSets);
+    setR1Scoring(defaultScoringForSets(newSets));
+    if (r2SameAsR1) {
+      setR2Sets(newSets);
+      setR2Scoring(defaultScoringForSets(newSets));
+    }
+  };
+
+  const handleR2SetsChange = (newSets: number) => {
+    setR2Sets(newSets);
+    setR2Scoring(defaultScoringForSets(newSets));
+  };
+
   return (
     <div className="p-8 max-w-[900px] mx-auto animate-fade-in">
       <div className="flex items-center gap-2 text-sm text-muted mb-6">
@@ -174,20 +244,16 @@ export default function CreateTournamentPage() {
         <span className="text-foreground font-medium">新規作成</span>
       </div>
 
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground mb-1">大会を作成</h1>
         <p className="text-sm text-muted">{stepMeta[step].desc}</p>
       </div>
 
-      {/* Step indicator - connected dots with lines */}
+      {/* Step indicator */}
       <div className="step-indicator mb-8">
         {steps.map((s, i) => (
           <div key={s.key} className="flex items-center" style={{ flex: i < steps.length - 1 ? 1 : "none" }}>
-            <button
-              onClick={() => setStep(s.key)}
-              className="flex flex-col items-center gap-1.5 relative"
-            >
+            <button onClick={() => setStep(s.key)} className="flex flex-col items-center gap-1.5 relative">
               <div className={`step-dot ${i === stepIndex ? "active" : i < stepIndex ? "completed" : "pending"}`}>
                 {i < stepIndex ? (
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
@@ -216,16 +282,16 @@ export default function CreateTournamentPage() {
       {/* Step: Basic */}
       {step === "basic" && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
-          <Section title="基本情報" icon={<svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>}>
+          <Section title="基本情報">
             <Field label="大会名 *">
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="input-field" placeholder="例: 第1回 ソフトバレーボール大会" required />
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="input-field" placeholder="例: 第1回 ソフトバレーボール大会" />
             </Field>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="開催日 *"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-field" required /></Field>
+              <Field label="開催日 *"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-field" /></Field>
               <Field label="申込締切"><input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="input-field" /></Field>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="会場 *"><input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" placeholder="例: 市立体育館" required /></Field>
+              <Field label="会場 *"><input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" placeholder="例: 市立体育館" /></Field>
               <Field label="住所"><input type="text" value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} className="input-field" placeholder="例: 東京都..." /></Field>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -241,7 +307,7 @@ export default function CreateTournamentPage() {
             </div>
           </Section>
 
-          <Section title="大会設定" icon={<svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" /></svg>}>
+          <Section title="大会設定">
             <Field label="種別">
               <div className="flex gap-2">
                 {["メンズ", "レディース", "混合"].map((t) => (
@@ -271,11 +337,26 @@ export default function CreateTournamentPage() {
       {/* Step: Rules */}
       {step === "rules" && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
-          <Section title="予選ルール" icon={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" /></svg>}>
-            <div className="grid grid-cols-3 gap-4">
-              <Field label="ラウンド数"><input type="number" value={prelRounds} onChange={(e) => setPrelRounds(parseInt(e.target.value) || 1)} min={1} max={5} className="input-field" /></Field>
-              <Field label="セット数"><input type="number" value={prelSets} onChange={(e) => setPrelSets(parseInt(e.target.value) || 1)} min={1} max={5} className="input-field" /></Field>
-              <Field label="ポイント数"><input type="number" value={prelPoints} onChange={(e) => setPrelPoints(parseInt(e.target.value) || 1)} min={1} max={30} className="input-field" /></Field>
+          <Section title="予選ルール">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="ラウンド数">
+                <div className="flex gap-2">
+                  {[1, 2].map((n) => (
+                    <button key={n} type="button" onClick={() => setPrelRounds(n)}
+                      className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${prelRounds === n ? "bg-primary text-white" : "bg-gray-100 text-muted hover:bg-gray-200"}`}
+                    >{n}ラウンド</button>
+                  ))}
+                </div>
+              </Field>
+              <Field label="セット形式">
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((n) => (
+                    <button key={n} type="button" onClick={() => handlePrelSetsChange(n)}
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${prelSets === n ? "bg-primary text-white" : "bg-gray-100 text-muted hover:bg-gray-200"}`}
+                    >{n === 1 ? "1セット" : n === 2 ? "2セット" : "3セット先取"}</button>
+                  ))}
+                </div>
+              </Field>
             </div>
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -286,63 +367,123 @@ export default function CreateTournamentPage() {
                 <Field label="デュースキャップ"><input type="number" value={prelDeuceCap} onChange={(e) => setPrelDeuceCap(parseInt(e.target.value) || 17)} min={15} max={30} className="input-field w-24" /></Field>
               )}
             </div>
+
+            {/* Round 2 settings */}
+            {prelRounds === 2 && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={r2SameAsR1} onChange={(e) => setR2SameAsR1(e.target.checked)} className="w-4 h-4 text-primary rounded" />
+                  <span className="text-sm font-medium text-foreground">2回目も同じルール</span>
+                </label>
+                {!r2SameAsR1 && (
+                  <>
+                    <Field label="2回目セット形式">
+                      <div className="flex gap-2">
+                        {[1, 2, 3].map((n) => (
+                          <button key={n} type="button" onClick={() => handleR2SetsChange(n)}
+                            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${r2Sets === n ? "bg-primary text-white" : "bg-gray-100 text-muted hover:bg-gray-200"}`}
+                          >{n === 1 ? "1セット" : n === 2 ? "2セット" : "3セット先取"}</button>
+                        ))}
+                      </div>
+                    </Field>
+                    <div className="flex items-center gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={r2Deuce} onChange={(e) => setR2Deuce(e.target.checked)} className="w-4 h-4 text-primary rounded" />
+                        <span className="text-sm text-foreground">デュースあり</span>
+                      </label>
+                      {r2Deuce && (
+                        <Field label="キャップ"><input type="number" value={r2DeuceCap} onChange={(e) => setR2DeuceCap(parseInt(e.target.value) || 17)} className="input-field w-24" /></Field>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </Section>
 
-          <Section title="勝ち点設定" icon={<svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>}>
+          <Section title="勝ち点設定">
             <label className="flex items-center gap-2 mb-3 cursor-pointer">
               <input type="checkbox" checked={scoringEnabled} onChange={(e) => setScoringEnabled(e.target.checked)} className="w-4 h-4 text-primary rounded" />
               <span className="text-sm text-foreground font-medium">勝ち点制を使用</span>
             </label>
             {scoringEnabled && (
-              <div className="grid grid-cols-5 gap-3">
-                <Field label="2-0勝ち"><input type="number" value={win20} onChange={(e) => setWin20(parseInt(e.target.value) || 0)} className="input-field" /></Field>
-                <Field label="2-1勝ち"><input type="number" value={win11} onChange={(e) => setWin11(parseInt(e.target.value) || 0)} className="input-field" /></Field>
-                <Field label="引き分け"><input type="number" value={draw} onChange={(e) => setDraw(parseInt(e.target.value) || 0)} className="input-field" /></Field>
-                <Field label="1-2負け"><input type="number" value={lose11} onChange={(e) => setLose11(parseInt(e.target.value) || 0)} className="input-field" /></Field>
-                <Field label="0-2負け"><input type="number" value={lose02} onChange={(e) => setLose02(parseInt(e.target.value) || 0)} className="input-field" /></Field>
-              </div>
+              <>
+                <p className="text-xs text-muted mb-3">ラウンド1 ({prelSets === 1 ? "1セット" : prelSets === 2 ? "2セット" : "3セット先取"})</p>
+                <div className="grid grid-cols-5 gap-3">
+                  {scoringLabels(prelSets).map(({ key, label }) => (
+                    <Field key={key} label={label}>
+                      <input type="number" value={r1Scoring[key] ?? 0} onChange={(e) => setR1Scoring({ ...r1Scoring, [key]: parseInt(e.target.value) || 0 })} className="input-field" />
+                    </Field>
+                  ))}
+                </div>
+                {prelRounds === 2 && !r2SameAsR1 && (
+                  <>
+                    <p className="text-xs text-muted mb-3 mt-4">ラウンド2 ({r2Sets === 1 ? "1セット" : r2Sets === 2 ? "2セット" : "3セット先取"})</p>
+                    <div className="grid grid-cols-5 gap-3">
+                      {scoringLabels(r2Sets).map(({ key, label }) => (
+                        <Field key={key} label={label}>
+                          <input type="number" value={r2Scoring[key] ?? 0} onChange={(e) => setR2Scoring({ ...r2Scoring, [key]: parseInt(e.target.value) || 0 })} className="input-field" />
+                        </Field>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </Section>
 
-          <Section title="決勝ルール" icon={<svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872" /></svg>}>
+          <Section title="決勝ルール">
             <label className="flex items-center gap-2 mb-3 cursor-pointer">
               <input type="checkbox" checked={finalEnabled} onChange={(e) => setFinalEnabled(e.target.checked)} className="w-4 h-4 text-primary rounded" />
-              <span className="text-sm text-foreground font-medium">決勝トーナメントを実施</span>
+              <span className="text-sm text-foreground font-medium">順位決定戦を行う</span>
             </label>
             {finalEnabled && (
               <>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <Field label="形式">
-                    <select value={finalFormat} onChange={(e) => setFinalFormat(e.target.value)} className="input-field bg-white">
-                      <option value="トーナメント">トーナメント</option>
-                      <option value="上位下位">上位・下位トーナメント</option>
-                    </select>
+                    <div className="flex gap-2">
+                      {["順位別複数", "全チーム一本"].map((f) => (
+                        <button key={f} type="button" onClick={() => setFinalFormat(f)}
+                          className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${finalFormat === f ? "bg-primary text-white" : "bg-gray-100 text-muted hover:bg-gray-200"}`}
+                        >{f}</button>
+                      ))}
+                    </div>
                   </Field>
-                  <Field label="セット数"><input type="number" value={finalSets} onChange={(e) => setFinalSets(parseInt(e.target.value) || 1)} min={1} max={5} className="input-field" /></Field>
-                  <Field label="ポイント数"><input type="number" value={finalPoints} onChange={(e) => setFinalPoints(parseInt(e.target.value) || 1)} min={1} max={30} className="input-field" /></Field>
+                  {finalFormat === "順位別複数" && (
+                    <Field label="区分数">
+                      <div className="flex gap-2">
+                        {[2, 3].map((n) => (
+                          <button key={n} type="button" onClick={() => setFinalTierCount(n)}
+                            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${finalTierCount === n ? "bg-primary text-white" : "bg-gray-100 text-muted hover:bg-gray-200"}`}
+                          >{n === 2 ? "上・中" : "上・中・下"}</button>
+                        ))}
+                      </div>
+                    </Field>
+                  )}
                 </div>
+                <Field label="セット形式">
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map((n) => (
+                      <button key={n} type="button" onClick={() => setFinalSets(n)}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${finalSets === n ? "bg-primary text-white" : "bg-gray-100 text-muted hover:bg-gray-200"}`}
+                      >{n === 1 ? "1セット" : n === 2 ? "2セット" : "3セット先取"}</button>
+                    ))}
+                  </div>
+                </Field>
                 <div className="flex items-center gap-6 flex-wrap">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={finalDeuce} onChange={(e) => setFinalDeuce(e.target.checked)} className="w-4 h-4 text-primary rounded" />
                     <span className="text-sm">デュースあり</span>
                   </label>
                   {finalDeuce && (
-                    <Field label="キャップ"><input type="number" value={finalDeuceCap} onChange={(e) => setFinalDeuceCap(parseInt(e.target.value) || 25)} className="input-field w-24" /></Field>
+                    <Field label="キャップ"><input type="number" value={finalDeuceCap} onChange={(e) => setFinalDeuceCap(parseInt(e.target.value) || 17)} className="input-field w-24" /></Field>
                   )}
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={thirdPlace} onChange={(e) => setThirdPlace(e.target.checked)} className="w-4 h-4 text-primary rounded" />
-                    <span className="text-sm">3位決定戦</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={loserRevival} onChange={(e) => setLoserRevival(e.target.checked)} className="w-4 h-4 text-primary rounded" />
-                    <span className="text-sm">敗者復活</span>
-                  </label>
                 </div>
               </>
             )}
           </Section>
 
-          <Section title="その他" icon={<svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>}>
+          <Section title="その他">
             <div className="flex flex-wrap gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={uniformRequired} onChange={(e) => setUniformRequired(e.target.checked)} className="w-4 h-4 text-primary rounded" />
@@ -352,11 +493,16 @@ export default function CreateTournamentPage() {
                 <input type="checkbox" checked={snsVideoAllowed} onChange={(e) => setSnsVideoAllowed(e.target.checked)} className="w-4 h-4 text-primary rounded" />
                 <span className="text-sm">SNS・動画撮影OK</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={lunchBreak} onChange={(e) => setLunchBreak(e.target.checked)} className="w-4 h-4 text-primary rounded" />
-                <span className="text-sm">昼休憩あり</span>
-              </label>
             </div>
+            <Field label="昼休憩">
+              <div className="flex gap-2">
+                {["なし", "30分", "45分", "60分"].map((opt) => (
+                  <button key={opt} type="button" onClick={() => setLunchBreak(opt)}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${lunchBreak === opt ? "bg-primary text-white" : "bg-gray-100 text-muted hover:bg-gray-200"}`}
+                  >{opt}</button>
+                ))}
+              </div>
+            </Field>
           </Section>
 
           <div className="flex justify-between pt-4 border-t border-gray-100">
@@ -375,9 +521,8 @@ export default function CreateTournamentPage() {
       {/* Step: Schedule */}
       {step === "schedule" && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
-          <Section title="タイムスケジュール" icon={<svg className="w-4 h-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}>
+          <Section title="タイムスケジュール">
             <p className="text-sm text-muted mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
-              <svg className="w-4 h-4 text-blue-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
               時間は任意です。設定した項目が大会情報に表示されます。
             </p>
             <div className="grid grid-cols-2 gap-4">
@@ -385,7 +530,7 @@ export default function CreateTournamentPage() {
               <Field label="受付"><input type="time" value={receptionTime} onChange={(e) => setReceptionTime(e.target.value)} className="input-field" /></Field>
               <Field label="開会式"><input type="time" value={ceremonyTime} onChange={(e) => setCeremonyTime(e.target.value)} className="input-field" /></Field>
               <Field label="試合開始"><input type="time" value={matchStartTime} onChange={(e) => setMatchStartTime(e.target.value)} className="input-field" /></Field>
-              {lunchBreak && (
+              {lunchBreak !== "なし" && (
                 <Field label="昼休憩"><input type="time" value={lunchTime} onChange={(e) => setLunchTime(e.target.value)} className="input-field" /></Field>
               )}
               {finalEnabled && (
@@ -412,7 +557,7 @@ export default function CreateTournamentPage() {
       {step === "confirm" && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
-            <Section title="基本情報" icon={<svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>}>
+            <Section title="基本情報">
               <div className="grid grid-cols-2 gap-y-3 text-sm">
                 <ConfirmRow label="大会名" value={title || "未設定"} />
                 <ConfirmRow label="開催日" value={date || "未設定"} />
@@ -427,36 +572,44 @@ export default function CreateTournamentPage() {
               </div>
             </Section>
 
-            <Section title="予選ルール" icon={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" /></svg>}>
+            <Section title="予選ルール">
               <div className="grid grid-cols-2 gap-y-3 text-sm">
                 <ConfirmRow label="ラウンド" value={`${prelRounds}ラウンド`} />
-                <ConfirmRow label="セット/ポイント" value={`${prelSets}セット ${prelPoints}点`} />
+                <ConfirmRow label="セット形式" value={prelSets === 1 ? "1セット" : prelSets === 2 ? "2セット" : "3セット先取"} />
                 <ConfirmRow label="デュース" value={prelDeuce ? `あり (${prelDeuceCap}点キャップ)` : "なし"} />
               </div>
             </Section>
 
             {scoringEnabled && (
-              <Section title="勝ち点" icon={<svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>}>
+              <Section title="勝ち点">
                 <div className="flex gap-3 flex-wrap">
-                  <span className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-sm font-medium border border-green-200">2-0勝: {win20}pt</span>
-                  <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">2-1勝: {win11}pt</span>
-                  <span className="px-3 py-1.5 bg-gray-50 text-gray-700 rounded-lg text-sm font-medium border border-gray-200">引分: {draw}pt</span>
-                  <span className="px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-sm font-medium border border-orange-200">1-2負: {lose11}pt</span>
-                  <span className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-sm font-medium border border-red-200">0-2負: {lose02}pt</span>
+                  {scoringLabels(prelSets).map(({ key, label }) => (
+                    <span key={key} className="px-3 py-1.5 bg-gray-50 text-gray-700 rounded-lg text-sm font-medium border border-gray-200">
+                      {label}: {r1Scoring[key] ?? 0}pt
+                    </span>
+                  ))}
                 </div>
               </Section>
             )}
 
             {finalEnabled && (
-              <Section title="決勝" icon={<svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872" /></svg>}>
+              <Section title="決勝">
                 <div className="grid grid-cols-2 gap-y-3 text-sm">
                   <ConfirmRow label="形式" value={finalFormat} />
-                  <ConfirmRow label="セット/ポイント" value={`${finalSets}セット ${finalPoints}点`} />
+                  {finalFormat === "順位別複数" && <ConfirmRow label="区分" value={finalTierCount === 2 ? "上・中" : "上・中・下"} />}
+                  <ConfirmRow label="セット" value={finalSets === 1 ? "1セット" : finalSets === 2 ? "2セット" : "3セット先取"} />
                   <ConfirmRow label="デュース" value={finalDeuce ? `あり (${finalDeuceCap}点キャップ)` : "なし"} />
-                  <ConfirmRow label="3位決定戦" value={thirdPlace ? "あり" : "なし"} />
                 </div>
               </Section>
             )}
+
+            <Section title="その他">
+              <div className="grid grid-cols-2 gap-y-3 text-sm">
+                <ConfirmRow label="ユニフォーム" value={uniformRequired ? "必須" : "任意"} />
+                <ConfirmRow label="SNS・動画" value={snsVideoAllowed ? "OK" : "NG"} />
+                <ConfirmRow label="昼休憩" value={lunchBreak} />
+              </div>
+            </Section>
           </div>
 
           <div className="flex justify-between pt-2">
@@ -484,13 +637,10 @@ export default function CreateTournamentPage() {
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-sm font-bold text-foreground mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
-        {icon}
-        {title}
-      </h2>
+      <h2 className="text-sm font-bold text-foreground mb-4 pb-2 border-b border-gray-100">{title}</h2>
       <div className="space-y-4">{children}</div>
     </div>
   );
