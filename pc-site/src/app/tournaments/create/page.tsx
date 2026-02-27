@@ -256,16 +256,16 @@ export default function CreateTournamentPage() {
                   )}
                 </div>
                 {showVenuePicker && allVenues.length > 0 && (
-                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
-                    <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-80 overflow-y-auto">
+                    <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
                       <input type="text" value={venueSearch} onChange={(e) => setVenueSearch(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" placeholder="絞り込み..." autoFocus />
+                        className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg" placeholder="絞り込み..." autoFocus />
                     </div>
                     {filteredVenues.length === 0 ? (
                       <div className="p-4 text-center text-sm text-gray-400">該当なし</div>
                     ) : filteredVenues.map((v) => (
                       <button key={v.id} type="button" onClick={() => selectVenue(v)}
-                        className={`w-full text-left px-4 py-3 hover:bg-primary/5 transition-colors border-b border-gray-50 last:border-b-0 ${selectedVenueId === v.id ? "bg-primary/5" : ""}`}>
+                        className={`w-full text-left px-4 py-2 hover:bg-primary/5 transition-colors border-b border-gray-50 last:border-b-0 ${selectedVenueId === v.id ? "bg-primary/5" : ""}`}>
                         <span className="text-sm font-medium text-foreground">{v.name}</span>
                         <span className="text-xs text-muted ml-2">{v.address}</span>
                         {v.courts && <span className="text-xs text-primary ml-1">({v.courts}コート)</span>}
