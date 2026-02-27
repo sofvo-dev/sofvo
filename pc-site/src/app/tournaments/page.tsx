@@ -8,9 +8,9 @@ import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
 
 const typeColor: Record<string, string> = {
-  "メンズ": "bg-blue-600",
+  "メンズ": "bg-blue-500",
   "レディース": "bg-pink-500",
-  "混合": "bg-green-600",
+  "混合": "bg-emerald-500",
 };
 
 const statusFilters = ["すべて", "募集中", "準備中", "開催中", "決勝中", "終了"];
@@ -21,7 +21,6 @@ export default function TournamentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("すべて");
   const [typeFilter, setTypeFilter] = useState("すべて");
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   useEffect(() => {
     const q = query(collection(db, "tournaments"), orderBy("date", "desc"));
@@ -57,142 +56,118 @@ export default function TournamentsPage() {
   });
 
   return (
-    <div className="page-container animate-fade-in">
+    <div className="p-6 md:p-8 max-w-[1200px] mx-auto animate-fade-in">
       {/* Header */}
-      <div className="rounded-2xl overflow-hidden mb-6 border border-gray-200">
-        <div className="gradient-navy px-8 py-6 relative">
-          <div className="absolute top-[-30px] right-[-30px] w-40 h-40 rounded-full bg-white/5" />
-          <div className="relative z-10 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                <svg className="w-6 h-6 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.52 1.772 6.003 6.003 0 01-4.52-1.772" /></svg>
-                大会一覧
-              </h1>
-              <p className="text-sm text-white/50 mt-1">すべての大会を検索・閲覧</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setViewMode("list")} className={`p-2 rounded-lg transition-colors ${viewMode === "list" ? "bg-white/20 text-white" : "text-white/40 hover:text-white/60"}`}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-              </button>
-              <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg transition-colors ${viewMode === "grid" ? "bg-white/20 text-white" : "text-white/40 hover:text-white/60"}`}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
-              </button>
-            </div>
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">大会一覧</h1>
+          <p className="text-sm text-muted mt-1">{tournaments.length}件の大会が登録されています</p>
         </div>
+        <Link href="/tournaments/create" className="btn-primary">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+          大会を作成
+        </Link>
       </div>
 
       {/* Search & Filters */}
-      <div className="card-static p-5 mb-6">
-        <div className="flex flex-wrap gap-4 mb-4">
-          <div className="flex-1 min-w-[280px]">
-            <div className="relative">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="大会名、会場名で検索..."
-                className="input-field pl-10"
-              />
-            </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="flex flex-wrap gap-3 items-center mb-3">
+          <div className="flex-1 min-w-[260px] relative">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+            <input type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="大会名、会場名で検索..." className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm" />
           </div>
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-white">
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white">
             <option value="すべて">種別: すべて</option>
             <option value="メンズ">メンズ</option>
             <option value="レディース">レディース</option>
             <option value="混合">混合</option>
           </select>
         </div>
-
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {statusFilters.map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 statusFilter === s
                   ? "bg-primary text-white shadow-sm"
                   : "bg-gray-100 text-muted hover:bg-gray-200"
-              }`}
-            >
+              }`}>
               {s}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="text-sm text-muted mb-4 font-medium">{filtered.length}件の大会</div>
+      <p className="text-sm text-muted mb-4 font-medium">{filtered.length}件の大会</p>
 
+      {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 card-static">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg className="w-8 h-8 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-          </div>
+        <div className="text-center py-20 bg-white rounded-xl border border-gray-200">
+          <svg className="w-12 h-12 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
           <h3 className="text-lg font-bold text-foreground mb-2">該当する大会がありません</h3>
           <p className="text-sm text-muted">検索条件を変更してください</p>
         </div>
-      ) : viewMode === "list" ? (
-        <div className="space-y-3">
-          {filtered.map((t) => (
-            <Link key={t.id} href={`/tournament/${t.id}`} className="card flex items-center gap-5 p-4 group">
-              <StatusBadge status={t.status} />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-[15px] font-bold text-foreground group-hover:text-primary transition-colors truncate">{t.title}</h3>
-                <div className="flex flex-wrap gap-4 mt-1 text-sm text-muted">
-                  <span className="flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5" /></svg>
-                    {t.date}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
-                    {t.location}
-                  </span>
-                  {t.organizerName && <span>{t.organizerName}</span>}
-                </div>
-              </div>
-              <span className={`text-[10px] text-white px-2.5 py-0.5 rounded-full font-medium flex-shrink-0 ${typeColor[t.type] ?? "bg-gray-500"}`}>{t.type}</span>
-              <div className="text-right flex-shrink-0">
-                <div className="text-sm font-bold text-foreground">{t.currentTeams ?? 0}<span className="text-muted font-normal">/{t.maxTeams}</span></div>
-                <div className="text-[11px] text-hint">チーム</div>
-              </div>
-            </Link>
-          ))}
-        </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((t) => {
             const fillPct = t.maxTeams > 0 ? Math.min(100, ((t.currentTeams ?? 0) / t.maxTeams) * 100) : 0;
+            const isFull = (t.currentTeams ?? 0) >= t.maxTeams;
             return (
-              <Link key={t.id} href={`/tournament/${t.id}`} className="card p-5 group">
-                <div className="flex items-center justify-between mb-3">
-                  <StatusBadge status={t.status} />
-                  <span className={`text-[10px] text-white px-2.5 py-0.5 rounded-full font-medium ${typeColor[t.type] ?? "bg-gray-500"}`}>{t.type}</span>
-                </div>
-                <h3 className="text-[15px] font-bold text-foreground group-hover:text-primary transition-colors truncate mb-2">{t.title}</h3>
-                <div className="space-y-1.5 text-sm text-muted mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5" /></svg>
-                    {t.date}
+              <Link key={t.id} href={`/tournament/${t.id}`}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-primary/20 transition-all group">
+                {/* Card header with status */}
+                <div className="px-5 pt-5 pb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <StatusBadge status={t.status} />
+                    <span className={`text-[11px] text-white px-2.5 py-0.5 rounded-full font-medium ${typeColor[t.type] ?? "bg-gray-500"}`}>
+                      {t.type}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
-                    {t.location}
+
+                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug mb-3">
+                    {t.title}
+                  </h3>
+
+                  <div className="space-y-2 text-sm text-muted">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-primary/50 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                      <span className="font-medium">{t.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-primary/50 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                      <span className="truncate">{t.location}</span>
+                    </div>
+                    {t.organizerName && (
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-primary/50 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+                        <span>{t.organizerName}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 mr-3">
-                    <div className="progress-bar h-1.5">
-                      <div className="progress-bar-fill bg-primary" style={{ width: `${fillPct}%` }} />
+
+                {/* Card footer */}
+                <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1 mr-4">
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${isFull ? "bg-red-400" : "bg-primary"}`}
+                          style={{ width: `${fillPct}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>
+                      <span className={`text-sm font-bold ${isFull ? "text-red-500" : "text-foreground"}`}>
+                        {t.currentTeams ?? 0}
+                      </span>
+                      <span className="text-sm text-muted">/ {t.maxTeams}</span>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-foreground">{t.currentTeams ?? 0}/{t.maxTeams}</span>
                 </div>
               </Link>
             );
