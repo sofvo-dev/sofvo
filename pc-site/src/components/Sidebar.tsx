@@ -45,7 +45,6 @@ const mainNav: NavItem[] = [
 const myNav: NavItem[] = [
   { href: "/tournaments/manage", label: "大会管理", icon: icons.clipboard, authRequired: true },
   { href: "/tournaments/create", label: "大会作成", icon: icons.plus, authRequired: true },
-  { href: "/mypage", label: "マイページ", icon: icons.user, authRequired: true },
   { href: "/chat", label: "メッセージ", icon: icons.chat, authRequired: true },
 ];
 
