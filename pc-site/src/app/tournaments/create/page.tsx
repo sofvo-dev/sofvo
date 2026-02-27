@@ -479,8 +479,8 @@ export default function CreateTournamentPage() {
 
 function Section({ title, num, children }: { title: string; num: number; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <div className="px-6 py-3.5 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+    <div className="bg-white rounded-2xl border border-gray-200">
+      <div className="px-6 py-3.5 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3 rounded-t-2xl">
         <span className="w-7 h-7 rounded-lg bg-primary text-white text-xs font-bold flex items-center justify-center">{num}</span>
         <h2 className="text-base font-bold text-foreground">{title}</h2>
       </div>
