@@ -173,7 +173,7 @@ export default function HomePage() {
             </h2>
             <Link href="/tournaments" className="text-sm text-primary font-medium hover:underline">すべて見る</Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {liveTournaments.map((t) => (
               <TournamentCard key={t.id} tournament={t} />
             ))}
@@ -188,7 +188,7 @@ export default function HomePage() {
             <h2 className="text-base font-bold text-foreground">開催予定の大会</h2>
             <Link href="/tournaments" className="text-sm text-primary font-medium hover:underline">すべて見る</Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {upcomingTournaments.slice(0, 6).map((t) => (
               <TournamentCard key={t.id} tournament={t} />
             ))}
@@ -203,7 +203,7 @@ export default function HomePage() {
             <h2 className="text-base font-bold text-foreground">最近の大会</h2>
             <Link href="/tournaments" className="text-sm text-primary font-medium hover:underline">すべて見る</Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {recentTournaments.map((t) => (
               <TournamentCard key={t.id} tournament={t} />
             ))}
@@ -231,33 +231,49 @@ export default function HomePage() {
 }
 
 function TournamentCard({ tournament: t }: { tournament: Tournament }) {
+  const fillPct = t.maxTeams > 0 ? Math.min(100, ((t.currentTeams ?? 0) / t.maxTeams) * 100) : 0;
+  const isFull = (t.currentTeams ?? 0) >= t.maxTeams;
   return (
     <Link href={`/tournament/${t.id}`} className="bg-white rounded-xl border border-gray-200 p-0 block group overflow-hidden hover:shadow-lg hover:border-primary/20 transition-all">
-      <div className="gradient-navy px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-white/70 text-xs">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25" /></svg>
+      {/* Header */}
+      <div className="gradient-navy px-5 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-white text-sm font-medium">
+          <svg className="w-4 h-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25" /></svg>
           {t.date}
         </div>
-        <span className={`text-[10px] text-white px-2 py-0.5 rounded-full font-medium ${typeColor[t.type] ?? "bg-gray-500"}`}>
-          {t.type}
-        </span>
-      </div>
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-[15px] font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1 flex-1">
-            {t.title}
-          </h3>
+        <div className="flex items-center gap-2">
+          <span className={`text-[11px] text-white px-2.5 py-0.5 rounded-full font-medium ${typeColor[t.type] ?? "bg-gray-500"}`}>
+            {t.type}
+          </span>
           <StatusBadge status={t.status} />
         </div>
-        <div className="space-y-1.5 text-sm text-muted">
-          <div className="flex items-center gap-2">
-            <svg className="w-3.5 h-3.5 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+      </div>
+      {/* Body */}
+      <div className="p-5">
+        <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug mb-4">
+          {t.title}
+        </h3>
+        <div className="space-y-2.5 text-sm text-muted mb-4">
+          <div className="flex items-center gap-2.5">
+            <svg className="w-4 h-4 text-primary/40 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
             <span className="truncate">{t.location}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <svg className="w-3.5 h-3.5 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493" /></svg>
-            <span><span className="font-semibold text-foreground">{t.currentTeams ?? 0}</span>/{t.maxTeams}チーム</span>
+          {t.organizerName && (
+            <div className="flex items-center gap-2.5">
+              <svg className="w-4 h-4 text-primary/40 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+              <span>{t.organizerName}</span>
+            </div>
+          )}
+        </div>
+        {/* Progress */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${isFull ? "bg-red-400" : "bg-primary"}`}
+              style={{ width: `${fillPct}%` }} />
           </div>
+          <span className={`text-sm font-bold whitespace-nowrap ${isFull ? "text-red-500" : "text-foreground"}`}>
+            {t.currentTeams ?? 0}/{t.maxTeams}チーム
+          </span>
         </div>
       </div>
     </Link>
