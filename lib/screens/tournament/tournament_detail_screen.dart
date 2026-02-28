@@ -3584,12 +3584,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
         // 主催者の場合
         if (isOrganizer) {
-          final isReceptionPhase = status == '募集中' || status == '満員' || status == '開催中';
-          if (!isReceptionPhase) {
-            // 受付フェーズ以外 → 主催者メニューのみ
+          if (status != '開催中') {
+            // 当日（開催中）以外 → 主催者メニューのみ
             return _buildOrganizerOnlyBottom(t);
           }
-          // 受付フェーズ → チェックイン状況を確認して2ボタンor1ボタン
+          // 当日（開催中） → チェックイン状況を確認して受付メニュー＋主催者メニュー
           return StreamBuilder<QuerySnapshot>(
             stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
             builder: (context, entriesSnap) {
