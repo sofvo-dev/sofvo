@@ -1478,6 +1478,62 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       }
     }
   }
+  void _showMemberList(String teamName, Map<String, dynamic> memberNames) {
+    final members = memberNames.entries.toList();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            Text(teamName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('${members.length}人のメンバー', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 16),
+            ...members.asMap().entries.map((entry) {
+              final uid = entry.value.key;
+              final name = entry.value.value?.toString() ?? '名前なし';
+              final isFirst = entry.key == 0;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                  child: Text(name.isNotEmpty ? name[0] : '?',
+                      style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                ),
+                title: Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                subtitle: isFirst ? Text('キャプテン', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)) : null,
+                trailing: GestureDetector(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => UserProfileScreen(userId: uid),
+                    ));
+                  },
+                  child: Icon(Icons.chevron_right, color: AppTheme.textHint),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(userId: uid),
+                  ));
+                },
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTeamsTab() {
     if (_tournamentId.isEmpty) return const Center(child: Text('大会IDが見つかりません'));
 
@@ -1508,19 +1564,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               final teamName = data['teamName'] ?? 'チーム';
               final leader = data['leaderName'] ?? '';
               final memberUids = (data['memberUids'] as List<dynamic>?) ?? [];
+              final memberNames = (data['memberNames'] as Map<String, dynamic>?) ?? {};
               final isMyTeam = _myTeamIds.contains(data['teamId'] ?? '');
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: GestureDetector(
-                  onTap: () {
-                    final enteredBy = data['enteredBy'] as String?;
-                    if (enteredBy != null && enteredBy.isNotEmpty) {
-                      Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => UserProfileScreen(userId: enteredBy),
-                      ));
-                    }
-                  },
+                  onTap: isMyTeam ? () => _showMemberList(teamName.toString(), memberNames) : null,
                   child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
@@ -1547,31 +1597,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         child: const Text('自分', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
                       ),
                       const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => _showMyTeamQR(data['teamId'] ?? '', teamName.toString()),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.qr_code, size: 14, color: AppTheme.primaryColor),
-                            const SizedBox(width: 4),
-                            Text('QR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                          ]),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: _performSelfCheckIn,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: AppTheme.success.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.check_circle_outline, size: 14, color: AppTheme.success),
-                            const SizedBox(width: 4),
-                            Text('チェックイン', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.success)),
-                          ]),
-                        ),
-                      ),
+                      Icon(Icons.chevron_right, size: 20, color: AppTheme.textHint),
                     ],
                   ]),
                 ),
