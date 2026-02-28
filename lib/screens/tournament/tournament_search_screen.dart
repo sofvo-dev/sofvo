@@ -908,113 +908,192 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   // ── Saved tournament card (improved) ──
   Widget _buildSavedTournamentCard(DocumentSnapshot bmDoc) {
     final bm = bmDoc.data() as Map<String, dynamic>;
-    final date = bm['date'] ?? '';
-    final tournamentType = bm['tournamentType'] ?? '';
-    final status = bm['status'] ?? '';
-    final alerts = (bm['alerts'] as List?)?.cast<String>() ?? [];
+    final tid = bm['targetId'] ?? '';
 
-    String day = '', month = '', weekday = '';
-    try {
-      final p = date.toString().split('/');
-      if (p.length >= 3) {
-        month = '${int.parse(p[1])}月';
-        day = p[2];
-        final d = DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
-        const w = ['月', '火', '水', '木', '金', '土', '日'];
-        weekday = w[d.weekday - 1];
-      }
-    } catch (_) {}
+    return FutureBuilder<DocumentSnapshot>(
+      future: tid.isNotEmpty ? FirebaseFirestore.instance.collection('tournaments').doc(tid).get() : null,
+      builder: (context, snap) {
+        final tData = (snap.data?.exists == true) ? snap.data!.data() as Map<String, dynamic> : <String, dynamic>{};
+        final title = tData['title'] ?? bm['title'] ?? '';
+        final date = tData['date'] ?? bm['date'] ?? '';
+        final location = tData['location'] ?? bm['location'] ?? '';
+        final status = tData['status'] ?? bm['status'] ?? '';
+        final type = tData['type'] ?? bm['tournamentType'] ?? '';
+        final currentTeams = tData['currentTeams'] ?? 0;
+        final maxTeams = tData['maxTeams'] ?? 8;
+        final organizerName = tData['organizerName'] ?? '不明';
+        final organizerId = tData['organizerId'] ?? '';
+        final deadline = tData['deadline'] ?? '';
+        final rawEntryFee = tData['entryFee'];
+        final entryFee = rawEntryFee is int ? '¥$rawEntryFee' : (rawEntryFee ?? '').toString();
+        final isFollowing = _followingIds.contains(organizerId) || organizerId == _currentUser?.uid;
+        final progress = maxTeams > 0 ? (currentTeams as num) / (maxTeams as num) : 0.0;
 
-    final sc = status == '募集中' ? AppTheme.success : AppTheme.textSecondary;
-    final tc = _typeColor(tournamentType);
-
-    return GestureDetector(
-      onTap: () async {
-        final tid = bm['targetId'] ?? '';
-        if (tid.isNotEmpty) {
-          final doc = await FirebaseFirestore.instance.collection('tournaments').doc(tid).get();
-          if (doc.exists && mounted) {
-            final data = doc.data() as Map<String, dynamic>;
-            final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-            final orgId = data['organizerId'] ?? '';
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => TournamentDetailScreen(tournament: {
-                ...data, 'id': tid, 'name': data['title'] ?? '',
-                'isFollowing': _followingIds.contains(orgId) || orgId == uid,
-              }),
-            ));
-          }
+        Color sc;
+        switch (status) {
+          case '募集中': sc = AppTheme.success; break;
+          case '満員': sc = AppTheme.error; break;
+          default: sc = AppTheme.textSecondary;
         }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: alerts.isNotEmpty ? AppTheme.warning.withValues(alpha: 0.4) : Colors.grey[200]!,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+
+        String day = '', month = '', weekday = '';
+        try {
+          final p = date.toString().split('/');
+          if (p.length >= 3) {
+            month = '${int.parse(p[1])}月';
+            day = p[2];
+            final d = DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+            const w = ['月', '火', '水', '木', '金', '土', '日'];
+            weekday = w[d.weekday - 1];
+          }
+        } catch (_) {}
+        final tc = _typeColor(type);
+
+        return GestureDetector(
+          onTap: () async {
+            if (tid.isNotEmpty) {
+              final doc = await FirebaseFirestore.instance.collection('tournaments').doc(tid).get();
+              if (doc.exists && mounted) {
+                final data = doc.data() as Map<String, dynamic>;
+                final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                final orgId = data['organizerId'] ?? '';
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => TournamentDetailScreen(tournament: {
+                    ...data, 'id': tid, 'name': data['title'] ?? '',
+                    'isFollowing': _followingIds.contains(orgId) || orgId == uid,
+                  }),
+                ));
+              }
+            }
+          },
           child: Container(
             decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.7), width: 4),
-              ),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey[200]!),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
             ),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _dateBlock(month, day, weekday, sc, tournamentType, tc),
+                _dateBlock(month, day, weekday, sc, type, tc),
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(
-                    bm['title'] ?? '',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 5),
+                  // タイトル + ステータス
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Text(title,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                        maxLines: 2, overflow: TextOverflow.ellipsis)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: sc.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                      child: Text(status.isNotEmpty ? status : '---', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: sc)),
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  // 主催者
+                  if (organizerId.isNotEmpty) ...[
+                    GestureDetector(
+                      onTap: () {
+                        if (organizerId.isNotEmpty) {
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => UserProfileScreen(userId: organizerId),
+                          ));
+                        }
+                      },
+                      child: Row(children: [
+                        FutureBuilder<String>(
+                          future: _getOrganizerAvatar(organizerId),
+                          builder: (context, snap) {
+                            final url = snap.data ?? '';
+                            if (url.isNotEmpty) {
+                              return CircleAvatar(radius: 9, backgroundImage: NetworkImage(url));
+                            }
+                            return CircleAvatar(
+                              radius: 9,
+                              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                              child: Text(
+                                organizerName.isNotEmpty ? organizerName[0] : '?',
+                                style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 5),
+                        Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        if (!isFollowing) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(4)),
+                            child: Text('未フォロー', style: TextStyle(fontSize: 9, color: AppTheme.textHint)),
+                          ),
+                        ],
+                      ]),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  // 会場
                   Row(children: [
                     Icon(Icons.location_on_outlined, size: 13, color: AppTheme.textSecondary),
-                    const SizedBox(width: 3),
-                    Flexible(child: Text(
-                      bm['location'] ?? '',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                      overflow: TextOverflow.ellipsis,
-                    )),
+                    const SizedBox(width: 4),
+                    Flexible(child: Text(location,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        overflow: TextOverflow.ellipsis)),
                   ]),
-                  if (status.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: sc.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: sc),
-                      ),
-                    ),
+                  // 締切・参加費
+                  if (deadline.toString().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Icon(Icons.timer_outlined, size: 13, color: AppTheme.warning),
+                      const SizedBox(width: 4),
+                      Text('締切 $deadline', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.warning)),
+                      if (entryFee.toString().isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        Icon(Icons.payments_outlined, size: 13, color: AppTheme.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(entryFee.toString(), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      ],
+                    ]),
+                  ] else if (entryFee.toString().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Icon(Icons.payments_outlined, size: 13, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(entryFee.toString(), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    ]),
                   ],
-                  if (alerts.contains('deadline'))
-                    _alertBadge(Icons.warning_amber, '締切が近い！', AppTheme.warning),
-                  if (alerts.contains('slots'))
-                    _alertBadge(Icons.group, '残り枠わずか！', AppTheme.error),
+                  const SizedBox(height: 10),
+                  // 参加チーム数バー + ブックマーク
+                  Row(children: [
+                    Text('$currentTeams/$maxTeams', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                    const SizedBox(width: 8),
+                    Expanded(child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress.toDouble().clamp(0.0, 1.0),
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            progress >= 1.0 ? AppTheme.error : progress >= 0.8 ? AppTheme.warning : AppTheme.success),
+                        minHeight: 5,
+                      ),
+                    )),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () => _toggleTournamentBookmark(tid, {
+                        'title': title, 'date': date, 'location': location,
+                        'tournamentType': type, 'status': status,
+                      }),
+                      child: Icon(Icons.bookmark, size: 28, color: AppTheme.accentColor),
+                    ),
+                  ]),
                 ])),
               ]),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1352,7 +1431,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                     'tournamentType': type, 'status': status,
                   }),
                   child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border,
-                      size: 22, color: isSaved ? AppTheme.accentColor : Colors.grey[400]),
+                      size: 28, color: isSaved ? AppTheme.accentColor : Colors.grey[400]),
                 ),
               ]),
             ])),
@@ -1606,7 +1685,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border,
-                    size: 22, color: isSaved ? AppTheme.accentColor : Colors.grey[400]),
+                    size: 28, color: isSaved ? AppTheme.accentColor : Colors.grey[400]),
               ),
             ),
           ]),
