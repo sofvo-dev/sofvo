@@ -380,104 +380,43 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ━━━ ヒーローカード: 日時・場所・種別をまとめて ━━━
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.85)],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.2), blurRadius: 12, offset: const Offset(0, 4))],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // ステータスバッジ
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(liveStatus, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                  ),
-                  const SizedBox(height: 14),
-                  // 日時
-                  Row(children: [
-                    const Icon(Icons.calendar_today, size: 18, color: Colors.white70),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(liveDate, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white))),
-                  ]),
-                  const SizedBox(height: 10),
-                  // 会場
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Icon(Icons.location_on, size: 18, color: Colors.white70),
-                    const SizedBox(width: 10),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(liveLocation, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
-                      if (liveAddress.isNotEmpty)
-                        GestureDetector(
-                          onTap: () {
-                            final encoded = Uri.encodeComponent(liveAddress);
-                            launchUrl(Uri.parse('https://www.google.com/maps/search/$encoded'), mode: LaunchMode.externalApplication);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Row(children: [
-                              Flexible(child: Text(liveAddress, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), decoration: TextDecoration.underline, decorationColor: Colors.white60))),
-                              const SizedBox(width: 4),
-                              Icon(Icons.open_in_new, size: 12, color: Colors.white.withValues(alpha: 0.7)),
-                            ]),
-                          ),
-                        ),
-                    ])),
-                  ]),
-                  const SizedBox(height: 10),
-                  // 種別・コート数
-                  Row(children: [
-                    _heroChip(Icons.category, liveType),
-                    const SizedBox(width: 8),
-                    _heroChip(Icons.grid_view, '${liveCourts}コート'),
-                    const SizedBox(width: 8),
-                    _heroChip(Icons.payments, liveEntryFee),
-                  ]),
-                  // 締切日（募集中の場合）
-                  if (liveStatus == '募集中' && liveDeadline.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
-                      ),
-                      child: Row(children: [
-                        const Icon(Icons.event_busy, size: 18, color: Colors.amber),
-                        const SizedBox(width: 10),
-                        Text('エントリー締切', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
-                        const Spacer(),
-                        Text(liveDeadline, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ]),
-                    ),
-                  ],
-                ]),
-              ),
+            // ━━━ 大会情報カード ━━━
+            _buildCard(
+              title: '大会情報',
+              titleIcon: Icons.info_outline,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // 日時
+                _buildInfoRow(Icons.calendar_today, '日時', liveDate),
+                const Divider(height: 1),
+                // 会場
+                _buildInfoRow(Icons.location_on, '会場', liveLocation, subtitle: liveAddress.isNotEmpty ? liveAddress : null, onSubtitleTap: liveAddress.isNotEmpty ? () {
+                  final encoded = Uri.encodeComponent(liveAddress);
+                  launchUrl(Uri.parse('https://www.google.com/maps/search/$encoded'), mode: LaunchMode.externalApplication);
+                } : null),
+                const Divider(height: 1),
+                // 種別
+                _buildInfoRow(Icons.category, '種別', liveType),
+                const Divider(height: 1),
+                // コート数
+                _buildInfoRow(Icons.grid_view, 'コート数', '${liveCourts}コート'),
+                const Divider(height: 1),
+                // 参加費
+                _buildInfoRow(Icons.payments, '参加費', liveEntryFee),
+                // 締切
+                if (liveDeadline.isNotEmpty) ...[
+                  const Divider(height: 1),
+                  _buildInfoRow(Icons.event_busy, 'エントリー締切', liveDeadline, valueColor: AppTheme.warning),
+                ],
+              ]),
             ),
             const SizedBox(height: 16),
 
             // ━━━ 募集状況 ━━━
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-              ),
+            _buildCard(
+              title: '募集状況',
+              titleIcon: Icons.groups,
               child: Column(children: [
                 Row(children: [
-                  Icon(Icons.groups, size: 22, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
                   Text('$liveCurrentTeams', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                   Text(' / $liveMaxTeams チーム', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
                   const Spacer(),
@@ -503,14 +442,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     minHeight: 10,
                   ),
                 ),
-                if (liveDeadline.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    Icon(Icons.event_busy, size: 15, color: AppTheme.warning),
-                    const SizedBox(width: 6),
-                    Text('締切: $liveDeadline', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
-                  ]),
-                ],
               ]),
             ),
             const SizedBox(height: 16),
@@ -4424,6 +4355,45 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value, {String? subtitle, VoidCallback? onSubtitleTap, Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppTheme.textSecondary),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 90,
+            child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: valueColor ?? AppTheme.textPrimary)),
+                if (subtitle != null)
+                  GestureDetector(
+                    onTap: onSubtitleTap,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Flexible(child: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, decoration: onSubtitleTap != null ? TextDecoration.underline : null))),
+                        if (onSubtitleTap != null) ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.open_in_new, size: 12, color: AppTheme.primaryColor),
+                        ],
+                      ]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
