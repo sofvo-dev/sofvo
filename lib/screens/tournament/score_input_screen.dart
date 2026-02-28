@@ -410,7 +410,18 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
               Text('確認済み', style: TextStyle(fontSize: 12, color: Colors.greenAccent)),
             ]),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        // チーム名ラベル
+        Row(children: [
+          Expanded(child: Text(_match?['teamAName'] ?? '', textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+                  color: isDisabled ? const Color(0xFF6CA6FF).withValues(alpha: 0.4) : const Color(0xFF6CA6FF)))),
+          const SizedBox(width: 36),
+          Expanded(child: Text(_match?['teamBName'] ?? '', textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+                  color: isDisabled ? const Color(0xFFFF6C6C).withValues(alpha: 0.4) : const Color(0xFFFF6C6C)))),
+        ]),
+        const SizedBox(height: 4),
         Row(children: [
           Expanded(child: TextField(
             controller: _ctrlA[setIndex],
