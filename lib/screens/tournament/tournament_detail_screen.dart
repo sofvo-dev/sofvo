@@ -660,7 +660,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     Colors.amber[700]!,
                     [
                       _buildRuleTableRow('方式', liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'),
-                      _buildRuleTableRow('セット形式', '${liveFinal['sets'] ?? 3}セットマッチ'),
+                      _buildRuleTableRow('セット形式', _setFormatDisplayLabel(liveFinal['sets'] ?? 3)),
                       _buildRuleTableRow('デュース', (liveFinal['deuce'] ?? false) ? 'あり' : 'なし'),
                     ],
                   ),
