@@ -30,12 +30,14 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   // Preliminary - Round 1 (also used as shared settings when rounds=1)
   int _prelimRounds = 1;
   int _prelimSets = 2;
+  int _prelimPoints = 25;
   bool _prelimDeuce = false;
   int _prelimDeuceCap = 17;
 
   // Preliminary - Round 2 (only used when _prelimRounds == 2)
   bool _r2SameAsR1 = true;
   int _r2Sets = 2;
+  int _r2Points = 25;
   bool _r2Deuce = false;
   int _r2DeuceCap = 17;
 
@@ -47,6 +49,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   // Final (順位決定戦) - tournament only
   bool _hasFinal = true;
   int _finalSets = 3;
+  int _finalPoints = 25;
   bool _finalDeuce = true;
   int _finalDeuceCap = 17;
   String _finalFormat = '順位別複数';
@@ -129,12 +132,14 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         final r1 = p['round1'] as Map<String, dynamic>? ?? {};
         final r2 = p['round2'] as Map<String, dynamic>? ?? {};
         _prelimSets = r1['sets'] ?? 2;
+        _prelimPoints = r1['points'] ?? 25;
         _prelimDeuce = r1['deuce'] ?? false;
         _prelimDeuceCap = r1['deuceCap'] ?? 17;
         _r2Sets = r2['sets'] ?? 2;
+        _r2Points = r2['points'] ?? 25;
         _r2Deuce = r2['deuce'] ?? false;
         _r2DeuceCap = r2['deuceCap'] ?? 17;
-        _r2SameAsR1 = (_prelimSets == _r2Sets && _prelimDeuce == _r2Deuce && _prelimDeuceCap == _r2DeuceCap);
+        _r2SameAsR1 = (_prelimSets == _r2Sets && _prelimPoints == _r2Points && _prelimDeuce == _r2Deuce && _prelimDeuceCap == _r2DeuceCap);
 
         final s1 = s['round1'] as Map<String, dynamic>?;
         final s2 = s['round2'] as Map<String, dynamic>?;
@@ -154,6 +159,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       } else {
         // Flat format (backwards compatible)
         _prelimSets = p['sets'] ?? 2;
+        _prelimPoints = p['points'] ?? 25;
         _prelimDeuce = p['deuce'] ?? false;
         _prelimDeuceCap = p['deuceCap'] ?? 17;
         // Load scoring from flat keys
@@ -163,6 +169,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         }
         // Initialize round 2 with same as round 1
         _r2Sets = _prelimSets;
+        _r2Points = _prelimPoints;
         _r2Deuce = _prelimDeuce;
         _r2DeuceCap = _prelimDeuceCap;
         _r2Scoring = Map<String, int>.from(_r1Scoring);
@@ -171,6 +178,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       _useMatchPoints = s['enabled'] ?? true;
       _hasFinal = f['enabled'] ?? true;
       _finalSets = f['sets'] ?? 3;
+      _finalPoints = f['points'] ?? 25;
       _finalDeuce = f['deuce'] ?? true;
       _finalDeuceCap = f['deuceCap'] ?? 17;
       _finalFormat = f['format'] ?? '順位別複数';
@@ -187,13 +195,14 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
 
     if (_prelimRounds == 2) {
       final r2Sets = _r2SameAsR1 ? _prelimSets : _r2Sets;
+      final r2Points = _r2SameAsR1 ? _prelimPoints : _r2Points;
       final r2Deuce = _r2SameAsR1 ? _prelimDeuce : _r2Deuce;
       final r2DeuceCap = _r2SameAsR1 ? _prelimDeuceCap : _r2DeuceCap;
       final r2Score = _r2SameAsR1 ? Map<String, int>.from(_r1Scoring) : Map<String, int>.from(_r2Scoring);
       prelim = {
         'rounds': 2,
-        'round1': {'sets': _prelimSets, 'points': 15, 'deuce': _prelimDeuce, 'deuceCap': _prelimDeuceCap},
-        'round2': {'sets': r2Sets, 'points': 15, 'deuce': r2Deuce, 'deuceCap': r2DeuceCap},
+        'round1': {'sets': _prelimSets, 'points': _prelimPoints, 'deuce': _prelimDeuce, 'deuceCap': _prelimDeuceCap},
+        'round2': {'sets': r2Sets, 'points': r2Points, 'deuce': r2Deuce, 'deuceCap': r2DeuceCap},
       };
       scoring = {
         'enabled': _useMatchPoints,
@@ -202,7 +211,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       };
     } else {
       prelim = {
-        'rounds': 1, 'sets': _prelimSets, 'points': 15,
+        'rounds': 1, 'sets': _prelimSets, 'points': _prelimPoints,
         'deuce': _prelimDeuce, 'deuceCap': _prelimDeuceCap,
       };
       scoring = {
@@ -217,7 +226,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       'scoring': scoring,
       'final': {
         'enabled': _hasFinal,
-        'sets': _finalSets, 'points': 15,
+        'sets': _finalSets, 'points': _finalPoints,
         'deuce': _finalDeuce, 'deuceCap': _finalDeuceCap,
         'format': _finalFormat, 'tierCount': _finalTierCount,
       },
@@ -236,12 +245,12 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       _maxTeams = widget.maxTeams ?? 8;
       _entryFee = 3000;
       _prelimRounds = 1;
-      _prelimSets = 2; _prelimDeuce = false; _prelimDeuceCap = 17;
-      _r2SameAsR1 = true; _r2Sets = 2; _r2Deuce = false; _r2DeuceCap = 17;
+      _prelimSets = 2; _prelimPoints = 25; _prelimDeuce = false; _prelimDeuceCap = 17;
+      _r2SameAsR1 = true; _r2Sets = 2; _r2Points = 25; _r2Deuce = false; _r2DeuceCap = 17;
       _useMatchPoints = true;
       _r1Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
       _r2Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
-      _hasFinal = true; _finalSets = 3; _finalDeuce = true; _finalDeuceCap = 17;
+      _hasFinal = true; _finalSets = 3; _finalPoints = 25; _finalDeuce = true; _finalDeuceCap = 17;
       _finalFormat = '順位別複数'; _finalTierCount = 3;
       _uniformRequired = false; _snsVideoAllowed = true; _lunchBreak = 'なし';
     });
@@ -254,12 +263,12 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   void _applyKabirunrunPreset() {
     setState(() {
       _prelimRounds = 1;
-      _prelimSets = 2; _prelimDeuce = false; _prelimDeuceCap = 17;
-      _r2Sets = 2; _r2Deuce = false; _r2DeuceCap = 17;
+      _prelimSets = 2; _prelimPoints = 25; _prelimDeuce = false; _prelimDeuceCap = 17;
+      _r2Sets = 2; _r2Points = 25; _r2Deuce = false; _r2DeuceCap = 17;
       _useMatchPoints = true;
       _r1Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
       _r2Scoring = Map<String, int>.from(_defaultScoringForFormat(2));
-      _hasFinal = true; _finalSets = 3; _finalDeuce = true; _finalDeuceCap = 17;
+      _hasFinal = true; _finalSets = 3; _finalPoints = 25; _finalDeuce = true; _finalDeuceCap = 17;
       _finalFormat = '順位別複数';
       _uniformRequired = true; _snsVideoAllowed = false; _lunchBreak = 'なし';
     });
@@ -672,6 +681,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                 if (oldRounds == 1 && v == 2) {
                   // Copy round 1 settings to round 2
                   _r2Sets = _prelimSets;
+                  _r2Points = _prelimPoints;
                   _r2Deuce = _prelimDeuce;
                   _r2DeuceCap = _prelimDeuceCap;
                   _r2Scoring = Map<String, int>.from(_r1Scoring);
@@ -687,13 +697,14 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                 _onSetFormatChanged(v, _r1Scoring);
               });
             }, _prelimColor),
+            _choiceRow('得点', [15, 21, 25], _prelimPoints, (v) => setState(() => _prelimPoints = v), _prelimColor, labels: {15: '15点', 21: '21点', 25: '25点'}),
             _switchRow('デュース（17点キャップ）', _prelimDeuce, (v) => setState(() { _prelimDeuce = v; if (v) _prelimDeuceCap = 17; }), _prelimColor),
             // ── Round 2 toggle ──
             if (_prelimRounds == 2) ...[
               const SizedBox(height: 8),
               _switchRow('2回目も同じルール', _r2SameAsR1, (v) => setState(() {
                 _r2SameAsR1 = v;
-                if (v) { _r2Sets = _prelimSets; _r2Deuce = _prelimDeuce; _r2DeuceCap = _prelimDeuceCap; _r2Scoring = Map<String, int>.from(_r1Scoring); }
+                if (v) { _r2Sets = _prelimSets; _r2Points = _prelimPoints; _r2Deuce = _prelimDeuce; _r2DeuceCap = _prelimDeuceCap; _r2Scoring = Map<String, int>.from(_r1Scoring); }
               }), _prelimColor),
               if (!_r2SameAsR1) ...[
                 const SizedBox(height: 8),
@@ -704,6 +715,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                       _onSetFormatChanged(v, _r2Scoring);
                     });
                   }, _prelimColor),
+                  _choiceRow('得点', [15, 21, 25], _r2Points, (v) => setState(() => _r2Points = v), _prelimColor, labels: {15: '15点', 21: '21点', 25: '25点'}),
                   _switchRow('デュース（17点キャップ）', _r2Deuce, (v) => setState(() { _r2Deuce = v; if (v) _r2DeuceCap = 17; }), _prelimColor),
                 ]),
               ],
@@ -753,6 +765,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                 _finalFormat == '全チーム一本', () => setState(() => _finalFormat = '全チーム一本'), _finalColor),
               const SizedBox(height: 12),
               _setFormatSelector([1, 2, 3], _finalSets, (v) => setState(() => _finalSets = v), _finalColor),
+              _choiceRow('得点', [15, 21, 25], _finalPoints, (v) => setState(() => _finalPoints = v), _finalColor, labels: {15: '15点', 21: '21点', 25: '25点'}),
               _switchRow('デュース（17点キャップ）', _finalDeuce, (v) => setState(() { _finalDeuce = v; if (v) _finalDeuceCap = 17; }), _finalColor),
             ],
           ]),
