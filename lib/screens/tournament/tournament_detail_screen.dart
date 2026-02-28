@@ -2071,9 +2071,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final entries = snapshot.data?.docs ?? [];
+      builder: (context, entriesSnap) {
+        if (!entriesSnap.hasData) return const Center(child: CircularProgressIndicator());
+        final entries = entriesSnap.data?.docs ?? [];
 
         if (entries.isEmpty) {
           return Center(
@@ -2085,59 +2085,121 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           );
         }
 
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text('エントリー済み ${entries.length}チーム',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            ...entries.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              final teamName = data['teamName'] ?? 'チーム';
-              final leader = data['leaderName'] ?? '';
-              final memberUids = (data['memberUids'] as List<dynamic>?) ?? [];
-              final memberNames = (data['memberNames'] as Map<String, dynamic>?) ?? {};
-              final isMyTeam = _myTeamIds.contains(data['teamId'] ?? '');
+        // チェックイン状況をリアルタイム取得
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('tournaments').doc(_tournamentId).collection('checkIns').snapshots(),
+          builder: (context, checkInSnap) {
+            final checkedInTeamIds = <String>{};
+            if (checkInSnap.hasData) {
+              for (final doc in checkInSnap.data!.docs) {
+                checkedInTeamIds.add((doc.data() as Map<String, dynamic>)['teamId'] ?? '');
+              }
+            }
+            final checkedCount = entries.where((e) => checkedInTeamIds.contains((e.data() as Map<String, dynamic>)['teamId'])).length;
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: GestureDetector(
-                  onTap: isMyTeam ? () => _showMemberList(teamName.toString(), memberNames) : null,
-                  child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isMyTeam ? Colors.red.withValues(alpha:0.06) : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isMyTeam ? Colors.red.withValues(alpha:0.3) : Colors.grey[200]!),
-                  ),
-                  child: Row(children: [
-                    CircleAvatar(radius: 20, backgroundColor: isMyTeam ? Colors.red.withValues(alpha:0.12) : AppTheme.primaryColor.withValues(alpha:0.12),
-                        child: Text(teamName.toString().isNotEmpty ? teamName.toString()[0] : '?',
-                            style: TextStyle(color: isMyTeam ? Colors.red : AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(teamName.toString(), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isMyTeam ? Colors.red : AppTheme.textPrimary)),
-                        const SizedBox(height: 4),
-                        Text('キャプテン: $leader / ${memberUids.length}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                // ヘッダー: エントリー数 + 受付状況
+                Row(children: [
+                  Text('エントリー済み ${entries.length}チーム',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  const Spacer(),
+                  if (checkedInTeamIds.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: checkedCount == entries.length ? AppTheme.success.withValues(alpha: 0.1) : AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.how_to_reg, size: 14,
+                          color: checkedCount == entries.length ? AppTheme.success : AppTheme.primaryColor),
+                        const SizedBox(width: 4),
+                        Text('$checkedCount/${entries.length}',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+                            color: checkedCount == entries.length ? AppTheme.success : AppTheme.primaryColor)),
                       ]),
                     ),
-                    if (isMyTeam) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: Colors.red.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
-                        child: const Text('自分', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                ]),
+                const SizedBox(height: 12),
+                ...entries.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final teamId = data['teamId'] ?? '';
+                  final teamName = data['teamName'] ?? 'チーム';
+                  final leader = data['leaderName'] ?? '';
+                  final memberUids = (data['memberUids'] as List<dynamic>?) ?? [];
+                  final memberNames = (data['memberNames'] as Map<String, dynamic>?) ?? {};
+                  final isMyTeam = _myTeamIds.contains(teamId);
+                  final isCheckedIn = checkedInTeamIds.contains(teamId);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: GestureDetector(
+                      onTap: isMyTeam ? () => _showMemberList(teamName.toString(), memberNames) : null,
+                      child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isMyTeam ? Colors.red.withValues(alpha:0.06) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isMyTeam ? Colors.red.withValues(alpha:0.3) : Colors.grey[200]!),
                       ),
-                      const SizedBox(width: 8),
-                      Icon(Icons.chevron_right, size: 20, color: AppTheme.textHint),
-                    ],
-                  ]),
-                ),
-                ),
-              );
-            }),
-            const SizedBox(height: 80),
-          ],
+                      child: Row(children: [
+                        // アバター：チェックイン済みの場合は緑のチェックマーク付き
+                        Stack(
+                          children: [
+                            CircleAvatar(radius: 20, backgroundColor: isMyTeam ? Colors.red.withValues(alpha:0.12) : AppTheme.primaryColor.withValues(alpha:0.12),
+                                child: Text(teamName.toString().isNotEmpty ? teamName.toString()[0] : '?',
+                                    style: TextStyle(color: isMyTeam ? Colors.red : AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
+                            if (isCheckedIn)
+                              Positioned(right: 0, bottom: 0,
+                                child: Container(
+                                  width: 16, height: 16,
+                                  decoration: BoxDecoration(color: AppTheme.success, shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2)),
+                                  child: const Icon(Icons.check, size: 10, color: Colors.white),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(teamName.toString(), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isMyTeam ? Colors.red : AppTheme.textPrimary)),
+                            const SizedBox(height: 4),
+                            Row(children: [
+                              Text('キャプテン: $leader / ${memberUids.length}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                              if (isCheckedIn) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(color: AppTheme.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                                  child: Text('受付済', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.success)),
+                                ),
+                              ],
+                            ]),
+                          ]),
+                        ),
+                        if (isMyTeam) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: Colors.red.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
+                            child: const Text('自分', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.chevron_right, size: 20, color: AppTheme.textHint),
+                        ] else if (!isCheckedIn && checkedInTeamIds.isNotEmpty) ...[
+                          Text('未到着', style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                        ],
+                      ]),
+                    ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 80),
+              ],
+            );
+          },
         );
       },
     );
