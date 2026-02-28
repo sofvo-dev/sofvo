@@ -554,7 +554,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       ],
                     );
                   } else {
-                    // 2ラウンド → 常に分けて表示
+                    // 2ラウンド → ルールが同じなら1つにまとめる
+                    final sameRules = r1Sets == r2Sets && r1Deuce == r2Deuce && r1DeuceCap == r2DeuceCap;
+                    if (sameRules) {
+                      return _buildRuleSectionCard(
+                        '予選（ラウンド1・2共通）',
+                        Icons.sports_volleyball,
+                        AppTheme.primaryColor,
+                        [
+                          _buildRuleTableRow('セット形式', _setFormatDisplayLabel(r1Sets)),
+                          _buildRuleTableRow('得点', '15点先取'),
+                          _buildRuleTableRow('デュース', r1Deuce ? 'あり（${r1DeuceCap}点キャップ）' : 'なし'),
+                        ],
+                      );
+                    }
                     return Column(children: [
                       _buildRuleSectionCard(
                         '予選 ラウンド1',
