@@ -384,132 +384,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final newPwCtrl = TextEditingController();
     final confirmPwCtrl = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('パスワード変更',
-            style:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: currentPwCtrl,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: '現在のパスワード',
-                filled: true,
-                fillColor: AppTheme.backgroundColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
+        bool hasInput() => currentPwCtrl.text.isNotEmpty || newPwCtrl.text.isNotEmpty || confirmPwCtrl.text.isNotEmpty;
+
+        Future<bool> onWillPop() async {
+          if (!hasInput()) return true;
+          final result = await showDialog<bool>(
+            context: ctx,
+            builder: (dlgCtx) => AlertDialog(
+              title: const Text('入力内容の破棄'),
+              content: const Text('入力した内容が失われますが、よろしいですか？'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: const Text('編集に戻る')),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dlgCtx, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+                  child: const Text('破棄する'),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: newPwCtrl,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: '新しいパスワード',
-                filled: true,
-                fillColor: AppTheme.backgroundColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+          );
+          return result ?? false;
+        }
+
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            final shouldPop = await onWillPop();
+            if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
+          },
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
+              leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
+                final shouldPop = await onWillPop();
+                if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
+              }),
+              title: const Text('パスワード変更', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              centerTitle: true,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: confirmPwCtrl,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: '新しいパスワード（確認）',
-                filled: true,
-                fillColor: AppTheme.backgroundColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('現在のパスワード', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(controller: currentPwCtrl, obscureText: true, onChanged: (_) => setPageState(() {}),
+                  decoration: InputDecoration(labelText: '現在のパスワード', filled: true, fillColor: AppTheme.backgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none))),
+                const SizedBox(height: 20),
+                const Text('新しいパスワード', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(controller: newPwCtrl, obscureText: true, onChanged: (_) => setPageState(() {}),
+                  decoration: InputDecoration(labelText: '新しいパスワード（6文字以上）', filled: true, fillColor: AppTheme.backgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none))),
+                const SizedBox(height: 16),
+                TextField(controller: confirmPwCtrl, obscureText: true, onChanged: (_) => setPageState(() {}),
+                  decoration: InputDecoration(labelText: '新しいパスワード（確認）', filled: true, fillColor: AppTheme.backgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none))),
+                const SizedBox(height: 32),
+                SizedBox(width: double.infinity, child: ElevatedButton(
+                  onPressed: currentPwCtrl.text.isNotEmpty && newPwCtrl.text.length >= 6 && newPwCtrl.text == confirmPwCtrl.text
+                      ? () async {
+                          try {
+                            await AuthService().changePassword(currentPwCtrl.text, newPwCtrl.text);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('パスワードを変更しました'), backgroundColor: AppTheme.success));
+                          } catch (e) {
+                            if (mounted) {
+                              String message = 'パスワードの変更に失敗しました';
+                              if (e.toString().contains('wrong-password') || e.toString().contains('invalid-credential')) message = '現在のパスワードが正しくありません';
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.error));
+                            }
+                          }
+                        } : null,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text('変更する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                )),
+                if (newPwCtrl.text.isNotEmpty && newPwCtrl.text.length < 6)
+                  Padding(padding: const EdgeInsets.only(top: 8), child: Text('パスワードは6文字以上にしてください', style: TextStyle(fontSize: 12, color: AppTheme.error))),
+                if (confirmPwCtrl.text.isNotEmpty && newPwCtrl.text != confirmPwCtrl.text)
+                  Padding(padding: const EdgeInsets.only(top: 4), child: Text('パスワードが一致しません', style: TextStyle(fontSize: 12, color: AppTheme.error))),
+              ]),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('キャンセル',
-                style: TextStyle(color: AppTheme.textSecondary)),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              if (currentPwCtrl.text.isEmpty || newPwCtrl.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('すべての項目を入力してください'),
-                    backgroundColor: AppTheme.warning,
-                  ),
-                );
-                return;
-              }
-              if (newPwCtrl.text.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('新しいパスワードは6文字以上にしてください'),
-                    backgroundColor: AppTheme.warning,
-                  ),
-                );
-                return;
-              }
-              if (newPwCtrl.text != confirmPwCtrl.text) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('新しいパスワードが一致しません'),
-                    backgroundColor: AppTheme.warning,
-                  ),
-                );
-                return;
-              }
-              try {
-                await AuthService().changePassword(
-                  currentPwCtrl.text,
-                  newPwCtrl.text,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('パスワードを変更しました'),
-                      backgroundColor: AppTheme.success,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  String message = 'パスワードの変更に失敗しました';
-                  if (e.toString().contains('wrong-password') ||
-                      e.toString().contains('invalid-credential')) {
-                    message = '現在のパスワードが正しくありません';
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: AppTheme.error,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size(100, 40)),
-            child: const Text('変更'),
-          ),
-        ],
-      ),
-    );
+        );
+      }),
+    ));
   }
 
   void _showLogoutDialog() {
