@@ -545,204 +545,118 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
 
   // ━━━ ノート作成・編集 ━━━
   void _showNoteEditor({String? noteId, String? existingTitle, String? existingContent}) {
-    final titleController =
-        TextEditingController(text: existingTitle ?? '');
-    final contentController =
-        TextEditingController(text: existingContent ?? '');
+    final titleController = TextEditingController(text: existingTitle ?? '');
+    final contentController = TextEditingController(text: existingContent ?? '');
     final isEditing = noteId != null;
+    final origTitle = titleController.text;
+    final origContent = contentController.text;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: 20,
-          right: 20,
-          top: 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isEditing ? 'ノートを編集' : '新しいノート',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-              decoration: InputDecoration(
-                hintText: 'タイトル',
-                hintStyle: const TextStyle(color: AppTheme.textHint),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppTheme.primaryColor,
-                    width: 2,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: contentController,
-              maxLines: 6,
-              minLines: 4,
-              style: const TextStyle(fontSize: 15, height: 1.5),
-              decoration: InputDecoration(
-                hintText: '内容を入力...',
-                hintStyle: const TextStyle(color: AppTheme.textHint),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppTheme.primaryColor,
-                    width: 2,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                if (isEditing)
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        _confirmDeleteNote(noteId);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.error,
-                        side: const BorderSide(color: AppTheme.error),
-                        minimumSize: const Size(0, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('削除'),
-                    ),
-                  ),
-                if (isEditing) const SizedBox(width: 12),
-                Expanded(
-                  flex: isEditing ? 2 : 1,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final title = titleController.text.trim();
-                      final content = contentController.text.trim();
-                      if (title.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('タイトルを入力してください'),
-                            backgroundColor: AppTheme.warning,
-                          ),
-                        );
-                        return;
-                      }
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
+        bool hasChanges() => titleController.text != origTitle || contentController.text != origContent;
 
-                      try {
-                        final userDoc = await _firestore
-                            .collection('users')
-                            .doc(_currentUid)
-                            .get();
-                        final userName =
-                            (userDoc.data()?['nickname'] as String?) ??
-                                'ユーザー';
-
-                        final notesRef = _firestore
-                            .collection('chats')
-                            .doc(widget.chatId)
-                            .collection('notes');
-
-                        if (isEditing) {
-                          await notesRef.doc(noteId).update({
-                            'title': title,
-                            'content': content,
-                            'updatedAt': FieldValue.serverTimestamp(),
-                          });
-                        } else {
-                          await notesRef.add({
-                            'title': title,
-                            'content': content,
-                            'createdBy': _currentUid,
-                            'createdByName': userName,
-                            'createdAt': FieldValue.serverTimestamp(),
-                            'updatedAt': FieldValue.serverTimestamp(),
-                          });
-                        }
-
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                isEditing ? 'ノートを更新しました' : 'ノートを作成しました',
-                              ),
-                              backgroundColor: AppTheme.success,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('保存に失敗しました: $e'),
-                              backgroundColor: AppTheme.error,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(isEditing ? '更新' : '作成'),
-                  ),
+        Future<bool> onWillPop() async {
+          if (!hasChanges()) return true;
+          final result = await showDialog<String>(
+            context: ctx,
+            builder: (dlgCtx) => AlertDialog(
+              title: const Text('編集内容の保存'),
+              content: const Text('変更が保存されていません。保存してから閉じますか？'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dlgCtx, 'discard'), child: const Text('保存しない', style: TextStyle(color: AppTheme.textSecondary))),
+                TextButton(onPressed: () => Navigator.pop(dlgCtx, 'cancel'), child: const Text('編集に戻る')),
+                ElevatedButton(
+                  onPressed: titleController.text.trim().isNotEmpty ? () => Navigator.pop(dlgCtx, 'save') : null,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+                  child: const Text('保存する'),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
+          );
+          if (result == 'save') {
+            await _saveNote(titleController, contentController, isEditing, noteId);
+            return true;
+          }
+          return result == 'discard';
+        }
+
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            final shouldPop = await onWillPop();
+            if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
+          },
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
+              leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
+                final shouldPop = await onWillPop();
+                if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
+              }),
+              title: Text(isEditing ? 'ノートを編集' : '新しいノート', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              centerTitle: true,
+              actions: [
+                if (isEditing)
+                  IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.error), onPressed: () { Navigator.pop(ctx); _confirmDeleteNote(noteId); }),
+              ],
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                TextField(
+                  controller: titleController, autofocus: !isEditing, onChanged: (_) => setPageState(() {}),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(hintText: 'タイトル', hintStyle: const TextStyle(color: AppTheme.textHint),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2))),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: contentController, maxLines: null, minLines: 10,
+                  style: const TextStyle(fontSize: 15, height: 1.5),
+                  decoration: InputDecoration(hintText: '内容を入力...', hintStyle: const TextStyle(color: AppTheme.textHint),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2))),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(width: double.infinity, child: ElevatedButton(
+                  onPressed: titleController.text.trim().isNotEmpty ? () async {
+                    await _saveNote(titleController, contentController, isEditing, noteId);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  } : null,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300], minimumSize: const Size(0, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: Text(isEditing ? '更新' : '作成', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                )),
+              ]),
+            ),
+          ),
+        );
+      }),
+    ));
+  }
+
+  Future<void> _saveNote(TextEditingController titleCtrl, TextEditingController contentCtrl, bool isEditing, String? noteId) async {
+    final title = titleCtrl.text.trim();
+    final content = contentCtrl.text.trim();
+    if (title.isEmpty) return;
+    try {
+      final userDoc = await _firestore.collection('users').doc(_currentUid).get();
+      final userName = (userDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+      final notesRef = _firestore.collection('chats').doc(widget.chatId).collection('notes');
+      if (isEditing) {
+        await notesRef.doc(noteId).update({'title': title, 'content': content, 'updatedAt': FieldValue.serverTimestamp()});
+      } else {
+        await notesRef.add({'title': title, 'content': content, 'createdBy': _currentUid, 'createdByName': userName, 'createdAt': FieldValue.serverTimestamp(), 'updatedAt': FieldValue.serverTimestamp()});
+      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEditing ? 'ノートを更新しました' : 'ノートを作成しました'), backgroundColor: AppTheme.success));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error));
+    }
   }
 
   void _confirmDeleteNote(String noteId) {

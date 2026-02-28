@@ -423,100 +423,105 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     final nameController = TextEditingController();
     bool isMain = false;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetCtx) {
-        return StatefulBuilder(
-          builder: (sheetCtx, setModalState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(sheetCtx).viewInsets.bottom + 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(width: 40, height: 4,
-                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('新しいチームを作成',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  const SizedBox(height: 4),
-                  const Text('チームを作成してメンバーを招待しましょう',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                  const SizedBox(height: 24),
-                  const Text('チーム名', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: nameController,
-                    maxLength: 20,
-                    onChanged: (_) => setModalState(() {}),
-                    decoration: InputDecoration(
-                      hintText: '例: サンダース',
-                      hintStyle: const TextStyle(color: AppTheme.textHint),
-                      filled: true, fillColor: AppTheme.backgroundColor,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                    child: Row(
-                      children: [
-                        Icon(Icons.star, color: AppTheme.accentColor, size: 22),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('メインチームに設定', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                            Text('常に一緒に活動する固定チーム', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                          ]),
-                        ),
-                        Switch(value: isMain, onChanged: (v) => setModalState(() => isMain = v), activeColor: AppTheme.accentColor),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: nameController.text.trim().isNotEmpty
-                        ? () async {
-                            final uid = _currentUser!.uid;
-                            final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-                            final nickname = (userDoc.data()?['nickname'] ?? '自分').toString();
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
+        bool hasInput() => nameController.text.isNotEmpty;
 
-                            await FirebaseFirestore.instance.collection('teams').add({
-                              'name': nameController.text.trim(),
-                              'isMain': isMain,
-                              'ownerId': uid,
-                              'memberIds': [uid],
-                              'memberNames': {uid: nickname},
-                              'memberAvatars': {uid: userDoc.data()?['avatarUrl'] ?? ''},
-                              'createdAt': FieldValue.serverTimestamp(),
-                              'updatedAt': FieldValue.serverTimestamp(),
-                            });
+        Future<bool> onWillPop() async {
+          if (!hasInput()) return true;
+          final result = await showDialog<bool>(
+            context: ctx,
+            builder: (dlgCtx) => AlertDialog(
+              title: const Text('入力内容の破棄'),
+              content: const Text('入力した内容が失われますが、よろしいですか？'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: const Text('編集に戻る')),
+                ElevatedButton(onPressed: () => Navigator.pop(dlgCtx, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+                  child: const Text('破棄する')),
+              ],
+            ),
+          );
+          return result ?? false;
+        }
 
-                            if (mounted) {
-                              Navigator.pop(sheetCtx);
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text('「${nameController.text.trim()}」を作成しました！'),
-                                  backgroundColor: AppTheme.success));
-                            }
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(disabledBackgroundColor: Colors.grey[300]),
-                    child: const Text('チームを作成', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            );
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            final shouldPop = await onWillPop();
+            if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
           },
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
+              leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
+                final shouldPop = await onWillPop();
+                if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
+              }),
+              title: const Text('新しいチームを作成', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              centerTitle: true,
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('チームを作成してメンバーを招待しましょう', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                const SizedBox(height: 24),
+                const Text('チーム名', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nameController, maxLength: 20, autofocus: true,
+                  onChanged: (_) => setPageState(() {}),
+                  decoration: InputDecoration(hintText: '例: サンダース', hintStyle: const TextStyle(color: AppTheme.textHint),
+                    filled: true, fillColor: AppTheme.backgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Icon(Icons.star, color: AppTheme.accentColor, size: 22),
+                    const SizedBox(width: 12),
+                    const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('メインチームに設定', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                      Text('常に一緒に活動する固定チーム', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    ])),
+                    Switch(value: isMain, onChanged: (v) => setPageState(() => isMain = v), activeColor: AppTheme.accentColor),
+                  ]),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(width: double.infinity, child: ElevatedButton(
+                  onPressed: nameController.text.trim().isNotEmpty
+                      ? () async {
+                          final uid = _currentUser!.uid;
+                          final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+                          final nickname = (userDoc.data()?['nickname'] ?? '自分').toString();
+                          await FirebaseFirestore.instance.collection('teams').add({
+                            'name': nameController.text.trim(), 'isMain': isMain, 'ownerId': uid,
+                            'memberIds': [uid], 'memberNames': {uid: nickname},
+                            'memberAvatars': {uid: userDoc.data()?['avatarUrl'] ?? ''},
+                            'createdAt': FieldValue.serverTimestamp(), 'updatedAt': FieldValue.serverTimestamp(),
+                          });
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('「${nameController.text.trim()}」を作成しました！'), backgroundColor: AppTheme.success));
+                          }
+                        } : null,
+                  style: ElevatedButton.styleFrom(disabledBackgroundColor: Colors.grey[300],
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text('チームを作成', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                )),
+              ]),
+            ),
+          ),
         );
-      },
-    );
+      }),
+    ));
   }
 
   // ── メンバー招待 ──
