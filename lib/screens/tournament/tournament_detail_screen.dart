@@ -3153,28 +3153,28 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               children: [
                 // ━━━ 大会情報 ━━━
                 _sectionLabel('大会情報'),
-                _menuTile(ctx, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', () => _showEditTournamentSheet(tournData)),
-                _menuTile(ctx, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 開催中 → 終了', () => _showStatusDialog(status)),
+                _menuTile(ctx, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', () => _showEditTournamentSheet(tournData), color: AppTheme.primaryColor),
+                _menuTile(ctx, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 開催中 → 終了', () => _showStatusDialog(status), color: AppTheme.primaryColor),
 
                 // ━━━ 参加者管理 ━━━
                 _sectionLabel('参加者管理'),
-                _menuTile(ctx, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')))),
-                _menuTile(ctx, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', _importTeamsFromCsv),
-                _menuTile(ctx, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', _addTestTeams),
+                _menuTile(ctx, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))), color: AppTheme.success),
+                _menuTile(ctx, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', _importTeamsFromCsv, color: AppTheme.success),
+                _menuTile(ctx, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', _addTestTeams, color: AppTheme.success),
 
                 // ━━━ 運営 ━━━
                 _sectionLabel('運営'),
-                _menuTile(ctx, Icons.account_balance_wallet_outlined, '収支管理', '参加費の入金状況・経費を管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData)))),
-                _menuTile(ctx, Icons.people_outline, '権限管理', '他のユーザーに編集権限を付与', _showEditorsSheet),
-                _menuTile(ctx, Icons.campaign_outlined, 'お知らせ送信', '全参加者に通知を送信', _showAnnouncementDialog),
+                _menuTile(ctx, Icons.account_balance_wallet_outlined, '収支管理', '参加費の入金状況・経費を管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))), color: AppTheme.accentColor),
+                _menuTile(ctx, Icons.people_outline, '権限管理', '他のユーザーに編集権限を付与', _showEditorsSheet, color: AppTheme.accentColor),
+                _menuTile(ctx, Icons.campaign_outlined, 'お知らせ送信', '全参加者に通知を送信', _showAnnouncementDialog, color: AppTheme.accentColor),
 
                 // ━━━ 試合進行 ━━━
                 _sectionLabel('試合進行'),
                 if (prelimRounds >= 2)
-                  _menuTile(ctx, Icons.replay, '予選2 生成', '予選2ラウンドの対戦表を生成', () => _generateMatches(2)),
+                  _menuTile(ctx, Icons.replay, '予選2 生成', '予選2ラウンドの対戦表を生成', () => _generateMatches(2), color: AppTheme.info),
                 if (finalEnabled)
-                  _menuTile(ctx, Icons.emoji_events, '順位決定戦生成', '決勝トーナメントを生成', _generateFinals),
-                _menuTile(ctx, Icons.refresh, 'リセット', '対戦表・スコアをリセット', _resetRounds),
+                  _menuTile(ctx, Icons.emoji_events, '順位決定戦生成', '決勝トーナメントを生成', _generateFinals, color: AppTheme.info),
+                _menuTile(ctx, Icons.refresh, 'リセット', '対戦表・スコアをリセット', _resetRounds, color: AppTheme.info),
 
                 // ━━━ 大会を終了する ━━━
                 if (isRunning) ...[
@@ -3199,7 +3199,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
                 // ━━━ その他 ━━━
                 _sectionLabel('その他'),
-                _menuTile(ctx, Icons.bookmark_add_outlined, 'テンプレートに保存', '大会設定をテンプレートとして保存', () => _saveAsTemplate(tournData)),
+                _menuTile(ctx, Icons.bookmark_add_outlined, 'テンプレートに保存', '大会設定をテンプレートとして保存', () => _saveAsTemplate(tournData), color: AppTheme.textSecondary),
                 _menuTile(ctx, Icons.delete_outline, '大会を削除', 'この大会を完全に削除', () => _showDeleteDialog(tournData['title'] ?? ''), isDestructive: true),
               ],
             ),
@@ -3216,18 +3216,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _menuTile(BuildContext ctx, IconData icon, String title, String subtitle, VoidCallback onTap, {bool isDestructive = false}) {
-    final color = isDestructive ? AppTheme.error : AppTheme.primaryColor;
+  Widget _menuTile(BuildContext ctx, IconData icon, String title, String subtitle, VoidCallback onTap, {Color color = AppTheme.primaryColor, bool isDestructive = false}) {
+    final c = isDestructive ? AppTheme.error : color;
     return ListTile(
       dense: true,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       leading: Container(
         width: 40, height: 40,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: c.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 20, color: color),
+        child: Icon(icon, size: 20, color: c),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDestructive ? AppTheme.error : AppTheme.textPrimary)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
