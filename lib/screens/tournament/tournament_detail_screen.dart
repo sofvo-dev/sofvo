@@ -606,23 +606,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final r2Deuce = r2Data['deuce'] ?? r1Deuce;
                   final r1DeuceCap = r1Data['deuceCap'] ?? 17;
                   final r2DeuceCap = r2Data['deuceCap'] ?? r1DeuceCap;
-                  final isSameRules = !hasR2 || (r1Sets == r2Sets && r1Deuce == r2Deuce && (!r1Deuce || r1DeuceCap == r2DeuceCap));
 
-                  if (isSameRules) {
-                    // ルール共通 → 1つにまとめる
+                  if (!hasR2) {
+                    // 1ラウンドのみ
                     return _buildRuleSectionCard(
-                      hasR2 ? '予選（全ラウンド共通）' : '予選',
+                      '予選',
                       Icons.sports_volleyball,
                       AppTheme.primaryColor,
                       [
                         _buildRuleTableRow('セット形式', _setFormatDisplayLabel(r1Sets)),
                         _buildRuleTableRow('得点', '15点先取'),
                         _buildRuleTableRow('デュース', r1Deuce ? 'あり（${r1DeuceCap}点キャップ）' : 'なし'),
-                        if (hasR2) _buildRuleTableRow('ラウンド数', '2ラウンド'),
                       ],
                     );
                   } else {
-                    // ルールが異なる → 分けて表示
+                    // 2ラウンド → 常に分けて表示
                     return Column(children: [
                       _buildRuleSectionCard(
                         '予選 ラウンド1',
