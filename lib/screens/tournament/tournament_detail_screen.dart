@@ -368,6 +368,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final liveScoring = liveRules['scoring'] as Map<String, dynamic>? ?? scoring;
         final liveManagement = liveRules['management'] as Map<String, dynamic>? ?? management;
         final liveOther = liveRules['other'] as Map<String, dynamic>? ?? other;
+        final liveCourts = live['courts'] ?? courts;
+        final liveDate = live['date'] as String? ?? t['date'] as String? ?? '';
+        final liveLocation = live['location'] as String? ?? t['location'] as String? ?? t['venue'] as String? ?? '';
+        final liveAddress = (live['venueAddress'] ?? t['venueAddress'] ?? '').toString();
+        final liveType = live['type'] ?? t['type'] ?? '混合';
+        final liveEntryFee = () { final f = live['entryFee'] ?? t['entryFee'] ?? t['fee']; return f is int ? '¥$f' : (f ?? '').toString(); }();
+        final liveDeadline = (live['deadline'] ?? t['deadline'] ?? '').toString();
+        final liveDescription = (live['description'] ?? t['description'] ?? '').toString();
 
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -399,7 +407,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   Row(children: [
                     const Icon(Icons.calendar_today, size: 18, color: Colors.white70),
                     const SizedBox(width: 10),
-                    Expanded(child: Text(t['date'] as String? ?? '', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white))),
+                    Expanded(child: Text(liveDate, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white))),
                   ]),
                   const SizedBox(height: 10),
                   // 会場
@@ -407,17 +415,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     const Icon(Icons.location_on, size: 18, color: Colors.white70),
                     const SizedBox(width: 10),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(t['location'] as String? ?? t['venue'] as String? ?? '', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
-                      if ((t['venueAddress'] ?? '').toString().isNotEmpty)
+                      Text(liveLocation, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                      if (liveAddress.isNotEmpty)
                         GestureDetector(
                           onTap: () {
-                            final encoded = Uri.encodeComponent(t['venueAddress'] as String? ?? '');
+                            final encoded = Uri.encodeComponent(liveAddress);
                             launchUrl(Uri.parse('https://www.google.com/maps/search/$encoded'), mode: LaunchMode.externalApplication);
                           },
                           child: Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Row(children: [
-                              Flexible(child: Text(t['venueAddress'] as String? ?? '', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), decoration: TextDecoration.underline, decorationColor: Colors.white60))),
+                              Flexible(child: Text(liveAddress, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), decoration: TextDecoration.underline, decorationColor: Colors.white60))),
                               const SizedBox(width: 4),
                               Icon(Icons.open_in_new, size: 12, color: Colors.white.withValues(alpha: 0.7)),
                             ]),
@@ -428,14 +436,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   const SizedBox(height: 10),
                   // 種別・コート数
                   Row(children: [
-                    _heroChip(Icons.category, t['type'] ?? '混合'),
+                    _heroChip(Icons.category, liveType),
                     const SizedBox(width: 8),
-                    _heroChip(Icons.grid_view, '${courts}コート'),
+                    _heroChip(Icons.grid_view, '${liveCourts}コート'),
                     const SizedBox(width: 8),
-                    _heroChip(Icons.payments, (() { final f = t['entryFee'] ?? t['fee']; return f is int ? '¥$f' : (f ?? '').toString(); })()),
+                    _heroChip(Icons.payments, liveEntryFee),
                   ]),
                   // 締切日（募集中の場合）
-                  if (liveStatus == '募集中' && (live['deadline'] ?? t['deadline'] ?? '').toString().isNotEmpty) ...[
+                  if (liveStatus == '募集中' && liveDeadline.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     Container(
                       width: double.infinity,
@@ -450,7 +458,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         const SizedBox(width: 10),
                         Text('エントリー締切', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
                         const Spacer(),
-                        Text(live['deadline'] ?? t['deadline'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(liveDeadline, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                       ]),
                     ),
                   ],
@@ -495,12 +503,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     minHeight: 10,
                   ),
                 ),
-                if ((live['deadline'] ?? t['deadline'] ?? '').toString().isNotEmpty) ...[
+                if (liveDeadline.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Row(children: [
                     Icon(Icons.event_busy, size: 15, color: AppTheme.warning),
                     const SizedBox(width: 6),
-                    Text('締切: ${live['deadline'] ?? t['deadline'] ?? ''}', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+                    Text('締切: $liveDeadline', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
                   ]),
                 ],
               ]),
@@ -570,11 +578,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             const SizedBox(height: 16),
 
             // ━━━ Description ━━━
-            if ((live['description'] ?? t['description'] ?? '').toString().isNotEmpty) ...[
+            if (liveDescription.isNotEmpty) ...[
               _buildCard(
                 title: '大会説明・備考',
                 titleIcon: Icons.description_outlined,
-                child: Text(live['description'] ?? t['description'] ?? '',
+                child: Text(liveDescription,
                     style: const TextStyle(fontSize: 14, height: 1.6, color: AppTheme.textPrimary)),
               ),
               const SizedBox(height: 16),
@@ -587,14 +595,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // 予選
                 () {
-                  final hasR2 = (livePrelim['rounds'] ?? 1) == 2 && livePrelim['round2'] != null;
-                  final r2 = livePrelim['round2'] as Map<String, dynamic>? ?? {};
-                  final r1Sets = livePrelim['sets'] ?? 2;
-                  final r2Sets = r2['sets'] ?? r1Sets;
-                  final r1Deuce = livePrelim['deuce'] ?? false;
-                  final r2Deuce = r2['deuce'] ?? r1Deuce;
-                  final r1DeuceCap = livePrelim['deuceCap'] ?? 17;
-                  final r2DeuceCap = r2['deuceCap'] ?? r1DeuceCap;
+                  final rounds = livePrelim['rounds'] ?? 1;
+                  final hasR2 = rounds == 2;
+                  // 2ラウンド形式: round1/round2に分かれている
+                  final r1Data = hasR2 ? (livePrelim['round1'] as Map<String, dynamic>? ?? {}) : livePrelim;
+                  final r2Data = hasR2 ? (livePrelim['round2'] as Map<String, dynamic>? ?? {}) : <String, dynamic>{};
+                  final r1Sets = r1Data['sets'] ?? 2;
+                  final r2Sets = r2Data['sets'] ?? r1Sets;
+                  final r1Deuce = r1Data['deuce'] ?? false;
+                  final r2Deuce = r2Data['deuce'] ?? r1Deuce;
+                  final r1DeuceCap = r1Data['deuceCap'] ?? 17;
+                  final r2DeuceCap = r2Data['deuceCap'] ?? r1DeuceCap;
                   final isSameRules = !hasR2 || (r1Sets == r2Sets && r1Deuce == r2Deuce && (!r1Deuce || r1DeuceCap == r2DeuceCap));
 
                   if (isSameRules) {
@@ -4436,7 +4447,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildScoringTable(Map<String, dynamic> prelim, Map<String, dynamic> scoring) {
-    final hasRound2 = (prelim['rounds'] ?? 1) == 2 && scoring['round2'] != null;
+    final rounds = prelim['rounds'] ?? 1;
+    final hasRound2 = rounds == 2 && scoring['round2'] != null;
+    // 2ラウンド形式: scoring内もround1/round2に分かれている
+    final s1 = hasRound2 ? (scoring['round1'] as Map<String, dynamic>? ?? scoring) : scoring;
+    final s2 = hasRound2 ? (scoring['round2'] as Map<String, dynamic>?) : null;
+    // sets も round1 キーから取得
+    final r1Data = rounds == 2 ? (prelim['round1'] as Map<String, dynamic>? ?? {}) : prelim;
+    final sets = r1Data['sets'] ?? 2;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
@@ -4470,7 +4488,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               Expanded(flex: 2, child: Text('勝ち点', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
           ]),
         ),
-        ..._buildScoringTableRows(prelim['sets'] ?? 2, scoring, hasRound2 ? scoring['round2'] as Map<String, dynamic>? : null),
+        ..._buildScoringTableRows(sets, s1, s2),
       ]),
     );
   }
