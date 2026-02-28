@@ -627,6 +627,36 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ),
             const SizedBox(height: 16),
 
+            // ━━━ ルールPDF ━━━
+            if ((live['rulesPdfUrl'] ?? t['rulesPdfUrl']) != null) ...[
+              _buildCard(
+                title: 'ルールPDF',
+                titleIcon: Icons.picture_as_pdf,
+                child: GestureDetector(
+                  onTap: () {
+                    final url = (live['rulesPdfUrl'] ?? t['rulesPdfUrl']) as String;
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      Icon(Icons.picture_as_pdf, color: AppTheme.error, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text((live['rulesPdfName'] ?? t['rulesPdfName'] ?? 'ルール.pdf') as String,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text('タップしてPDFを開く', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      ])),
+                      Icon(Icons.open_in_new, size: 18, color: AppTheme.primaryColor),
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // ━━━ 大会の流れ ━━━
             _buildCard(
               title: '大会の流れ',

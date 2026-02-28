@@ -138,6 +138,31 @@ export default function TournamentInfo({ tournament, entries }: TournamentInfoPr
         </div>
       )}
 
+      {/* ルールPDF */}
+      {t.rulesPdfUrl && (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 flex items-center gap-2" style={{ background: "linear-gradient(135deg, rgba(211,47,47,0.06) 0%, rgba(211,47,47,0.02) 100%)", borderBottom: "1px solid rgba(211,47,47,0.08)" }}>
+            <svg className="w-4.5 h-4.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+            <h3 className="text-sm font-bold text-foreground">ルールPDF</h3>
+          </div>
+          <div className="p-5">
+            <a
+              href={t.rulesPdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-4 py-3 bg-red-50 rounded-xl border border-red-100 hover:bg-red-100 transition-colors"
+            >
+              <svg className="w-8 h-8 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/><path d="M8.5 13.5c0-.28.22-.5.5-.5h1c.55 0 1 .45 1 1s-.45 1-1 1H9.5v1H9a.5.5 0 0 1-.5-.5v-2zm2 .5c0-.28-.22-.5-.5-.5h-.5v1h.5c.28 0 .5-.22.5-.5zm2-1c0-.28.22-.5.5-.5h.5c.83 0 1.5.67 1.5 1.5S14.33 15.5 13.5 15.5H13a.5.5 0 0 1-.5-.5v-2zm1 1.5c.55 0 1-.45 1-1s-.45-1-1-1H13v2h.5zm2-1c0-.28.22-.5.5-.5h1.5a.5.5 0 0 1 0 1H16.5v.5h1a.5.5 0 0 1 0 1h-1v1a.5.5 0 0 1-1 0v-2.5z"/></svg>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-foreground truncate">{t.rulesPdfName || "ルール.pdf"}</p>
+                <p className="text-xs text-muted">クリックしてPDFを開く</p>
+              </div>
+              <svg className="w-4 h-4 text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* 会場マップ */}
       {mapQuery && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">

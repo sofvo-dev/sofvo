@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'tournament_detail_screen.dart';
@@ -6,6 +7,8 @@ import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../config/app_theme.dart';
 
 class TournamentManagementScreen extends StatefulWidget {
@@ -466,6 +469,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     String matchStartTime = (templateData?['matchStartTime'] ?? '9:15') as String;
     String finalTime = (templateData?['finalTime'] ?? '15:00') as String;
     String closingTime = (templateData?['closingTime'] ?? '15:30') as String;
+    Uint8List? rulesPdfBytes;
+    String? rulesPdfName;
+    bool isUploadingPdf = false;
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
@@ -686,13 +692,78 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               )),
+              const SizedBox(height: 12),
+              // ── ルールPDFアップロード ──
+              const Text('ルールPDF（任意）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text('大会要項やルールのPDFをアップロードできます', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              const SizedBox(height: 8),
+              if (rulesPdfName != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(color: AppTheme.success.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.success.withValues(alpha: 0.3))),
+                  child: Row(children: [
+                    Icon(Icons.picture_as_pdf, color: AppTheme.error, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(rulesPdfName!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                    GestureDetector(
+                      onTap: () => setSheetState(() { rulesPdfBytes = null; rulesPdfName = null; }),
+                      child: Icon(Icons.close, size: 18, color: Colors.grey[500]),
+                    ),
+                  ]),
+                )
+              else
+                SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                  onPressed: isUploadingPdf ? null : () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf'],
+                      withData: true,
+                    );
+                    if (result != null && result.files.single.bytes != null) {
+                      final file = result.files.single;
+                      if (file.size > 10 * 1024 * 1024) {
+                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('ファイルサイズは10MB以下にしてください'), backgroundColor: AppTheme.error));
+                        return;
+                      }
+                      setSheetState(() { rulesPdfBytes = file.bytes; rulesPdfName = file.name; });
+                    }
+                  },
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('PDFを選択'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textSecondary,
+                    side: BorderSide(color: Colors.grey[300]!),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                )),
               const SizedBox(height: 16),
               SizedBox(width: double.infinity, child: ElevatedButton(
-                onPressed: titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty && locationCtrl.text.trim().isNotEmpty
+                onPressed: titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty && locationCtrl.text.trim().isNotEmpty && !isUploadingPdf
                     ? () async {
+                        setSheetState(() => isUploadingPdf = rulesPdfBytes != null);
                         final userDoc = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
                         final nickname = (userDoc.data()?['nickname'] ?? '不明').toString();
-                        final tournamentData = {
+
+                        // PDF をアップロード
+                        String? pdfUrl;
+                        String? pdfName;
+                        if (rulesPdfBytes != null && rulesPdfName != null) {
+                          try {
+                            final timestamp = DateTime.now().millisecondsSinceEpoch;
+                            final ref = FirebaseStorage.instance.ref().child('tournament_rules/${_currentUser!.uid}/${timestamp}_$rulesPdfName');
+                            await ref.putData(rulesPdfBytes!, SettableMetadata(contentType: 'application/pdf'));
+                            pdfUrl = await ref.getDownloadURL();
+                            pdfName = rulesPdfName;
+                          } catch (e) {
+                            if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('PDFアップロードに失敗しました: $e'), backgroundColor: AppTheme.error));
+                            setSheetState(() => isUploadingPdf = false);
+                            return;
+                          }
+                        }
+
+                        final tournamentData = <String, dynamic>{
                           'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                           'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
@@ -703,6 +774,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
                           'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                           'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
+                          if (pdfUrl != null) 'rulesPdfUrl': pdfUrl,
+                          if (pdfName != null) 'rulesPdfName': pdfName,
                         };
                         final docRef = await FirebaseFirestore.instance.collection('tournaments').add(tournamentData);
                         if (mounted) {

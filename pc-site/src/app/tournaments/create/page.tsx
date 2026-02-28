@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { collection, addDoc, Timestamp, query, orderBy, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 
@@ -163,6 +164,9 @@ export default function CreateTournamentPage() {
   const [lunchTime, setLunchTime] = useState("");
   const [finalsTime, setFinalsTime] = useState("");
   const [closingTime, setClosingTime] = useState("");
+
+  // PDF
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   // UI state
   const [submitting, setSubmitting] = useState(false);
@@ -398,6 +402,17 @@ export default function CreateTournamentPage() {
         scoring.round1 = { ...r1Scoring };
         scoring.round2 = r2SameAsR1 ? { ...r1Scoring } : { ...r2Scoring };
       }
+      // PDF をアップロード
+      let rulesPdfUrl: string | null = null;
+      let rulesPdfName: string | null = null;
+      if (pdfFile) {
+        const timestamp = Date.now();
+        const storageRef = ref(storage, `tournament_rules/${user.uid}/${timestamp}_${pdfFile.name}`);
+        await uploadBytes(storageRef, pdfFile, { contentType: "application/pdf" });
+        rulesPdfUrl = await getDownloadURL(storageRef);
+        rulesPdfName = pdfFile.name;
+      }
+
       const docRef = await addDoc(collection(db, "tournaments"), {
         title, date, location, venueAddress, venueId: selectedVenueId || null,
         area, type, format, description, maxTeams, courts, entryFee, deadline,
@@ -411,6 +426,7 @@ export default function CreateTournamentPage() {
           other: { lunchBreak },
         },
         schedule: { openTime, receptionTime, ceremonyTime, matchStartTime, lunch: lunchTime, finalsTime, closingTime },
+        ...(rulesPdfUrl ? { rulesPdfUrl, rulesPdfName } : {}),
       });
       localStorage.removeItem(DRAFT_KEY);
       router.push(`/tournament/${docRef.id}`);
@@ -518,6 +534,35 @@ export default function CreateTournamentPage() {
             <Field label="大会説明・備考" hint="参加者への注意事項やアピールを自由に記入">
               <textarea value={description} onChange={(e) => setDescription(e.target.value)}
                 className="input-field resize-none" rows={3} placeholder="例: 初心者歓迎の親睦大会です。お昼はお弁当を各自ご持参ください。" />
+            </Field>
+
+            <Field label="ルールPDF（任意）" hint="大会要項やルールのPDFをアップロードできます">
+              {pdfFile ? (
+                <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+                  <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                  <span className="text-sm font-medium text-foreground truncate flex-1">{pdfFile.name}</span>
+                  <button type="button" onClick={() => setPdfFile(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                  <span className="text-sm text-muted">PDFを選択（10MBまで）</span>
+                  <input type="file" accept=".pdf" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 10 * 1024 * 1024) {
+                        setErrors(prev => ({ ...prev, pdf: "ファイルサイズは10MB以下にしてください" }));
+                        return;
+                      }
+                      setErrors(prev => { const n = { ...prev }; delete n.pdf; return n; });
+                      setPdfFile(file);
+                    }
+                  }} />
+                </label>
+              )}
+              {errors.pdf && <p className="text-xs text-red-500 mt-1">{errors.pdf}</p>}
             </Field>
           </div>
         </Section>
