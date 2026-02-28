@@ -402,6 +402,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 const Divider(height: 1),
                 // 参加費
                 _buildDetailInfoRow(Icons.payments, '参加費', liveEntryFee),
+                const Divider(height: 1),
+                // 募集チーム数
+                _buildDetailInfoRow(Icons.groups, '募集チーム数', '$liveMaxTeams チーム'),
                 // 締切
                 if (liveDeadline.isNotEmpty) ...[
                   const Divider(height: 1),
