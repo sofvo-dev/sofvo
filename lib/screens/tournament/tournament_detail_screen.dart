@@ -375,21 +375,32 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // ━━━ Organizer ━━━
             GestureDetector(
               onTap: () {
-                final organizerId = t['organizerId'] as String?;
+                final organizerId = live['organizerId'] as String? ?? t['organizerId'] as String?;
                 if (organizerId != null && organizerId.isNotEmpty) {
                   Navigator.push(context, MaterialPageRoute(
                     builder: (_) => UserProfileScreen(userId: organizerId),
                   ));
                 }
               },
-              child: _buildCard(
+              child: FutureBuilder<DocumentSnapshot>(
+                future: (() {
+                  final orgId = live['organizerId'] as String? ?? t['organizerId'] as String? ?? '';
+                  return orgId.isNotEmpty ? _firestore.collection('users').doc(orgId).get() : null;
+                })(),
+                builder: (context, userSnap) {
+                  final userData = userSnap.data?.data() as Map<String, dynamic>? ?? {};
+                  final avatarUrl = (userData['avatarUrl'] ?? '') as String;
+                  final organizerName = live['organizerName'] as String? ?? t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者';
+                  return _buildCard(
                 child: Row(children: [
-                  CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
-                      child: const Text('主', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
+                  avatarUrl.isNotEmpty
+                      ? CircleAvatar(radius: 22, backgroundImage: NetworkImage(avatarUrl))
+                      : CircleAvatar(radius: 22, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.12),
+                          child: Text(organizerName.isNotEmpty ? organizerName[0] : '主', style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者',
+                      Text(organizerName,
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                       const SizedBox(height: 2),
                       Row(children: [
@@ -401,6 +412,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   ),
                   Icon(Icons.chevron_right, color: AppTheme.textHint),
                 ]),
+              );
+                },
               ),
             ),
             const SizedBox(height: 12),
@@ -3412,105 +3425,27 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   void _showOrganizerMenuSheet(Map<String, dynamic> tournData) {
-    final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
-    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
-    final prelimRounds = preliminary['rounds'] ?? 1;
-    final finalEnabled = (rules['final'] as Map<String, dynamic>?)?['enabled'] ?? true;
-    final status = tournData['status'] ?? '準備中';
-    final isRunning = status == '開催中' || status == '決勝中' || status == '順位決定中';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        builder: (_, scrollCtrl) => Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: Column(children: [
-              Center(child: Container(width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 16),
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.admin_panel_settings, size: 22, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(width: 12),
-                const Text('主催者メニュー', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ]),
-              const SizedBox(height: 8),
-              Divider(color: Colors.grey[200]),
-            ]),
-          ),
-          Expanded(
-            child: ListView(
-              controller: scrollCtrl,
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
-              children: [
-                // ━━━ 大会情報 ━━━
-                _sectionLabel('大会情報'),
-                _menuTile(ctx, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', () => _showEditTournamentSheet(tournData), color: AppTheme.primaryColor),
-                _menuTile(ctx, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 開催中 → 終了', () => _showStatusDialog(status), color: AppTheme.primaryColor),
-
-                // ━━━ 参加者管理 ━━━
-                _sectionLabel('参加者管理'),
-                _menuTile(ctx, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', () => _showEntrySheet(context), color: AppTheme.success),
-                _menuTile(ctx, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))), color: AppTheme.success),
-                _menuTile(ctx, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', _importTeamsFromCsv, color: AppTheme.success),
-                _menuTile(ctx, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', _addTestTeams, color: AppTheme.success),
-
-                // ━━━ 運営 ━━━
-                _sectionLabel('運営'),
-                _menuTile(ctx, Icons.account_balance_wallet_outlined, '収支管理', '参加費の入金状況・経費を管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))), color: AppTheme.accentColor),
-                _menuTile(ctx, Icons.people_outline, '権限管理', '他のユーザーに編集権限を付与', _showEditorsSheet, color: AppTheme.accentColor),
-                _menuTile(ctx, Icons.campaign_outlined, 'お知らせ送信', '全参加者に通知を送信', _showAnnouncementDialog, color: AppTheme.accentColor),
-
-                // ━━━ 試合進行 ━━━
-                _sectionLabel('試合進行'),
-                if (prelimRounds >= 2)
-                  _menuTile(ctx, Icons.replay, '予選2 生成', '予選2ラウンドの対戦表を生成', () => _generateMatches(2), color: AppTheme.info),
-                if (finalEnabled)
-                  _menuTile(ctx, Icons.emoji_events, '順位決定戦生成', '決勝トーナメントを生成', _generateFinals, color: AppTheme.info),
-                _menuTile(ctx, Icons.refresh, 'リセット', '対戦表・スコアをリセット', _resetRounds, color: AppTheme.info),
-
-                // ━━━ 大会を終了する ━━━
-                if (isRunning) ...[
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () { Navigator.pop(ctx); _showEndTournamentDialog(); },
-                        icon: const Icon(Icons.flag, size: 18),
-                        label: const Text('大会を終了する', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.error, foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
-                // ━━━ その他 ━━━
-                _sectionLabel('その他'),
-                _menuTile(ctx, Icons.bookmark_add_outlined, 'テンプレートに保存', '大会設定をテンプレートとして保存', () => _saveAsTemplate(tournData), color: AppTheme.textSecondary),
-                _menuTile(ctx, Icons.delete_outline, '大会を削除', 'この大会を完全に削除', () => _showDeleteDialog(tournData['title'] ?? ''), isDestructive: true),
-              ],
-            ),
-          ),
-        ]),
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => _OrganizerMenuScreen(
+        tournData: tournData,
+        tournamentId: _tournamentId,
+        onEditTournament: () => _showEditTournamentSheet(tournData),
+        onStatusChange: () => _showStatusDialog(tournData['status'] ?? '準備中'),
+        onSelfEntry: () => _showEntrySheet(context),
+        onCheckIn: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))),
+        onCsvImport: _importTeamsFromCsv,
+        onTestTeams: _addTestTeams,
+        onFinance: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))),
+        onEditors: _showEditorsSheet,
+        onAnnouncement: _showAnnouncementDialog,
+        onGenerateRound2: () => _generateMatches(2),
+        onGenerateFinals: _generateFinals,
+        onReset: _resetRounds,
+        onEndTournament: _showEndTournamentDialog,
+        onSaveTemplate: () => _saveAsTemplate(tournData),
+        onDelete: () => _showDeleteDialog(tournData['title'] ?? ''),
       ),
-    );
+    ));
   }
 
   Widget _sectionLabel(String title) {
@@ -4347,5 +4282,150 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
   Widget build(BuildContext context) {
     super.build(context);
     return widget.child;
+  }
+}
+
+// ━━━ 主催者メニュー全画面 ━━━
+class _OrganizerMenuScreen extends StatelessWidget {
+  final Map<String, dynamic> tournData;
+  final String tournamentId;
+  final VoidCallback onEditTournament;
+  final VoidCallback onStatusChange;
+  final VoidCallback onSelfEntry;
+  final VoidCallback onCheckIn;
+  final VoidCallback onCsvImport;
+  final VoidCallback onTestTeams;
+  final VoidCallback onFinance;
+  final VoidCallback onEditors;
+  final VoidCallback onAnnouncement;
+  final VoidCallback onGenerateRound2;
+  final VoidCallback onGenerateFinals;
+  final VoidCallback onReset;
+  final VoidCallback onEndTournament;
+  final VoidCallback onSaveTemplate;
+  final VoidCallback onDelete;
+
+  const _OrganizerMenuScreen({
+    required this.tournData,
+    required this.tournamentId,
+    required this.onEditTournament,
+    required this.onStatusChange,
+    required this.onSelfEntry,
+    required this.onCheckIn,
+    required this.onCsvImport,
+    required this.onTestTeams,
+    required this.onFinance,
+    required this.onEditors,
+    required this.onAnnouncement,
+    required this.onGenerateRound2,
+    required this.onGenerateFinals,
+    required this.onReset,
+    required this.onEndTournament,
+    required this.onSaveTemplate,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
+    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
+    final prelimRounds = preliminary['rounds'] ?? 1;
+    final finalEnabled = (rules['final'] as Map<String, dynamic>?)?['enabled'] ?? true;
+    final status = tournData['status'] ?? '準備中';
+    final isRunning = status == '開催中' || status == '決勝中' || status == '順位決定中';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: const Text('主催者メニュー', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 40),
+        children: [
+          // ━━━ 大会情報 ━━━
+          _sectionLabel('大会情報'),
+          _menuTile(context, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', onEditTournament, color: AppTheme.primaryColor),
+          _menuTile(context, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 開催中 → 終了', onStatusChange, color: AppTheme.primaryColor),
+
+          // ━━━ 参加者管理 ━━━
+          _sectionLabel('参加者管理'),
+          _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
+          _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
+          _menuTile(context, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', onCsvImport, color: AppTheme.success),
+          _menuTile(context, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', onTestTeams, color: AppTheme.success),
+
+          // ━━━ 運営 ━━━
+          _sectionLabel('運営'),
+          _menuTile(context, Icons.account_balance_wallet_outlined, '収支管理', '参加費の入金状況・経費を管理', onFinance, color: AppTheme.accentColor),
+          _menuTile(context, Icons.people_outline, '権限管理', '他のユーザーに編集権限を付与', onEditors, color: AppTheme.accentColor),
+          _menuTile(context, Icons.campaign_outlined, 'お知らせ送信', '全参加者に通知を送信', onAnnouncement, color: AppTheme.accentColor),
+
+          // ━━━ 試合進行 ━━━
+          _sectionLabel('試合進行'),
+          if (prelimRounds >= 2)
+            _menuTile(context, Icons.replay, '予選2 生成', '予選2ラウンドの対戦表を生成', onGenerateRound2, color: AppTheme.info),
+          if (finalEnabled)
+            _menuTile(context, Icons.emoji_events, '順位決定戦生成', '決勝トーナメントを生成', onGenerateFinals, color: AppTheme.info),
+          _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
+
+          // ━━━ 大会を終了する ━━━
+          if (isRunning) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () { Navigator.pop(context); onEndTournament(); },
+                  icon: const Icon(Icons.flag, size: 18),
+                  label: const Text('大会を終了する', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.error, foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          // ━━━ その他 ━━━
+          _sectionLabel('その他'),
+          _menuTile(context, Icons.bookmark_add_outlined, 'テンプレートに保存', '大会設定をテンプレートとして保存', onSaveTemplate, color: AppTheme.textSecondary),
+          _menuTile(context, Icons.delete_outline, '大会を削除', 'この大会を完全に削除', onDelete, isDestructive: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary, letterSpacing: 0.5)),
+    );
+  }
+
+  Widget _menuTile(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap, {Color color = AppTheme.primaryColor, bool isDestructive = false}) {
+    final c = isDestructive ? AppTheme.error : color;
+    return ListTile(
+      dense: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 20, color: c),
+      ),
+      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDestructive ? AppTheme.error : AppTheme.textPrimary)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+      onTap: () { Navigator.pop(context); onTap(); },
+    );
   }
 }
