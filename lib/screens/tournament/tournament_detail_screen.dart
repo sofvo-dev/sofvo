@@ -586,84 +586,60 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               titleIcon: Icons.gavel,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // 予選ラウンド1
-                _buildRuleSection(
+                _buildRuleSectionCard(
                   (livePrelim['rounds'] ?? 1) == 2 ? '予選 ラウンド1' : '予選',
                   Icons.sports_volleyball,
+                  AppTheme.primaryColor,
                   [
-                    _buildRuleItem('セット形式', _setFormatDisplayLabel(livePrelim['sets'] ?? 2)),
-                    _buildRuleItem('得点', '15点先取'),
-                    _buildRuleItem('デュース', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                    _buildRuleTableRow('セット形式', _setFormatDisplayLabel(livePrelim['sets'] ?? 2)),
+                    _buildRuleTableRow('得点', '15点先取'),
+                    _buildRuleTableRow('デュース', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
                   ],
                 ),
                 // 予選ラウンド2
                 if ((livePrelim['rounds'] ?? 1) == 2 && livePrelim['round2'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildRuleSection(
+                  const SizedBox(height: 10),
+                  _buildRuleSectionCard(
                     '予選 ラウンド2',
                     Icons.replay,
+                    AppTheme.info,
                     [
-                      _buildRuleItem('セット形式', _setFormatDisplayLabel((livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2)),
-                      _buildRuleItem('デュース', ((livePrelim['round2'] as Map<String, dynamic>?)?['deuce'] ?? false) ? 'あり（${(livePrelim['round2'] as Map<String, dynamic>?)?['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                      _buildRuleTableRow('セット形式', _setFormatDisplayLabel((livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2)),
+                      _buildRuleTableRow('デュース', ((livePrelim['round2'] as Map<String, dynamic>?)?['deuce'] ?? false) ? 'あり（${(livePrelim['round2'] as Map<String, dynamic>?)?['deuceCap'] ?? 17}点キャップ）' : 'なし'),
                     ],
                   ),
                 ],
                 // 勝ち点制
                 if (liveScoring.isNotEmpty && (liveScoring['enabled'] ?? true)) ...[
-                  const SizedBox(height: 12),
-                  _buildRuleSection(
-                    '勝ち点制',
-                    Icons.emoji_events,
-                    [],
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(top: 6),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      if ((livePrelim['rounds'] ?? 1) == 2) ...[
-                        Padding(padding: const EdgeInsets.only(bottom: 6),
-                          child: Text('ラウンド1', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                      ],
-                      ..._buildScoringRowsForFormat(livePrelim['sets'] ?? 2, liveScoring),
-                      if ((livePrelim['rounds'] ?? 1) == 2 && liveScoring['round2'] != null) ...[
-                        const SizedBox(height: 10),
-                        Padding(padding: const EdgeInsets.only(bottom: 6),
-                          child: Text('ラウンド2', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-                        ..._buildScoringRowsForFormat(
-                          (livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2,
-                          liveScoring['round2'] as Map<String, dynamic>? ?? liveScoring,
-                        ),
-                      ],
-                    ]),
-                  ),
+                  const SizedBox(height: 10),
+                  _buildScoringTable(livePrelim, liveScoring),
                 ],
                 // 順位決定戦
                 if ((liveFinal['enabled'] ?? false) == true) ...[
-                  const SizedBox(height: 12),
-                  _buildRuleSection(
+                  const SizedBox(height: 10),
+                  _buildRuleSectionCard(
                     '順位決定戦',
                     Icons.military_tech,
+                    Colors.amber[700]!,
                     [
-                      _buildRuleItem('方式', liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'),
-                      _buildRuleItem('セット形式', '${liveFinal['sets'] ?? 3}セットマッチ'),
-                      _buildRuleItem('デュース', (liveFinal['deuce'] ?? false) ? 'あり' : 'なし'),
+                      _buildRuleTableRow('方式', liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'),
+                      _buildRuleTableRow('セット形式', '${liveFinal['sets'] ?? 3}セットマッチ'),
+                      _buildRuleTableRow('デュース', (liveFinal['deuce'] ?? false) ? 'あり' : 'なし'),
                     ],
                   ),
                 ],
                 // その他
                 if (liveOther.isNotEmpty && (liveOther['uniformNumber'] != null || liveOther['snsVideo'] != null)) ...[
-                  const SizedBox(height: 12),
-                  _buildRuleSection(
+                  const SizedBox(height: 10),
+                  _buildRuleSectionCard(
                     'その他',
                     Icons.more_horiz,
+                    AppTheme.textSecondary,
                     [
                       if (liveOther['uniformNumber'] != null)
-                        _buildRuleItem('ゼッケン', liveOther['uniformNumber'] == true ? '必須' : '不要'),
+                        _buildRuleTableRow('ゼッケン', liveOther['uniformNumber'] == true ? '必須' : '不要'),
                       if (liveOther['snsVideo'] != null)
-                        _buildRuleItem('SNS動画投稿', liveOther['snsVideo'] == true ? '許可' : '不可'),
+                        _buildRuleTableRow('SNS動画投稿', liveOther['snsVideo'] == true ? '許可' : '不可'),
                     ],
                   ),
                 ],
@@ -4388,24 +4364,39 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildRuleSection(String title, IconData icon, List<Widget> items) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Icon(icon, size: 16, color: AppTheme.primaryColor),
-        const SizedBox(width: 6),
-        Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-      ]),
-      if (items.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(left: 22, top: 6),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: items),
+  Widget _buildRuleSectionCard(String title, IconData icon, Color color, List<Widget> rows) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(children: [
+        // ヘッダー
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+          ),
+          child: Row(children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          ]),
         ),
-    ]);
+        // テーブル行
+        ...rows,
+      ]),
+    );
   }
 
-  Widget _buildRuleItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+  Widget _buildRuleTableRow(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey[100]!)),
+      ),
       child: Row(children: [
         SizedBox(
           width: 90,
@@ -4414,6 +4405,104 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         Expanded(child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
       ]),
     );
+  }
+
+  Widget _buildScoringTable(Map<String, dynamic> prelim, Map<String, dynamic> scoring) {
+    final hasRound2 = (prelim['rounds'] ?? 1) == 2 && scoring['round2'] != null;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.2)),
+      ),
+      child: Column(children: [
+        // ヘッダー
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.accentColor.withValues(alpha: 0.08),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+          ),
+          child: Row(children: [
+            Icon(Icons.emoji_events, size: 16, color: AppTheme.accentColor),
+            const SizedBox(width: 6),
+            Text('勝ち点制', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+          ]),
+        ),
+        // テーブルヘッダー
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: Colors.grey[50]),
+          child: Row(children: [
+            Expanded(flex: 3, child: Text('結果', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+            if (hasRound2) ...[
+              Expanded(flex: 2, child: Text('R1', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('R2', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+            ] else
+              Expanded(flex: 2, child: Text('勝ち点', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+          ]),
+        ),
+        ..._buildScoringTableRows(prelim['sets'] ?? 2, scoring, hasRound2 ? scoring['round2'] as Map<String, dynamic>? : null),
+      ]),
+    );
+  }
+
+  List<Widget> _buildScoringTableRows(int sets, Map<String, dynamic> s1, Map<String, dynamic>? s2) {
+    final entries = _scoringEntries(sets, s1, s2);
+    return entries.asMap().entries.map((e) {
+      final idx = e.key;
+      final row = e.value;
+      final isWin = row['label'].toString().contains('勝');
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: idx.isEven ? Colors.white : Colors.grey[50],
+          border: Border(bottom: BorderSide(color: Colors.grey[100]!)),
+          borderRadius: idx == entries.length - 1 ? const BorderRadius.vertical(bottom: Radius.circular(9)) : null,
+        ),
+        child: Row(children: [
+          Container(
+            width: 8, height: 8,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: isWin ? AppTheme.success : AppTheme.error.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+            ),
+          ),
+          Expanded(flex: 3, child: Text(row['label'] as String, style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: isWin ? FontWeight.w600 : FontWeight.normal))),
+          if (s2 != null) ...[
+            Expanded(flex: 2, child: Text('${row['pts1']}点', textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary))),
+            Expanded(flex: 2, child: Text('${row['pts2']}点', textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary))),
+          ] else
+            Expanded(flex: 2, child: Text('${row['pts1']}点', textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary))),
+        ]),
+      );
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _scoringEntries(int sets, Map<String, dynamic> s1, Map<String, dynamic>? s2) {
+    switch (sets) {
+      case 1:
+        return [
+          {'label': '勝利', 'pts1': s1['win'] ?? 3, 'pts2': s2?['win'] ?? s1['win'] ?? 3},
+          {'label': '敗北', 'pts1': s1['lose'] ?? 0, 'pts2': s2?['lose'] ?? s1['lose'] ?? 0},
+        ];
+      case 3:
+        return [
+          {'label': '2-0 勝ち', 'pts1': s1['win20'] ?? 10, 'pts2': s2?['win20'] ?? s1['win20'] ?? 10},
+          {'label': '2-1 勝ち', 'pts1': s1['win21'] ?? 7, 'pts2': s2?['win21'] ?? s1['win21'] ?? 7},
+          {'label': '1-2 負け', 'pts1': s1['lose12'] ?? 2, 'pts2': s2?['lose12'] ?? s1['lose12'] ?? 2},
+          {'label': '0-2 負け', 'pts1': s1['lose02'] ?? 0, 'pts2': s2?['lose02'] ?? s1['lose02'] ?? 0},
+        ];
+      default:
+        return [
+          {'label': '2-0 勝ち', 'pts1': s1['win20'] ?? 10, 'pts2': s2?['win20'] ?? s1['win20'] ?? 10},
+          {'label': '1-1 得失差勝ち', 'pts1': s1['win11'] ?? 7, 'pts2': s2?['win11'] ?? s1['win11'] ?? 7},
+          {'label': '1-1 引き分け', 'pts1': s1['draw'] ?? 4, 'pts2': s2?['draw'] ?? s1['draw'] ?? 4},
+          {'label': '1-1 得失差負け', 'pts1': s1['lose11'] ?? 2, 'pts2': s2?['lose11'] ?? s1['lose11'] ?? 2},
+          {'label': '0-2 負け', 'pts1': s1['lose02'] ?? 0, 'pts2': s2?['lose02'] ?? s1['lose02'] ?? 0},
+        ];
+    }
   }
 }
 
