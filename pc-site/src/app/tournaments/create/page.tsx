@@ -30,12 +30,10 @@ interface TemplateConfig {
   entryFee: number;
   prelRounds: number;
   prelSets: number;
-  prelPoints: number;
   prelDeuce: boolean;
   prelDeuceCap: number;
   finalEnabled: boolean;
   finalSets: number;
-  finalPoints: number;
   finalDeuce: boolean;
   finalDeuceCap: number;
   finalFormat: string;
@@ -52,8 +50,8 @@ const templates: { id: string; name: string; desc: string; teams: string; config
     id: "standard16", name: "標準大会", desc: "予選2セット+決勝3セット先取", teams: "16チーム / 4コート",
     config: {
       maxTeams: 16, courts: 4, format: "予選リーグ+決勝トーナメント", entryFee: 1500,
-      prelRounds: 1, prelSets: 2, prelPoints: 25, prelDeuce: false, prelDeuceCap: 17,
-      finalEnabled: true, finalSets: 3, finalPoints: 25, finalDeuce: true, finalDeuceCap: 17,
+      prelRounds: 1, prelSets: 2, prelDeuce: false, prelDeuceCap: 17,
+      finalEnabled: true, finalSets: 3, finalDeuce: true, finalDeuceCap: 17,
       finalFormat: "順位別複数", finalTierCount: 3, lunchBreak: "45分",
     },
   },
@@ -61,8 +59,8 @@ const templates: { id: string; name: string; desc: string; teams: string; config
     id: "small8", name: "小規模大会", desc: "予選2セット+決勝3セット先取", teams: "8チーム / 2コート",
     config: {
       maxTeams: 8, courts: 2, format: "予選リーグ+決勝トーナメント", entryFee: 1000,
-      prelRounds: 1, prelSets: 2, prelPoints: 25, prelDeuce: false, prelDeuceCap: 17,
-      finalEnabled: true, finalSets: 3, finalPoints: 25, finalDeuce: true, finalDeuceCap: 17,
+      prelRounds: 1, prelSets: 2, prelDeuce: false, prelDeuceCap: 17,
+      finalEnabled: true, finalSets: 3, finalDeuce: true, finalDeuceCap: 17,
       finalFormat: "順位別複数", finalTierCount: 2, lunchBreak: "なし",
     },
   },
@@ -70,8 +68,8 @@ const templates: { id: string; name: string; desc: string; teams: string; config
     id: "large24", name: "大規模大会", desc: "予選2セット(2R)+決勝3セット先取", teams: "24チーム / 6コート",
     config: {
       maxTeams: 24, courts: 6, format: "予選リーグ+決勝トーナメント", entryFee: 2000,
-      prelRounds: 2, prelSets: 2, prelPoints: 25, prelDeuce: false, prelDeuceCap: 17,
-      finalEnabled: true, finalSets: 3, finalPoints: 25, finalDeuce: true, finalDeuceCap: 17,
+      prelRounds: 2, prelSets: 2, prelDeuce: false, prelDeuceCap: 17,
+      finalEnabled: true, finalSets: 3, finalDeuce: true, finalDeuceCap: 17,
       finalFormat: "順位別複数", finalTierCount: 3, lunchBreak: "45分",
     },
   },
@@ -134,12 +132,10 @@ export default function CreateTournamentPage() {
   // Rules - Preliminary
   const [prelRounds, setPrelRounds] = useState(1);
   const [prelSets, setPrelSets] = useState(2);
-  const [prelPoints, setPrelPoints] = useState(25);
   const [prelDeuce, setPrelDeuce] = useState(false);
   const [prelDeuceCap, setPrelDeuceCap] = useState(17);
   const [r2SameAsR1, setR2SameAsR1] = useState(true);
   const [r2Sets, setR2Sets] = useState(2);
-  const [r2Points, setR2Points] = useState(25);
   const [r2Deuce, setR2Deuce] = useState(false);
   const [r2DeuceCap, setR2DeuceCap] = useState(17);
 
@@ -151,7 +147,6 @@ export default function CreateTournamentPage() {
   // Finals
   const [finalEnabled, setFinalEnabled] = useState(true);
   const [finalSets, setFinalSets] = useState(3);
-  const [finalPoints, setFinalPoints] = useState(25);
   const [finalDeuce, setFinalDeuce] = useState(true);
   const [finalDeuceCap, setFinalDeuceCap] = useState(17);
   const [finalFormat, setFinalFormat] = useState("順位別複数");
@@ -182,10 +177,10 @@ export default function CreateTournamentPage() {
   formRef.current = {
     title, date, location, venueAddress, area, type, format, description,
     maxTeams, courts, entryFee, deadline, selectedVenueId, selectedTemplate,
-    prelRounds, prelSets, prelPoints, prelDeuce, prelDeuceCap,
-    r2SameAsR1, r2Sets, r2Points, r2Deuce, r2DeuceCap,
+    prelRounds, prelSets, prelDeuce, prelDeuceCap,
+    r2SameAsR1, r2Sets, r2Deuce, r2DeuceCap,
     scoringEnabled, r1Scoring, r2Scoring,
-    finalEnabled, finalSets, finalPoints, finalDeuce, finalDeuceCap, finalFormat, finalTierCount,
+    finalEnabled, finalSets, finalDeuce, finalDeuceCap, finalFormat, finalTierCount,
     lunchBreak,
     openTime, receptionTime, ceremonyTime, matchStartTime, lunchTime, finalsTime, closingTime,
   };
@@ -269,17 +264,14 @@ export default function CreateTournamentPage() {
     setEntryFee(c.entryFee);
     setPrelRounds(c.prelRounds);
     setPrelSets(c.prelSets);
-    setPrelPoints(c.prelPoints);
     setPrelDeuce(c.prelDeuce);
     setPrelDeuceCap(c.prelDeuceCap);
     setR1Scoring(defaultScoringForSets(c.prelSets));
     setR2SameAsR1(true);
     setR2Sets(c.prelSets);
-    setR2Points(c.prelPoints);
     setR2Scoring(defaultScoringForSets(c.prelSets));
     setFinalEnabled(c.finalEnabled);
     setFinalSets(c.finalSets);
-    setFinalPoints(c.finalPoints);
     setFinalDeuce(c.finalDeuce);
     setFinalDeuceCap(c.finalDeuceCap);
     setFinalFormat(c.finalFormat);
@@ -309,12 +301,10 @@ export default function CreateTournamentPage() {
       if (d.selectedTemplate !== undefined) setSelectedTemplate(d.selectedTemplate);
       if (d.prelRounds !== undefined) setPrelRounds(d.prelRounds);
       if (d.prelSets !== undefined) setPrelSets(d.prelSets);
-      if (d.prelPoints !== undefined) setPrelPoints(d.prelPoints);
       if (d.prelDeuce !== undefined) setPrelDeuce(d.prelDeuce);
       if (d.prelDeuceCap !== undefined) setPrelDeuceCap(d.prelDeuceCap);
       if (d.r2SameAsR1 !== undefined) setR2SameAsR1(d.r2SameAsR1);
       if (d.r2Sets !== undefined) setR2Sets(d.r2Sets);
-      if (d.r2Points !== undefined) setR2Points(d.r2Points);
       if (d.r2Deuce !== undefined) setR2Deuce(d.r2Deuce);
       if (d.r2DeuceCap !== undefined) setR2DeuceCap(d.r2DeuceCap);
       if (d.scoringEnabled !== undefined) setScoringEnabled(d.scoringEnabled);
@@ -322,7 +312,6 @@ export default function CreateTournamentPage() {
       if (d.r2Scoring !== undefined) setR2Scoring(d.r2Scoring);
       if (d.finalEnabled !== undefined) setFinalEnabled(d.finalEnabled);
       if (d.finalSets !== undefined) setFinalSets(d.finalSets);
-      if (d.finalPoints !== undefined) setFinalPoints(d.finalPoints);
       if (d.finalDeuce !== undefined) setFinalDeuce(d.finalDeuce);
       if (d.finalDeuceCap !== undefined) setFinalDeuceCap(d.finalDeuceCap);
       if (d.finalFormat !== undefined) setFinalFormat(d.finalFormat);
@@ -399,10 +388,10 @@ export default function CreateTournamentPage() {
     setErrors({});
     setSubmitting(true);
     try {
-      const prelim: Record<string, unknown> = { rounds: prelRounds, sets: prelSets, points: prelPoints, deuce: prelDeuce, deuceCap: prelDeuceCap };
+      const prelim: Record<string, unknown> = { rounds: prelRounds, sets: prelSets, points: 15, deuce: prelDeuce, deuceCap: prelDeuceCap };
       if (prelRounds === 2) {
-        prelim.round1 = { sets: prelSets, points: prelPoints, deuce: prelDeuce, deuceCap: prelDeuceCap };
-        prelim.round2 = r2SameAsR1 ? prelim.round1 : { sets: r2Sets, points: r2Points, deuce: r2Deuce, deuceCap: r2DeuceCap };
+        prelim.round1 = { sets: prelSets, points: 15, deuce: prelDeuce, deuceCap: prelDeuceCap };
+        prelim.round2 = r2SameAsR1 ? prelim.round1 : { sets: r2Sets, points: 15, deuce: r2Deuce, deuceCap: r2DeuceCap };
       }
       const scoring: Record<string, unknown> = { enabled: scoringEnabled, ...r1Scoring };
       if (prelRounds === 2) {
@@ -418,7 +407,7 @@ export default function CreateTournamentPage() {
         rules: {
           management: { teamsPerCourt },
           preliminary: prelim, scoring,
-          final: { enabled: finalEnabled, sets: finalSets, points: finalPoints, deuce: finalDeuce, deuceCap: finalDeuceCap, format: finalFormat, tierCount: finalTierCount },
+          final: { enabled: finalEnabled, sets: finalSets, points: 15, deuce: finalDeuce, deuceCap: finalDeuceCap, format: finalFormat, tierCount: finalTierCount },
           other: { lunchBreak },
         },
         schedule: { openTime, receptionTime, ceremonyTime, matchStartTime, lunch: lunchTime, finalsTime, closingTime },
@@ -637,11 +626,6 @@ export default function CreateTournamentPage() {
                     value={prelSets === 1 ? "1セット" : prelSets === 2 ? "2セット" : "3セット先取"}
                     onChange={(v) => handlePrelSetsChange(v === "1セット" ? 1 : v === "2セット" ? 2 : 3)} />
                 </Field>
-                <Field label="得点">
-                  <Chips options={["15点", "21点", "25点"]}
-                    value={prelPoints === 15 ? "15点" : prelPoints === 21 ? "21点" : "25点"}
-                    onChange={(v) => setPrelPoints(v === "15点" ? 15 : v === "21点" ? 21 : 25)} />
-                </Field>
               </div>
               <div className="flex items-center gap-4 flex-wrap">
                 <Toggle label="デュース" checked={prelDeuce} onChange={setPrelDeuce} />
@@ -661,11 +645,6 @@ export default function CreateTournamentPage() {
                         <Chips options={["1セット", "2セット", "3セット先取"]}
                           value={r2Sets === 1 ? "1セット" : r2Sets === 2 ? "2セット" : "3セット先取"}
                           onChange={(v) => { const n = v === "1セット" ? 1 : v === "2セット" ? 2 : 3; setR2Sets(n); setR2Scoring(defaultScoringForSets(n)); }} />
-                      </Field>
-                      <Field label="R2 得点">
-                        <Chips options={["15点", "21点", "25点"]}
-                          value={r2Points === 15 ? "15点" : r2Points === 21 ? "21点" : "25点"}
-                          onChange={(v) => setR2Points(v === "15点" ? 15 : v === "21点" ? 21 : 25)} />
                       </Field>
                       <div className="flex items-center gap-4">
                         <Toggle label="デュース" checked={r2Deuce} onChange={setR2Deuce} />
@@ -739,11 +718,6 @@ export default function CreateTournamentPage() {
                     <Chips options={["1セット", "2セット", "3セット先取"]}
                       value={finalSets === 1 ? "1セット" : finalSets === 2 ? "2セット" : "3セット先取"}
                       onChange={(v) => setFinalSets(v === "1セット" ? 1 : v === "2セット" ? 2 : 3)} />
-                  </Field>
-                  <Field label="得点">
-                    <Chips options={["15点", "21点", "25点"]}
-                      value={finalPoints === 15 ? "15点" : finalPoints === 21 ? "21点" : "25点"}
-                      onChange={(v) => setFinalPoints(v === "15点" ? 15 : v === "21点" ? 21 : 25)} />
                   </Field>
                   <div className="flex items-center gap-4">
                     <Toggle label="デュース" checked={finalDeuce} onChange={setFinalDeuce} />
@@ -877,14 +851,14 @@ export default function CreateTournamentPage() {
                   <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
                     <span className="text-muted">予選</span>
                     <span className="font-medium text-foreground">
-                      {prelRounds > 1 && `${prelRounds}R / `}{setsLabel(prelSets)} / {prelPoints}点先取 / {prelDeuce ? `デュースあり(${prelDeuceCap}点)` : "デュースなし"}
+                      {prelRounds > 1 && `${prelRounds}R / `}{setsLabel(prelSets)} / {prelDeuce ? `デュースあり(${prelDeuceCap}点)` : "デュースなし"}
                     </span>
                   </div>
                   {finalEnabled && (
                     <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
                       <span className="text-muted">決勝</span>
                       <span className="font-medium text-foreground">
-                        {setsLabel(finalSets)} / {finalPoints}点先取 / {finalDeuce ? `デュースあり(${finalDeuceCap}点)` : "デュースなし"}
+                        {setsLabel(finalSets)} / {finalDeuce ? `デュースあり(${finalDeuceCap}点)` : "デュースなし"}
                       </span>
                     </div>
                   )}
