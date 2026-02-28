@@ -4368,36 +4368,63 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildTimelineRow(String time, String label, IconData icon, {bool isLast = false}) {
+    const double dotSize = 10;
+    const double rowMinHeight = 36;
     return IntrinsicHeight(
-      child: Row(children: [
-        SizedBox(
-          width: 56,
-          child: Text(time, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-        ),
-        Column(children: [
-          Container(
-            width: 10, height: 10,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), width: 2),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: rowMinHeight),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 時刻（ドットと中央揃え）
+            SizedBox(
+              width: 56,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(time, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                ),
+              ),
             ),
-          ),
-          if (!isLast)
-            Expanded(child: Container(width: 2, color: AppTheme.primaryColor.withValues(alpha: 0.15))),
-        ]),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(children: [
-              Icon(icon, size: 16, color: AppTheme.textSecondary),
-              const SizedBox(width: 6),
-              Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
-            ]),
-          ),
+            // タイムライン（ドット＋縦線）
+            SizedBox(
+              width: dotSize,
+              child: Column(children: [
+                const SizedBox(height: 6),
+                Container(
+                  width: dotSize, height: dotSize,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), width: 2),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(child: Container(width: 2, color: AppTheme.primaryColor.withValues(alpha: 0.15))),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            // ラベル
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Icon(icon, size: 16, color: AppTheme.textSecondary),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      ]),
+      ),
     );
   }
 
