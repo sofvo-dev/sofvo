@@ -163,6 +163,8 @@ export interface Tournament {
   description?: string;
   area?: string;
   icon?: string;
+  rulesPdfUrl?: string;
+  rulesPdfName?: string;
   createdAt?: unknown;
 }
 
