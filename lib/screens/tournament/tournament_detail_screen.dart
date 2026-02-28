@@ -2643,10 +2643,113 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     }
   }
   // ━━━ 下部ボタン ━━━
+  bool _isTournamentToday() {
+    try {
+      final dateStr = widget.tournament['date'] as String? ?? '';
+      final parts = dateStr.split('/');
+      if (parts.length == 3) {
+        final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        return d == today;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  void _showCheckInOptions() {
+    final teamName = _myTeamIds.isNotEmpty ? _myTeamIds.first : '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(child: Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 20),
+            const Text('チェックイン', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('チェックイン方法を選んでください', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _showMyTeamQR(_myEntryTeamId, '');
+                },
+                icon: const Icon(Icons.qr_code, size: 22),
+                label: const Text('QRコードを見せる', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => CheckInScreen(
+                      tournamentId: _tournamentId,
+                      tournamentName: widget.tournament['name'] as String? ?? '',
+                    ),
+                  ));
+                },
+                icon: const Icon(Icons.qr_code_scanner, size: 22),
+                label: const Text('QRコードを読み取る', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  side: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomButtons() {
     final status = widget.tournament['status'] as String;
     final isEnded = status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了');
     if (isEnded) return const SizedBox.shrink();
+
+    // 大会当日 & エントリー済み → チェックインボタン
+    if (_isTournamentToday() && _myEntryTeamId.isNotEmpty) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _showCheckInOptions,
+            icon: const Icon(Icons.check_circle_outline, size: 20),
+            label: const Text('チェックイン', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.success,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      );
+    }
 
     final currentTeams = widget.tournament['currentTeams'] is int ? widget.tournament['currentTeams'] as int : 0;
     final maxTeams = widget.tournament['maxTeams'] is int ? widget.tournament['maxTeams'] as int : 0;
