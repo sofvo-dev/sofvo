@@ -397,14 +397,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 // 種別
                 _buildDetailInfoRow(Icons.category, '種別', liveType),
                 const Divider(height: 1),
-                // コート数
-                _buildDetailInfoRow(Icons.grid_view, 'コート数', '${liveCourts}コート'),
-                const Divider(height: 1),
                 // 参加費
                 _buildDetailInfoRow(Icons.payments, '参加費', liveEntryFee),
                 const Divider(height: 1),
                 // 募集チーム数
                 _buildDetailInfoRow(Icons.groups, '募集チーム数', '$liveMaxTeams チーム'),
+                const Divider(height: 1),
+                // コート数
+                _buildDetailInfoRow(Icons.grid_view, 'コート数', '${liveCourts}コート'),
                 // 締切
                 if (liveDeadline.isNotEmpty) ...[
                   const Divider(height: 1),
