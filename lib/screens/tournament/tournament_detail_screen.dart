@@ -2466,10 +2466,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         );
                       },
                     ),
-                    if (selectedMembers.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text('${selectedMembers.length}人選択中', style: TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
-                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      selectedMembers.isEmpty
+                          ? '自分＋メンバー2人以上を選択してください'
+                          : '${selectedMembers.length + 1}人（自分＋${selectedMembers.length}人選択中）',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: selectedMembers.length < 2 ? AppTheme.textHint : AppTheme.primaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 24),
 
                     // エントリーボタン
@@ -2481,6 +2488,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           if (teamName.isEmpty) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
                                 const SnackBar(content: Text('チーム名を入力してください'), backgroundColor: AppTheme.warning));
+                            return;
+                          }
+                          // 自分 + 選択メンバーで3人以上必要
+                          if (selectedMembers.length < 2) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('メンバーは自分を含めて3人以上必要です'), backgroundColor: AppTheme.warning));
                             return;
                           }
                           _confirmNewEntry(sheetContext, teamName, selectedMembers);
