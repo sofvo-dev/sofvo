@@ -369,9 +369,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final liveManagement = liveRules['management'] as Map<String, dynamic>? ?? management;
         final liveOther = liveRules['other'] as Map<String, dynamic>? ?? other;
 
+        final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        final liveEditors = List<String>.from(live['editors'] ?? []);
+        final isOrganizerInOverview = live['organizerId'] == uid || liveEditors.contains(uid);
+
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ━━━ 主催者メニュー ━━━
+            if (isOrganizerInOverview) ...[
+              _buildOrganizerActions(live.isNotEmpty ? live : t),
+              const SizedBox(height: 12),
+            ],
+
             // ━━━ Organizer ━━━
             GestureDetector(
               onTap: () {
