@@ -3175,6 +3175,119 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     }
   }
   // ━━━ 下部ボタン ━━━
+
+  Widget _buildOrganizerOnlyBottom(Map<String, dynamic> t) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _showOrganizerMenuSheet(t),
+          icon: const Icon(Icons.admin_panel_settings, size: 20),
+          label: const Text('主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ━━━ 受付メニュー ━━━
+  void _showReceptionMenuSheet(Map<String, dynamic> tournData) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 40),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Center(child: Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: AppTheme.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.how_to_reg, size: 22, color: AppTheme.success),
+              ),
+              const SizedBox(width: 12),
+              const Text('受付メニュー', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Divider(color: Colors.grey[200]),
+          ),
+          // 受付状況サマリー
+          StreamBuilder<QuerySnapshot>(
+            stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
+            builder: (_, entriesSnap) {
+              return StreamBuilder<QuerySnapshot>(
+                stream: _firestore.collection('tournaments').doc(_tournamentId).collection('checkIns').snapshots(),
+                builder: (_, checkInSnap) {
+                  final total = entriesSnap.data?.docs.length ?? 0;
+                  final checked = checkInSnap.data?.docs.length ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: AppTheme.success.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(12)),
+                      child: Row(children: [
+                        SizedBox(
+                          width: 44, height: 44,
+                          child: CircularProgressIndicator(
+                            value: total > 0 ? checked / total : 0,
+                            strokeWidth: 5,
+                            backgroundColor: Colors.grey[200],
+                            valueColor: AlwaysStoppedAnimation<Color>(checked >= total && total > 0 ? AppTheme.success : AppTheme.primaryColor),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('$checked / $total チーム到着', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text(checked >= total && total > 0 ? '全チーム到着済み' : '受付中...', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        ]),
+                      ]),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+          _menuTile(ctx, Icons.qr_code_scanner, 'QRスキャンで受付', '主催者がカメラでチームのQRを読み取る', () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
+          }, color: AppTheme.success),
+          _menuTile(ctx, Icons.checklist, '手動チェックイン', 'リストから手動でチェックイン', () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
+          }, color: AppTheme.success),
+          _menuTile(ctx, Icons.qr_code, '大会QRコードを表示', '参加者がスキャンして自動チェックイン', () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
+          }, color: AppTheme.primaryColor),
+          _menuTile(ctx, Icons.payment, '参加費の確認', '各チームの入金状況を確認', () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData)));
+          }, color: AppTheme.accentColor),
+        ]),
+      ),
+    );
+  }
+
   void _showOrganizerMenuSheet(Map<String, dynamic> tournData) {
     final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
     final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
@@ -3392,28 +3505,85 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final editors = List<String>.from(t['editors'] ?? []);
         final isOrganizer = t['organizerId'] == uid || editors.contains(uid);
 
-        // 主催者 → 主催者メニューボタン
+        // 主催者の場合
         if (isOrganizer) {
-          return Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showOrganizerMenuSheet(t),
-                icon: const Icon(Icons.admin_panel_settings, size: 20),
-                label: const Text('主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
+          final isReceptionPhase = status == '募集中' || status == '満員' || status == '開催中';
+          if (!isReceptionPhase) {
+            // 受付フェーズ以外 → 主催者メニューのみ
+            return _buildOrganizerOnlyBottom(t);
+          }
+          // 受付フェーズ → チェックイン状況を確認して2ボタンor1ボタン
+          return StreamBuilder<QuerySnapshot>(
+            stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
+            builder: (context, entriesSnap) {
+              return StreamBuilder<QuerySnapshot>(
+                stream: _firestore.collection('tournaments').doc(_tournamentId).collection('checkIns').snapshots(),
+                builder: (context, checkInSnap) {
+                  final totalEntries = entriesSnap.data?.docs.length ?? 0;
+                  final checkedIn = checkInSnap.data?.docs.length ?? 0;
+                  final allCheckedIn = totalEntries > 0 && checkedIn >= totalEntries;
+
+                  if (allCheckedIn) {
+                    // 全チーム受付完了 → 主催者メニューのみ
+                    return _buildOrganizerOnlyBottom(t);
+                  }
+
+                  // 受付中 → 受付メニュー＋主催者メニューの2ボタン
+                  return Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+                    ),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      // 受付状況バー
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(color: AppTheme.success.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                        child: Row(children: [
+                          Icon(Icons.how_to_reg, size: 16, color: AppTheme.success),
+                          const SizedBox(width: 8),
+                          Text('受付状況: $checkedIn/$totalEntries チーム', style: TextStyle(fontSize: 13, color: AppTheme.success, fontWeight: FontWeight.w600)),
+                          const Spacer(),
+                          Text('${totalEntries > 0 ? (checkedIn * 100 ~/ totalEntries) : 0}%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.success)),
+                        ]),
+                      ),
+                      const SizedBox(height: 10),
+                      // 2ボタン
+                      Row(children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showReceptionMenuSheet(t),
+                            icon: const Icon(Icons.how_to_reg, size: 18),
+                            label: const Text('受付メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.success, foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showOrganizerMenuSheet(t),
+                            icon: const Icon(Icons.admin_panel_settings, size: 18),
+                            label: const Text('主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ]),
+                    ]),
+                  );
+                },
+              );
+            },
           );
         }
 
