@@ -113,25 +113,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         MaterialPageRoute(
             builder: (_) => TournamentDetailScreen(
                   tournament: {
-                    'id': t['id'],
-                    'name': t['title'] ?? '',
-                    'date': t['date'] ?? '',
-                    'venue': t['location'] ?? '',
-                    'courts': t['courts'] ?? 0,
-                    'type': t['type'] ?? '',
-                    'format': t['format'] ?? '',
-                    'currentTeams': t['currentTeams'] ?? 0,
-                    'maxTeams': t['maxTeams'] ?? 8,
-                    'fee': (() { final f = t['entryFee']; return f is int ? '¥$f' : (f ?? '').toString(); })(),
-                    'status': status,
-                    'statusColor': statusColor,
-                    'deadline': '',
-                    'organizer': t['organizerName'] ?? '',
-                    'isFollowing': true,
-                    'organizerId': t['organizerId'] ?? '',
-                    'rules': t['rules'] ?? {},
-                    'venueAddress': t['venueAddress'] ?? '',
-                    'location': t['location'] ?? '',
+                    ...t, 'name': t['title'] ?? '', 'isFollowing': true,
                   },
                 )));
   }

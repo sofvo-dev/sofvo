@@ -929,15 +929,21 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final tc = _typeColor(tournamentType);
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         final tid = bm['targetId'] ?? '';
         if (tid.isNotEmpty) {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => TournamentDetailScreen(tournament: {
-              'id': tid, 'name': bm['title'] ?? '', 'date': date,
-              'venue': bm['location'] ?? '', 'type': tournamentType, 'status': status,
-            }),
-          ));
+          final doc = await FirebaseFirestore.instance.collection('tournaments').doc(tid).get();
+          if (doc.exists && mounted) {
+            final data = doc.data() as Map<String, dynamic>;
+            final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+            final orgId = data['organizerId'] ?? '';
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => TournamentDetailScreen(tournament: {
+                ...data, 'id': tid, 'name': data['title'] ?? '',
+                'isFollowing': _followingIds.contains(orgId) || orgId == uid,
+              }),
+            ));
+          }
         }
       },
       child: Container(
@@ -1223,10 +1229,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(
         builder: (_) => TournamentDetailScreen(tournament: {
-          'id': doc.id, 'name': title, 'date': date, 'venue': location,
-          'courts': 0, 'type': type, 'currentTeams': currentTeams,
-          'maxTeams': maxTeams, 'fee': entryFee, 'status': status,
-          'deadline': deadline, 'organizer': organizerName, 'isFollowing': isFollowing,
+          ...data, 'id': doc.id, 'name': data['title'] ?? '', 'isFollowing': isFollowing,
         }),
       )),
       child: Container(
