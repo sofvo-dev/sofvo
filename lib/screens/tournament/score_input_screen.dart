@@ -30,6 +30,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   int _totalSets = 2;
   List<TextEditingController> _ctrlA = [];
   List<TextEditingController> _ctrlB = [];
+  List<FocusNode> _focusA = [];
+  List<FocusNode> _focusB = [];
   List<bool> _setConfirmed = [];
   bool _refereeConfirmed = false;
   bool _coachAConfirmed = false;
@@ -37,6 +39,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   bool _saving = false;
   bool _matchEnded = false;
   String _winner = '';
+  int _activeSetIndex = -1;
 
   @override
   void initState() {
@@ -48,6 +51,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   void dispose() {
     for (var c in _ctrlA) { c.dispose(); }
     for (var c in _ctrlB) { c.dispose(); }
+    for (var f in _focusA) { f.dispose(); }
+    for (var f in _focusB) { f.dispose(); }
     super.dispose();
   }
 
@@ -90,18 +95,26 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
 
     final ctrlA = <TextEditingController>[];
     final ctrlB = <TextEditingController>[];
+    final focusA = <FocusNode>[];
+    final focusB = <FocusNode>[];
     final confirmed = <bool>[];
 
     for (int i = 0; i < setCount; i++) {
       if (i < existingSets.length && existingSets[i] is Map) {
         ctrlA.add(TextEditingController(text: '${existingSets[i]['a'] ?? ''}'));
         ctrlB.add(TextEditingController(text: '${existingSets[i]['b'] ?? ''}'));
-        confirmed.add(false); // re-validate on load
+        confirmed.add(false);
       } else {
         ctrlA.add(TextEditingController());
         ctrlB.add(TextEditingController());
         confirmed.add(false);
       }
+      final fA = FocusNode();
+      final fB = FocusNode();
+      fA.addListener(() { if (fA.hasFocus && mounted) setState(() => _activeSetIndex = i); });
+      fB.addListener(() { if (fB.hasFocus && mounted) setState(() => _activeSetIndex = i); });
+      focusA.add(fA);
+      focusB.add(fB);
     }
 
     setState(() {
@@ -110,6 +123,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       _totalSets = setCount;
       _ctrlA = ctrlA;
       _ctrlB = ctrlB;
+      _focusA = focusA;
+      _focusB = focusB;
       _setConfirmed = confirmed;
       _refereeConfirmed = matchData['refereeConfirmed'] ?? false;
       _coachAConfirmed = matchData['confirmedByA'] ?? false;
@@ -341,19 +356,40 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   Widget _buildSetRow(int setIndex) {
     final confirmed = _setConfirmed[setIndex];
     final prevConfirmed = setIndex == 0 || _setConfirmed[setIndex - 1];
+    final isActive = _activeSetIndex == setIndex && !confirmed && prevConfirmed;
+    final isInputTarget = !confirmed && prevConfirmed;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: confirmed ? Colors.white.withValues(alpha:0.08) : Colors.white.withValues(alpha:0.04),
+        color: confirmed ? Colors.white.withValues(alpha:0.08) : (isActive ? Colors.white.withValues(alpha:0.10) : Colors.white.withValues(alpha:0.04)),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: confirmed ? Colors.greenAccent.withValues(alpha:0.4) : Colors.white12),
+        border: Border.all(
+          color: confirmed ? Colors.greenAccent.withValues(alpha:0.4) : (isActive ? const Color(0xFF6CA6FF).withValues(alpha: 0.6) : Colors.white12),
+          width: isActive ? 2 : 1,
+        ),
       ),
       child: Column(children: [
         Row(children: [
           Text('第${setIndex + 1}セット', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
-              color: confirmed ? Colors.greenAccent : Colors.white70)),
+              color: confirmed ? Colors.greenAccent : (isActive ? const Color(0xFF6CA6FF) : Colors.white70))),
+          if (isInputTarget && !confirmed && !isActive) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+              child: Text('タップして入力', style: TextStyle(fontSize: 10, color: Colors.white54)),
+            ),
+          ],
+          if (isActive) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: const Color(0xFF6CA6FF), borderRadius: BorderRadius.circular(4)),
+              child: const Text('入力中', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
           const Spacer(),
           if (confirmed)
             const Row(mainAxisSize: MainAxisSize.min, children: [
@@ -366,13 +402,14 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
         Row(children: [
           Expanded(child: TextField(
             controller: _ctrlA[setIndex],
+            focusNode: _focusA.length > setIndex ? _focusA[setIndex] : null,
             enabled: !confirmed && prevConfirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFF6CA6FF)),
             decoration: InputDecoration(
               hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha:0.15), fontSize: 36),
-              filled: true, fillColor: Colors.white.withValues(alpha:0.05),
+              filled: true, fillColor: isActive ? Colors.white.withValues(alpha:0.08) : Colors.white.withValues(alpha:0.05),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
@@ -384,13 +421,14 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           ),
           Expanded(child: TextField(
             controller: _ctrlB[setIndex],
+            focusNode: _focusB.length > setIndex ? _focusB[setIndex] : null,
             enabled: !confirmed && prevConfirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFFFF6C6C)),
             decoration: InputDecoration(
               hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha:0.15), fontSize: 36),
-              filled: true, fillColor: Colors.white.withValues(alpha:0.05),
+              filled: true, fillColor: isActive ? Colors.white.withValues(alpha:0.08) : Colors.white.withValues(alpha:0.05),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),

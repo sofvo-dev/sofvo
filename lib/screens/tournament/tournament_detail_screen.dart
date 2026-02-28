@@ -43,6 +43,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   bool _isBoardTeam = false; // false=大会掲示板, true=チーム掲示板
   XFile? _selectedBoardImage;
   String _myEntryTeamId = "";
+  bool _showOnlyMyCourts = false;
+  Set<String> _myCourtIds = {};
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
@@ -946,6 +948,38 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // マイコートフィルター
+                if (_myTeamIds.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _showOnlyMyCourts = !_showOnlyMyCourts),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _showOnlyMyCourts ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _showOnlyMyCourts ? AppTheme.primaryColor : Colors.grey[300]!),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(
+                            _showOnlyMyCourts ? Icons.filter_alt : Icons.filter_alt_outlined,
+                            size: 18, color: _showOnlyMyCourts ? AppTheme.primaryColor : AppTheme.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _showOnlyMyCourts ? '自分のコートのみ表示中' : '自分のコートだけ表示',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              color: _showOnlyMyCourts ? AppTheme.primaryColor : AppTheme.textSecondary),
+                          ),
+                          if (_showOnlyMyCourts) ...[
+                            const SizedBox(width: 6),
+                            Icon(Icons.close, size: 16, color: AppTheme.primaryColor),
+                          ],
+                        ]),
+                      ),
+                    ),
+                  ),
                 // Show each round
                 ...roundsSnap.data!.docs.map((roundDoc) {
                   final roundData = roundDoc.data() as Map<String, dynamic>;
@@ -1745,12 +1779,31 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             courtGroups[courtId]!.add(m);
           }
 
+          // 自分のチームが属するコートを特定
+          final myCourts = <String>{};
+          for (var entry in courtGroups.entries) {
+            for (var m in entry.value) {
+              final md = m.data() as Map<String, dynamic>;
+              if (_myTeamIds.contains(md['teamAId'] ?? '') || _myTeamIds.contains(md['teamBId'] ?? '') ||
+                  _myTeamIds.contains(md['refereeTeamId'] ?? '') || _myTeamIds.contains(md['subRefereeTeamId'] ?? '')) {
+                myCourts.add(entry.key);
+                break;
+              }
+            }
+          }
+          _myCourtIds = myCourts;
+
           final sortedCourts = courtGroups.entries.toList()..sort((a, b) {
             final aNum = (a.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
             final bNum = (b.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
             return (aNum as int).compareTo(bNum as int);
           });
-          return Column(children: sortedCourts.map((court) {
+
+          final filteredCourts = _showOnlyMyCourts
+              ? sortedCourts.where((court) => myCourts.contains(court.key)).toList()
+              : sortedCourts;
+
+          return Column(children: filteredCourts.map((court) {
             final courtNum = (court.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
             return _buildCourtCard(court.key, courtNum, court.value, roundId, isOrganizer);
           }).toList());
@@ -1763,7 +1816,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             .collection('standings').snapshots(),
         builder: (context, standSnap) {
           if (!standSnap.hasData || standSnap.data!.docs.isEmpty) return const SizedBox();
-          return Column(children: standSnap.data!.docs.map((courtDoc) {
+          final standDocs = _showOnlyMyCourts
+              ? standSnap.data!.docs.where((d) => _myCourtIds.contains(d.id)).toList()
+              : standSnap.data!.docs;
+          return Column(children: standDocs.map((courtDoc) {
             final courtData = courtDoc.data() as Map<String, dynamic>;
             return _buildStandingsCard(courtDoc.id, courtData['courtNumber'] ?? 0, roundId);
           }).toList());
@@ -1774,17 +1830,38 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildCourtCard(String courtId, int courtNum, List<QueryDocumentSnapshot> matches, String roundId, bool isOrganizer) {
+    // 自分のチームがこのコートに属しているか
+    final isMyCourt = matches.any((m) {
+      final md = m.data() as Map<String, dynamic>;
+      return _myTeamIds.contains(md['teamAId'] ?? '') || _myTeamIds.contains(md['teamBId'] ?? '') ||
+             _myTeamIds.contains(md['refereeTeamId'] ?? '') || _myTeamIds.contains(md['subRefereeTeamId'] ?? '');
+    });
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[200]!)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isMyCourt ? AppTheme.primaryColor.withValues(alpha: 0.5) : Colors.grey[200]!, width: isMyCourt ? 1.5 : 1),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: Colors.grey[50], borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+          decoration: BoxDecoration(
+            color: isMyCourt ? AppTheme.primaryColor.withValues(alpha: 0.06) : Colors.grey[50],
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          ),
           child: Row(children: [
             Icon(Icons.sports_volleyball, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
             Text('${String.fromCharCode(64 + courtNum)}コート', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            if (isMyCourt) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(4)),
+                child: const Text('MY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+            ],
             const Spacer(),
             Text('${matches.length}試合', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
@@ -1803,19 +1880,41 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           }).firstOrNull : null;
           final prevDone = matchOrd <= 1 || (prevMatch != null && (prevMatch.data() as Map<String, dynamic>)['status'] == 'completed');
           final isReferee = _myTeamIds.contains(m['refereeTeamId'] ?? '') || _myTeamIds.contains(m['subRefereeTeamId'] ?? '');
+          final isMyMatch = _myTeamIds.contains(m['teamAId'] ?? '') || _myTeamIds.contains(m['teamBId'] ?? '') || isReferee;
           final canInput = isOrganizer || isReferee;
+          final isCompleted = status == 'completed';
+          final isNextToInput = !isCompleted && prevDone && isMyMatch;
           return InkWell(
-            onTap: canInput
-              ? (prevDone ? () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                    tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId)));
-                } : () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: Colors.orange)); })
-              : null,
+            onTap: () {
+              if (isCompleted && !isOrganizer) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです。編集は主催者のみ可能です"), backgroundColor: Colors.orange));
+                return;
+              }
+              if (!canInput) return;
+              if (!prevDone) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: Colors.orange));
+                return;
+              }
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+                tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId)));
+            },
+            child: Container(
+            color: isNextToInput ? AppTheme.primaryColor.withValues(alpha: 0.06) : null,
             child: Column(children: [
               Padding(
                 padding: const EdgeInsets.only(left: 14, top: 8, bottom: 2),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                  Row(children: [
+                    Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isNextToInput ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                    if (isNextToInput) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(4)),
+                        child: const Text('入力待ち', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
+                  ]),
                   Row(children: [
                     Text("主審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
                     Text(m['refereeTeamName'] ?? '未定', style: TextStyle(fontSize: 13, color: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint, fontWeight: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
@@ -1854,7 +1953,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ]),
               ),
               Divider(height: 1, thickness: 1, color: Colors.grey[300]),
-            ]),
+            ])),
           );
         }),
       ]),
