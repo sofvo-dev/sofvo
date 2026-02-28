@@ -536,6 +536,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final r2Data = hasR2 ? (livePrelim['round2'] as Map<String, dynamic>? ?? {}) : <String, dynamic>{};
                   final r1Sets = r1Data['sets'] ?? 2;
                   final r2Sets = r2Data['sets'] ?? r1Sets;
+                  final r1Points = r1Data['points'] ?? 25;
+                  final r2Points = r2Data['points'] ?? r1Points;
                   final r1Deuce = r1Data['deuce'] ?? false;
                   final r2Deuce = r2Data['deuce'] ?? r1Deuce;
                   final r1DeuceCap = r1Data['deuceCap'] ?? 17;
@@ -549,13 +551,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       AppTheme.primaryColor,
                       [
                         _buildRuleTableRow('セット形式', _setFormatDisplayLabel(r1Sets)),
-                        _buildRuleTableRow('得点', '15点先取'),
+                        _buildRuleTableRow('得点', '${r1Points}点先取'),
                         _buildRuleTableRow('デュース', r1Deuce ? 'あり（${r1DeuceCap}点キャップ）' : 'なし'),
                       ],
                     );
                   } else {
                     // 2ラウンド → ルールが同じなら1つにまとめる
-                    final sameRules = r1Sets == r2Sets && r1Deuce == r2Deuce && r1DeuceCap == r2DeuceCap;
+                    final sameRules = r1Sets == r2Sets && r1Points == r2Points && r1Deuce == r2Deuce && r1DeuceCap == r2DeuceCap;
                     if (sameRules) {
                       return _buildRuleSectionCard(
                         '予選（ラウンド1・2共通）',
@@ -563,7 +565,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         AppTheme.primaryColor,
                         [
                           _buildRuleTableRow('セット形式', _setFormatDisplayLabel(r1Sets)),
-                          _buildRuleTableRow('得点', '15点先取'),
+                          _buildRuleTableRow('得点', '${r1Points}点先取'),
                           _buildRuleTableRow('デュース', r1Deuce ? 'あり（${r1DeuceCap}点キャップ）' : 'なし'),
                         ],
                       );
@@ -575,7 +577,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         AppTheme.primaryColor,
                         [
                           _buildRuleTableRow('セット形式', _setFormatDisplayLabel(r1Sets)),
-                          _buildRuleTableRow('得点', '15点先取'),
+                          _buildRuleTableRow('得点', '${r1Points}点先取'),
                           _buildRuleTableRow('デュース', r1Deuce ? 'あり（${r1DeuceCap}点キャップ）' : 'なし'),
                         ],
                       ),
@@ -586,7 +588,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         AppTheme.info,
                         [
                           _buildRuleTableRow('セット形式', _setFormatDisplayLabel(r2Sets)),
-                          _buildRuleTableRow('得点', '15点先取'),
+                          _buildRuleTableRow('得点', '${r2Points}点先取'),
                           _buildRuleTableRow('デュース', r2Deuce ? 'あり（${r2DeuceCap}点キャップ）' : 'なし'),
                         ],
                       ),
