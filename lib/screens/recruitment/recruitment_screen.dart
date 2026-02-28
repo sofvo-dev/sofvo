@@ -271,7 +271,6 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
             int.parse(parts[2]));
         final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
         daysLeft = d.difference(today).inDays;
-        if (daysLeft < 0) daysLeft = 0;
         month = '${int.parse(parts[1])}月';
         day = parts[2];
         const w = ['月', '火', '水', '木', '金', '土', '日'];
@@ -320,7 +319,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
-                  color: daysLeft == 0
+                  color: daysLeft <= 0
                       ? AppTheme.error.withValues(alpha: 0.2)
                       : Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -328,7 +327,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.timer_outlined,
                       size: 13,
-                      color: daysLeft == 0
+                      color: daysLeft <= 0
                           ? const Color(0xFFFF8A80)
                           : Colors.white),
                   const SizedBox(width: 4),
@@ -336,12 +335,12 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                       daysLeft == 0
                           ? '本日！'
                           : daysLeft < 0
-                              ? '日程未定'
+                              ? '${-daysLeft}日前'
                               : 'あと$daysLeft日',
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: daysLeft == 0
+                          color: daysLeft <= 0
                               ? const Color(0xFFFF8A80)
                               : Colors.white)),
                 ]),
@@ -367,20 +366,50 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                     const SizedBox(height: 8),
                     _infoRow(Icons.location_on_outlined, t['location'] ?? ''),
                     const SizedBox(height: 4),
+                    if ((t['receptionTime'] ?? '').toString().isNotEmpty || (t['matchStartTime'] ?? '').toString().isNotEmpty) ...[
+                      Row(children: [
+                        if ((t['receptionTime'] ?? '').toString().isNotEmpty) ...[
+                          Icon(Icons.how_to_reg, size: 13, color: AppTheme.primaryColor),
+                          const SizedBox(width: 4),
+                          Text('受付 ${t['receptionTime']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+                        ],
+                        if ((t['receptionTime'] ?? '').toString().isNotEmpty && (t['matchStartTime'] ?? '').toString().isNotEmpty)
+                          const SizedBox(width: 10),
+                        if ((t['matchStartTime'] ?? '').toString().isNotEmpty) ...[
+                          Icon(Icons.sports_volleyball, size: 13, color: AppTheme.warning),
+                          const SizedBox(width: 4),
+                          Text('試合 ${t['matchStartTime']}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.warning)),
+                        ],
+                      ]),
+                      const SizedBox(height: 4),
+                    ],
                     _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
                     const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                          color: roleColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Text(roleLabel,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: roleColor)),
-                    ),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: roleColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text(roleLabel,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: roleColor)),
+                      ),
+                      if ((t['type'] ?? '').toString().isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(t['type'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                        ),
+                      ],
+                    ]),
                   ])),
               Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
             ]),
@@ -475,8 +504,38 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                   const SizedBox(height: 6),
                   _infoRow(Icons.location_on_outlined, t['location'] ?? ''),
                   const SizedBox(height: 4),
+                  if ((t['receptionTime'] ?? '').toString().isNotEmpty || (t['matchStartTime'] ?? '').toString().isNotEmpty) ...[
+                    Row(children: [
+                      if ((t['receptionTime'] ?? '').toString().isNotEmpty) ...[
+                        Icon(Icons.how_to_reg, size: 13, color: AppTheme.primaryColor),
+                        const SizedBox(width: 4),
+                        Text('受付 ${t['receptionTime']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+                      ],
+                      if ((t['receptionTime'] ?? '').toString().isNotEmpty && (t['matchStartTime'] ?? '').toString().isNotEmpty)
+                        const SizedBox(width: 10),
+                      if ((t['matchStartTime'] ?? '').toString().isNotEmpty) ...[
+                        Icon(Icons.sports_volleyball, size: 13, color: AppTheme.warning),
+                        const SizedBox(width: 4),
+                        Text('試合 ${t['matchStartTime']}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.warning)),
+                      ],
+                    ]),
+                    const SizedBox(height: 4),
+                  ],
                   _infoRow(
                       Icons.groups_outlined, t['teamName'] ?? ''),
+                  if ((t['type'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(t['type'], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                      ),
+                    ]),
+                  ],
                 ])),
             Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
           ]),
