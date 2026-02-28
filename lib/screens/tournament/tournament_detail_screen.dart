@@ -386,26 +386,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               titleIcon: Icons.info_outline,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // 日時
-                _buildInfoRow(Icons.calendar_today, '日時', liveDate),
+                _buildDetailInfoRow(Icons.calendar_today, '日時', liveDate),
                 const Divider(height: 1),
                 // 会場
-                _buildInfoRow(Icons.location_on, '会場', liveLocation, subtitle: liveAddress.isNotEmpty ? liveAddress : null, onSubtitleTap: liveAddress.isNotEmpty ? () {
+                _buildDetailInfoRow(Icons.location_on, '会場', liveLocation, subtitle: liveAddress.isNotEmpty ? liveAddress : null, onSubtitleTap: liveAddress.isNotEmpty ? () {
                   final encoded = Uri.encodeComponent(liveAddress);
                   launchUrl(Uri.parse('https://www.google.com/maps/search/$encoded'), mode: LaunchMode.externalApplication);
                 } : null),
                 const Divider(height: 1),
                 // 種別
-                _buildInfoRow(Icons.category, '種別', liveType),
+                _buildDetailInfoRow(Icons.category, '種別', liveType),
                 const Divider(height: 1),
                 // コート数
-                _buildInfoRow(Icons.grid_view, 'コート数', '${liveCourts}コート'),
+                _buildDetailInfoRow(Icons.grid_view, 'コート数', '${liveCourts}コート'),
                 const Divider(height: 1),
                 // 参加費
-                _buildInfoRow(Icons.payments, '参加費', liveEntryFee),
+                _buildDetailInfoRow(Icons.payments, '参加費', liveEntryFee),
                 // 締切
                 if (liveDeadline.isNotEmpty) ...[
                   const Divider(height: 1),
-                  _buildInfoRow(Icons.event_busy, 'エントリー締切', liveDeadline, valueColor: AppTheme.warning),
+                  _buildDetailInfoRow(Icons.event_busy, 'エントリー締切', liveDeadline, valueColor: AppTheme.warning),
                 ],
               ]),
             ),
@@ -4359,7 +4359,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, {String? subtitle, VoidCallback? onSubtitleTap, Color? valueColor}) {
+  Widget _buildDetailInfoRow(IconData icon, String label, String value, {String? subtitle, VoidCallback? onSubtitleTap, Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
