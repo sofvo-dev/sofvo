@@ -423,8 +423,23 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 _buildInfoRow(Icons.category, '種別', t['type'] ?? '混合'),
                 _buildDivider(),
                 _buildInfoRow(Icons.payments, '参加費', (() { final f = t['entryFee'] ?? t['fee']; return f is int ? '¥$f' : (f ?? '').toString(); })()),
+                if ((live['deadline'] ?? t['deadline'] ?? '').toString().isNotEmpty) ...[
+                  _buildDivider(),
+                  _buildInfoRow(Icons.event_busy, 'エントリー締切', live['deadline'] ?? t['deadline'] ?? ''),
+                ],
               ]),
             ),
+
+            // ━━━ Description ━━━
+            if ((live['description'] ?? t['description'] ?? '').toString().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildCard(
+                title: '大会説明・備考',
+                titleIcon: Icons.description_outlined,
+                child: Text(live['description'] ?? t['description'] ?? '',
+                    style: const TextStyle(fontSize: 14, height: 1.6, color: AppTheme.textPrimary)),
+              ),
+            ],
             const SizedBox(height: 12),
 
             // ━━━ Schedule ━━━
