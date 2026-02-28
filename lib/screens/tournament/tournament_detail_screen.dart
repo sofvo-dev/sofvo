@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +8,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'score_input_screen.dart';
 import 'checkin_screen.dart';
 import 'mvp_voting_screen.dart';
@@ -910,6 +913,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             _actionChip('順位決定戦生成', Icons.emoji_events, _generateFinals),
           _actionChip('リセット', Icons.refresh, _resetRounds),
           _actionChip('編集者管理', Icons.people_outline, _showEditorsSheet),
+          _actionChip('CSV登録', Icons.upload_file, _importTeamsFromCsv),
         ]),
         if (tournData['status'] == '開催中' || tournData['status'] == '決勝中' || tournData['status'] == '順位決定中') ...[
           const SizedBox(height: 10),
@@ -945,6 +949,155 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         ]),
       ),
     );
+  }
+
+  Future<void> _importTeamsFromCsv() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return;
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.first.bytes;
+    if (bytes == null) return;
+
+    String csvString;
+    try {
+      csvString = utf8.decode(bytes);
+    } catch (_) {
+      // Shift_JIS等のエンコーディングの場合はlatin1でデコード
+      csvString = latin1.decode(bytes);
+    }
+
+    final rows = const CsvToListConverter().convert(csvString);
+    if (rows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CSVファイルが空です'), backgroundColor: AppTheme.error),
+        );
+      }
+      return;
+    }
+
+    // ヘッダー行をスキップするか判定
+    final firstRow = rows.first;
+    final hasHeader = firstRow.isNotEmpty &&
+        (firstRow[0].toString().contains('チーム') || firstRow[0].toString().toLowerCase().contains('team'));
+    final dataRows = hasHeader ? rows.skip(1).toList() : rows;
+
+    if (dataRows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('登録するチームがありません'), backgroundColor: AppTheme.error),
+        );
+      }
+      return;
+    }
+
+    // パース結果をプレビュー
+    final teams = <Map<String, dynamic>>[];
+    for (final row in dataRows) {
+      if (row.isEmpty || row[0].toString().trim().isEmpty) continue;
+      final teamName = row[0].toString().trim();
+      final members = <String, String>{};
+      for (int i = 1; i < row.length; i++) {
+        final name = row[i].toString().trim();
+        if (name.isNotEmpty) {
+          members['p${i}'] = name;
+        }
+      }
+      teams.add({
+        'teamName': teamName,
+        'members': members,
+        'memberCount': members.length,
+      });
+    }
+
+    if (teams.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('有効なチームデータがありません'), backgroundColor: AppTheme.error),
+        );
+      }
+      return;
+    }
+
+    // プレビューダイアログ
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.upload_file, color: AppTheme.primaryColor),
+          const SizedBox(width: 8),
+          Text('${teams.length}チームを登録', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ]),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: teams.length,
+            itemBuilder: (ctx, i) {
+              final t = teams[i];
+              final members = t['members'] as Map<String, String>;
+              return ListTile(
+                dense: true,
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  child: Text('${i + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                ),
+                title: Text(t['teamName'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                subtitle: Text(members.values.join(', '), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+            child: const Text('登録する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Firestoreに一括登録
+    int count = 0;
+    final batch = _firestore.batch();
+    for (final t in teams) {
+      final entryRef = _firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc();
+      batch.set(entryRef, {
+        'teamId': entryRef.id,
+        'teamName': t['teamName'],
+        'leaderName': (t['members'] as Map<String, String>).values.firstOrNull ?? '',
+        'memberCount': t['memberCount'],
+        'memberNames': t['members'],
+        'enteredBy': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      count++;
+    }
+    // currentTeamsを更新
+    final tournRef = _firestore.collection('tournaments').doc(_tournamentId);
+    batch.update(tournRef, {'currentTeams': FieldValue.increment(count)});
+
+    await batch.commit();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$countチームをCSVから登録しました'), backgroundColor: AppTheme.success),
+      );
+    }
   }
 
   void _showEditorsSheet() {
