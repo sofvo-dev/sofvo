@@ -369,19 +369,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final liveManagement = liveRules['management'] as Map<String, dynamic>? ?? management;
         final liveOther = liveRules['other'] as Map<String, dynamic>? ?? other;
 
-        final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-        final liveEditors = List<String>.from(live['editors'] ?? []);
-        final isOrganizerInOverview = live['organizerId'] == uid || liveEditors.contains(uid);
-
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ━━━ 主催者メニュー ━━━
-            if (isOrganizerInOverview) ...[
-              _buildOrganizerActions(live.isNotEmpty ? live : t),
-              const SizedBox(height: 12),
-            ],
-
             // ━━━ Organizer ━━━
             GestureDetector(
               onTap: () {
@@ -868,9 +858,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Organizer actions
-                if (isOrganizer) _buildOrganizerActions(tournData),
-
                 // Show each round
                 ...roundsSnap.data!.docs.map((roundDoc) {
                   final roundData = roundDoc.data() as Map<String, dynamic>;
@@ -3254,6 +3241,95 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     }
   }
   // ━━━ 下部ボタン ━━━
+  void _showOrganizerMenuSheet(Map<String, dynamic> tournData) {
+    final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
+    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
+    final prelimRounds = preliminary['rounds'] ?? 1;
+    final finalEnabled = (rules['final'] as Map<String, dynamic>?)?['enabled'] ?? true;
+    final status = tournData['status'] ?? '準備中';
+    final isRunning = status == '開催中' || status == '決勝中' || status == '順位決定中';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            Row(children: [
+              Icon(Icons.admin_panel_settings, size: 22, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              const Text('主催者メニュー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 20),
+
+            // ━━━ 大会情報 ━━━
+            _menuSection('大会情報', Icons.info_outline, [
+              _menuItem('編集', Icons.edit_outlined, () { Navigator.pop(ctx); _showEditTournamentSheet(tournData); }),
+              _menuItem('ステータス変更', Icons.sync_outlined, () { Navigator.pop(ctx); _showStatusDialog(status); }),
+            ]),
+            const SizedBox(height: 16),
+
+            // ━━━ 参加者管理 ━━━
+            _menuSection('参加者管理', Icons.groups_outlined, [
+              _menuItem('受付管理', Icons.qr_code_scanner, () { Navigator.pop(ctx); Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))); }),
+              _menuItem('CSV登録', Icons.upload_file, () { Navigator.pop(ctx); _importTeamsFromCsv(); }),
+              _menuItem('テストチーム追加', Icons.group_add, () { Navigator.pop(ctx); _addTestTeams(); }),
+            ]),
+            const SizedBox(height: 16),
+
+            // ━━━ 運営 ━━━
+            _menuSection('運営', Icons.settings_outlined, [
+              _menuItem('収支管理', Icons.account_balance_wallet_outlined, () { Navigator.pop(ctx); Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))); }),
+              _menuItem('権限管理', Icons.people_outline, () { Navigator.pop(ctx); _showEditorsSheet(); }),
+              _menuItem('お知らせ送信', Icons.campaign_outlined, () { Navigator.pop(ctx); _showAnnouncementDialog(); }),
+            ]),
+            const SizedBox(height: 16),
+
+            // ━━━ 試合進行 ━━━
+            _menuSection('試合進行', Icons.sports_volleyball_outlined, [
+              if (prelimRounds >= 2)
+                _menuItem('予選2 生成', Icons.replay, () { Navigator.pop(ctx); _generateMatches(2); }),
+              if (finalEnabled)
+                _menuItem('順位決定戦生成', Icons.emoji_events, () { Navigator.pop(ctx); _generateFinals(); }),
+              _menuItem('リセット', Icons.refresh, () { Navigator.pop(ctx); _resetRounds(); }),
+            ]),
+
+            // ━━━ 大会を終了する ━━━
+            if (isRunning) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () { Navigator.pop(ctx); _showEndTournamentDialog(); },
+                  icon: const Icon(Icons.flag, size: 18),
+                  label: const Text('大会を終了する', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.error, foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+
+            // ━━━ その他 ━━━
+            const SizedBox(height: 16),
+            _menuSection('その他', Icons.more_horiz, [
+              _menuItem('テンプレートに保存', Icons.bookmark_add_outlined, () { Navigator.pop(ctx); _saveAsTemplate(tournData); }),
+              _menuItem('削除', Icons.delete_outline, () { Navigator.pop(ctx); _showDeleteDialog(tournData['title'] ?? ''); }, color: AppTheme.error),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+
   bool _isTournamentToday() {
     try {
       final dateStr = widget.tournament['date'] as String? ?? '';
@@ -3333,144 +3409,180 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildBottomButtons() {
-    final status = widget.tournament['status'] as String;
-    final isEnded = status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了');
-    if (isEnded) return const SizedBox.shrink();
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _firestore.collection('tournaments').doc(_tournamentId).snapshots(),
+      builder: (context, snap) {
+        final live = (snap.hasData && snap.data!.exists) ? snap.data!.data() as Map<String, dynamic>? ?? {} : <String, dynamic>{};
+        final t = live.isNotEmpty ? live : widget.tournament;
+        final status = t['status'] as String? ?? '準備中';
+        final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        final editors = List<String>.from(t['editors'] ?? []);
+        final isOrganizer = t['organizerId'] == uid || editors.contains(uid);
 
-    // 大会当日 & エントリー済み → チェックインボタン
-    if (_isTournamentToday() && _myEntryTeamId.isNotEmpty) {
-      return Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _showCheckInOptions,
-            icon: const Icon(Icons.check_circle_outline, size: 20),
-            label: const Text('チェックイン', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.success,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // 主催者 → 主催者メニューボタン
+        if (isOrganizer) {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
             ),
-          ),
-        ),
-      );
-    }
-
-    final currentTeams = widget.tournament['currentTeams'] is int ? widget.tournament['currentTeams'] as int : 0;
-    final maxTeams = widget.tournament['maxTeams'] is int ? widget.tournament['maxTeams'] as int : 0;
-    final isFull = maxTeams > 0 && currentTeams >= maxTeams;
-
-    // 満員の場合はキャンセル待ちUI表示
-    if (isFull || status == '満員') {
-      return Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
+            child: SizedBox(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.warning.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(children: [
-                Icon(Icons.info_outline, size: 16, color: AppTheme.warning),
-                const SizedBox(width: 8),
-                Text('現在満員です ($currentTeams/$maxTeamsチーム)', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _showWaitlistSheet(context),
-                icon: const Icon(Icons.hourglass_empty, size: 18),
-                label: const Text('キャンセル待ちに登録', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.warning,
-                  side: const BorderSide(color: AppTheme.warning, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              child: ElevatedButton.icon(
+                onPressed: () => _showOrganizerMenuSheet(t),
+                icon: const Icon(Icons.admin_panel_settings, size: 20),
+                label: const Text('主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
-          ],
-        ),
-      );
-    }
+          );
+        }
 
-    final isDisabled = false;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
-      ),
-      child: _isFollowing
-          ? Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: isDisabled ? null : () => _showRecruitSheet(context),
-                    icon: const Icon(Icons.person_add, size: 18),
-                    label: const Text('メンバー募集する', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
-                      side: const BorderSide(color: AppTheme.primaryColor, width: 2),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
+        final isEnded = status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了');
+        if (isEnded) return const SizedBox.shrink();
+
+        // 大会当日 & エントリー済み → チェックインボタン
+        if (_isTournamentToday() && _myEntryTeamId.isNotEmpty) {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _showCheckInOptions,
+                icon: const Icon(Icons.check_circle_outline, size: 20),
+                label: const Text('チェックイン', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.success,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: isDisabled ? null : () => _showEntrySheet(context),
-                    icon: const Icon(Icons.how_to_reg, size: 18),
-                    label: Text(
-                      isDisabled ? (status == '満員' ? '満員です' : '開催済み') : 'エントリー',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      disabledBackgroundColor: Colors.grey[300],
-                      foregroundColor: Colors.white,
+              ),
+            ),
+          );
+        }
+
+        final currentTeams = t['currentTeams'] is int ? t['currentTeams'] as int : 0;
+        final maxTeams = t['maxTeams'] is int ? t['maxTeams'] as int : 0;
+        final isFull = maxTeams > 0 && currentTeams >= maxTeams;
+
+        // 満員の場合はキャンセル待ちUI表示
+        if (isFull || status == '満員') {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warning.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.info_outline, size: 16, color: AppTheme.warning),
+                    const SizedBox(width: 8),
+                    Text('現在満員です ($currentTeams/$maxTeamsチーム)', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showWaitlistSheet(context),
+                    icon: const Icon(Icons.hourglass_empty, size: 18),
+                    label: const Text('キャンセル待ちに登録', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.warning,
+                      side: const BorderSide(color: AppTheme.warning, width: 2),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
               ],
-            )
-          : SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  setState(() => _isFollowing = true);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
-                  );
-                },
-                icon: const Icon(Icons.person_add, size: 18),
-                label: const Text('フォローしてエントリー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
             ),
+          );
+        }
+
+        final isDisabled = false;
+        return Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
+          ),
+          child: _isFollowing
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: isDisabled ? null : () => _showRecruitSheet(context),
+                        icon: const Icon(Icons.person_add, size: 18),
+                        label: const Text('メンバー募集する', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: isDisabled ? null : () => _showEntrySheet(context),
+                        icon: const Icon(Icons.how_to_reg, size: 18),
+                        label: Text(
+                          isDisabled ? (status == '満員' ? '満員です' : '開催済み') : 'エントリー',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          disabledBackgroundColor: Colors.grey[300],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() => _isFollowing = true);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
+                      );
+                    },
+                    icon: const Icon(Icons.person_add, size: 18),
+                    label: const Text('フォローしてエントリー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+        );
+      },
     );
   }
 
