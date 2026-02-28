@@ -358,22 +358,34 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     final prevConfirmed = setIndex == 0 || _setConfirmed[setIndex - 1];
     final isActive = _activeSetIndex == setIndex && !confirmed && prevConfirmed;
     final isInputTarget = !confirmed && prevConfirmed;
+    // 入力不可（前セット未確定 or 確定済み以外のロック状態）
+    final isDisabled = !confirmed && !prevConfirmed;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: confirmed ? Colors.white.withValues(alpha:0.08) : (isActive ? Colors.white.withValues(alpha:0.10) : Colors.white.withValues(alpha:0.04)),
+        color: confirmed
+            ? Colors.white.withValues(alpha: 0.08)
+            : isActive
+                ? Colors.white.withValues(alpha: 0.12)
+                : isDisabled
+                    ? Colors.white.withValues(alpha: 0.02)
+                    : Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: confirmed ? Colors.greenAccent.withValues(alpha:0.4) : (isActive ? const Color(0xFF6CA6FF).withValues(alpha: 0.6) : Colors.white12),
+          color: confirmed
+              ? Colors.greenAccent.withValues(alpha: 0.4)
+              : isActive
+                  ? Colors.white.withValues(alpha: 0.8)
+                  : Colors.white.withValues(alpha: 0.08),
           width: isActive ? 2 : 1,
         ),
       ),
       child: Column(children: [
         Row(children: [
           Text('第${setIndex + 1}セット', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
-              color: confirmed ? Colors.greenAccent : (isActive ? const Color(0xFF6CA6FF) : Colors.white70))),
+              color: confirmed ? Colors.greenAccent : (isActive ? Colors.white : (isDisabled ? Colors.white30 : Colors.white70)))),
           if (isInputTarget && !confirmed && !isActive) ...[
             const SizedBox(width: 8),
             Container(
@@ -386,8 +398,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: const Color(0xFF6CA6FF), borderRadius: BorderRadius.circular(4)),
-              child: const Text('入力中', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              child: const Text('入力中', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E))),
             ),
           ],
           const Spacer(),
@@ -406,18 +418,31 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             enabled: !confirmed && prevConfirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFF6CA6FF)),
+            style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900,
+                color: isDisabled ? const Color(0xFF6CA6FF).withValues(alpha: 0.3) : const Color(0xFF6CA6FF)),
             decoration: InputDecoration(
-              hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha:0.15), fontSize: 36),
-              filled: true, fillColor: isActive ? Colors.white.withValues(alpha:0.08) : Colors.white.withValues(alpha:0.05),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha: isDisabled ? 0.06 : 0.15), fontSize: 36),
+              filled: true,
+              fillColor: isActive ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: isDisabled ? 0.02 : 0.05),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: isActive ? BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1) : BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: isActive ? BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1) : BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+              ),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
             onChanged: (_) { _checkMatchEnd(); _autoSave(); },
           )),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text('-', style: TextStyle(fontSize: 24, color: Colors.white38)),
+            child: Text('-', style: TextStyle(fontSize: 24, color: isDisabled ? Colors.white12 : Colors.white38)),
           ),
           Expanded(child: TextField(
             controller: _ctrlB[setIndex],
@@ -425,11 +450,24 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             enabled: !confirmed && prevConfirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFFFF6C6C)),
+            style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900,
+                color: isDisabled ? const Color(0xFFFF6C6C).withValues(alpha: 0.3) : const Color(0xFFFF6C6C)),
             decoration: InputDecoration(
-              hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha:0.15), fontSize: 36),
-              filled: true, fillColor: isActive ? Colors.white.withValues(alpha:0.08) : Colors.white.withValues(alpha:0.05),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              hintText: '0', hintStyle: TextStyle(color: Colors.white.withValues(alpha: isDisabled ? 0.06 : 0.15), fontSize: 36),
+              filled: true,
+              fillColor: isActive ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: isDisabled ? 0.02 : 0.05),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: isActive ? BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1) : BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: isActive ? BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1) : BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+              ),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
             onChanged: (_) { _checkMatchEnd(); _autoSave(); },
