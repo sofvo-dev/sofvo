@@ -201,7 +201,10 @@ export default function GadgetsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">ガジェット管理</h1>
           <p className="text-sm text-muted mt-1">
-            使用している用具・装備を管理
+            自分が使っているものを登録してみよう
+          </p>
+          <p className="text-xs text-muted mt-0.5">
+            シューズやラケットなど、普段使っている用具・装備を登録して管理できます。
           </p>
         </div>
         <div className="flex gap-2">
