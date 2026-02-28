@@ -111,6 +111,11 @@ export default function Standings({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (courtIds.length === 0) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribers: (() => void)[] = [];
 
     for (const courtId of courtIds) {

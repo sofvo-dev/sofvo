@@ -104,9 +104,15 @@ export default function BracketView({ tournamentId }: BracketViewProps) {
     let cancelled = false;
 
     async function loadBrackets() {
-      const bracketsSnap = await getDocs(
-        collection(db, "tournaments", tournamentId, "brackets")
-      );
+      let bracketsSnap;
+      try {
+        bracketsSnap = await getDocs(
+          collection(db, "tournaments", tournamentId, "brackets")
+        );
+      } catch {
+        setLoading(false);
+        return;
+      }
 
       if (cancelled) return;
 

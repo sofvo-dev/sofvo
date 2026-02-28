@@ -23,7 +23,7 @@ const tabIcons: Record<Tab, React.ReactNode> = {
 
 export default function TournamentManagePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: tournamentId } = use(params);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
@@ -88,7 +88,7 @@ export default function TournamentManagePage({ params }: { params: Promise<{ id:
     return () => unsub();
   }, [tournamentId, selectedRound]);
 
-  if (loading) return <div className="flex items-center justify-center py-32"><div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading || authLoading) return <div className="flex items-center justify-center py-32"><div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!tournament) return <div className="text-center py-32 text-muted">大会が見つかりません</div>;
   if (!user || tournament.organizerId !== user.uid) {
     return (
