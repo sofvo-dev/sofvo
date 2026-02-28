@@ -160,6 +160,7 @@ export interface Tournament {
   rules?: TournamentRules;
   schedule?: TournamentSchedule;
   deadline?: string;
+  description?: string;
   area?: string;
   icon?: string;
   createdAt?: unknown;
