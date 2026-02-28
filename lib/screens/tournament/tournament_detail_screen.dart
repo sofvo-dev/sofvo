@@ -887,140 +887,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildOrganizerActions(Map<String, dynamic> tournData) {
-    final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
-    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
-    final prelimRounds = preliminary['rounds'] ?? 1;
-    final finalEnabled = (rules['final'] as Map<String, dynamic>?)?['enabled'] ?? true;
-    final status = tournData['status'] ?? '準備中';
-    final isRunning = status == '開催中' || status == '決勝中' || status == '順位決定中';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
-        boxShadow: [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 2))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.admin_panel_settings, size: 20, color: AppTheme.primaryColor),
-          const SizedBox(width: 8),
-          const Text('主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-        ]),
-        const SizedBox(height: 16),
-
-        // ━━━ 大会情報 ━━━
-        _menuSection('大会情報', Icons.info_outline, [
-          _menuItem('編集', Icons.edit_outlined, () => _showEditTournamentSheet(tournData)),
-          _menuItem('ステータス変更', Icons.sync_outlined, () => _showStatusDialog(status)),
-        ]),
-        const SizedBox(height: 12),
-
-        // ━━━ 参加者管理 ━━━
-        _menuSection('参加者管理', Icons.groups_outlined, [
-          _menuItem('受付管理', Icons.qr_code_scanner, () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')))),
-          _menuItem('CSV登録', Icons.upload_file, _importTeamsFromCsv),
-          _menuItem('テストチーム追加', Icons.group_add, _addTestTeams),
-        ]),
-        const SizedBox(height: 12),
-
-        // ━━━ 運営 ━━━
-        _menuSection('運営', Icons.settings_outlined, [
-          _menuItem('収支管理', Icons.account_balance_wallet_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData)))),
-          _menuItem('権限管理', Icons.people_outline, _showEditorsSheet),
-          _menuItem('お知らせ送信', Icons.campaign_outlined, _showAnnouncementDialog),
-        ]),
-        const SizedBox(height: 12),
-
-        // ━━━ 試合進行 ━━━
-        _menuSection('試合進行', Icons.sports_volleyball_outlined, [
-          if (prelimRounds >= 2)
-            _menuItem('予選2 生成', Icons.replay, () => _generateMatches(2)),
-          if (finalEnabled)
-            _menuItem('順位決定戦生成', Icons.emoji_events, _generateFinals),
-          _menuItem('リセット', Icons.refresh, _resetRounds),
-        ]),
-
-        // ━━━ 大会を終了する ━━━
-        if (isRunning) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _showEndTournamentDialog(),
-              icon: const Icon(Icons.flag, size: 18),
-              label: const Text('大会を終了する', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.error, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-        ],
-
-        // ━━━ その他 ━━━
-        const SizedBox(height: 12),
-        _menuSection('その他', Icons.more_horiz, [
-          _menuItem('テンプレートに保存', Icons.bookmark_add_outlined, () => _saveAsTemplate(tournData)),
-          _menuItem('削除', Icons.delete_outline, () => _showDeleteDialog(tournData['title'] ?? ''), color: AppTheme.error),
-        ]),
-      ]),
-    );
-  }
-
-  Widget _menuSection(String title, IconData icon, List<Widget> children) {
-    // 空のchildrenを除外
-    final validChildren = children.where((w) => w is Widget).toList();
-    if (validChildren.isEmpty) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Icon(icon, size: 14, color: AppTheme.textSecondary),
-        const SizedBox(width: 6),
-        Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-      ]),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 8, children: validChildren),
-    ]);
-  }
-
-  Widget _menuItem(String label, IconData icon, VoidCallback onTap, {Color? color}) {
-    final c = color ?? AppTheme.primaryColor;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: c.withValues(alpha: 0.2)),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: c),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c)),
-        ]),
-      ),
-    );
-  }
-
-  Widget _actionChip(String label, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(8)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
-        ]),
-      ),
-    );
-  }
 
   // ━━━ ステータス変更 ━━━
   void _showStatusDialog(String currentStatus) {
@@ -3254,79 +3121,118 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 16),
-            Row(children: [
-              Icon(Icons.admin_panel_settings, size: 22, color: AppTheme.primaryColor),
-              const SizedBox(width: 8),
-              const Text('主催者メニュー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ]),
-            const SizedBox(height: 20),
-
-            // ━━━ 大会情報 ━━━
-            _menuSection('大会情報', Icons.info_outline, [
-              _menuItem('編集', Icons.edit_outlined, () { Navigator.pop(ctx); _showEditTournamentSheet(tournData); }),
-              _menuItem('ステータス変更', Icons.sync_outlined, () { Navigator.pop(ctx); _showStatusDialog(status); }),
-            ]),
-            const SizedBox(height: 16),
-
-            // ━━━ 参加者管理 ━━━
-            _menuSection('参加者管理', Icons.groups_outlined, [
-              _menuItem('受付管理', Icons.qr_code_scanner, () { Navigator.pop(ctx); Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))); }),
-              _menuItem('CSV登録', Icons.upload_file, () { Navigator.pop(ctx); _importTeamsFromCsv(); }),
-              _menuItem('テストチーム追加', Icons.group_add, () { Navigator.pop(ctx); _addTestTeams(); }),
-            ]),
-            const SizedBox(height: 16),
-
-            // ━━━ 運営 ━━━
-            _menuSection('運営', Icons.settings_outlined, [
-              _menuItem('収支管理', Icons.account_balance_wallet_outlined, () { Navigator.pop(ctx); Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))); }),
-              _menuItem('権限管理', Icons.people_outline, () { Navigator.pop(ctx); _showEditorsSheet(); }),
-              _menuItem('お知らせ送信', Icons.campaign_outlined, () { Navigator.pop(ctx); _showAnnouncementDialog(); }),
-            ]),
-            const SizedBox(height: 16),
-
-            // ━━━ 試合進行 ━━━
-            _menuSection('試合進行', Icons.sports_volleyball_outlined, [
-              if (prelimRounds >= 2)
-                _menuItem('予選2 生成', Icons.replay, () { Navigator.pop(ctx); _generateMatches(2); }),
-              if (finalEnabled)
-                _menuItem('順位決定戦生成', Icons.emoji_events, () { Navigator.pop(ctx); _generateFinals(); }),
-              _menuItem('リセット', Icons.refresh, () { Navigator.pop(ctx); _resetRounds(); }),
-            ]),
-
-            // ━━━ 大会を終了する ━━━
-            if (isRunning) ...[
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (_, scrollCtrl) => Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Column(children: [
+              Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () { Navigator.pop(ctx); _showEndTournamentDialog(); },
-                  icon: const Icon(Icons.flag, size: 18),
-                  label: const Text('大会を終了する', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.error, foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.admin_panel_settings, size: 22, color: AppTheme.primaryColor),
                 ),
-              ),
-            ],
-
-            // ━━━ その他 ━━━
-            const SizedBox(height: 16),
-            _menuSection('その他', Icons.more_horiz, [
-              _menuItem('テンプレートに保存', Icons.bookmark_add_outlined, () { Navigator.pop(ctx); _saveAsTemplate(tournData); }),
-              _menuItem('削除', Icons.delete_outline, () { Navigator.pop(ctx); _showDeleteDialog(tournData['title'] ?? ''); }, color: AppTheme.error),
+                const SizedBox(width: 12),
+                const Text('主催者メニュー', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ]),
+              const SizedBox(height: 8),
+              Divider(color: Colors.grey[200]),
             ]),
-          ]),
-        ),
+          ),
+          Expanded(
+            child: ListView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 32),
+              children: [
+                // ━━━ 大会情報 ━━━
+                _sectionLabel('大会情報'),
+                _menuTile(ctx, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', () => _showEditTournamentSheet(tournData)),
+                _menuTile(ctx, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 開催中 → 終了', () => _showStatusDialog(status)),
+
+                // ━━━ 参加者管理 ━━━
+                _sectionLabel('参加者管理'),
+                _menuTile(ctx, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')))),
+                _menuTile(ctx, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', _importTeamsFromCsv),
+                _menuTile(ctx, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', _addTestTeams),
+
+                // ━━━ 運営 ━━━
+                _sectionLabel('運営'),
+                _menuTile(ctx, Icons.account_balance_wallet_outlined, '収支管理', '参加費の入金状況・経費を管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData)))),
+                _menuTile(ctx, Icons.people_outline, '権限管理', '他のユーザーに編集権限を付与', _showEditorsSheet),
+                _menuTile(ctx, Icons.campaign_outlined, 'お知らせ送信', '全参加者に通知を送信', _showAnnouncementDialog),
+
+                // ━━━ 試合進行 ━━━
+                _sectionLabel('試合進行'),
+                if (prelimRounds >= 2)
+                  _menuTile(ctx, Icons.replay, '予選2 生成', '予選2ラウンドの対戦表を生成', () => _generateMatches(2)),
+                if (finalEnabled)
+                  _menuTile(ctx, Icons.emoji_events, '順位決定戦生成', '決勝トーナメントを生成', _generateFinals),
+                _menuTile(ctx, Icons.refresh, 'リセット', '対戦表・スコアをリセット', _resetRounds),
+
+                // ━━━ 大会を終了する ━━━
+                if (isRunning) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () { Navigator.pop(ctx); _showEndTournamentDialog(); },
+                        icon: const Icon(Icons.flag, size: 18),
+                        label: const Text('大会を終了する', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.error, foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ━━━ その他 ━━━
+                _sectionLabel('その他'),
+                _menuTile(ctx, Icons.bookmark_add_outlined, 'テンプレートに保存', '大会設定をテンプレートとして保存', () => _saveAsTemplate(tournData)),
+                _menuTile(ctx, Icons.delete_outline, '大会を削除', 'この大会を完全に削除', () => _showDeleteDialog(tournData['title'] ?? ''), isDestructive: true),
+              ],
+            ),
+          ),
+        ]),
       ),
+    );
+  }
+
+  Widget _sectionLabel(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary, letterSpacing: 0.5)),
+    );
+  }
+
+  Widget _menuTile(BuildContext ctx, IconData icon, String title, String subtitle, VoidCallback onTap, {bool isDestructive = false}) {
+    final color = isDestructive ? AppTheme.error : AppTheme.primaryColor;
+    return ListTile(
+      dense: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 20, color: color),
+      ),
+      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDestructive ? AppTheme.error : AppTheme.textPrimary)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+      onTap: () { Navigator.pop(ctx); onTap(); },
     );
   }
 
