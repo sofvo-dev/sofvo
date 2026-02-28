@@ -1194,7 +1194,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final organizerName = data['organizerName'] ?? '不明';
     final organizerId = data['organizerId'] ?? '';
     final deadline = data['deadline'] ?? '';
-    final entryFee = data['entryFee'] ?? '';
+    final rawEntryFee = data['entryFee'];
+    final entryFee = rawEntryFee is int ? '¥$rawEntryFee' : (rawEntryFee ?? '').toString();
     final isFollowing = _followingIds.contains(organizerId) || organizerId == _currentUser?.uid;
     final isSaved = _bookmarkedTournaments.contains(doc.id);
     final progress = maxTeams > 0 ? (currentTeams as num) / (maxTeams as num) : 0.0;

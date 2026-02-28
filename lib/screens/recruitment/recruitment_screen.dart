@@ -122,7 +122,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                     'format': t['format'] ?? '',
                     'currentTeams': t['currentTeams'] ?? 0,
                     'maxTeams': t['maxTeams'] ?? 8,
-                    'fee': t['entryFee'] ?? '',
+                    'fee': (() { final f = t['entryFee']; return f is int ? '¥$f' : (f ?? '').toString(); })(),
                     'status': status,
                     'statusColor': statusColor,
                     'deadline': '',
