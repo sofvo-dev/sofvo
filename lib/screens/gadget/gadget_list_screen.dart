@@ -64,6 +64,34 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
       ),
       body: Column(
         children: [
+          // ── ガジェットの説明 ──
+          Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '自分が使っているものを登録してみよう',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'シューズやラケットなど、普段使っている用具・装備を登録して管理できます。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // ── カテゴリフィルタ（ドロップダウン） ──
           _buildCategoryFilter(uid),
 
