@@ -3415,6 +3415,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
                 // ━━━ 参加者管理 ━━━
                 _sectionLabel('参加者管理'),
+                _menuTile(ctx, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', () => _showEntrySheet(context), color: AppTheme.success),
                 _menuTile(ctx, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))), color: AppTheme.success),
                 _menuTile(ctx, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', _importTeamsFromCsv, color: AppTheme.success),
                 _menuTile(ctx, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', _addTestTeams, color: AppTheme.success),
