@@ -422,7 +422,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 _buildDivider(),
                 _buildInfoRow(Icons.category, '種別', t['type'] ?? '混合'),
                 _buildDivider(),
-                _buildInfoRow(Icons.payments, '参加費', t['entryFee'] as String? ?? t['fee'] as String? ?? ''),
+                _buildInfoRow(Icons.payments, '参加費', (() { final f = t['entryFee'] ?? t['fee']; return f is int ? '¥$f' : (f ?? '').toString(); })()),
               ]),
             ),
             const SizedBox(height: 12),
@@ -943,7 +943,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     await _firestore.collection('users').doc(uid).collection('templates').add({
       'name': '$titleのテンプレート',
       'type': data['type'] ?? '混合',
-      'format': data['format'] ?? '4人制',
       'maxTeams': data['maxTeams'] ?? 8,
       'setCount': (preliminary['sets'] ?? '3').toString(),
       'pointsPerSet': (preliminary['pointsPerSet'] ?? '25').toString(),
@@ -970,7 +969,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   void _showEditTournamentSheet(Map<String, dynamic> data) {
     final titleCtrl = TextEditingController(text: data['title'] ?? '');
     final locationCtrl = TextEditingController(text: data['location'] ?? '');
-    final feeCtrl = TextEditingController(text: (data['entryFee'] ?? '').toString().replaceAll('¥', ''));
+    final rawFee = data['entryFee'];
+    final feeCtrl = TextEditingController(text: (rawFee is int ? rawFee : int.tryParse(rawFee.toString().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0).toString());
     final maxTeamsCtrl = TextEditingController(text: (data['maxTeams'] ?? 8).toString());
     final courtsCtrl = TextEditingController(text: (data['courts'] ?? 2).toString());
     String selectedType = data['type'] ?? '混合';
@@ -1025,7 +1025,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             await _firestore.collection('tournaments').doc(_tournamentId).update({
               'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
               'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-              'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
+              'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
               'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
               'rules': tournamentRules ?? {},
             });
@@ -1163,7 +1163,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         await _firestore.collection('tournaments').doc(_tournamentId).update({
                           'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-                          'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
+                          'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
                           'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
                           'rules': tournamentRules ?? {},
                         });

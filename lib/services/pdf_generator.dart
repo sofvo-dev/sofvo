@@ -66,7 +66,7 @@ class PdfGenerator {
               _compactRow('\u4F4F\u6240', t['venueAddress'] ?? ''),
             _compactRow('\u30B3\u30FC\u30C8\u6570', '${t['courts'] ?? 0}\u30B3\u30FC\u30C8'),
             _compactRow('\u7A2E\u5225', t['type'] ?? '\u6DF7\u5408'),
-            _compactRow('\u53C2\u52A0\u8CBB', t['entryFee'] ?? ''),
+            _compactRow('\u53C2\u52A0\u8CBB', (() { final f = t['entryFee']; return f is int ? '\u00A5$f' : (f ?? '').toString(); })()),
             _compactRow('\u5B9A\u54E1', '${t['maxTeams'] ?? 0}\u30C1\u30FC\u30E0'),
           ])),
           pw.SizedBox(width: 12),

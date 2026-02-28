@@ -105,8 +105,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final date = data['date'] ?? '';
     final location = data['location'] ?? '';
     final status = data['status'] ?? '準備中';
-    final format = data['format'] ?? '';
-    final entryFee = data['entryFee'] ?? '¥0';
+    final rawFee = data['entryFee'];
+    final entryFee = rawFee is int ? '¥$rawFee' : (rawFee ?? '¥0').toString();
     final currentTeams = data['currentTeams'] ?? 0;
     final maxTeams = data['maxTeams'] ?? 8;
     final courts = data['courts'] ?? 0;
@@ -137,8 +137,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               const SizedBox(height: 4),
               Row(children: [
                 _buildTag(status, statusColor), const SizedBox(width: 6),
-                if (format.isNotEmpty) _buildTag(format, AppTheme.textSecondary),
-                if (type.isNotEmpty) ...[const SizedBox(width: 6), _buildTag(type, AppTheme.primaryColor)],
+                if (type.isNotEmpty) _buildTag(type, AppTheme.primaryColor),
               ]),
             ])),
             IconButton(
@@ -250,11 +249,14 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
   void _showEditTournamentSheet(String docId, Map<String, dynamic> data) {
     final titleCtrl = TextEditingController(text: data['title'] ?? '');
     final locationCtrl = TextEditingController(text: data['location'] ?? '');
-    final feeCtrl = TextEditingController(text: (data['entryFee'] ?? '').toString().replaceAll('¥', ''));
+    final rawFee = data['entryFee'];
+    final feeCtrl = TextEditingController(text: (rawFee is int ? rawFee : int.tryParse(rawFee.toString().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0).toString());
     final maxTeamsCtrl = TextEditingController(text: (data['maxTeams'] ?? 8).toString());
     final courtsCtrl = TextEditingController(text: (data['courts'] ?? 2).toString());
+    final descriptionCtrl = TextEditingController(text: data['description'] ?? '');
     String selectedType = data['type'] ?? '混合';
     String selectedDate = data['date'] ?? '';
+    String selectedDeadline = data['deadline'] ?? '';
     Map<String, dynamic>? tournamentRules = (data['rules'] is Map) ? Map<String, dynamic>.from(data['rules']) : null;
     Map<String, dynamic>? selectedVenue;
     if (data['venueId'] != null && (data['venueId'] as String).isNotEmpty) {
@@ -263,13 +265,15 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final origTitle = titleCtrl.text; final origLocation = locationCtrl.text; final origFee = feeCtrl.text;
     final origMaxTeams = maxTeamsCtrl.text; final origCourts = courtsCtrl.text; final origType = selectedType;
     final origDate = selectedDate; final origRules = tournamentRules; final origVenue = selectedVenue;
+    final origDeadline = selectedDeadline; final origDescription = descriptionCtrl.text;
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
         bool hasChanges() => titleCtrl.text != origTitle || locationCtrl.text != origLocation || feeCtrl.text != origFee ||
             maxTeamsCtrl.text != origMaxTeams || courtsCtrl.text != origCourts || selectedType != origType ||
-            selectedDate != origDate || tournamentRules != origRules || selectedVenue != origVenue;
+            selectedDate != origDate || tournamentRules != origRules || selectedVenue != origVenue ||
+            selectedDeadline != origDeadline || descriptionCtrl.text != origDescription;
 
         Future<bool> onWillPop() async {
           if (!hasChanges()) return true;
@@ -287,8 +291,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
               'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
               'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-              'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
-              'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '', 'rules': tournamentRules ?? {},
+              'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
+              'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
+              'area': _extractArea(selectedVenue?['address'] ?? ''),
+              'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
+              'rules': tournamentRules ?? {},
             });
             if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success));
             return true;
@@ -327,6 +334,23 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                   decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
                   child: Row(children: [Icon(Icons.calendar_today, size: 18, color: AppTheme.textSecondary), const SizedBox(width: 10),
                     Text(selectedDate.isEmpty ? '日付を選択' : selectedDate, style: TextStyle(fontSize: 15, color: selectedDate.isEmpty ? AppTheme.textHint : AppTheme.textPrimary))])),
+              ),
+              const SizedBox(height: 12),
+              const Text('エントリー締切', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(context: ctx, initialDate: DateTime.now().add(const Duration(days: 14)),
+                      firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  if (picked != null) setPageState(() => selectedDeadline = '${picked.year}/${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}');
+                },
+                child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Icon(Icons.event_busy, size: 18, color: selectedDeadline.isEmpty ? AppTheme.textSecondary : AppTheme.warning), const SizedBox(width: 10),
+                    Expanded(child: Text(selectedDeadline.isEmpty ? '締切日を選択（任意）' : selectedDeadline, style: TextStyle(fontSize: 15, color: selectedDeadline.isEmpty ? AppTheme.textHint : AppTheme.textPrimary))),
+                    if (selectedDeadline.isNotEmpty) GestureDetector(onTap: () => setPageState(() => selectedDeadline = ''), child: Icon(Icons.close, size: 18, color: Colors.grey[400])),
+                  ])),
               ),
               const SizedBox(height: 16),
               const Text('会場 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -374,6 +398,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     onSelected: (s) { if (s) setPageState(() => selectedType = t); },
                     selectedColor: AppTheme.primaryColor.withValues(alpha:0.15));
               }).toList()),
+              const SizedBox(height: 16),
+              const Text('大会説明・備考', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(controller: descriptionCtrl, maxLines: 3, onChanged: (_) => setPageState(() {}),
+                decoration: _sheetInputDecoration('参加者への注意事項やアピールを記入（任意）')),
               const SizedBox(height: 24),
               SizedBox(width: double.infinity, child: OutlinedButton.icon(
                 onPressed: () async {
@@ -393,8 +422,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                         await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
                           'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-                          'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
-                          'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '', 'rules': tournamentRules ?? {},
+                          'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
+                          'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
+                          'area': _extractArea(selectedVenue?['address'] ?? ''),
+                          'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
+                          'rules': tournamentRules ?? {},
                         });
                         if (ctx.mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
                       } : null,
@@ -412,23 +444,28 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
   //  Create Tournament Sheet
   // ══════════════════════════════════════
 
-  void _showCreateTournamentSheet() {
+  void _showCreateTournamentSheet({Map<String, dynamic>? templateData}) {
     final titleCtrl = TextEditingController();
-    final locationCtrl = TextEditingController();
-    final feeCtrl = TextEditingController(text: '3000');
-    final maxTeamsCtrl = TextEditingController(text: '8');
-    final courtsCtrl = TextEditingController(text: '2');
-    String selectedType = '混合';
+    final locationCtrl = TextEditingController(text: (templateData?['location'] ?? '') as String);
+    final feeCtrl = TextEditingController(text: (templateData?['entryFee'] ?? '3000').toString().replaceAll(RegExp(r'[^0-9]'), ''));
+    final maxTeamsCtrl = TextEditingController(text: (templateData?['maxTeams'] ?? 8).toString());
+    final courtsCtrl = TextEditingController(text: (templateData?['courts'] ?? 2).toString());
+    final descriptionCtrl = TextEditingController();
+    String selectedType = (templateData?['type'] ?? '混合') as String;
     String selectedDate = '';
-    Map<String, dynamic>? tournamentRules;
+    String selectedDeadline = '';
+    Map<String, dynamic>? tournamentRules = (templateData?['rules'] is Map) ? Map<String, dynamic>.from(templateData!['rules']) : null;
     Map<String, dynamic>? selectedVenue;
-    String openTime = '8:00';
-    String receptionTime = '8:30';
-    String captainMeetingTime = '8:45';
-    String openingTime = '9:00';
-    String matchStartTime = '9:15';
-    String finalTime = '15:00';
-    String closingTime = '15:30';
+    if (templateData != null && templateData['venueId'] != null && (templateData['venueId'] as String).isNotEmpty) {
+      selectedVenue = {'id': templateData['venueId'], 'name': templateData['location'], 'address': templateData['venueAddress'] ?? ''};
+    }
+    String openTime = (templateData?['openTime'] ?? '8:00') as String;
+    String receptionTime = (templateData?['receptionTime'] ?? '8:30') as String;
+    String captainMeetingTime = (templateData?['captainMeetingTime'] ?? '8:45') as String;
+    String openingTime = (templateData?['openingTime'] ?? '9:00') as String;
+    String matchStartTime = (templateData?['matchStartTime'] ?? '9:15') as String;
+    String finalTime = (templateData?['finalTime'] ?? '15:00') as String;
+    String closingTime = (templateData?['closingTime'] ?? '15:30') as String;
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
@@ -460,7 +497,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 final shouldPop = await onWillPop();
                 if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
               }),
-              title: const Text('新しい大会を作成', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
+              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
             body: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -484,6 +521,23 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     Text(selectedDate.isEmpty ? '日付を選択' : selectedDate, style: TextStyle(fontSize: 15, color: selectedDate.isEmpty ? AppTheme.textHint : AppTheme.textPrimary)),
                   ]),
                 ),
+              ),
+              const SizedBox(height: 12),
+              const Text('エントリー締切', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(context: ctx, initialDate: DateTime.now().add(const Duration(days: 14)),
+                      firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  if (picked != null) setSheetState(() => selectedDeadline = '${picked.year}/${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}');
+                },
+                child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Icon(Icons.event_busy, size: 18, color: selectedDeadline.isEmpty ? AppTheme.textSecondary : AppTheme.warning), const SizedBox(width: 10),
+                    Expanded(child: Text(selectedDeadline.isEmpty ? '締切日を選択（任意）' : selectedDeadline, style: TextStyle(fontSize: 15, color: selectedDeadline.isEmpty ? AppTheme.textHint : AppTheme.textPrimary))),
+                    if (selectedDeadline.isNotEmpty) GestureDetector(onTap: () => setSheetState(() => selectedDeadline = ''), child: Icon(Icons.close, size: 18, color: Colors.grey[400])),
+                  ])),
               ),
               const SizedBox(height: 16),
               const Text('会場 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -544,6 +598,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     onSelected: (s) { if (s) setSheetState(() => selectedType = t); },
                     selectedColor: AppTheme.primaryColor.withValues(alpha:0.15));
               }).toList()),
+              const SizedBox(height: 16),
+              const Text('大会説明・備考', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(controller: descriptionCtrl, maxLines: 3, onChanged: (_) => setSheetState(() {}),
+                decoration: _sheetInputDecoration('参加者への注意事項やアピールを記入（任意）')),
               const SizedBox(height: 24),
               // ── スケジュール設定 ──
               Row(children: [
@@ -637,7 +696,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                           'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-                          'currentTeams': 0, 'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
+                          'currentTeams': 0, 'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
+                          'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
+                          'area': _extractArea(selectedVenue?['address'] ?? ''),
                           'status': '募集中', 'organizerId': _currentUser!.uid, 'organizerName': nickname,
                           'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
                           'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
@@ -725,7 +786,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                         trailing: const Icon(Icons.chevron_right, color: AppTheme.textHint),
                         onTap: () {
                           Navigator.pop(ctx);
-                          _showCreateFromTemplate(tData);
+                          _showCreateTournamentSheet(templateData: tData);
                         },
                       );
                     },
@@ -751,7 +812,6 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         .collection('users').doc(uid).collection('templates').add({
       'name': '$titleのテンプレート',
       'type': data['type'] ?? '混合',
-      'format': data['format'] ?? '4人制',
       'maxTeams': data['maxTeams'] ?? 8,
       'setCount': (preliminary['sets'] ?? '3').toString(),
       'pointsPerSet': (preliminary['pointsPerSet'] ?? '25').toString(),
@@ -768,256 +828,25 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     }
   }
 
-  /// テンプレート or 既存大会データから新しい大会を作成
-  void _showCreateFromTemplate(Map<String, dynamic> templateData) {
-    final titleCtrl = TextEditingController(text: '');
-    final locationCtrl = TextEditingController(text: (templateData['location'] ?? '') as String);
-    final feeCtrl = TextEditingController(text: (templateData['entryFee'] ?? '3000').toString().replaceAll('¥', ''));
-    final maxTeamsCtrl = TextEditingController(text: (templateData['maxTeams'] ?? 8).toString());
-    final courtsCtrl = TextEditingController(text: (templateData['courts'] ?? 2).toString());
-    String selectedType = (templateData['type'] ?? '混合') as String;
-    String selectedDate = '';
-    Map<String, dynamic>? tournamentRules = (templateData['rules'] is Map) ? Map<String, dynamic>.from(templateData['rules']) : null;
-    Map<String, dynamic>? selectedVenue;
-    if (templateData['venueId'] != null && (templateData['venueId'] as String).isNotEmpty) {
-      selectedVenue = {'id': templateData['venueId'], 'name': templateData['location'], 'address': templateData['venueAddress'] ?? ''};
-    }
-    String openTime = (templateData['openTime'] ?? '8:00') as String;
-    String receptionTime = (templateData['receptionTime'] ?? '8:30') as String;
-    String captainMeetingTime = (templateData['captainMeetingTime'] ?? '8:45') as String;
-    String openingTime = (templateData['openingTime'] ?? '9:00') as String;
-    String matchStartTime = (templateData['matchStartTime'] ?? '9:15') as String;
-    String finalTime = (templateData['finalTime'] ?? '15:00') as String;
-    String closingTime = (templateData['closingTime'] ?? '15:30') as String;
-
-    Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
-      builder: (_) {
-        return StatefulBuilder(builder: (ctx, setSheetState) {
-          bool hasInput() => titleCtrl.text.isNotEmpty || selectedDate.isNotEmpty;
-
-          Future<bool> onWillPop() async {
-            if (!hasInput()) return true;
-            final result = await showDialog<bool>(context: ctx, builder: (dlgCtx) => AlertDialog(
-              title: const Text('入力内容の破棄'), content: const Text('入力した内容が失われますが、よろしいですか？'),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: const Text('編集に戻る')),
-                ElevatedButton(onPressed: () => Navigator.pop(dlgCtx, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white), child: const Text('破棄する')),
-              ],
-            ));
-            return result ?? false;
-          }
-
-          return PopScope(canPop: false, onPopInvokedWithResult: (didPop, _) async {
-            if (didPop) return;
-            final shouldPop = await onWillPop();
-            if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
-          }, child: Scaffold(
-            backgroundColor: Colors.white,
-            appBar: AppBar(backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
-              leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
-                final shouldPop = await onWillPop();
-                if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
-              }),
-              title: const Text('テンプレートから作成', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('大会名 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextField(controller: titleCtrl, maxLength: 30, onChanged: (_) => setSheetState(() {}), decoration: _sheetInputDecoration('大会名を入力')),
-              const SizedBox(height: 8),
-              const Text('開催日 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () async {
-                  final picked = await showDatePicker(context: ctx, initialDate: DateTime.now().add(const Duration(days: 30)),
-                      firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
-                  if (picked != null) setSheetState(() => selectedDate = '${picked.year}/${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}');
-                },
-                child: Container(
-                  width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                  child: Row(children: [
-                    Icon(Icons.calendar_today, size: 18, color: AppTheme.textSecondary), const SizedBox(width: 10),
-                    Text(selectedDate.isEmpty ? '日付を選択' : selectedDate, style: TextStyle(fontSize: 15, color: selectedDate.isEmpty ? AppTheme.textHint : AppTheme.textPrimary)),
-                  ]),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text('会場 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () async {
-                  final result = await Navigator.push<Map<String, dynamic>>(ctx, MaterialPageRoute(builder: (_) => const VenueSearchScreen(pickerMode: true)));
-                  if (result != null) setSheetState(() { selectedVenue = result; locationCtrl.text = result['name'] ?? ''; courtsCtrl.text = (result['courts'] ?? courtsCtrl.text).toString(); });
-                },
-                child: Container(
-                  width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                  child: Row(children: [
-                    Icon(locationCtrl.text.isNotEmpty ? Icons.check_circle : Icons.search, size: 18, color: locationCtrl.text.isNotEmpty ? AppTheme.success : AppTheme.textSecondary),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(locationCtrl.text.isNotEmpty ? locationCtrl.text : '会場を探す',
-                        style: TextStyle(fontSize: 15, color: locationCtrl.text.isNotEmpty ? AppTheme.textPrimary : AppTheme.textHint))),
-                  ]),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('使用コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2'),
-                    onChanged: (_) => setSheetState(() {})),
-                ])),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('募集チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8'),
-                    onChanged: (_) => setSheetState(() {})),
-                ])),
-              ]),
-              const SizedBox(height: 8),
-              Builder(builder: (_) {
-                final courts = int.tryParse(courtsCtrl.text) ?? 2;
-                final teams = int.tryParse(maxTeamsCtrl.text) ?? 8;
-                final tpc = courts > 0 ? (teams / courts).ceil() : teams;
-                return Container(
-                  width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
-                  child: Text('1コート $tpc チーム（自動計算）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                );
-              }),
-              const SizedBox(height: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('参加費（円）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
-                TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
-              ]),
-              const SizedBox(height: 16),
-              const Text('カテゴリ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, children: ['混合', 'メンズ', 'レディース'].map((t) {
-                return ChoiceChip(label: Text(t), selected: selectedType == t,
-                    onSelected: (s) { if (s) setSheetState(() => selectedType = t); },
-                    selectedColor: AppTheme.primaryColor.withValues(alpha:0.15));
-              }).toList()),
-              const SizedBox(height: 24),
-              Row(children: [
-                const Text('当日スケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () {
-                    final courts = int.tryParse(courtsCtrl.text) ?? 2;
-                    final maxTeams = int.tryParse(maxTeamsCtrl.text) ?? 8;
-                    final teamsPerCourt = (tournamentRules?['management'] as Map<String, dynamic>?)?['teamsPerCourt'] ?? 4;
-                    final actualCourts = ((maxTeams / teamsPerCourt).ceil()).clamp(1, courts);
-                    final tpc = (maxTeams / actualCourts).ceil();
-                    final matchesPerCourt = tpc * (tpc - 1) ~/ 2;
-                    final prelimRoundsVal = (tournamentRules?['preliminary'] as Map<String, dynamic>?)?['rounds'] ?? 1;
-                    const minutesPerMatch = 10;
-                    final totalPrelimMinutes = matchesPerCourt * minutesPerMatch * (prelimRoundsVal as int);
-                    final msParts = matchStartTime.split(':');
-                    final startH = int.tryParse(msParts[0]) ?? 9;
-                    final startM = int.tryParse(msParts.length > 1 ? msParts[1] : '0') ?? 0;
-                    final startMinutes = startH * 60 + startM;
-                    final finalsStart = startMinutes + totalPrelimMinutes + 15;
-                    final closingStart = finalsStart + 60;
-                    String fmt(int m) => '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
-                    final endTime = finalsStart + 60;
-                    final clearOutTime = endTime + 30;
-                    setSheetState(() {
-                      openTime = fmt(startMinutes - 75);
-                      receptionTime = fmt(startMinutes - 45);
-                      captainMeetingTime = fmt(startMinutes - 30);
-                      openingTime = fmt(startMinutes - 15);
-                      finalTime = fmt(endTime);
-                      closingTime = fmt(clearOutTime);
-                    });
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      SnackBar(
-                        content: Text('予選 $matchesPerCourt試合×${prelimRoundsVal}R（各${minutesPerMatch}分）で自動計算しました'),
-                        backgroundColor: AppTheme.success,
-                        duration: const Duration(seconds: 3),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.auto_fix_high, size: 14, color: AppTheme.accentColor),
-                      const SizedBox(width: 4),
-                      Text('自動計算', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
-                    ]),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                child: Column(children: [
-                  _buildTimeRow('会場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
-                  _buildTimeRow('受付', receptionTime, (v) => setSheetState(() => receptionTime = v), ctx),
-                  _buildTimeRow('代表者会議', captainMeetingTime, (v) => setSheetState(() => captainMeetingTime = v), ctx),
-                  _buildTimeRow('開会式', openingTime, (v) => setSheetState(() => openingTime = v), ctx),
-                  _buildTimeRow('試合開始 *', matchStartTime, (v) => setSheetState(() => matchStartTime = v), ctx),
-                  _buildTimeRow('終了 *', finalTime, (v) => setSheetState(() => finalTime = v), ctx),
-                  _buildTimeRow('完全撤退', closingTime, (v) => setSheetState(() => closingTime = v), ctx),
-                ]),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                onPressed: () async {
-                  final result = await Navigator.push<Map<String, dynamic>>(context,
-                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), entryFee: int.tryParse(feeCtrl.text), startTime: matchStartTime, endTime: finalTime)));
-                  if (result != null) setSheetState(() {
-                    tournamentRules = result;
-                  });
-                },
-                icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
-                label: Text(tournamentRules != null ? 'ルール設定済み' : 'ルールを設定する',
-                    style: TextStyle(fontWeight: FontWeight.w600, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor)),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              )),
-              const SizedBox(height: 16),
-              SizedBox(width: double.infinity, child: ElevatedButton(
-                onPressed: titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty
-                    ? () async {
-                        final userDoc = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
-                        final nickname = (userDoc.data()?['nickname'] ?? '不明').toString();
-                        await FirebaseFirestore.instance.collection('tournaments').add({
-                          'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
-                          'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
-                          'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-                          'currentTeams': 0, 'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
-                          'status': '募集中', 'organizerId': _currentUser!.uid, 'organizerName': nickname,
-                          'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
-                          'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
-                          'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
-                        });
-                        if (mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text('「${titleCtrl.text.trim()}」を作成しました！'), backgroundColor: AppTheme.success)); }
-                      } : null,
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('大会を作成', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              )),
-              const SizedBox(height: 8),
-            ])),
-          ));
-        });
-      },
-    ));
-  }
-
   // ══════════════════════════════════════
   //  Helpers
   // ══════════════════════════════════════
+
+  static String _extractArea(String address) {
+    const prefectures = [
+      '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+      '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+      '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+      '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+      '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+      '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+      '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+    ];
+    for (final p in prefectures) {
+      if (address.startsWith(p)) return p;
+    }
+    return '';
+  }
 
   InputDecoration _sheetInputDecoration(String hint) {
     return InputDecoration(hintText: hint, hintStyle: const TextStyle(color: AppTheme.textHint),
