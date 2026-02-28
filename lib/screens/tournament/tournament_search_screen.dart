@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../services/bookmark_notification_service.dart';
 import 'tournament_detail_screen.dart';
+import 'tournament_rules_screen.dart';
+import 'venue_search_screen.dart';
 import '../chat/chat_screen.dart';
 import '../profile/user_profile_screen.dart';
 
@@ -1195,7 +1197,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final organizerId = data['organizerId'] ?? '';
     final deadline = data['deadline'] ?? '';
     final entryFee = data['entryFee'] ?? '';
+    final editors = (data['editors'] as List<dynamic>?) ?? [];
     final isFollowing = _followingIds.contains(organizerId) || organizerId == _currentUser?.uid;
+    final isMyTournament = organizerId == _currentUser?.uid || editors.contains(_currentUser?.uid);
     final isSaved = _bookmarkedTournaments.contains(doc.id);
     final progress = maxTeams > 0 ? (currentTeams as num) / (maxTeams as num) : 0.0;
 
@@ -1342,6 +1346,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                   ),
                 )),
                 const SizedBox(width: 12),
+                if (isMyTournament)
+                  GestureDetector(
+                    onTap: () => _showEditTournamentSheet(doc.id, data),
+                    child: Icon(Icons.edit_outlined, size: 20, color: AppTheme.primaryColor),
+                  ),
+                if (isMyTournament) const SizedBox(width: 10),
                 GestureDetector(
                   onTap: () => _toggleTournamentBookmark(doc.id, {
                     'title': title, 'date': date, 'location': location,
@@ -1371,6 +1381,161 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       _organizerAvatarCache[uid] = '';
       return '';
     }
+  }
+
+  InputDecoration _sheetInputDecoration(String hint) {
+    return InputDecoration(hintText: hint, hintStyle: const TextStyle(color: AppTheme.textHint),
+      filled: true, fillColor: AppTheme.backgroundColor,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none));
+  }
+
+  void _showEditTournamentSheet(String docId, Map<String, dynamic> data) {
+    final titleCtrl = TextEditingController(text: data['title'] ?? '');
+    final locationCtrl = TextEditingController(text: data['location'] ?? '');
+    final feeCtrl = TextEditingController(text: (data['entryFee'] ?? '').toString().replaceAll('¥', ''));
+    final maxTeamsCtrl = TextEditingController(text: (data['maxTeams'] ?? 8).toString());
+    final courtsCtrl = TextEditingController(text: (data['courts'] ?? 2).toString());
+    String selectedType = data['type'] ?? '混合';
+    String selectedDate = data['date'] ?? '';
+    Map<String, dynamic>? tournamentRules = (data['rules'] is Map) ? Map<String, dynamic>.from(data['rules']) : null;
+    Map<String, dynamic>? selectedVenue;
+    if (data['venueId'] != null && (data['venueId'] as String).isNotEmpty) {
+      selectedVenue = {'id': data['venueId'], 'name': data['location'], 'address': data['venueAddress'] ?? ''};
+    }
+
+    showModalBottomSheet(
+      context: context, isScrollControlled: true, backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20),
+              const Text('大会を編集', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              const Text('大会名 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(controller: titleCtrl, maxLength: 30, onChanged: (_) => setSheetState(() {}), decoration: _sheetInputDecoration('大会名を入力')),
+              const SizedBox(height: 8),
+              const Text('開催日 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(context: ctx, initialDate: DateTime.now().add(const Duration(days: 30)),
+                      firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  if (picked != null) setSheetState(() => selectedDate = '${picked.year}/${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}');
+                },
+                child: Container(
+                  width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Icon(Icons.calendar_today, size: 18, color: AppTheme.textSecondary), const SizedBox(width: 10),
+                    Text(selectedDate.isEmpty ? '日付を選択' : selectedDate, style: TextStyle(fontSize: 15, color: selectedDate.isEmpty ? AppTheme.textHint : AppTheme.textPrimary)),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('会場 *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final result = await Navigator.push<Map<String, dynamic>>(ctx, MaterialPageRoute(builder: (_) => const VenueSearchScreen(pickerMode: true)));
+                  if (result != null) setSheetState(() { selectedVenue = result; locationCtrl.text = result['name'] ?? ''; courtsCtrl.text = (result['courts'] ?? courtsCtrl.text).toString(); });
+                },
+                child: Container(
+                  width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Icon(selectedVenue != null ? Icons.check_circle : Icons.search, size: 18, color: selectedVenue != null ? AppTheme.success : AppTheme.textSecondary),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(locationCtrl.text.isNotEmpty ? locationCtrl.text : '会場を探す',
+                        style: TextStyle(fontSize: 15, color: locationCtrl.text.isNotEmpty ? AppTheme.textPrimary : AppTheme.textHint))),
+                  ]),
+                ),
+              ),
+              if (selectedVenue != null && (selectedVenue!['address'] ?? '').toString().isNotEmpty)
+                Padding(padding: const EdgeInsets.only(top: 4, left: 4), child: Text(selectedVenue!['address'], style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('使用コート数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: courtsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('2'),
+                    onChanged: (_) => setSheetState(() {})),
+                ])),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('募集チーム数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                  TextField(controller: maxTeamsCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('8'),
+                    onChanged: (_) => setSheetState(() {})),
+                ])),
+              ]),
+              const SizedBox(height: 8),
+              Builder(builder: (_) {
+                final courts = int.tryParse(courtsCtrl.text) ?? 2;
+                final teams = int.tryParse(maxTeamsCtrl.text) ?? 8;
+                final tpc = courts > 0 ? (teams / courts).ceil() : teams;
+                return Container(
+                  width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                  child: Text('1コート $tpc チーム（自動計算）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                );
+              }),
+              const SizedBox(height: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('参加費（円）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 8),
+                TextField(controller: feeCtrl, keyboardType: TextInputType.number, decoration: _sheetInputDecoration('3000')),
+              ]),
+              const SizedBox(height: 16),
+              const Text('カテゴリ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, children: ['混合', 'メンズ', 'レディース'].map((t) {
+                return ChoiceChip(label: Text(t), selected: selectedType == t,
+                    onSelected: (s) { if (s) setSheetState(() => selectedType = t); },
+                    selectedColor: AppTheme.primaryColor.withValues(alpha:0.15));
+              }).toList()),
+              const SizedBox(height: 24),
+              SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                onPressed: () async {
+                  final result = await Navigator.push<Map<String, dynamic>>(context,
+                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), entryFee: int.tryParse(feeCtrl.text))));
+                  if (result != null) setSheetState(() {
+                    tournamentRules = result;
+                  });
+                },
+                icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
+                label: Text(tournamentRules != null ? 'ルール設定済み' : 'ルールを設定する',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              )),
+              const SizedBox(height: 24),
+              SizedBox(width: double.infinity, child: ElevatedButton(
+                onPressed: titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty && locationCtrl.text.trim().isNotEmpty
+                    ? () async {
+                        await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
+                          'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
+                          'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
+                          'entryFee': '¥${feeCtrl.text.trim()}', 'format': '4人制', 'type': selectedType,
+                          'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
+                          'rules': tournamentRules ?? {},
+                        });
+                        if (mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
+                      } : null,
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('保存する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              )),
+              const SizedBox(height: 8),
+            ])),
+          );
+        });
+      },
+    );
   }
 
   Widget _dateBlock(String month, String day, String weekday, Color sc, String type, Color tc) {

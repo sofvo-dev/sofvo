@@ -816,7 +816,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       builder: (context, tournSnap) {
         if (!tournSnap.hasData) return const Center(child: CircularProgressIndicator());
         final tournData = tournSnap.data!.data() as Map<String, dynamic>? ?? {};
-        final isOrganizer = tournData['organizerId'] == uid;
+        final tournEditors = List<String>.from(tournData['editors'] ?? []);
+        final isOrganizer = tournData['organizerId'] == uid || tournEditors.contains(uid);
         final status = tournData['status'] ?? '準備中';
 
         return StreamBuilder<QuerySnapshot>(
@@ -908,6 +909,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           if (finalEnabled)
             _actionChip('順位決定戦生成', Icons.emoji_events, _generateFinals),
           _actionChip('リセット', Icons.refresh, _resetRounds),
+          _actionChip('編集者管理', Icons.people_outline, _showEditorsSheet),
         ]),
         if (tournData['status'] == '開催中' || tournData['status'] == '決勝中' || tournData['status'] == '順位決定中') ...[
           const SizedBox(height: 10),
@@ -942,6 +944,152 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
         ]),
       ),
+    );
+  }
+
+  void _showEditorsSheet() {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) {
+        return StatefulBuilder(builder: (ctx, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 16),
+              const Text('編集者を管理', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('編集権限を持つユーザーは大会情報を編集できます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              const SizedBox(height: 16),
+
+              // 現在の編集者リスト
+              StreamBuilder<DocumentSnapshot>(
+                stream: _firestore.collection('tournaments').doc(_tournamentId).snapshots(),
+                builder: (context, snap) {
+                  if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+                  final tournData = snap.data!.data() as Map<String, dynamic>? ?? {};
+                  final editors = List<String>.from(tournData['editors'] ?? []);
+
+                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('編集者 ${editors.length}人', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    if (editors.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                        child: const Center(child: Text('まだ編集者がいません', style: TextStyle(color: AppTheme.textHint))),
+                      )
+                    else
+                      ...editors.map((editorUid) => FutureBuilder<DocumentSnapshot>(
+                        future: _firestore.collection('users').doc(editorUid).get(),
+                        builder: (context, userSnap) {
+                          final name = userSnap.data?.data() != null
+                              ? ((userSnap.data!.data() as Map<String, dynamic>)['nickname'] ?? '名前なし')
+                              : '読み込み中...';
+                          final avatar = userSnap.data?.data() != null
+                              ? ((userSnap.data!.data() as Map<String, dynamic>)['avatarUrl'] ?? '').toString()
+                              : '';
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: avatar.isNotEmpty
+                                ? CircleAvatar(radius: 18, backgroundImage: NetworkImage(avatar))
+                                : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                                    child: Text(name.toString().isNotEmpty ? name.toString()[0] : '?',
+                                        style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold))),
+                            title: Text(name.toString(), style: const TextStyle(fontSize: 14)),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, color: AppTheme.error),
+                              onPressed: () async {
+                                await _firestore.collection('tournaments').doc(_tournamentId).update({
+                                  'editors': FieldValue.arrayRemove([editorUid]),
+                                });
+                                setSheetState(() {});
+                              },
+                            ),
+                          );
+                        },
+                      )),
+                  ]);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // フォロワーから追加
+              const Text('フォロー中から追加', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              StreamBuilder<QuerySnapshot>(
+                stream: _firestore.collection('users').doc(uid).collection('following').snapshots(),
+                builder: (context, followSnap) {
+                  if (!followSnap.hasData) return const Center(child: CircularProgressIndicator());
+                  final followings = followSnap.data!.docs;
+                  if (followings.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                      child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
+                    );
+                  }
+                  return StreamBuilder<DocumentSnapshot>(
+                    stream: _firestore.collection('tournaments').doc(_tournamentId).snapshots(),
+                    builder: (context, tournSnap) {
+                      final currentEditors = List<String>.from(
+                          (tournSnap.data?.data() as Map<String, dynamic>?)?['editors'] ?? []);
+                      return Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[200]!),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: followings.length,
+                          itemBuilder: (context, index) {
+                            final fDoc = followings[index];
+                            final fData = fDoc.data() as Map<String, dynamic>;
+                            final fUid = fDoc.id;
+                            final fName = fData['nickname'] ?? fData['userName'] ?? '名前なし';
+                            final fAvatar = fData['avatarUrl'] ?? '';
+                            final isAlreadyEditor = currentEditors.contains(fUid);
+
+                            return ListTile(
+                              leading: fAvatar.toString().isNotEmpty
+                                  ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
+                                  : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                      child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?',
+                                          style: const TextStyle(color: AppTheme.primaryColor))),
+                              title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
+                              trailing: isAlreadyEditor
+                                  ? const Icon(Icons.check_circle, color: AppTheme.success)
+                                  : IconButton(
+                                      icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
+                                      onPressed: () async {
+                                        await _firestore.collection('tournaments').doc(_tournamentId).update({
+                                          'editors': FieldValue.arrayUnion([fUid]),
+                                        });
+                                        setSheetState(() {});
+                                      },
+                                    ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ]),
+          );
+        });
+      },
     );
   }
 
