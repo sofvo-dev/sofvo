@@ -372,6 +372,137 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ━━━ ヒーローカード: 日時・場所・種別をまとめて ━━━
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.85)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.2), blurRadius: 12, offset: const Offset(0, 4))],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  // ステータスバッジ
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(liveStatus, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                  const SizedBox(height: 14),
+                  // 日時
+                  Row(children: [
+                    const Icon(Icons.calendar_today, size: 18, color: Colors.white70),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(t['date'] as String? ?? '', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white))),
+                  ]),
+                  const SizedBox(height: 10),
+                  // 会場
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.location_on, size: 18, color: Colors.white70),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(t['location'] as String? ?? t['venue'] as String? ?? '', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                      if ((t['venueAddress'] ?? '').toString().isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            final encoded = Uri.encodeComponent(t['venueAddress'] as String? ?? '');
+                            launchUrl(Uri.parse('https://www.google.com/maps/search/$encoded'), mode: LaunchMode.externalApplication);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(children: [
+                              Flexible(child: Text(t['venueAddress'] as String? ?? '', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), decoration: TextDecoration.underline, decorationColor: Colors.white60))),
+                              const SizedBox(width: 4),
+                              Icon(Icons.open_in_new, size: 12, color: Colors.white.withValues(alpha: 0.7)),
+                            ]),
+                          ),
+                        ),
+                    ])),
+                  ]),
+                  const SizedBox(height: 10),
+                  // 種別・コート数
+                  Row(children: [
+                    _heroChip(Icons.category, t['type'] ?? '混合'),
+                    const SizedBox(width: 8),
+                    _heroChip(Icons.grid_view, '${courts}コート'),
+                    const SizedBox(width: 8),
+                    _heroChip(Icons.payments, (() { final f = t['entryFee'] ?? t['fee']; return f is int ? '¥$f' : (f ?? '').toString(); })()),
+                  ]),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ━━━ 募集状況 ━━━
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+              ),
+              child: Column(children: [
+                Row(children: [
+                  Icon(Icons.groups, size: 22, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Text('$liveCurrentTeams', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  Text(' / $liveMaxTeams チーム', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: liveProgress >= 1.0 ? AppTheme.error.withValues(alpha: 0.1) : AppTheme.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(liveProgress >= 1.0 ? '満員' : '残り${liveMaxTeams - liveCurrentTeams}枠',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                            color: liveProgress >= 1.0 ? AppTheme.error : AppTheme.success)),
+                  ),
+                ]),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: liveProgress.clamp(0.0, 1.0),
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      liveProgress >= 1.0 ? AppTheme.error : liveProgress >= 0.8 ? AppTheme.warning : AppTheme.success),
+                    minHeight: 10,
+                  ),
+                ),
+                if ((live['deadline'] ?? t['deadline'] ?? '').toString().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Icon(Icons.event_busy, size: 15, color: AppTheme.warning),
+                    const SizedBox(width: 6),
+                    Text('締切: ${live['deadline'] ?? t['deadline'] ?? ''}', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+                  ]),
+                ],
+              ]),
+            ),
+            const SizedBox(height: 16),
+
+            // ━━━ 当日スケジュール（タイムライン形式） ━━━
+            _buildCard(
+              title: 'タイムスケジュール',
+              titleIcon: Icons.schedule,
+              child: Column(children: [
+                _buildTimelineRow(live['openTime'] as String? ?? t['openTime'] as String? ?? '8:00', '会場オープン', Icons.location_on),
+                _buildTimelineRow(live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '8:30', '受付開始', Icons.how_to_reg),
+                _buildTimelineRow(live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '8:45', '代表者会議', Icons.groups),
+                _buildTimelineRow(live['openingTime'] as String? ?? t['openingTime'] as String? ?? '9:00', '開会式', Icons.campaign),
+                _buildTimelineRow(live['matchStartTime'] as String? ?? t['matchStartTime'] as String? ?? '9:15', '試合開始', Icons.sports_volleyball),
+                _buildTimelineRow(live['finalTime'] as String? ?? t['finalTime'] as String? ?? '15:00', '終了', Icons.flag),
+                _buildTimelineRow(live['closingTime'] as String? ?? t['closingTime'] as String? ?? '15:30', '完全撤退', Icons.exit_to_app, isLast: true),
+              ]),
+            ),
+            const SizedBox(height: 16),
+
             // ━━━ Organizer ━━━
             GestureDetector(
               onTap: () {
@@ -416,126 +547,40 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 },
               ),
             ),
-            const SizedBox(height: 12),
-
-            // ━━━ Basic Info ━━━
-            _buildCard(
-              title: '基本情報',
-              titleIcon: Icons.info_outline,
-              child: Column(children: [
-                _buildInfoRow(Icons.calendar_today, '開催日', t['date'] as String? ?? ''),
-                _buildDivider(),
-                _buildInfoRow(Icons.location_on, '会場', t['location'] as String? ?? t['venue'] as String? ?? ''),
-                if ((t['venueAddress'] ?? '').toString().isNotEmpty) ...[
-                  _buildDivider(),
-                  _buildAddressRow(t['venueAddress'] as String? ?? ''),
-                ],
-                _buildDivider(),
-                _buildInfoRow(Icons.grid_view, 'コート数', '${courts}コート'),
-                _buildDivider(),
-                _buildInfoRow(Icons.category, '種別', t['type'] ?? '混合'),
-                _buildDivider(),
-                _buildInfoRow(Icons.payments, '参加費', (() { final f = t['entryFee'] ?? t['fee']; return f is int ? '¥$f' : (f ?? '').toString(); })()),
-                if ((live['deadline'] ?? t['deadline'] ?? '').toString().isNotEmpty) ...[
-                  _buildDivider(),
-                  _buildInfoRow(Icons.event_busy, 'エントリー締切', live['deadline'] ?? t['deadline'] ?? ''),
-                ],
-              ]),
-            ),
+            const SizedBox(height: 16),
 
             // ━━━ Description ━━━
             if ((live['description'] ?? t['description'] ?? '').toString().isNotEmpty) ...[
-              const SizedBox(height: 12),
               _buildCard(
                 title: '大会説明・備考',
                 titleIcon: Icons.description_outlined,
                 child: Text(live['description'] ?? t['description'] ?? '',
                     style: const TextStyle(fontSize: 14, height: 1.6, color: AppTheme.textPrimary)),
               ),
+              const SizedBox(height: 16),
             ],
-            const SizedBox(height: 12),
 
-            // ━━━ Schedule ━━━
+            // ━━━ ルール概要（コンパクト） ━━━
             _buildCard(
-              title: '当日スケジュール',
-              titleIcon: Icons.schedule,
-              child: Column(children: [
-                _buildInfoRow(Icons.location_on, '会場', live['openTime'] as String? ?? t['openTime'] as String? ?? '8:00'),
-                _buildDivider(),
-                _buildInfoRow(Icons.how_to_reg, '受付', live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '8:30'),
-                _buildDivider(),
-                _buildInfoRow(Icons.groups, '代表者会議', live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '8:45'),
-                _buildDivider(),
-                _buildInfoRow(Icons.campaign, '開会式', live['openingTime'] as String? ?? t['openingTime'] as String? ?? '9:00'),
-                _buildDivider(),
-                _buildInfoRow(Icons.sports_volleyball, '試合開始', live['matchStartTime'] as String? ?? t['matchStartTime'] as String? ?? '9:15'),
-                _buildDivider(),
-                _buildInfoRow(Icons.flag, '終了', live['finalTime'] as String? ?? t['finalTime'] as String? ?? '15:00'),
-                _buildDivider(),
-                _buildInfoRow(Icons.exit_to_app, '完全撤退', live['closingTime'] as String? ?? t['closingTime'] as String? ?? '15:30'),
-              ]),
-            ),
-            const SizedBox(height: 12),
-
-            // ━━━ Entry status ━━━
-            _buildCard(
-              title: '募集状況',
-              titleIcon: Icons.how_to_reg,
-              child: Column(children: [
-                Row(children: [
-                  Icon(Icons.groups, size: 20, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  Text('$liveCurrentTeams / $liveMaxTeams チーム',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: liveProgress >= 1.0 ? AppTheme.error.withValues(alpha:0.1) : AppTheme.success.withValues(alpha:0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(liveProgress >= 1.0 ? '満員' : '残り${liveMaxTeams - liveCurrentTeams}枠',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                            color: liveProgress >= 1.0 ? AppTheme.error : AppTheme.success)),
-                  ),
-                ]),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: liveProgress.clamp(0.0, 1.0),
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      liveProgress >= 1.0 ? AppTheme.error : liveProgress >= 0.8 ? AppTheme.warning : AppTheme.success),
-                    minHeight: 10,
-                  ),
-                ),
-              ]),
-            ),
-            const SizedBox(height: 12),
-
-            // ━━━ Rules Detail ━━━
-            _buildCard(
-              title: '大会ルール',
+              title: 'ルール',
               titleIcon: Icons.gavel,
               child: Column(children: [
-                _buildInfoRow(Icons.sports_volleyball, '試合形式', '15点先取'),
-                _buildDivider(),
-                _buildInfoRow(Icons.repeat, '予選R1', _setFormatDisplayLabel(livePrelim['sets'] ?? 2)),
-                _buildDivider(),
-                _buildInfoRow(Icons.swap_vert, 'デュースR1', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                _buildRuleChipRow('試合形式', '15点先取'),
+                const SizedBox(height: 8),
+                _buildRuleChipRow('予選R1', _setFormatDisplayLabel(livePrelim['sets'] ?? 2)),
+                const SizedBox(height: 8),
+                _buildRuleChipRow('デュースR1', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
                 if ((livePrelim['rounds'] ?? 1) == 2 && livePrelim['round2'] != null) ...[
-                  _buildDivider(),
-                  _buildInfoRow(Icons.repeat, '予選R2', _setFormatDisplayLabel((livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2)),
-                  _buildDivider(),
-                  _buildInfoRow(Icons.swap_vert, 'デュースR2', ((livePrelim['round2'] as Map<String, dynamic>?)?['deuce'] ?? false) ? 'あり（${(livePrelim['round2'] as Map<String, dynamic>?)?['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                  const SizedBox(height: 8),
+                  _buildRuleChipRow('予選R2', _setFormatDisplayLabel((livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2)),
+                  const SizedBox(height: 8),
+                  _buildRuleChipRow('デュースR2', ((livePrelim['round2'] as Map<String, dynamic>?)?['deuce'] ?? false) ? 'あり（${(livePrelim['round2'] as Map<String, dynamic>?)?['deuceCap'] ?? 17}点キャップ）' : 'なし'),
                 ],
                 if (liveScoring.isNotEmpty && (liveScoring['enabled'] ?? true)) ...[
-                  _buildDivider(),
-                  _buildInfoRow(Icons.emoji_events, '勝ち点制', 'あり'),
-                  _buildDivider(),
+                  const SizedBox(height: 8),
+                  _buildRuleChipRow('勝ち点制', 'あり'),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    padding: const EdgeInsets.only(top: 6, left: 4),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       if ((livePrelim['rounds'] ?? 1) == 2) ...[
                         Padding(padding: const EdgeInsets.only(bottom: 4),
@@ -555,49 +600,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   ),
                 ],
                 if ((liveFinal['enabled'] ?? false) == true) ...[
-                  _buildDivider(),
-                  _buildInfoRow(Icons.emoji_events, '順位決定戦',
+                  const SizedBox(height: 8),
+                  _buildRuleChipRow('順位決定戦',
                     '${liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'} / ${liveFinal['sets'] ?? 3}セットマッチ${(liveFinal['deuce'] ?? false) ? '（ジュースあり）' : ''}'),
                 ],
-              ]),
-            ),
-            const SizedBox(height: 12),
-
-            // ━━━ Management info ━━━
-            if (liveManagement.isNotEmpty) _buildCard(
-              title: '運営情報',
-              titleIcon: Icons.admin_panel_settings,
-              child: Column(children: [
-                if (liveManagement['teamsPerCourt'] != null)
-                  _buildInfoRow(Icons.people, '1コートあたり', '${liveManagement['teamsPerCourt']}チーム'),
-                if (liveManagement['teamsPerCourt'] != null && courts > 0) ...[
-                  _buildDivider(),
-                  _buildInfoRow(Icons.calculate, '最大収容', '${(liveManagement['teamsPerCourt'] as int? ?? 4) * courts}チーム'),
-                ],
-                if (livePrelim['rounds'] != null) ...[
-                  _buildDivider(),
-                  _buildInfoRow(Icons.loop, '予選ラウンド数', '${livePrelim['rounds']}回'),
+                // その他ルール
+                if (liveOther.isNotEmpty) ...[
+                  if (liveOther['uniformNumber'] != null) ...[
+                    const SizedBox(height: 8),
+                    _buildRuleChipRow('ゼッケン', liveOther['uniformNumber'] == true ? '必須' : '不要'),
+                  ],
+                  if (liveOther['snsVideo'] != null) ...[
+                    const SizedBox(height: 8),
+                    _buildRuleChipRow('SNS動画投稿', liveOther['snsVideo'] == true ? '許可' : '不可'),
+                  ],
                 ],
               ]),
             ),
-            if (liveManagement.isNotEmpty) const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // ━━━ Other settings ━━━
-            if (liveOther.isNotEmpty) _buildCard(
-              title: 'その他',
-              titleIcon: Icons.more_horiz,
-              child: Column(children: [
-                if (liveOther['uniformNumber'] != null)
-                  _buildInfoRow(Icons.format_list_numbered, 'ゼッケン', liveOther['uniformNumber'] == true ? '必須' : '不要'),
-                if (liveOther['snsVideo'] != null) ...[
-                  _buildDivider(),
-                  _buildInfoRow(Icons.videocam, 'SNS動画投稿', liveOther['snsVideo'] == true ? '許可' : '不可'),
-                ],
-              ]),
-            ),
-            if (liveOther.isNotEmpty) const SizedBox(height: 12),
-
-            // ━━━ Tournament flow ━━━
+            // ━━━ 大会の流れ ━━━
             _buildCard(
               title: '大会の流れ',
               titleIcon: Icons.timeline,
@@ -4264,6 +4286,70 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildDivider() => Divider(height: 1, color: Colors.grey[100]);
+
+  Widget _heroChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: Colors.white70),
+        const SizedBox(width: 5),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+      ]),
+    );
+  }
+
+  Widget _buildTimelineRow(String time, String label, IconData icon, {bool isLast = false}) {
+    return IntrinsicHeight(
+      child: Row(children: [
+        SizedBox(
+          width: 56,
+          child: Text(time, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+        ),
+        Column(children: [
+          Container(
+            width: 10, height: 10,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), width: 2),
+            ),
+          ),
+          if (!isLast)
+            Expanded(child: Container(width: 2, color: AppTheme.primaryColor.withValues(alpha: 0.15))),
+        ]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(children: [
+              Icon(icon, size: 16, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildRuleChipRow(String label, String value) {
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+      ),
+      const SizedBox(width: 10),
+      Expanded(child: Text(value, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500))),
+    ]);
+  }
 }
 
 class _KeepAlivePage extends StatefulWidget {
