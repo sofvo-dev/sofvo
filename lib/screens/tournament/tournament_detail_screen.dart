@@ -434,6 +434,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     const SizedBox(width: 8),
                     _heroChip(Icons.payments, (() { final f = t['entryFee'] ?? t['fee']; return f is int ? '¥$f' : (f ?? '').toString(); })()),
                   ]),
+                  // 締切日（募集中の場合）
+                  if (liveStatus == '募集中' && (live['deadline'] ?? t['deadline'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.event_busy, size: 18, color: Colors.amber),
+                        const SizedBox(width: 10),
+                        Text('エントリー締切', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
+                        const Spacer(),
+                        Text(live['deadline'] ?? t['deadline'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ]),
+                    ),
+                  ],
                 ]),
               ),
             ),
@@ -560,36 +580,57 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               const SizedBox(height: 16),
             ],
 
-            // ━━━ ルール概要（コンパクト） ━━━
+            // ━━━ ルール ━━━
             _buildCard(
               title: 'ルール',
               titleIcon: Icons.gavel,
-              child: Column(children: [
-                _buildRuleChipRow('試合形式', '15点先取'),
-                const SizedBox(height: 8),
-                _buildRuleChipRow('予選R1', _setFormatDisplayLabel(livePrelim['sets'] ?? 2)),
-                const SizedBox(height: 8),
-                _buildRuleChipRow('デュースR1', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // 予選ラウンド1
+                _buildRuleSection(
+                  (livePrelim['rounds'] ?? 1) == 2 ? '予選 ラウンド1' : '予選',
+                  Icons.sports_volleyball,
+                  [
+                    _buildRuleItem('セット形式', _setFormatDisplayLabel(livePrelim['sets'] ?? 2)),
+                    _buildRuleItem('得点', '15点先取'),
+                    _buildRuleItem('デュース', (livePrelim['deuce'] ?? false) ? 'あり（${livePrelim['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                  ],
+                ),
+                // 予選ラウンド2
                 if ((livePrelim['rounds'] ?? 1) == 2 && livePrelim['round2'] != null) ...[
-                  const SizedBox(height: 8),
-                  _buildRuleChipRow('予選R2', _setFormatDisplayLabel((livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2)),
-                  const SizedBox(height: 8),
-                  _buildRuleChipRow('デュースR2', ((livePrelim['round2'] as Map<String, dynamic>?)?['deuce'] ?? false) ? 'あり（${(livePrelim['round2'] as Map<String, dynamic>?)?['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                  const SizedBox(height: 12),
+                  _buildRuleSection(
+                    '予選 ラウンド2',
+                    Icons.replay,
+                    [
+                      _buildRuleItem('セット形式', _setFormatDisplayLabel((livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2)),
+                      _buildRuleItem('デュース', ((livePrelim['round2'] as Map<String, dynamic>?)?['deuce'] ?? false) ? 'あり（${(livePrelim['round2'] as Map<String, dynamic>?)?['deuceCap'] ?? 17}点キャップ）' : 'なし'),
+                    ],
+                  ),
                 ],
+                // 勝ち点制
                 if (liveScoring.isNotEmpty && (liveScoring['enabled'] ?? true)) ...[
-                  const SizedBox(height: 8),
-                  _buildRuleChipRow('勝ち点制', 'あり'),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6, left: 4),
+                  const SizedBox(height: 12),
+                  _buildRuleSection(
+                    '勝ち点制',
+                    Icons.emoji_events,
+                    [],
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       if ((livePrelim['rounds'] ?? 1) == 2) ...[
-                        Padding(padding: const EdgeInsets.only(bottom: 4),
+                        Padding(padding: const EdgeInsets.only(bottom: 6),
                           child: Text('ラウンド1', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
                       ],
                       ..._buildScoringRowsForFormat(livePrelim['sets'] ?? 2, liveScoring),
                       if ((livePrelim['rounds'] ?? 1) == 2 && liveScoring['round2'] != null) ...[
-                        const SizedBox(height: 8),
-                        Padding(padding: const EdgeInsets.only(bottom: 4),
+                        const SizedBox(height: 10),
+                        Padding(padding: const EdgeInsets.only(bottom: 6),
                           child: Text('ラウンド2', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
                         ..._buildScoringRowsForFormat(
                           (livePrelim['round2'] as Map<String, dynamic>?)?['sets'] ?? livePrelim['sets'] ?? 2,
@@ -599,21 +640,32 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     ]),
                   ),
                 ],
+                // 順位決定戦
                 if ((liveFinal['enabled'] ?? false) == true) ...[
-                  const SizedBox(height: 8),
-                  _buildRuleChipRow('順位決定戦',
-                    '${liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'} / ${liveFinal['sets'] ?? 3}セットマッチ${(liveFinal['deuce'] ?? false) ? '（ジュースあり）' : ''}'),
+                  const SizedBox(height: 12),
+                  _buildRuleSection(
+                    '順位決定戦',
+                    Icons.military_tech,
+                    [
+                      _buildRuleItem('方式', liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'),
+                      _buildRuleItem('セット形式', '${liveFinal['sets'] ?? 3}セットマッチ'),
+                      _buildRuleItem('デュース', (liveFinal['deuce'] ?? false) ? 'あり' : 'なし'),
+                    ],
+                  ),
                 ],
-                // その他ルール
-                if (liveOther.isNotEmpty) ...[
-                  if (liveOther['uniformNumber'] != null) ...[
-                    const SizedBox(height: 8),
-                    _buildRuleChipRow('ゼッケン', liveOther['uniformNumber'] == true ? '必須' : '不要'),
-                  ],
-                  if (liveOther['snsVideo'] != null) ...[
-                    const SizedBox(height: 8),
-                    _buildRuleChipRow('SNS動画投稿', liveOther['snsVideo'] == true ? '許可' : '不可'),
-                  ],
+                // その他
+                if (liveOther.isNotEmpty && (liveOther['uniformNumber'] != null || liveOther['snsVideo'] != null)) ...[
+                  const SizedBox(height: 12),
+                  _buildRuleSection(
+                    'その他',
+                    Icons.more_horiz,
+                    [
+                      if (liveOther['uniformNumber'] != null)
+                        _buildRuleItem('ゼッケン', liveOther['uniformNumber'] == true ? '必須' : '不要'),
+                      if (liveOther['snsVideo'] != null)
+                        _buildRuleItem('SNS動画投稿', liveOther['snsVideo'] == true ? '許可' : '不可'),
+                    ],
+                  ),
                 ],
               ]),
             ),
@@ -4336,19 +4388,32 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildRuleChipRow(String label, String value) {
-    return Row(children: [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(6),
+  Widget _buildRuleSection(String title, IconData icon, List<Widget> items) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(icon, size: 16, color: AppTheme.primaryColor),
+        const SizedBox(width: 6),
+        Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+      ]),
+      if (items.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(left: 22, top: 6),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: items),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-      ),
-      const SizedBox(width: 10),
-      Expanded(child: Text(value, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, fontWeight: FontWeight.w500))),
     ]);
+  }
+
+  Widget _buildRuleItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        SizedBox(
+          width: 90,
+          child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
+      ]),
+    );
   }
 }
 
