@@ -35,6 +35,14 @@ export default function TournamentInfo({ tournament, entries }: TournamentInfoPr
           {t.deadline && <InfoRow label="申込締切" value={t.deadline} icon="deadline" />}
           {t.area && <InfoRow label="エリア" value={t.area} icon="area" />}
         </div>
+        {t.description && (
+          <div className="px-5 pb-5 -mt-1">
+            <div className="p-3 bg-gray-50 rounded-xl">
+              <p className="text-xs font-medium text-muted mb-1">大会説明・備考</p>
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{t.description}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* スケジュール */}
