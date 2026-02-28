@@ -692,7 +692,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     ? () async {
                         final userDoc = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
                         final nickname = (userDoc.data()?['nickname'] ?? '不明').toString();
-                        await FirebaseFirestore.instance.collection('tournaments').add({
+                        final tournamentData = {
                           'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                           'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
                           'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
@@ -703,8 +703,14 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
                           'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                           'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
-                        });
-                        if (mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text('「${titleCtrl.text.trim()}」を作成しました！'), backgroundColor: AppTheme.success)); }
+                        };
+                        final docRef = await FirebaseFirestore.instance.collection('tournaments').add(tournamentData);
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          Navigator.push(this.context, MaterialPageRoute(
+                            builder: (_) => TournamentDetailScreen(tournament: {...tournamentData, 'id': docRef.id, 'name': titleCtrl.text.trim(), 'isFollowing': true}),
+                          ));
+                        }
                       } : null,
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16),

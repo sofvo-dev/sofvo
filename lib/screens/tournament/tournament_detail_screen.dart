@@ -3254,25 +3254,71 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   // ━━━ 下部ボタン ━━━
 
   Widget _buildOrganizerOnlyBottom(Map<String, dynamic> t) {
+    final status = t['status'] as String? ?? '';
+    final isRecruiting = status == '募集中' || status == '満員';
+    final notEntered = _myEntryTeamId.isEmpty;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: () => _showOrganizerMenuSheet(t),
-          icon: const Icon(Icons.admin_panel_settings, size: 20),
-          label: const Text('主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ),
+      child: isRecruiting && notEntered
+          ? Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(color: AppTheme.warning.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [
+                  Icon(Icons.info_outline, size: 16, color: AppTheme.warning),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('まだエントリーしていません', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600))),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showEntrySheet(context),
+                    icon: const Icon(Icons.how_to_reg, size: 18),
+                    label: const Text('エントリー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.success, foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showOrganizerMenuSheet(t),
+                    icon: const Icon(Icons.admin_panel_settings, size: 18),
+                    label: const Text('主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      side: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ]),
+            ])
+          : SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showOrganizerMenuSheet(t),
+                icon: const Icon(Icons.admin_panel_settings, size: 20),
+                label: const Text('主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
     );
   }
 
