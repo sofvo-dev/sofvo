@@ -49,11 +49,9 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
             .limit(1)
             .get();
         final isEntered = entriesSnap.docs.isNotEmpty;
-        if (!isOrganizer && !isEntered) continue;
+        if (!isEntered) continue;
 
-        final teamName = isEntered
-            ? (entriesSnap.docs.first.data()['teamName'] ?? '')
-            : '主催者';
+        final teamName = entriesSnap.docs.first.data()['teamName'] ?? '';
         final status = data['status'] ?? '準備中';
         final entry = {
           ...data,
@@ -369,8 +367,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                     const SizedBox(height: 8),
                     _infoRow(Icons.location_on_outlined, t['location'] ?? ''),
                     const SizedBox(height: 4),
-                    _infoRow(Icons.groups_outlined,
-                        '${t['teamName'] ?? ''}  ·  ${t['format'] ?? ''}'),
+                    _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.symmetric(
