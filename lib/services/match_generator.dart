@@ -10,6 +10,11 @@ class MatchGenerator {
     required int roundNumber, // 1 or 2
     String assignmentMode = 'snake', // 'snake' or 'random' (round 2 only)
   }) async {
+    // 予選2以降の場合、前ラウンドが全て完了しているかチェック
+    if (roundNumber >= 2) {
+      await _validateRoundComplete(tournamentId, roundNumber - 1);
+    }
+
     // 1. Get tournament data
     final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
     if (!tournDoc.exists) throw Exception('Tournament not found');
@@ -665,8 +670,35 @@ class MatchGenerator {
     await _firestore.collection('tournaments').doc(tournamentId).update({'status': '順位決定中'});
   }
 
+  /// 指定ラウンドの試合が全て完了しているか検証
+  Future<void> _validateRoundComplete(String tournamentId, int roundNumber) async {
+    final roundRef = _firestore.collection('tournaments').doc(tournamentId)
+        .collection('rounds').doc('round_$roundNumber');
+    final roundDoc = await roundRef.get();
+
+    if (!roundDoc.exists) {
+      throw Exception('予選${roundNumber}がまだ生成されていません。');
+    }
+
+    final matchesSnap = await roundRef.collection('matches').get();
+    if (matchesSnap.docs.isEmpty) {
+      throw Exception('予選${roundNumber}に試合がありません。');
+    }
+
+    final pendingMatches = matchesSnap.docs.where((d) {
+      final status = (d.data())['status'] as String? ?? '';
+      return status != 'completed';
+    }).toList();
+
+    if (pendingMatches.isNotEmpty) {
+      throw Exception(
+        '予選${roundNumber}にまだ未完了の試合が${pendingMatches.length}件あります。'
+        '全試合を完了してから次に進んでください。'
+      );
+    }
+  }
+
   /// 全予選ラウンドの試合が完了しているか検証
-  /// 未完了の試合がある場合はExceptionをthrowする
   Future<void> _validatePreliminaryComplete(String tournamentId) async {
     final roundsSnap = await _firestore.collection('tournaments').doc(tournamentId)
         .collection('rounds').get();
@@ -676,21 +708,8 @@ class MatchGenerator {
     }
 
     for (var roundDoc in roundsSnap.docs) {
-      final matchesSnap = await roundDoc.reference.collection('matches').get();
-      if (matchesSnap.docs.isEmpty) continue;
-
-      final pendingMatches = matchesSnap.docs.where((d) {
-        final status = (d.data())['status'] as String? ?? '';
-        return status != 'completed';
-      }).toList();
-
-      if (pendingMatches.isNotEmpty) {
-        final roundNum = (roundDoc.data())['roundNumber'] ?? '?';
-        throw Exception(
-          '予選${roundNum}にまだ未完了の試合が${pendingMatches.length}件あります。'
-          '全試合を完了してから順位決定戦を生成してください。'
-        );
-      }
+      final roundNum = (roundDoc.data())['roundNumber'] as int? ?? 1;
+      await _validateRoundComplete(tournamentId, roundNum);
     }
   }
 
