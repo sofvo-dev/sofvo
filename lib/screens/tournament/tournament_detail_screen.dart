@@ -5620,11 +5620,34 @@ class _OrganizerMenuScreen extends StatelessWidget {
 
           // ━━━ 試合進行 ━━━
           _sectionLabel('試合進行'),
-          if (prelimRounds >= 2)
-            _menuTile(context, Icons.replay, '予選2 生成', '予選2ラウンドの対戦表を生成', onGenerateRound2, color: AppTheme.info),
-          if (finalEnabled)
-            _menuTile(context, Icons.emoji_events, '順位決定戦生成', '決勝トーナメントを生成', onGenerateFinals, color: AppTheme.info),
-          _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('tournaments').doc(tournamentId)
+                .collection('rounds').snapshots(),
+            builder: (context, roundsSnap) {
+              final roundDocs = roundsSnap.data?.docs ?? [];
+              final existingRoundNumbers = roundDocs.map((d) => (d.data() as Map<String, dynamic>)['roundNumber'] ?? 1).toSet();
+              final hasRound1 = existingRoundNumbers.contains(1);
+              final hasRound2 = existingRoundNumbers.contains(2);
+              final hasAnyRound = roundDocs.isNotEmpty;
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('tournaments').doc(tournamentId)
+                    .collection('brackets').snapshots(),
+                builder: (context, bracketsSnap) {
+                  final hasBrackets = bracketsSnap.hasData && bracketsSnap.data!.docs.isNotEmpty;
+
+                  return Column(children: [
+                    if (prelimRounds >= 2 && hasRound1 && !hasRound2)
+                      _menuTile(context, Icons.replay, '予選2 生成', '予選1完了後に予選2の対戦表を生成', onGenerateRound2, color: AppTheme.info),
+                    if (finalEnabled && hasRound1 && !hasBrackets)
+                      _menuTile(context, Icons.emoji_events, '順位決定戦生成', '予選完了後に決勝トーナメントを生成', onGenerateFinals, color: AppTheme.info),
+                    if (hasAnyRound || hasBrackets)
+                      _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
+                  ]);
+                },
+              );
+            },
+          ),
 
           // ━━━ 大会を終了する ━━━
           if (isRunning) ...[
