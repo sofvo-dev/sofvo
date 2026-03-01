@@ -492,6 +492,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   final _nameFieldKey = GlobalKey();
 
   // Amazon連携
+  String _asin = '';
   String _amazonUrl = '';
   String _amazonAffiliateUrl = '';
   String _imageUrl = '';
@@ -519,6 +520,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
       _nameCtrl.text = (p['name'] as String?) ?? '';
       _category = (p['category'] as String?) ?? 'スポーツ用品';
       _priceRange = (p['priceRange'] as String?) ?? '~1,000円';
+      _asin = (p['asin'] as String?) ?? '';
       _amazonUrl = (p['amazonUrl'] as String?) ?? '';
       _amazonAffiliateUrl = (p['amazonAffiliateUrl'] as String?) ?? '';
       _imageUrl = (p['imageUrl'] as String?) ?? '';
@@ -606,6 +608,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
       if (product != null) {
         setState(() {
           if (product.title.isNotEmpty) _nameCtrl.text = product.title;
+          _asin = product.asin;
           _imageUrl = product.imageUrl;
           _amazonUrl = product.detailPageUrl;
           _amazonAffiliateUrl = product.affiliateUrl;
@@ -651,6 +654,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   void _selectProduct(AmazonProduct product) {
     setState(() {
       _nameCtrl.text = product.title;
+      _asin = product.asin;
       _imageUrl = product.imageUrl;
       _amazonUrl = product.detailPageUrl;
       _amazonAffiliateUrl = product.affiliateUrl;
@@ -693,6 +697,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
         'name': _nameCtrl.text.trim(),
         'category': _category,
         'priceRange': _priceRange,
+        'asin': _asin,
         'amazonUrl': _amazonUrl,
         'amazonAffiliateUrl': _amazonAffiliateUrl,
         'imageUrl': _imageUrl,
@@ -712,6 +717,41 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           Navigator.pop(context, true);
         }
       } else {
+        // 重複チェック: ASIN または景品名で既存を検索
+        final name = _nameCtrl.text.trim();
+        QuerySnapshot? dupCheck;
+        if (_asin.isNotEmpty) {
+          dupCheck = await FirebaseFirestore.instance
+              .collection('prizes')
+              .where('asin', isEqualTo: _asin)
+              .limit(1)
+              .get();
+        }
+        if (dupCheck == null || dupCheck.docs.isEmpty) {
+          dupCheck = await FirebaseFirestore.instance
+              .collection('prizes')
+              .where('name', isEqualTo: name)
+              .limit(1)
+              .get();
+        }
+        if (dupCheck.docs.isNotEmpty && mounted) {
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('同じ景品が登録済みです'),
+              content: const Text('同じ商品名またはURLの景品がすでに登録されています。それでも登録しますか？'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('登録する')),
+              ],
+            ),
+          );
+          if (proceed != true) {
+            setState(() => _saving = false);
+            return;
+          }
+        }
+
         prizeData['registeredBy'] = user?.uid ?? '';
         prizeData['createdAt'] = FieldValue.serverTimestamp();
         await FirebaseFirestore.instance.collection('prizes').add(prizeData);
