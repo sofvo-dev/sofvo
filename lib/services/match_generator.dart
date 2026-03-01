@@ -41,6 +41,9 @@ class MatchGenerator {
     final roundRef = _firestore.collection('tournaments').doc(tournamentId)
         .collection('rounds').doc('round_$roundNumber');
 
+    // Delete existing matches and standings before regenerating
+    await _clearRoundData(roundRef);
+
     // Create round document
     await roundRef.set({
       'roundNumber': roundNumber,
@@ -130,6 +133,10 @@ class MatchGenerator {
     // 3. Create round document
     final roundRef = _firestore.collection('tournaments').doc(tournamentId)
         .collection('rounds').doc('round_$roundNumber');
+
+    // Delete existing matches and standings before importing
+    await _clearRoundData(roundRef);
+
     await roundRef.set({
       'roundNumber': roundNumber,
       'status': 'pending',
@@ -293,6 +300,33 @@ class MatchGenerator {
     }
 
     return courts;
+  }
+
+  /// Delete existing matches and standings sub-collections under a round
+  Future<void> _clearRoundData(DocumentReference roundRef) async {
+    // Delete matches
+    final matchSnap = await roundRef.collection('matches').get();
+    if (matchSnap.docs.isNotEmpty) {
+      final batch = _firestore.batch();
+      for (var doc in matchSnap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    // Delete standings and their sub-collections
+    final standSnap = await roundRef.collection('standings').get();
+    for (var standDoc in standSnap.docs) {
+      final teamSnap = await standDoc.reference.collection('teams').get();
+      if (teamSnap.docs.isNotEmpty) {
+        final batch = _firestore.batch();
+        for (var doc in teamSnap.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+      await standDoc.reference.delete();
+    }
   }
 
   /// Generate round-robin matches for teams in a court
