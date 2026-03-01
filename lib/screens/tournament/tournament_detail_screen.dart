@@ -2678,14 +2678,23 @@ B,2,チームG,チームH,チームE,チームF''';
   }
 
   Widget _buildBracketSection(String bracketId, Map<String, dynamic> bData, bool isOrganizer) {
+    final rankRange = bData['rankRange'] as String? ?? '';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(children: [
           const Icon(Icons.emoji_events, size: 20, color: Colors.amber),
           const SizedBox(width: 8),
-          Text('${bData['bracketName'] ?? '順位決定'}トーナメント',
+          Text('${bData['bracketName'] ?? '順位決定'}リーグ',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
+          if (rankRange.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+              child: Text(rankRange, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+            ),
+          ],
         ]),
       ),
       StreamBuilder<QuerySnapshot>(
@@ -2694,47 +2703,70 @@ B,2,チームG,チームH,チームE,チームF''';
             .collection('matches').orderBy('matchNumber').snapshots(),
         builder: (context, matchSnap) {
           if (!matchSnap.hasData) return const SizedBox();
-          return Column(children: matchSnap.data!.docs.map((mDoc) {
-            final m = mDoc.data() as Map<String, dynamic>;
-            final status = m['status'] ?? 'pending';
-            final result = m['result'] as Map<String, dynamic>? ?? {};
-            final roundLabel = m['round'] == 'semi' ? '準決勝' : (m['round'] == 'final' ? '決勝' : '');
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withValues(alpha:0.3))),
-              child: InkWell(
-                onTap: (isOrganizer && status != 'waiting') ? () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                    tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId)));
-                } : null,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    if (roundLabel.isNotEmpty)
-                      Padding(padding: const EdgeInsets.only(bottom: 6),
-                        child: Text(roundLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[800]))),
-                    Row(children: [
-                      Expanded(flex: 3, child: Text(m['teamAName'] ?? '', style: TextStyle(fontSize: 16,
-                          fontWeight: status == 'completed' && result['winner'] == m['teamAId'] ? FontWeight.bold : FontWeight.normal),
-                          textAlign: TextAlign.right)),
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: status == 'completed' ? Colors.amber.withValues(alpha:0.1) : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(6)),
-                        child: Text(
-                          status == 'completed' ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (status == 'waiting' ? '待機中' : 'vs'),
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: status == 'completed' ? Colors.amber[800] : AppTheme.textSecondary)),
-                      ),
-                      Expanded(flex: 3, child: Text(m['teamBName'] ?? '', style: TextStyle(fontSize: 16,
-                          fontWeight: status == 'completed' && result['winner'] == m['teamBId'] ? FontWeight.bold : FontWeight.normal))),
-                    ]),
-                  ]),
-                ),
+          // Group matches by round
+          final roundOrder = ['qf', 'sf_winner', 'sf_loser', 'semi', 'final_1st', 'final_3rd', 'final_5th', 'final_7th', 'final', 'round-robin'];
+          final roundLabels = {
+            'qf': '準々決勝', 'sf_winner': '準決勝（勝者）', 'sf_loser': '準決勝（敗者）',
+            'semi': '準決勝', 'final_1st': '決勝（1-2位）', 'final_3rd': '3位決定戦',
+            'final_5th': '5位決定戦', 'final_7th': '7位決定戦', 'final': '決勝', 'round-robin': '総当たり',
+          };
+
+          final grouped = <String, List<QueryDocumentSnapshot>>{};
+          for (var doc in matchSnap.data!.docs) {
+            final round = (doc.data() as Map<String, dynamic>)['round'] as String? ?? '';
+            grouped.putIfAbsent(round, () => []);
+            grouped[round]!.add(doc);
+          }
+
+          final sortedRounds = grouped.keys.toList()
+            ..sort((a, b) => (roundOrder.indexOf(a) == -1 ? 99 : roundOrder.indexOf(a))
+                .compareTo(roundOrder.indexOf(b) == -1 ? 99 : roundOrder.indexOf(b)));
+
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: sortedRounds.map((round) {
+            final matches = grouped[round]!;
+            final label = roundLabels[round] ?? round;
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 4, left: 4),
+                child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber[800])),
               ),
-            );
+              ...matches.map((mDoc) {
+                final m = mDoc.data() as Map<String, dynamic>;
+                final status = m['status'] ?? 'pending';
+                final result = m['result'] as Map<String, dynamic>? ?? {};
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.withValues(alpha:0.3))),
+                  child: InkWell(
+                    onTap: (isOrganizer && status != 'waiting') ? () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+                        tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId)));
+                    } : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(children: [
+                        Expanded(flex: 3, child: Text(m['teamAName'] ?? '', style: TextStyle(fontSize: 16,
+                            fontWeight: status == 'completed' && result['winner'] == m['teamAId'] ? FontWeight.bold : FontWeight.normal),
+                            textAlign: TextAlign.right)),
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: status == 'completed' ? Colors.amber.withValues(alpha:0.1) : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(6)),
+                          child: Text(
+                            status == 'completed' ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (status == 'waiting' ? '待機中' : 'vs'),
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: status == 'completed' ? Colors.amber[800] : AppTheme.textSecondary)),
+                        ),
+                        Expanded(flex: 3, child: Text(m['teamBName'] ?? '', style: TextStyle(fontSize: 16,
+                            fontWeight: status == 'completed' && result['winner'] == m['teamBId'] ? FontWeight.bold : FontWeight.normal))),
+                      ]),
+                    ),
+                  ),
+                );
+              }),
+            ]);
           }).toList());
         },
       ),
