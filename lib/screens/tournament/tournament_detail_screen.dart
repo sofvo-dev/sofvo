@@ -46,6 +46,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   String _myEntryTeamId = "";
   bool _showOnlyMyCourts = false;
   Set<String> _myCourtIds = {};
+  String? _selectedCourtFilter; // null=全て, 'MY'=自分のコート, courtId=特定コート
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
@@ -951,38 +952,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // マイコートフィルター
-                if (_myTeamIds.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _showOnlyMyCourts = !_showOnlyMyCourts),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _showOnlyMyCourts ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: _showOnlyMyCourts ? AppTheme.primaryColor : Colors.grey[300]!),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(
-                            _showOnlyMyCourts ? Icons.filter_alt : Icons.filter_alt_outlined,
-                            size: 18, color: _showOnlyMyCourts ? AppTheme.primaryColor : AppTheme.textSecondary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _showOnlyMyCourts ? '自分のコートのみ表示中' : '自分のコートだけ表示',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                              color: _showOnlyMyCourts ? AppTheme.primaryColor : AppTheme.textSecondary),
-                          ),
-                          if (_showOnlyMyCourts) ...[
-                            const SizedBox(width: 6),
-                            Icon(Icons.close, size: 16, color: AppTheme.primaryColor),
-                          ],
-                        ]),
-                      ),
-                    ),
-                  ),
+                // コート切替チップバー（ラウンドデータから動的に生成）
+                _buildCourtFilterChips(),
                 // Show each round
                 ...roundsSnap.data!.docs.map((roundDoc) {
                   final roundData = roundDoc.data() as Map<String, dynamic>;
@@ -2331,6 +2302,128 @@ B,2,チームG,チームH,チームE,チームF''';
     );
   }
 
+  Widget _buildCourtFilterChips() {
+    // 最初のラウンドのマッチデータからコート一覧を取得
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore.collection('tournaments').doc(_tournamentId)
+          .collection('rounds').limit(1).snapshots(),
+      builder: (context, roundSnap) {
+        if (!roundSnap.hasData || roundSnap.data!.docs.isEmpty) return const SizedBox();
+        final roundId = roundSnap.data!.docs.first.id;
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('tournaments').doc(_tournamentId)
+              .collection('rounds').doc(roundId)
+              .collection('matches').orderBy('matchOrder').snapshots(),
+          builder: (context, matchSnap) {
+            if (!matchSnap.hasData || matchSnap.data!.docs.isEmpty) return const SizedBox();
+
+            // コート一覧を構築
+            final courtMap = <String, int>{}; // courtId -> courtNumber
+            final myCourts = <String>{};
+            for (var m in matchSnap.data!.docs) {
+              final md = m.data() as Map<String, dynamic>;
+              final courtId = md['courtId'] ?? '';
+              final courtNum = md['courtNumber'] ?? 0;
+              if (courtId.isNotEmpty) courtMap[courtId] = courtNum as int;
+              if (_myTeamIds.contains(md['teamAId'] ?? '') || _myTeamIds.contains(md['teamBId'] ?? '') ||
+                  _myTeamIds.contains(md['refereeTeamId'] ?? '') || _myTeamIds.contains(md['subRefereeTeamId'] ?? '')) {
+                myCourts.add(courtId);
+              }
+            }
+
+            final sortedCourts = courtMap.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+
+            // 3コート以下ならチップバー不要
+            if (sortedCourts.length <= 3) return const SizedBox();
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    // 「全て」チップ
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ChoiceChip(
+                        label: const Text('全て'),
+                        selected: _selectedCourtFilter == null,
+                        selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                        labelStyle: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600,
+                          color: _selectedCourtFilter == null ? AppTheme.primaryColor : AppTheme.textSecondary,
+                        ),
+                        side: BorderSide(color: _selectedCourtFilter == null ? AppTheme.primaryColor : Colors.grey[300]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        showCheckmark: false,
+                        onSelected: (_) => setState(() { _selectedCourtFilter = null; _showOnlyMyCourts = false; }),
+                      ),
+                    ),
+                    // 「MY」チップ（自チームがある場合のみ）
+                    if (myCourts.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: const Text('MY'),
+                          selected: _selectedCourtFilter == 'MY',
+                          selectedColor: AppTheme.accentColor.withValues(alpha: 0.15),
+                          labelStyle: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.bold,
+                            color: _selectedCourtFilter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.7),
+                          ),
+                          side: BorderSide(color: _selectedCourtFilter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.4)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          showCheckmark: false,
+                          onSelected: (_) => setState(() {
+                            _selectedCourtFilter = _selectedCourtFilter == 'MY' ? null : 'MY';
+                            _showOnlyMyCourts = _selectedCourtFilter == 'MY';
+                          }),
+                        ),
+                      ),
+                    // 各コートチップ
+                    ...sortedCourts.map((court) {
+                      final courtId = court.key;
+                      final courtNum = court.value;
+                      final label = '${String.fromCharCode(64 + courtNum)}';
+                      final isSelected = _selectedCourtFilter == courtId;
+                      final isMyCourt = myCourts.contains(courtId);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(label),
+                            if (isMyCourt) ...[
+                              const SizedBox(width: 3),
+                              Icon(Icons.star, size: 12, color: isSelected ? AppTheme.primaryColor : AppTheme.accentColor),
+                            ],
+                          ]),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                          labelStyle: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600,
+                            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                          ),
+                          side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          showCheckmark: false,
+                          onSelected: (_) => setState(() {
+                            _selectedCourtFilter = isSelected ? null : courtId;
+                            _showOnlyMyCourts = false;
+                          }),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildRoundSection(String roundId, int roundNum, bool isOrganizer) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
@@ -2374,9 +2467,16 @@ B,2,チームG,チームH,チームE,チームF''';
             return (aNum as int).compareTo(bNum as int);
           });
 
-          final filteredCourts = _showOnlyMyCourts
-              ? sortedCourts.where((court) => myCourts.contains(court.key)).toList()
-              : sortedCourts;
+          List<MapEntry<String, List<QueryDocumentSnapshot>>> filteredCourts;
+          if (_selectedCourtFilter == 'MY') {
+            filteredCourts = sortedCourts.where((court) => myCourts.contains(court.key)).toList();
+          } else if (_selectedCourtFilter != null) {
+            filteredCourts = sortedCourts.where((court) => court.key == _selectedCourtFilter).toList();
+          } else if (_showOnlyMyCourts) {
+            filteredCourts = sortedCourts.where((court) => myCourts.contains(court.key)).toList();
+          } else {
+            filteredCourts = sortedCourts;
+          }
 
           return Column(children: filteredCourts.map((court) {
             final courtNum = (court.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
@@ -2391,9 +2491,14 @@ B,2,チームG,チームH,チームE,チームF''';
             .collection('standings').snapshots(),
         builder: (context, standSnap) {
           if (!standSnap.hasData || standSnap.data!.docs.isEmpty) return const SizedBox();
-          final standDocs = _showOnlyMyCourts
-              ? standSnap.data!.docs.where((d) => _myCourtIds.contains(d.id)).toList()
-              : standSnap.data!.docs;
+          List<QueryDocumentSnapshot> standDocs;
+          if (_selectedCourtFilter == 'MY' || _showOnlyMyCourts) {
+            standDocs = standSnap.data!.docs.where((d) => _myCourtIds.contains(d.id)).toList();
+          } else if (_selectedCourtFilter != null) {
+            standDocs = standSnap.data!.docs.where((d) => d.id == _selectedCourtFilter).toList();
+          } else {
+            standDocs = standSnap.data!.docs;
+          }
           return Column(children: standDocs.map((courtDoc) {
             final courtData = courtDoc.data() as Map<String, dynamic>;
             return _buildStandingsCard(courtDoc.id, courtData['courtNumber'] ?? 0, roundId);
