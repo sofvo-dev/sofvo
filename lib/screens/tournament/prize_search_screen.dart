@@ -16,7 +16,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   String _filterCategory = 'すべて';
-  String _sortBy = 'name'; // 'name', 'category', 'price'
+  String _sortBy = 'name'; // 'name', 'category', 'price', 'rating'
 
   static const _categories = [
     'スポーツ用品',
@@ -152,6 +152,8 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
             _buildSortChip('カテゴリ', 'category'),
             const SizedBox(width: 6),
             _buildSortChip('価格帯', 'price'),
+            const SizedBox(width: 6),
+            _buildSortChip('評価', 'rating'),
           ]),
         ),
         const SizedBox(height: 8),
@@ -204,6 +206,10 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                   case 'price':
                     return _priceRanges.indexOf(da['priceRange'] ?? '')
                         .compareTo(_priceRanges.indexOf(db['priceRange'] ?? ''));
+                  case 'rating':
+                    final ra = (da['rating'] is num ? (da['rating'] as num).toDouble() : 0.0);
+                    final rb = (db['rating'] is num ? (db['rating'] as num).toDouble() : 0.0);
+                    return rb.compareTo(ra); // 高評価順
                   default:
                     return (da['name'] ?? '').toString().compareTo((db['name'] ?? '').toString());
                 }
@@ -247,6 +253,8 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
     final url = data['amazonAffiliateUrl'] ?? data['url'] ?? '';
     final imageUrl = data['imageUrl'] ?? '';
     final memo = data['memo'] ?? '';
+    final rating = (data['rating'] is num ? (data['rating'] as num).toDouble() : 0.0);
+    final reviewCount = (data['reviewCount'] is num ? (data['reviewCount'] as num).toInt() : 0);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -280,6 +288,12 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                   Row(children: [
                     Expanded(child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),
+                    if (rating > 0) ...[
+                      const Icon(Icons.star, size: 16, color: Colors.amber),
+                      Text(' ${rating.toStringAsFixed(1)} ($reviewCount)',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      const SizedBox(width: 8),
+                    ],
                     GestureDetector(
                       onTap: () async {
                         final result = await Navigator.push<bool>(context,
@@ -353,13 +367,15 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
     final amazonAffiliateUrl = (data['amazonAffiliateUrl'] ?? '').toString();
     final imageUrl = (data['imageUrl'] ?? '').toString();
     final memo = (data['memo'] ?? '').toString();
+    final rating = (data['rating'] is num ? (data['rating'] as num).toDouble() : 0.0);
+    final reviewCount = (data['reviewCount'] is num ? (data['reviewCount'] as num).toInt() : 0);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.65,
+        initialChildSize: 0.75,
         minChildSize: 0.4,
         maxChildSize: 0.95,
         expand: false,
@@ -388,6 +404,22 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
 
                   // 景品名
                   Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+
+                  // 評価サマリー
+                  if (rating > 0)
+                    Row(children: [
+                      ...List.generate(5, (i) => Icon(
+                        i < rating.round() ? Icons.star : Icons.star_border,
+                        size: 20, color: Colors.amber,
+                      )),
+                      const SizedBox(width: 8),
+                      Text('${rating.toStringAsFixed(1)}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amber)),
+                      const SizedBox(width: 4),
+                      Text('($reviewCount件のレビュー)',
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    ]),
                   const SizedBox(height: 12),
 
                   // タグ
@@ -404,6 +436,65 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                     Text(memo, style: const TextStyle(fontSize: 14, height: 1.5)),
                     const SizedBox(height: 16),
                   ],
+
+                  // レビュー・口コミセクション
+                  Row(children: [
+                    const Text('レビュー・口コミ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showAddReviewSheet(docId, name);
+                      },
+                      icon: const Icon(Icons.rate_review_outlined, size: 18),
+                      label: const Text('レビューを書く', style: TextStyle(fontSize: 13)),
+                      style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  // レビュー一覧（StreamBuilder）
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('prizes').doc(docId)
+                        .collection('reviews')
+                        .orderBy('createdAt', descending: true)
+                        .limit(10)
+                        .snapshots(),
+                    builder: (context, reviewSnapshot) {
+                      if (!reviewSnapshot.hasData) {
+                        return const Center(child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ));
+                      }
+                      final reviews = reviewSnapshot.data!.docs;
+                      if (reviews.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(children: [
+                            Icon(Icons.rate_review_outlined, size: 32, color: Colors.grey[300]),
+                            const SizedBox(height: 8),
+                            const Text('まだレビューがありません',
+                              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                            const SizedBox(height: 4),
+                            const Text('この景品を使ったことがあればレビューを書きましょう！',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
+                          ]),
+                        );
+                      }
+                      return Column(
+                        children: reviews.map((doc) {
+                          final r = doc.data() as Map<String, dynamic>;
+                          return _buildReviewTile(r);
+                        }).toList(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
 
                   // 購入先リンク
                   if (amazonAffiliateUrl.isNotEmpty)
@@ -451,6 +542,178 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReviewTile(Map<String, dynamic> review) {
+    final reviewRating = (review['rating'] is num ? (review['rating'] as num).toInt() : 0);
+    final comment = (review['comment'] ?? '').toString();
+    final createdAt = review['createdAt'];
+    String dateStr = '';
+    if (createdAt is Timestamp) {
+      final dt = createdAt.toDate();
+      dateStr = '${dt.year}/${dt.month}/${dt.day}';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          ...List.generate(5, (i) => Icon(
+            i < reviewRating ? Icons.star : Icons.star_border,
+            size: 16, color: Colors.amber,
+          )),
+          const Spacer(),
+          if (dateStr.isNotEmpty)
+            Text(dateStr, style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
+        ]),
+        if (comment.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(comment, style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary)),
+        ],
+      ]),
+    );
+  }
+
+  void _showAddReviewSheet(String prizeId, String prizeName) {
+    int selectedRating = 0;
+    final commentCtrl = TextEditingController();
+    bool isSaving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+                const SizedBox(height: 16),
+                const Text('レビューを書く', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(prizeName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                const SizedBox(height: 16),
+
+                // 星評価
+                const Text('評価', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) {
+                  return GestureDetector(
+                    onTap: () => setSheetState(() => selectedRating = i + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        i < selectedRating ? Icons.star : Icons.star_border,
+                        size: 36, color: Colors.amber,
+                      ),
+                    ),
+                  );
+                })),
+                const SizedBox(height: 16),
+
+                // コメント
+                const Text('コメント', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    hintText: '例: 参加者にとても喜ばれました！コスパも良いです。',
+                    hintStyle: const TextStyle(color: AppTheme.textHint, fontSize: 14),
+                    filled: true, fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 送信ボタン
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (selectedRating > 0 && !isSaving) ? () async {
+                      setSheetState(() => isSaving = true);
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        // レビューを追加
+                        await FirebaseFirestore.instance
+                            .collection('prizes').doc(prizeId)
+                            .collection('reviews')
+                            .add({
+                          'rating': selectedRating,
+                          'comment': commentCtrl.text.trim(),
+                          'userId': user?.uid ?? '',
+                          'createdAt': FieldValue.serverTimestamp(),
+                        });
+
+                        // 景品の平均評価とレビュー数を更新
+                        final reviewsSnap = await FirebaseFirestore.instance
+                            .collection('prizes').doc(prizeId)
+                            .collection('reviews')
+                            .get();
+                        double totalRating = 0;
+                        for (final doc in reviewsSnap.docs) {
+                          final r = doc.data();
+                          totalRating += (r['rating'] is num ? (r['rating'] as num).toDouble() : 0);
+                        }
+                        final avgRating = reviewsSnap.docs.isNotEmpty
+                            ? totalRating / reviewsSnap.docs.length
+                            : 0.0;
+                        await FirebaseFirestore.instance
+                            .collection('prizes').doc(prizeId)
+                            .update({
+                          'rating': double.parse(avgRating.toStringAsFixed(1)),
+                          'reviewCount': reviewsSnap.docs.length,
+                        });
+
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('レビューを投稿しました！'), backgroundColor: AppTheme.success),
+                          );
+                        }
+                      } catch (e) {
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('エラー: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      } finally {
+                        if (ctx.mounted) setSheetState(() => isSaving = false);
+                      }
+                    } : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[300],
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: isSaving
+                        ? const SizedBox(width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('レビューを投稿する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ]),
+            ),
+          );
+        },
       ),
     );
   }
@@ -735,18 +998,45 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
               .get();
         }
         if (dupCheck.docs.isNotEmpty && mounted) {
-          final proceed = await showDialog<bool>(
+          final existingDoc = dupCheck.docs.first;
+          final existingData = existingDoc.data() as Map<String, dynamic>;
+          // 重複時: レビュー追加 or 新規登録 or キャンセル
+          final action = await showDialog<String>(
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('同じ景品が登録済みです'),
-              content: const Text('同じ商品名またはURLの景品がすでに登録されています。それでも登録しますか？'),
+              content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('「${existingData['name'] ?? name}」はすでに登録されています。',
+                  style: const TextStyle(fontSize: 14)),
+                const SizedBox(height: 12),
+                const Text('レビューを追加して、この景品の感想を共有しませんか？',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              ]),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
-                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('登録する')),
+                TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('キャンセル')),
+                TextButton(onPressed: () => Navigator.pop(ctx, 'register'), child: const Text('それでも登録')),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, 'review'),
+                  icon: const Icon(Icons.rate_review, size: 18),
+                  label: const Text('レビューを書く'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                  ),
+                ),
               ],
             ),
           );
-          if (proceed != true) {
+          if (action == 'review' && mounted) {
+            setState(() => _saving = false);
+            Navigator.pop(context); // 登録画面を閉じる
+            // 呼び出し元の一覧画面でレビューシートを表示するためにコールバック
+            // ここではNavigator.popの結果としてレビュー情報を返す
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showDuplicateReviewSheet(existingDoc.id, existingData['name'] ?? name);
+            });
+            return;
+          }
+          if (action != 'register') {
             setState(() => _saving = false);
             return;
           }
@@ -754,6 +1044,8 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
 
         prizeData['registeredBy'] = user?.uid ?? '';
         prizeData['createdAt'] = FieldValue.serverTimestamp();
+        prizeData['rating'] = 0;
+        prizeData['reviewCount'] = 0;
         await FirebaseFirestore.instance.collection('prizes').add(prizeData);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -769,6 +1061,138 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _showDuplicateReviewSheet(String prizeId, String prizeName) {
+    int selectedRating = 0;
+    final commentCtrl = TextEditingController();
+    bool isSaving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+                const SizedBox(height: 16),
+                const Text('レビューを書く', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(prizeName, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                const SizedBox(height: 16),
+
+                const Text('評価', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) {
+                  return GestureDetector(
+                    onTap: () => setSheetState(() => selectedRating = i + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        i < selectedRating ? Icons.star : Icons.star_border,
+                        size: 36, color: Colors.amber,
+                      ),
+                    ),
+                  );
+                })),
+                const SizedBox(height: 16),
+
+                const Text('コメント', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    hintText: '例: 参加者にとても喜ばれました！コスパも良いです。',
+                    hintStyle: const TextStyle(color: AppTheme.textHint, fontSize: 14),
+                    filled: true, fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (selectedRating > 0 && !isSaving) ? () async {
+                      setSheetState(() => isSaving = true);
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        await FirebaseFirestore.instance
+                            .collection('prizes').doc(prizeId)
+                            .collection('reviews')
+                            .add({
+                          'rating': selectedRating,
+                          'comment': commentCtrl.text.trim(),
+                          'userId': user?.uid ?? '',
+                          'createdAt': FieldValue.serverTimestamp(),
+                        });
+
+                        // 平均評価を再計算
+                        final reviewsSnap = await FirebaseFirestore.instance
+                            .collection('prizes').doc(prizeId)
+                            .collection('reviews')
+                            .get();
+                        double totalRating = 0;
+                        for (final doc in reviewsSnap.docs) {
+                          final r = doc.data();
+                          totalRating += (r['rating'] is num ? (r['rating'] as num).toDouble() : 0);
+                        }
+                        final avgRating = reviewsSnap.docs.isNotEmpty
+                            ? totalRating / reviewsSnap.docs.length
+                            : 0.0;
+                        await FirebaseFirestore.instance
+                            .collection('prizes').doc(prizeId)
+                            .update({
+                          'rating': double.parse(avgRating.toStringAsFixed(1)),
+                          'reviewCount': reviewsSnap.docs.length,
+                        });
+
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('レビューを投稿しました！'), backgroundColor: AppTheme.success),
+                          );
+                        }
+                      } catch (e) {
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('エラー: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      } finally {
+                        if (ctx.mounted) setSheetState(() => isSaving = false);
+                      }
+                    } : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[300],
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: isSaving
+                        ? const SizedBox(width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('レビューを投稿する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
