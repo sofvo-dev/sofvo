@@ -30,11 +30,16 @@ void main() async {
   );
   await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
 
-  // Web URLパラメータから招待リンクの大会IDを取得
+  // Web URLパラメータ or パスから招待リンクの大会IDを取得
   if (kIsWeb) {
     final uri = Uri.base;
     pendingTournamentId = uri.queryParameters['t'];
     pendingCheckInTournamentId = uri.queryParameters['checkin'];
+
+    // /tournament/:id パスにも対応
+    if (pendingTournamentId == null && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'tournament') {
+      pendingTournamentId = uri.pathSegments[1];
+    }
   }
 
   // Firestoreオフラインキャッシュ（モバイルのみ）
