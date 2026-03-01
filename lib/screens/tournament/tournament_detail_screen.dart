@@ -1,9 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,6 +16,7 @@ import 'mvp_voting_screen.dart';
 import 'tournament_finance_screen.dart';
 import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
+import '../../services/csv_download.dart';
 import '../../services/match_generator.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
@@ -1314,16 +1312,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final csvContent = '$header\n$example1\n$example2\n';
 
     try {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/entry_template.csv');
-      await file.writeAsString(csvContent, encoding: utf8);
-
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: 'text/csv')],
-          subject: 'エントリー用CSVテンプレート',
-        ),
-      );
+      await downloadCsvFile(csvContent, 'entry_template.csv');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
