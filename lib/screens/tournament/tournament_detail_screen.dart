@@ -1306,9 +1306,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   // ━━━ CSVテンプレートダウンロード ━━━
   Future<void> _downloadCsvTemplate() async {
-    const header = 'チーム名,メンバー1,メンバー2,メンバー3,メンバー4,メンバー5,メンバー6';
-    const example1 = 'サンプルチームA,田中太郎,佐藤花子,鈴木一郎,高橋美咲,,';
-    const example2 = 'サンプルチームB,山田次郎,伊藤さくら,渡辺健太,中村あい,小林大輔,';
+    const header = 'チーム名,キャプテン,メンバー1,メンバー2,メンバー3,メンバー4,メンバー5,メンバー6';
+    const example1 = 'サンプルチームA,佐藤花子,田中太郎,佐藤花子,鈴木一郎,高橋美咲,,';
+    const example2 = 'サンプルチームB,伊藤さくら,山田次郎,伊藤さくら,渡辺健太,中村あい,小林大輔,';
     final csvContent = '$header\n$example1\n$example2\n';
 
     try {
@@ -1359,6 +1359,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final firstRow = rows.first;
     final hasHeader = firstRow.isNotEmpty &&
         (firstRow[0].toString().contains('チーム') || firstRow[0].toString().toLowerCase().contains('team'));
+
+    // 「キャプテン」列があるか判定（2列目がキャプテン列）
+    final hasCaptainCol = hasHeader && firstRow.length >= 2 &&
+        (firstRow[1].toString().contains('キャプテン') || firstRow[1].toString().toLowerCase().contains('captain'));
+
     final dataRows = hasHeader ? rows.skip(1).toList() : rows;
 
     if (dataRows.isEmpty) {
@@ -1375,15 +1380,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     for (final row in dataRows) {
       if (row.isEmpty || row[0].toString().trim().isEmpty) continue;
       final teamName = row[0].toString().trim();
+      final captainName = hasCaptainCol && row.length >= 2 ? row[1].toString().trim() : '';
+      final memberStartIdx = hasCaptainCol ? 2 : 1;
       final members = <String, String>{};
-      for (int i = 1; i < row.length; i++) {
+      int memberNum = 1;
+      for (int i = memberStartIdx; i < row.length; i++) {
         final name = row[i].toString().trim();
         if (name.isNotEmpty) {
-          members['p${i}'] = name;
+          members['p$memberNum'] = name;
+          memberNum++;
         }
       }
       teams.add({
         'teamName': teamName,
+        'captainName': captainName,
         'members': members,
         'memberCount': members.length,
       });
@@ -1448,10 +1458,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final batch = _firestore.batch();
     for (final t in teams) {
       final entryRef = _firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc();
+      final captain = (t['captainName'] as String? ?? '').isNotEmpty
+          ? t['captainName'] as String
+          : (t['members'] as Map<String, String>).values.firstOrNull ?? '';
       batch.set(entryRef, {
         'teamId': entryRef.id,
         'teamName': t['teamName'],
-        'leaderName': (t['members'] as Map<String, String>).values.firstOrNull ?? '',
+        'leaderName': captain,
         'memberCount': t['memberCount'],
         'memberNames': t['members'],
         'enteredBy': uid,
