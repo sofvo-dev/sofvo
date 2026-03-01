@@ -303,12 +303,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         children: [
           Icon(Icons.info_outline, size: 18, color: AppTheme.warning),
           const SizedBox(width: 10),
-          Expanded(child: Text('主催者をフォローするとエントリーできます', style: TextStyle(fontSize: 13, color: AppTheme.warning))),
+          Expanded(child: Text('大会主催者をフォローするとエントリーできます', style: TextStyle(fontSize: 13, color: AppTheme.warning))),
           TextButton(
             onPressed: () {
               setState(() => _isFollowing = true);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('主催者をフォローしました！'), backgroundColor: AppTheme.success),
+                const SnackBar(content: Text('大会主催者をフォローしました！'), backgroundColor: AppTheme.success),
               );
             },
             child: const Text('フォローする', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -460,7 +460,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               child: Column(children: [
                 _buildTimelineRow(live['openTime'] as String? ?? t['openTime'] as String? ?? '8:00', '会場オープン', Icons.location_on),
                 _buildTimelineRow(live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '8:30', '受付開始', Icons.how_to_reg),
-                _buildTimelineRow(live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '8:45', '代表者会議', Icons.groups),
+                _buildTimelineRow(live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '8:45', 'チームキャプテン会議', Icons.groups),
                 _buildTimelineRow(live['openingTime'] as String? ?? t['openingTime'] as String? ?? '9:00', '開会式', Icons.campaign),
                 _buildTimelineRow(live['matchStartTime'] as String? ?? t['matchStartTime'] as String? ?? '9:15', '試合開始', Icons.sports_volleyball),
                 _buildTimelineRow(live['finalTime'] as String? ?? t['finalTime'] as String? ?? '15:00', '終了', Icons.flag),
@@ -503,7 +503,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       Row(children: [
                         Icon(Icons.star, size: 14, color: AppTheme.accentColor),
                         const SizedBox(width: 4),
-                        Text('主催者', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        Text('大会主催者', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       ]),
                     ]),
                   ),
@@ -1308,7 +1308,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   // ━━━ CSVテンプレートダウンロード ━━━
   Future<void> _downloadCsvTemplate() async {
-    const header = 'チーム名,キャプテン,メンバー1,メンバー2,メンバー3,メンバー4,メンバー5,メンバー6';
+    const header = 'チーム名,チームキャプテン,メンバー1,メンバー2,メンバー3,メンバー4,メンバー5,メンバー6';
     const example1 = 'サンプルチームA,佐藤花子,田中太郎,佐藤花子,鈴木一郎,高橋美咲,,';
     const example2 = 'サンプルチームB,伊藤さくら,山田次郎,伊藤さくら,渡辺健太,中村あい,小林大輔,';
     final csvContent = '$header\n$example1\n$example2\n';
@@ -1362,7 +1362,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final hasHeader = firstRow.isNotEmpty &&
         (firstRow[0].toString().contains('チーム') || firstRow[0].toString().toLowerCase().contains('team'));
 
-    // 「キャプテン」列があるか判定（2列目がキャプテン列）
+    // 「チームキャプテン」列があるか判定（2列目がキャプテン列）
     final hasCaptainCol = hasHeader && firstRow.length >= 2 &&
         (firstRow[1].toString().contains('キャプテン') || firstRow[1].toString().toLowerCase().contains('captain'));
 
@@ -2462,7 +2462,7 @@ B,2,チームG,チームH,チームE,チームF''';
           return InkWell(
             onTap: () {
               if (isCompleted && !isOrganizer) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです。編集は主催者のみ可能です"), backgroundColor: Colors.orange));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです。編集は大会主催者のみ可能です"), backgroundColor: Colors.orange));
                 return;
               }
               if (!canInput) return;
@@ -2790,7 +2790,7 @@ B,2,チームG,チームH,チームE,チームF''';
                         child: Text('${i + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? AppTheme.error : AppTheme.primaryColor)),
                       ),
                       title: Text(e['teamName'] as String, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.error : null)),
-                      subtitle: Text('キャプテン: ${e['leaderName']} / ${e['memberCount']}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      subtitle: Text('チームキャプテン: ${e['leaderName']} / ${e['memberCount']}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     );
                   },
                 ),
@@ -2895,7 +2895,7 @@ B,2,チームG,チームH,チームE,チームF''';
                       style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
                 ),
                 title: Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: isFirst ? Text('キャプテン', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)) : null,
+                subtitle: isFirst ? Text('チームキャプテン', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)) : null,
                 trailing: GestureDetector(
                   onTap: () {
                     Navigator.pop(ctx);
@@ -3021,7 +3021,7 @@ B,2,チームG,チームH,チームE,チームF''';
                             Text(teamName.toString(), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isMyTeam ? Colors.red : AppTheme.textPrimary)),
                             const SizedBox(height: 4),
                             Row(children: [
-                              Text('キャプテン: $leader / ${memberUids.length}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                              Text('チームキャプテン: $leader / ${memberUids.length}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                               if (isCheckedIn) ...[
                                 const SizedBox(width: 8),
                                 Container(
@@ -3313,7 +3313,7 @@ B,2,チームG,チームH,チームE,チームF''';
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                               decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                              child: Text('主催者', style: TextStyle(fontSize: 10, color: AppTheme.accentColor, fontWeight: FontWeight.bold)),
+                              child: Text('大会主催者', style: TextStyle(fontSize: 10, color: AppTheme.accentColor, fontWeight: FontWeight.bold)),
                             ),
                           ],
                           const Spacer(),
@@ -4133,7 +4133,7 @@ B,2,チームG,チームH,チームE,チームF''';
                   child: OutlinedButton.icon(
                     onPressed: () => _showOrganizerMenuSheet(t),
                     icon: const Icon(Icons.admin_panel_settings, size: 18),
-                    label: const Text('主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    label: const Text('大会主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.primaryColor,
                       side: const BorderSide(color: AppTheme.primaryColor, width: 2),
@@ -4149,7 +4149,7 @@ B,2,チームG,チームH,チームE,チームF''';
               child: ElevatedButton.icon(
                 onPressed: () => _showOrganizerMenuSheet(t),
                 icon: const Icon(Icons.admin_panel_settings, size: 20),
-                label: const Text('主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                label: const Text('大会主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -4448,7 +4448,7 @@ B,2,チームG,チームH,チームE,チームF''';
                           child: OutlinedButton.icon(
                             onPressed: () => _showOrganizerMenuSheet(t),
                             icon: const Icon(Icons.admin_panel_settings, size: 18),
-                            label: const Text('主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            label: const Text('大会主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.primaryColor,
                               side: const BorderSide(color: AppTheme.primaryColor, width: 2),
@@ -4603,7 +4603,7 @@ B,2,チームG,チームH,チームE,チームF''';
                     onPressed: () {
                       setState(() => _isFollowing = true);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
+                        const SnackBar(content: Text('大会主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
                       );
                     },
                     icon: const Icon(Icons.person_add, size: 18),
@@ -5433,7 +5433,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('主催者メニュー', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('大会主催者メニュー', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimary,
         elevation: 0,

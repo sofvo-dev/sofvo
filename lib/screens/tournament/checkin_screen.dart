@@ -4,10 +4,10 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/app_theme.dart';
 
-/// QRコード受付画面（主催者用）
+/// QRコード受付画面（大会主催者用）
 /// 3パターン:
-///   1. 主催者がスキャン  - 主催者がカメラでチームのQRを読み取る
-///   2. 参加者がスキャン  - 大会QRを表示、参加者がカメラで読み取ってチェックイン
+///   1. 大会主催者がスキャン  - 大会主催者がカメラでチームのQRを読み取る
+///   2. チームキャプテンがスキャン  - 大会QRを表示、チームキャプテンがカメラで読み取ってチェックイン
 ///   3. 手動受付         - チェックリストで手動チェック
 class CheckInScreen extends StatefulWidget {
   final String tournamentId;
@@ -52,8 +52,8 @@ class _CheckInScreenState extends State<CheckInScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: AppTheme.accentColor,
           tabs: const [
-            Tab(text: '主催者がスキャン'),
-            Tab(text: '参加者がスキャン'),
+            Tab(text: '大会主催者がスキャン'),
+            Tab(text: 'チームキャプテンがスキャン'),
             Tab(text: '手動受付'),
           ],
         ),
@@ -69,8 +69,8 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ タブ1: 主催者がカメラでスキャン ━━━
-  // 各チームがQRを表示 → 主催者がカメラで読み取る
+  // ━━━ タブ1: 大会主催者がカメラでスキャン ━━━
+  // 各チームがQRを表示 → 大会主催者がカメラで読み取る
   Widget _buildOrganizerScanTab() {
     return Column(
       children: [
@@ -101,7 +101,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ タブ2: 参加者がスキャン（大会QRを表示） ━━━
+  // ━━━ タブ2: チームキャプテンがスキャン（大会QRを表示） ━━━
   Widget _buildParticipantScanTab() {
     final checkInUrl = 'https://sofvo-19d84.web.app/?checkin=${widget.tournamentId}';
     return SingleChildScrollView(
@@ -110,7 +110,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         children: [
           const SizedBox(height: 8),
           Text(
-            'このQRコードを受付に掲示してください\n参加者がスキャンして自動チェックイン',
+            'このQRコードを受付に掲示してください\nチームキャプテンがスキャンして自動チェックイン',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),

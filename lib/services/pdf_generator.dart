@@ -74,7 +74,7 @@ class PdfGenerator {
           pw.Expanded(flex: 4, child: _sectionCardCompact('\u5F53\u65E5\u30B9\u30B1\u30B8\u30E5\u30FC\u30EB', _accent, [
             _scheduleRow(t['openTime'] ?? '8:00', '会場'),
             _scheduleRow(t['receptionTime'] ?? '8:30', '受付'),
-            _scheduleRow(t['captainMeetingTime'] ?? '8:45', '代表者会議'),
+            _scheduleRow(t['captainMeetingTime'] ?? '8:45', 'チームキャプテン会議'),
             _scheduleRow(t['openingTime'] ?? '9:00', '開会式'),
             _scheduleRow(t['matchStartTime'] ?? '9:15', '試合開始'),
             _scheduleRow(t['finalTime'] ?? '15:00', '終了'),
