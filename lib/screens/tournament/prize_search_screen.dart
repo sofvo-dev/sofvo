@@ -95,25 +95,47 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _filterCategory,
-                  icon: const Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
-                  items: ['すべて', ..._categories].map((cat) =>
-                    DropdownMenuItem(value: cat, child: Text(cat)),
-                  ).toList(),
-                  onChanged: (v) => setState(() => _filterCategory = v ?? 'すべて'),
-                ),
-              ),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('prizeCategories').orderBy('createdAt').snapshots(),
+              builder: (context, catSnapshot) {
+                final customCats = <String>[];
+                if (catSnapshot.hasData) {
+                  final presetSet = <String>{..._categories};
+                  for (final doc in catSnapshot.data!.docs) {
+                    final name = (doc.data() as Map<String, dynamic>)['name'] ?? '';
+                    if (name.toString().isNotEmpty && !presetSet.contains(name)) {
+                      customCats.add(name.toString());
+                    }
+                  }
+                }
+                final allCats = ['すべて', ..._categories, ...customCats];
+                // フィルタ値がリストにない場合はリセット
+                if (!allCats.contains(_filterCategory)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _filterCategory = 'すべて');
+                  });
+                }
+                return Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: allCats.contains(_filterCategory) ? _filterCategory : 'すべて',
+                      icon: const Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
+                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                      items: allCats.map((cat) =>
+                        DropdownMenuItem(value: cat, child: Text(cat)),
+                      ).toList(),
+                      onChanged: (v) => setState(() => _filterCategory = v ?? 'すべて'),
+                    ),
+                  ),
+                );
+              },
             ),
           ]),
         ),
@@ -640,6 +662,23 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
     );
   }
 
+  void _showCategoryPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => _PrizeCategoryPickerSheet(
+        selected: _category,
+        onSelected: (cat) {
+          setState(() => _category = cat);
+          Navigator.pop(ctx);
+        },
+      ),
+    );
+  }
+
   Future<void> _savePrize() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -933,10 +972,34 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           // ── カテゴリ ──
           _buildSectionLabel('カテゴリ'),
           const SizedBox(height: 8),
-          _dropdownField(
-            value: _category,
-            items: _PrizeSearchScreenState._categories,
-            onChanged: (v) => setState(() => _category = v ?? _category),
+          GestureDetector(
+            onTap: _showCategoryPicker,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.label, color: AppTheme.primaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_category, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                    Text('タップして変更', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                  ]),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+              ]),
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -1052,6 +1115,208 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           onChanged: onChanged,
         ),
       ),
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 景品カテゴリ選択・新規作成シート
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _PrizeCategoryPickerSheet extends StatefulWidget {
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  const _PrizeCategoryPickerSheet({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  State<_PrizeCategoryPickerSheet> createState() => _PrizeCategoryPickerSheetState();
+}
+
+class _PrizeCategoryPickerSheetState extends State<_PrizeCategoryPickerSheet> {
+  final _newCategoryCtrl = TextEditingController();
+  bool _isAdding = false;
+
+  @override
+  void dispose() {
+    _newCategoryCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addCustomCategory() async {
+    final name = _newCategoryCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    setState(() => _isAdding = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('prizeCategories')
+          .add({
+        'name': name,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      _newCategoryCtrl.clear();
+      if (mounted) widget.onSelected(name);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAdding = false);
+    }
+  }
+
+  Future<void> _deleteCategory(String docId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('prizeCategories')
+          .doc(docId)
+          .delete();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.8,
+      expand: false,
+      builder: (context, scrollCtrl) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text('カテゴリを選択', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('prizeCategories')
+                      .orderBy('createdAt')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final presetSet = <String>{..._PrizeSearchScreenState._categories};
+                    final customCategories = <Map<String, dynamic>>[];
+                    if (snapshot.hasData) {
+                      for (final doc in snapshot.data!.docs) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = data['name'] ?? '';
+                        if (!presetSet.contains(name)) {
+                          customCategories.add({'id': doc.id, 'name': name});
+                        }
+                      }
+                    }
+
+                    return ListView(
+                      controller: scrollCtrl,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        // プリセットカテゴリ
+                        ..._PrizeSearchScreenState._categories.map((name) => _buildCategoryTile(name)),
+
+                        // ユーザー追加カテゴリ
+                        if (customCategories.isNotEmpty) ...[
+                          const Divider(height: 24),
+                          _buildSectionHeader('追加されたカテゴリ'),
+                          ...customCategories.map((cat) {
+                            return _buildCategoryTile(
+                              cat['name'] as String,
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.error),
+                                onPressed: () => _deleteCategory(cat['id']),
+                              ),
+                            );
+                          }),
+                        ],
+
+                        // カスタム作成
+                        const Divider(height: 24),
+                        _buildSectionHeader('カテゴリが見つからない場合'),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                          child: Row(children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _newCategoryCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'カテゴリ名を入力',
+                                  hintStyle: const TextStyle(fontSize: 14, color: AppTheme.textHint),
+                                  filled: true, fillColor: Colors.white,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
+                                ),
+                                onSubmitted: (_) => _addCustomCategory(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 44,
+                              child: ElevatedButton(
+                                onPressed: _isAdding ? null : _addCustomCategory,
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(56, 44),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: _isAdding
+                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Text('作成', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ]),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryTile(String name, {Widget? trailing}) {
+    final isSelected = name == widget.selected;
+    return ListTile(
+      leading: Icon(
+        isSelected ? Icons.check_circle : Icons.circle_outlined,
+        color: isSelected ? AppTheme.primaryColor : Colors.grey[350],
+        size: 22,
+      ),
+      title: Text(name, style: TextStyle(
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+      )),
+      trailing: trailing,
+      dense: true,
+      onTap: () => widget.onSelected(name),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+      child: Text(title, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
     );
   }
 }
