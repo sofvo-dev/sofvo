@@ -2798,7 +2798,7 @@ B,2,チームG,チームH,チームE,チームF''';
                 value: 'random', groupValue: mode, activeColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 title: const Text('完全ランダム', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('予選1の結果に関係なく、ランダムに割り振ります', style: TextStyle(fontSize: 12)),
+                subtitle: const Text('ランダムに割り振ります（予選1で同じコートだったチームはなるべく別コートに配置）', style: TextStyle(fontSize: 12)),
                 onChanged: (v) => setDialogState(() => mode = v!),
               ),
             ]),
