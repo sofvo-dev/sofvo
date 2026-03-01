@@ -651,71 +651,173 @@ class MatchGenerator {
   }
 
   /// Generate tier-based tournament brackets (順位別トーナメント)
+  /// 予選順位で自動的にリーグ分け → 各リーグでSEトーナメント（全順位決定）
   Future<void> _generateTierBrackets(
     String tournamentId,
     List<MapEntry<String, Map<String, dynamic>>> sorted,
     Map<String, dynamic> finalRules,
   ) async {
-    final brackets = _splitIntoGroups(sorted, 4);
-    final bracketNames = ['上位', '中上位', '中位', '中下位', '下位', 'エンジョイ'];
+    // コート数を取得してリーグサイズを決定
+    final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
+    final courtCount = tournDoc.data()?['courts'] ?? 2;
 
-    for (int b = 0; b < brackets.length; b++) {
-      final bracket = brackets[b];
-      final bracketName = b < bracketNames.length ? bracketNames[b] : '第${b + 1}ブラケット';
+    // リーグあたり2コート使用 → リーグ数 = コート数 / 2
+    final leagueCount = (courtCount / 2).ceil().clamp(1, sorted.length);
+    final teamsPerLeague = (sorted.length / leagueCount).ceil();
+    final leagues = _splitIntoGroups(sorted, teamsPerLeague);
+
+    final leagueNames = ['上', '中上', '中', '中下', '下', 'エンジョイ'];
+
+    for (int b = 0; b < leagues.length; b++) {
+      final league = leagues[b];
+      final leagueName = b < leagueNames.length ? leagueNames[b] : '第${b + 1}';
       final bracketRef = _firestore.collection('tournaments').doc(tournamentId)
           .collection('brackets').doc('bracket_${b + 1}');
 
+      // リーグの順位範囲を計算（例: 上 → 1〜8位）
+      final rankStart = b * teamsPerLeague + 1;
+      final rankEnd = (rankStart + league.length - 1).clamp(rankStart, sorted.length);
+
       await bracketRef.set({
         'bracketNumber': b + 1,
-        'bracketName': bracketName,
-        'teamCount': bracket.length,
+        'bracketName': leagueName,
+        'teamCount': league.length,
+        'rankRange': '$rankStart〜$rankEnd位',
         'type': 'tournament',
         'status': 'pending',
       });
 
-      if (bracket.length >= 4) {
-        // Semi-finals: 1st vs 4th, 2nd vs 3rd
-        await bracketRef.collection('matches').add({
-          'round': 'semi', 'matchNumber': 1,
-          'teamAId': bracket[0].key, 'teamAName': bracket[0].value['teamName'],
-          'teamBId': bracket[3].key, 'teamBName': bracket[3].value['teamName'],
-          'status': 'pending', 'sets': [], 'result': {},
-        });
-        await bracketRef.collection('matches').add({
-          'round': 'semi', 'matchNumber': 2,
-          'teamAId': bracket[1].key, 'teamAName': bracket[1].value['teamName'],
-          'teamBId': bracket[2].key, 'teamBName': bracket[2].value['teamName'],
-          'status': 'pending', 'sets': [], 'result': {},
-        });
-        // Final placeholder
-        await bracketRef.collection('matches').add({
-          'round': 'final', 'matchNumber': 3,
-          'teamAId': '', 'teamAName': '準決勝①勝者',
-          'teamBId': '', 'teamBName': '準決勝②勝者',
-          'status': 'waiting', 'sets': [], 'result': {},
-        });
-      } else if (bracket.length == 3) {
-        // Round-robin for 3 teams
+      if (league.length >= 8) {
+        // 8チーム以上: SE全順位決定トーナメント
+        await _generate8TeamSE(bracketRef, league);
+      } else if (league.length >= 4) {
+        // 4〜7チーム: 4チームSE（準決勝→決勝+3位決定戦）
+        await _generate4TeamSE(bracketRef, league);
+      } else if (league.length == 3) {
+        // 3チーム: 総当たり
         int matchNum = 1;
-        for (int i = 0; i < bracket.length; i++) {
-          for (int j = i + 1; j < bracket.length; j++) {
+        for (int i = 0; i < league.length; i++) {
+          for (int j = i + 1; j < league.length; j++) {
             await bracketRef.collection('matches').add({
               'round': 'round-robin', 'matchNumber': matchNum++,
-              'teamAId': bracket[i].key, 'teamAName': bracket[i].value['teamName'],
-              'teamBId': bracket[j].key, 'teamBName': bracket[j].value['teamName'],
+              'teamAId': league[i].key, 'teamAName': league[i].value['teamName'],
+              'teamBId': league[j].key, 'teamBName': league[j].value['teamName'],
               'status': 'pending', 'sets': [], 'result': {},
             });
           }
         }
-      } else if (bracket.length == 2) {
+      } else if (league.length == 2) {
         await bracketRef.collection('matches').add({
           'round': 'final', 'matchNumber': 1,
-          'teamAId': bracket[0].key, 'teamAName': bracket[0].value['teamName'],
-          'teamBId': bracket[1].key, 'teamBName': bracket[1].value['teamName'],
+          'teamAId': league[0].key, 'teamAName': league[0].value['teamName'],
+          'teamBId': league[1].key, 'teamBName': league[1].value['teamName'],
           'status': 'pending', 'sets': [], 'result': {},
         });
       }
     }
+  }
+
+  /// 8チームSE全順位決定トーナメント
+  /// QF(4試合) → SF勝者(2) + SF敗者(2) → 決勝+3位+5位+7位決定戦(4)
+  Future<void> _generate8TeamSE(
+    DocumentReference bracketRef,
+    List<MapEntry<String, Map<String, dynamic>>> teams,
+  ) async {
+    // QF: 1v8, 4v5, 2v7, 3v6（シード配置）
+    final qfPairs = [
+      [0, 7], // 1位 vs 8位
+      [3, 4], // 4位 vs 5位
+      [1, 6], // 2位 vs 7位
+      [2, 5], // 3位 vs 6位
+    ];
+    for (int i = 0; i < qfPairs.length; i++) {
+      final a = qfPairs[i][0] < teams.length ? teams[qfPairs[i][0]] : null;
+      final b = qfPairs[i][1] < teams.length ? teams[qfPairs[i][1]] : null;
+      if (a != null && b != null) {
+        await bracketRef.collection('matches').add({
+          'round': 'qf', 'matchNumber': i + 1,
+          'teamAId': a.key, 'teamAName': a.value['teamName'],
+          'teamBId': b.key, 'teamBName': b.value['teamName'],
+          'status': 'pending', 'sets': [], 'result': {},
+        });
+      }
+    }
+    // SF勝者: QF①勝者 vs QF②勝者, QF③勝者 vs QF④勝者
+    await bracketRef.collection('matches').add({
+      'round': 'sf_winner', 'matchNumber': 5,
+      'teamAId': '', 'teamAName': 'QF①勝者',
+      'teamBId': '', 'teamBName': 'QF②勝者',
+      'status': 'waiting', 'sets': [], 'result': {},
+    });
+    await bracketRef.collection('matches').add({
+      'round': 'sf_winner', 'matchNumber': 6,
+      'teamAId': '', 'teamAName': 'QF③勝者',
+      'teamBId': '', 'teamBName': 'QF④勝者',
+      'status': 'waiting', 'sets': [], 'result': {},
+    });
+    // SF敗者: QF①敗者 vs QF②敗者, QF③敗者 vs QF④敗者
+    await bracketRef.collection('matches').add({
+      'round': 'sf_loser', 'matchNumber': 7,
+      'teamAId': '', 'teamAName': 'QF①敗者',
+      'teamBId': '', 'teamBName': 'QF②敗者',
+      'status': 'waiting', 'sets': [], 'result': {},
+    });
+    await bracketRef.collection('matches').add({
+      'round': 'sf_loser', 'matchNumber': 8,
+      'teamAId': '', 'teamAName': 'QF③敗者',
+      'teamBId': '', 'teamBName': 'QF④敗者',
+      'status': 'waiting', 'sets': [], 'result': {},
+    });
+    // 決勝(1-2位), 3位決定戦, 5位決定戦, 7位決定戦
+    for (final entry in [
+      {'round': 'final_1st', 'num': 9, 'a': 'SF勝者①勝者', 'b': 'SF勝者②勝者', 'label': '決勝（1-2位）'},
+      {'round': 'final_3rd', 'num': 10, 'a': 'SF勝者①敗者', 'b': 'SF勝者②敗者', 'label': '3位決定戦'},
+      {'round': 'final_5th', 'num': 11, 'a': 'SF敗者①勝者', 'b': 'SF敗者②勝者', 'label': '5位決定戦'},
+      {'round': 'final_7th', 'num': 12, 'a': 'SF敗者①敗者', 'b': 'SF敗者②敗者', 'label': '7位決定戦'},
+    ]) {
+      await bracketRef.collection('matches').add({
+        'round': entry['round'], 'matchNumber': entry['num'],
+        'teamAId': '', 'teamAName': entry['a'],
+        'teamBId': '', 'teamBName': entry['b'],
+        'label': entry['label'],
+        'status': 'waiting', 'sets': [], 'result': {},
+      });
+    }
+  }
+
+  /// 4チームSE（準決勝→決勝+3位決定戦）
+  Future<void> _generate4TeamSE(
+    DocumentReference bracketRef,
+    List<MapEntry<String, Map<String, dynamic>>> teams,
+  ) async {
+    // SF: 1vs4, 2vs3
+    await bracketRef.collection('matches').add({
+      'round': 'semi', 'matchNumber': 1,
+      'teamAId': teams[0].key, 'teamAName': teams[0].value['teamName'],
+      'teamBId': teams.length > 3 ? teams[3].key : '', 'teamBName': teams.length > 3 ? teams[3].value['teamName'] : '',
+      'status': 'pending', 'sets': [], 'result': {},
+    });
+    await bracketRef.collection('matches').add({
+      'round': 'semi', 'matchNumber': 2,
+      'teamAId': teams[1].key, 'teamAName': teams[1].value['teamName'],
+      'teamBId': teams.length > 2 ? teams[2].key : '', 'teamBName': teams.length > 2 ? teams[2].value['teamName'] : '',
+      'status': 'pending', 'sets': [], 'result': {},
+    });
+    // 決勝 + 3位決定戦
+    await bracketRef.collection('matches').add({
+      'round': 'final_1st', 'matchNumber': 3,
+      'teamAId': '', 'teamAName': 'SF①勝者',
+      'teamBId': '', 'teamBName': 'SF②勝者',
+      'label': '決勝（1-2位）',
+      'status': 'waiting', 'sets': [], 'result': {},
+    });
+    await bracketRef.collection('matches').add({
+      'round': 'final_3rd', 'matchNumber': 4,
+      'teamAId': '', 'teamAName': 'SF①敗者',
+      'teamBId': '', 'teamBName': 'SF②敗者',
+      'label': '3位決定戦',
+      'status': 'waiting', 'sets': [], 'result': {},
+    });
   }
 
   /// Generate single elimination bracket for all teams
@@ -752,7 +854,8 @@ class MatchGenerator {
     return groups;
   }
 
-  /// After a bracket semi-final is completed, update final match
+  /// After a bracket match is completed, update next round matches
+  /// Handles: QF→SF(winner/loser), SF→Finals, Semi→Finals(4-team)
   Future<void> updateBracketProgression({
     required String tournamentId,
     required String bracketId,
@@ -761,32 +864,156 @@ class MatchGenerator {
         .collection('brackets').doc(bracketId);
     final matchesSnap = await bracketRef.collection('matches').orderBy('matchNumber').get();
 
-    final semiMatches = matchesSnap.docs.where((d) => (d.data())['round'] == 'semi').toList();
-    final finalMatch = matchesSnap.docs.where((d) => (d.data())['round'] == 'final').firstOrNull;
-
-    if (semiMatches.length < 2) return;
-
-    final semi1 = semiMatches[0].data();
-    final semi2 = semiMatches[1].data();
-
-    if (semi1['status'] != 'completed' || semi2['status'] != 'completed') return;
-
-    final result1 = semi1['result'] as Map<String, dynamic>? ?? {};
-    final result2 = semi2['result'] as Map<String, dynamic>? ?? {};
-
-    final winner1Id = result1['winner'] ?? '';
-    final winner1Name = winner1Id == semi1['teamAId'] ? semi1['teamAName'] : semi1['teamBName'];
-
-    final winner2Id = result2['winner'] ?? '';
-    final winner2Name = winner2Id == semi2['teamAId'] ? semi2['teamAName'] : semi2['teamBName'];
-
-    if (finalMatch != null) {
-      await finalMatch.reference.update({
-        'teamAId': winner1Id, 'teamAName': winner1Name,
-        'teamBId': winner2Id, 'teamBName': winner2Name,
-        'status': 'pending',
-      });
+    // Group matches by round
+    final byRound = <String, List<QueryDocumentSnapshot>>{};
+    for (var doc in matchesSnap.docs) {
+      final round = (doc.data() as Map<String, dynamic>)['round'] as String? ?? '';
+      byRound.putIfAbsent(round, () => []);
+      byRound[round]!.add(doc);
     }
+
+    // Sort each round's matches by matchNumber
+    for (var list in byRound.values) {
+      list.sort((a, b) => ((a.data() as Map<String, dynamic>)['matchNumber'] as int)
+          .compareTo((b.data() as Map<String, dynamic>)['matchNumber'] as int));
+    }
+
+    // 8-team: QF → SF winner + SF loser
+    if (byRound.containsKey('qf')) {
+      final qf = byRound['qf']!;
+      final allDone = qf.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
+      if (allDone && qf.length >= 4) {
+        final q1 = qf[0].data() as Map<String, dynamic>;
+        final q2 = qf[1].data() as Map<String, dynamic>;
+        final q3 = qf[2].data() as Map<String, dynamic>;
+        final q4 = qf[3].data() as Map<String, dynamic>;
+
+        final sfW = byRound['sf_winner'] ?? [];
+        if (sfW.length >= 2) {
+          await sfW[0].reference.update({
+            'teamAId': _winnerId(q1), 'teamAName': _winnerName(q1),
+            'teamBId': _winnerId(q2), 'teamBName': _winnerName(q2),
+            'status': 'pending',
+          });
+          await sfW[1].reference.update({
+            'teamAId': _winnerId(q3), 'teamAName': _winnerName(q3),
+            'teamBId': _winnerId(q4), 'teamBName': _winnerName(q4),
+            'status': 'pending',
+          });
+        }
+
+        final sfL = byRound['sf_loser'] ?? [];
+        if (sfL.length >= 2) {
+          await sfL[0].reference.update({
+            'teamAId': _loserId(q1), 'teamAName': _loserName(q1),
+            'teamBId': _loserId(q2), 'teamBName': _loserName(q2),
+            'status': 'pending',
+          });
+          await sfL[1].reference.update({
+            'teamAId': _loserId(q3), 'teamAName': _loserName(q3),
+            'teamBId': _loserId(q4), 'teamBName': _loserName(q4),
+            'status': 'pending',
+          });
+        }
+      }
+    }
+
+    // SF winner → Final 1st + 3rd
+    if (byRound.containsKey('sf_winner')) {
+      final sfW = byRound['sf_winner']!;
+      final allDone = sfW.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
+      if (allDone && sfW.length >= 2) {
+        final sw1 = sfW[0].data() as Map<String, dynamic>;
+        final sw2 = sfW[1].data() as Map<String, dynamic>;
+
+        final f1st = byRound['final_1st']?.firstOrNull;
+        if (f1st != null) {
+          await f1st.reference.update({
+            'teamAId': _winnerId(sw1), 'teamAName': _winnerName(sw1),
+            'teamBId': _winnerId(sw2), 'teamBName': _winnerName(sw2),
+            'status': 'pending',
+          });
+        }
+        final f3rd = byRound['final_3rd']?.firstOrNull;
+        if (f3rd != null) {
+          await f3rd.reference.update({
+            'teamAId': _loserId(sw1), 'teamAName': _loserName(sw1),
+            'teamBId': _loserId(sw2), 'teamBName': _loserName(sw2),
+            'status': 'pending',
+          });
+        }
+      }
+    }
+
+    // SF loser → Final 5th + 7th
+    if (byRound.containsKey('sf_loser')) {
+      final sfL = byRound['sf_loser']!;
+      final allDone = sfL.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
+      if (allDone && sfL.length >= 2) {
+        final sl1 = sfL[0].data() as Map<String, dynamic>;
+        final sl2 = sfL[1].data() as Map<String, dynamic>;
+
+        final f5th = byRound['final_5th']?.firstOrNull;
+        if (f5th != null) {
+          await f5th.reference.update({
+            'teamAId': _winnerId(sl1), 'teamAName': _winnerName(sl1),
+            'teamBId': _winnerId(sl2), 'teamBName': _winnerName(sl2),
+            'status': 'pending',
+          });
+        }
+        final f7th = byRound['final_7th']?.firstOrNull;
+        if (f7th != null) {
+          await f7th.reference.update({
+            'teamAId': _loserId(sl1), 'teamAName': _loserName(sl1),
+            'teamBId': _loserId(sl2), 'teamBName': _loserName(sl2),
+            'status': 'pending',
+          });
+        }
+      }
+    }
+
+    // 4-team: semi → final_1st + final_3rd
+    if (byRound.containsKey('semi')) {
+      final semi = byRound['semi']!;
+      final allDone = semi.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
+      if (allDone && semi.length >= 2) {
+        final s1 = semi[0].data() as Map<String, dynamic>;
+        final s2 = semi[1].data() as Map<String, dynamic>;
+
+        final f1st = byRound['final_1st']?.firstOrNull;
+        if (f1st != null) {
+          await f1st.reference.update({
+            'teamAId': _winnerId(s1), 'teamAName': _winnerName(s1),
+            'teamBId': _winnerId(s2), 'teamBName': _winnerName(s2),
+            'status': 'pending',
+          });
+        }
+        final f3rd = byRound['final_3rd']?.firstOrNull;
+        if (f3rd != null) {
+          await f3rd.reference.update({
+            'teamAId': _loserId(s1), 'teamAName': _loserName(s1),
+            'teamBId': _loserId(s2), 'teamBName': _loserName(s2),
+            'status': 'pending',
+          });
+        }
+      }
+    }
+  }
+
+  // Helper: extract winner/loser ID and name from completed match
+  String _winnerId(Map<String, dynamic> m) =>
+      (m['result'] as Map<String, dynamic>? ?? {})['winner'] ?? '';
+  String _winnerName(Map<String, dynamic> m) {
+    final wId = _winnerId(m);
+    return wId == m['teamAId'] ? (m['teamAName'] ?? '') : (m['teamBName'] ?? '');
+  }
+  String _loserId(Map<String, dynamic> m) {
+    final wId = _winnerId(m);
+    return wId == m['teamAId'] ? (m['teamBId'] ?? '') : (m['teamAId'] ?? '');
+  }
+  String _loserName(Map<String, dynamic> m) {
+    final wId = _winnerId(m);
+    return wId == m['teamAId'] ? (m['teamBName'] ?? '') : (m['teamAName'] ?? '');
   }
 
 }
