@@ -4228,18 +4228,14 @@ B,2,チームG,チームH,チームE,チームF''';
             },
           ),
           const SizedBox(height: 4),
-          _menuTile(ctx, Icons.qr_code_scanner, 'QRスキャンで受付', '主催者がカメラでチームのQRを読み取る', () {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
-          }, color: AppTheme.success),
-          _menuTile(ctx, Icons.checklist, '手動チェックイン', 'リストから手動でチェックイン', () {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
-          }, color: AppTheme.success),
-          _menuTile(ctx, Icons.qr_code, '大会QRコードを表示', '参加者がスキャンして自動チェックイン', () {
+          _menuTile(ctx, Icons.qr_code, '大会QRコードを表示', 'スマホ・PC・タブレットで表示、または印刷', () {
             Navigator.push(context, MaterialPageRoute(
               builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
           }, color: AppTheme.primaryColor),
+          _menuTile(ctx, Icons.checklist, '手動チェックイン', 'リストからチームを手動でチェックイン', () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
+          }, color: AppTheme.success),
           _menuTile(ctx, Icons.payment, '参加費の確認', '各チームの入金状況を確認', () {
             Navigator.push(context, MaterialPageRoute(
               builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData)));
