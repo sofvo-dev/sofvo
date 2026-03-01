@@ -2853,8 +2853,16 @@ B,2,チームG,チームH,チームE,チームF''';
       }
     }
   }
-  void _showMemberList(String teamName, Map<String, dynamic> memberNames) {
+  void _showMemberList(String teamName, Map<String, dynamic> memberNames, String leaderName) {
     final members = memberNames.entries.toList();
+    // leaderNameと一致するメンバーを先頭に並べ替え
+    members.sort((a, b) {
+      final aIsLeader = a.value?.toString() == leaderName;
+      final bIsLeader = b.value?.toString() == leaderName;
+      if (aIsLeader && !bIsLeader) return -1;
+      if (!aIsLeader && bIsLeader) return 1;
+      return 0;
+    });
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -2979,7 +2987,7 @@ B,2,チームG,チームH,チームE,チームF''';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: GestureDetector(
-                      onTap: isMyTeam ? () => _showMemberList(teamName.toString(), memberNames) : null,
+                      onTap: isMyTeam ? () => _showMemberList(teamName.toString(), memberNames, leader.toString()) : null,
                       child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
