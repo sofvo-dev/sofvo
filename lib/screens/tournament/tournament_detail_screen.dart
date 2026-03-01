@@ -2719,36 +2719,119 @@ B,2,チームG,チームH,チームE,チームF''';
           SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error)); }
     }
   }
-  Future<void> _addTestTeams() async {
-    final testTeams = [
-      {'teamId': 'test_team_2', 'teamName': 'サンダーズ'},
-      {'teamId': 'test_team_3', 'teamName': 'ファイヤーズ'},
-      {'teamId': 'test_team_4', 'teamName': 'ストームズ'},
-      {'teamId': 'test_team_5', 'teamName': 'ブレイカーズ'},
-      {'teamId': 'test_team_6', 'teamName': 'ウィングス'},
-      {'teamId': 'test_team_7', 'teamName': 'スパイカーズ'},
-    ];
+  Future<void> _deleteEntryTeams() async {
+    // エントリー済みチームを取得
+    final entriesSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').get();
+    if (entriesSnap.docs.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('エントリーチームがありません'), backgroundColor: AppTheme.warning),
+        );
+      }
+      return;
+    }
+
+    final entries = entriesSnap.docs.map((d) {
+      final data = d.data();
+      return {'docId': d.id, 'teamName': data['teamName'] ?? '', 'leaderName': data['leaderName'] ?? '', 'memberCount': data['memberCount'] ?? 0};
+    }).toList();
+
+    if (!mounted) return;
+    final selectedIds = <String>{};
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            const Icon(Icons.delete_sweep, color: AppTheme.error),
+            const SizedBox(width: 8),
+            const Text('チームを削除', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ]),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: Column(children: [
+              Row(children: [
+                Text('${selectedIds.length}件選択中', style: TextStyle(fontSize: 13, color: selectedIds.isNotEmpty ? AppTheme.error : AppTheme.textSecondary, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => setDialogState(() {
+                    if (selectedIds.length == entries.length) {
+                      selectedIds.clear();
+                    } else {
+                      selectedIds.addAll(entries.map((e) => e['docId'] as String));
+                    }
+                  }),
+                  child: Text(selectedIds.length == entries.length ? '全解除' : '全選択', style: const TextStyle(fontSize: 13)),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: entries.length,
+                  itemBuilder: (ctx, i) {
+                    final e = entries[i];
+                    final docId = e['docId'] as String;
+                    final isSelected = selectedIds.contains(docId);
+                    return CheckboxListTile(
+                      dense: true,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      value: isSelected,
+                      activeColor: AppTheme.error,
+                      onChanged: (v) => setDialogState(() {
+                        if (v == true) { selectedIds.add(docId); } else { selectedIds.remove(docId); }
+                      }),
+                      secondary: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: isSelected ? AppTheme.error.withValues(alpha: 0.15) : AppTheme.primaryColor.withValues(alpha: 0.1),
+                        child: Text('${i + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? AppTheme.error : AppTheme.primaryColor)),
+                      ),
+                      title: Text(e['teamName'] as String, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.error : null)),
+                      subtitle: Text('キャプテン: ${e['leaderName']} / ${e['memberCount']}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    );
+                  },
+                ),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+            ElevatedButton(
+              onPressed: selectedIds.isEmpty ? null : () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+              child: Text('${selectedIds.length}件削除する'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || selectedIds.isEmpty) return;
+
     try {
       showDialog(context: context, barrierDismissible: false,
           builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
-      for (var team in testTeams) {
-        final existing = await _firestore.collection('tournaments').doc(_tournamentId)
-            .collection('entries').where('teamId', isEqualTo: team['teamId']).get();
-        if (existing.docs.isEmpty) {
-          await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').add({
-            'teamId': team['teamId'], 'teamName': team['teamName'],
-            'leaderName': 'テスト', 'memberCount': 4,
-            'memberNames': {'p1': '選手1', 'p2': '選手2', 'p3': '選手3', 'p4': '選手4'},
-            'enteredBy': 'test', 'createdAt': FieldValue.serverTimestamp(),
-          });
-          await _firestore.collection('tournaments').doc(_tournamentId).update({'currentTeams': FieldValue.increment(1)});
-        }
+      final batch = _firestore.batch();
+      for (final docId in selectedIds) {
+        batch.delete(_firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc(docId));
       }
-      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('テストチーム6チーム追加しました'), backgroundColor: AppTheme.success)); }
+      batch.update(_firestore.collection('tournaments').doc(_tournamentId), {'currentTeams': FieldValue.increment(-selectedIds.length)});
+      await batch.commit();
+      await _loadMyTeams();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${selectedIds.length}チームを削除しました'), backgroundColor: AppTheme.success),
+        );
+      }
     } catch (e) {
-      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error)); }
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
+        );
+      }
     }
   }
 
@@ -4166,7 +4249,7 @@ B,2,チームG,チームH,チームE,チームF''';
         onSelfEntry: () => _showEntrySheet(context),
         onCheckIn: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))),
         onCsvMenu: _showCsvImportMenu,
-        onTestTeams: _addTestTeams,
+        onDeleteTeams: _deleteEntryTeams,
         onFinance: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))),
         onEditors: _showEditorsSheet,
         onAnnouncement: _showAnnouncementDialog,
@@ -5289,7 +5372,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
   final VoidCallback onSelfEntry;
   final VoidCallback onCheckIn;
   final VoidCallback onCsvMenu;
-  final VoidCallback onTestTeams;
+  final VoidCallback onDeleteTeams;
   final VoidCallback onFinance;
   final VoidCallback onEditors;
   final VoidCallback onAnnouncement;
@@ -5308,7 +5391,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.onSelfEntry,
     required this.onCheckIn,
     required this.onCsvMenu,
-    required this.onTestTeams,
+    required this.onDeleteTeams,
     required this.onFinance,
     required this.onEditors,
     required this.onAnnouncement,
@@ -5351,7 +5434,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
           _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
           _menuTile(context, Icons.upload_file, 'CSVインポート', 'エントリー・対戦表・決勝のCSV管理', onCsvMenu, color: AppTheme.success),
-          _menuTile(context, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', onTestTeams, color: AppTheme.success),
+          _menuTile(context, Icons.delete_sweep, 'エントリーチーム削除', '選択したチームをエントリーから削除', onDeleteTeams, isDestructive: true),
 
           // ━━━ 運営 ━━━
           _sectionLabel('運営'),
