@@ -50,7 +50,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
   bool _finalDeuce = true;
   int _finalDeuceCap = 17;
   String _finalFormat = '順位別複数';
-  int _finalTierCount = 3; // 2=上・中, 3=上・中・下
+  int _finalTierCount = 3; // 2=上・下, 3=上・中・下
 
   // Other
   bool _uniformRequired = false;
@@ -746,7 +746,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
                 Padding(
                   padding: const EdgeInsets.only(left: 16, top: 4, bottom: 4),
                   child: _choiceRow('区分数', [2, 3], _finalTierCount, (v) => setState(() => _finalTierCount = v), _finalColor,
-                    labels: {2: '上・中', 3: '上・中・下'}),
+                    labels: {2: '上・下', 3: '上・中・下'}),
                 ),
               const SizedBox(height: 8),
               _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,
