@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:js_interop';
+import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
 Future<void> downloadCsvFile(String content, String filename) async {
   // BOM付きUTF-8でExcelでも文字化けしない
   final bom = [0xEF, 0xBB, 0xBF];
-  final bytes = [...bom, ...utf8.encode(content)];
+  final bytes = Uint8List.fromList([...bom, ...utf8.encode(content)]);
   final blob = web.Blob(
-    [bytes.toJS].toJS,
+    [bytes.buffer.toJS].toJS,
     web.BlobPropertyBag(type: 'text/csv;charset=utf-8'),
   );
   final url = web.URL.createObjectURL(blob);
