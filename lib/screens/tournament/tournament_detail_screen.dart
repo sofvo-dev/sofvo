@@ -1467,7 +1467,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         'leaderName': captain,
         'memberCount': t['memberCount'],
         'memberNames': t['members'],
-        'enteredBy': uid,
+        'enteredBy': '',
         'createdAt': FieldValue.serverTimestamp(),
       });
       count++;
