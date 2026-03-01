@@ -244,6 +244,8 @@ class MyPageScreen extends StatelessWidget {
                       context: context,
                       title: '大会結果',
                       icon: Icons.emoji_events_rounded,
+                      seeAllTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const TournamentHistoryScreen())),
                       child: _TournamentCardsRow(userId: user.uid),
                     ),
                     const SizedBox(height: 16),
@@ -270,57 +272,71 @@ class MyPageScreen extends StatelessWidget {
 
                     const SizedBox(height: 4),
 
-                    // ── 大会主催者メニュー ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildSectionLabel('大会主催者メニュー'),
+                    // ── 大会主催者メニュー（カード型） ──
+                    _buildCardSection(
+                      context: context,
+                      title: '大会主催者メニュー',
+                      icon: Icons.sports_volleyball_rounded,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildMenuCard(
+                                icon: Icons.emoji_events_outlined,
+                                title: '大会管理',
+                                subtitle: '大会の作成・運営',
+                                color: AppTheme.primaryColor,
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentManagementScreen())),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildMenuCard(
+                                icon: Icons.card_giftcard_outlined,
+                                title: '景品をさがす',
+                                subtitle: '景品アイデア共有',
+                                color: Colors.orange,
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrizeSearchScreen())),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildMenuGroup([
-                        _MenuItemData(Icons.emoji_events_outlined, '大会管理', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentManagementScreen()));
-                        }),
-                        _MenuItemData(Icons.card_giftcard_outlined, '景品をさがす', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const PrizeSearchScreen()));
-                        }),
-                      ]),
-                    ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                    // ── みんなのツール ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildSectionLabel('みんなのツール'),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildMenuGroup([
-                        _MenuItemData(Icons.person_search_outlined, 'メンバー募集管理', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const RecruitmentManagementScreen()));
-                        }),
-                        _MenuItemData(Icons.location_city_outlined, '会場を登録・検索', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
-                        }),
-                      ]),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── 履歴・記録 ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildSectionLabel('履歴・記録'),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildMenuGroup([
-                        _MenuItemData(Icons.history_rounded, '参加大会履歴', () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentHistoryScreen()));
-                        }),
-                      ]),
+                    // ── みんなのツール（カード型） ──
+                    _buildCardSection(
+                      context: context,
+                      title: 'みんなのツール',
+                      icon: Icons.handyman_rounded,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildMenuCard(
+                                icon: Icons.person_search_outlined,
+                                title: 'メンバー募集',
+                                subtitle: '仲間をさがす',
+                                color: Colors.teal,
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RecruitmentManagementScreen())),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildMenuCard(
+                                icon: Icons.location_city_outlined,
+                                title: '会場さがす',
+                                subtitle: '登録・検索',
+                                color: Colors.indigo,
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen())),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -419,6 +435,44 @@ class MyPageScreen extends StatelessWidget {
                 ),
               ),
               Icon(Icons.chevron_right, color: Colors.grey[400], size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── メニューカード（カード型メニュー項目） ──
+  Widget _buildMenuCard({
+    required IconData icon, required String title, required String subtitle,
+    required Color color, required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 10),
+              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ],
           ),
         ),
