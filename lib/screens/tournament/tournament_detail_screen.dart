@@ -1408,46 +1408,76 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       return;
     }
 
-    // プレビューダイアログ
+    // プレビューダイアログ（自分のチームを選択可能）
     if (!mounted) return;
+    int? myTeamIndex;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(children: [
-          const Icon(Icons.upload_file, color: AppTheme.primaryColor),
-          const SizedBox(width: 8),
-          Text('${teams.length}チームを登録', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ]),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: ListView.builder(
-            itemCount: teams.length,
-            itemBuilder: (ctx, i) {
-              final t = teams[i];
-              final members = t['members'] as Map<String, String>;
-              return ListTile(
-                dense: true,
-                leading: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  child: Text('${i + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            const Icon(Icons.upload_file, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text('${teams.length}チームを登録', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ]),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 350,
+            child: Column(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [
+                  Icon(Icons.touch_app, size: 16, color: Colors.red[400]),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text('自分のチームをタップして選択', style: TextStyle(fontSize: 12, color: Colors.red[400]))),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: teams.length,
+                  itemBuilder: (ctx, i) {
+                    final t = teams[i];
+                    final members = t['members'] as Map<String, String>;
+                    final isMyTeam = myTeamIndex == i;
+                    return ListTile(
+                      dense: true,
+                      selected: isMyTeam,
+                      selectedTileColor: Colors.red.withValues(alpha: 0.08),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: isMyTeam ? Colors.red.withValues(alpha: 0.15) : AppTheme.primaryColor.withValues(alpha: 0.1),
+                        child: Text('${i + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isMyTeam ? Colors.red : AppTheme.primaryColor)),
+                      ),
+                      title: Row(children: [
+                        Expanded(child: Text(t['teamName'], style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isMyTeam ? Colors.red : null))),
+                        if (isMyTeam)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                            child: const Text('自分', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                          ),
+                      ]),
+                      subtitle: Text(members.values.join(', '), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      onTap: () => setDialogState(() => myTeamIndex = isMyTeam ? null : i),
+                    );
+                  },
                 ),
-                title: Text(t['teamName'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                subtitle: Text(members.values.join(', '), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              );
-            },
+              ),
+            ]),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+              child: const Text('登録する'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
-            child: const Text('登録する'),
-          ),
-        ],
       ),
     );
 
@@ -1456,7 +1486,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     // Firestoreに一括登録
     int count = 0;
     final batch = _firestore.batch();
-    for (final t in teams) {
+    for (int i = 0; i < teams.length; i++) {
+      final t = teams[i];
       final entryRef = _firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc();
       final captain = (t['captainName'] as String? ?? '').isNotEmpty
           ? t['captainName'] as String
@@ -1467,7 +1498,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         'leaderName': captain,
         'memberCount': t['memberCount'],
         'memberNames': t['members'],
-        'enteredBy': '',
+        'enteredBy': i == myTeamIndex ? uid : '',
         'createdAt': FieldValue.serverTimestamp(),
       });
       count++;
