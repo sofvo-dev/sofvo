@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1301,6 +1304,33 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         );
       }),
     ));
+  }
+
+  // ━━━ CSVテンプレートダウンロード ━━━
+  Future<void> _downloadCsvTemplate() async {
+    const header = 'チーム名,メンバー1,メンバー2,メンバー3,メンバー4,メンバー5,メンバー6';
+    const example1 = 'サンプルチームA,田中太郎,佐藤花子,鈴木一郎,高橋美咲,,';
+    const example2 = 'サンプルチームB,山田次郎,伊藤さくら,渡辺健太,中村あい,小林大輔,';
+    final csvContent = '$header\n$example1\n$example2\n';
+
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/entry_template.csv');
+      await file.writeAsString(csvContent, encoding: utf8);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          subject: 'エントリー用CSVテンプレート',
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('テンプレートの作成に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
   }
 
   // ━━━ CSV一括登録 ━━━
@@ -3593,6 +3623,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         onSelfEntry: () => _showEntrySheet(context),
         onCheckIn: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))),
         onCsvImport: _importTeamsFromCsv,
+        onCsvTemplate: _downloadCsvTemplate,
         onTestTeams: _addTestTeams,
         onFinance: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))),
         onEditors: _showEditorsSheet,
@@ -4716,6 +4747,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
   final VoidCallback onSelfEntry;
   final VoidCallback onCheckIn;
   final VoidCallback onCsvImport;
+  final VoidCallback onCsvTemplate;
   final VoidCallback onTestTeams;
   final VoidCallback onFinance;
   final VoidCallback onEditors;
@@ -4735,6 +4767,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.onSelfEntry,
     required this.onCheckIn,
     required this.onCsvImport,
+    required this.onCsvTemplate,
     required this.onTestTeams,
     required this.onFinance,
     required this.onEditors,
@@ -4778,6 +4811,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
           _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
           _menuTile(context, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', onCsvImport, color: AppTheme.success),
+          _menuTile(context, Icons.download, 'CSVテンプレート', 'エントリー用のCSVテンプレートをダウンロード', onCsvTemplate, color: AppTheme.success),
           _menuTile(context, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', onTestTeams, color: AppTheme.success),
 
           // ━━━ 運営 ━━━
