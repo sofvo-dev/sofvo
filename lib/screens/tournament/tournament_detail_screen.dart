@@ -1472,8 +1472,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     }
   }
 
-  /// 対戦表CSVインポート
-  Future<void> _importMatchTableFromCsv() async {
+  /// 対戦表CSVインポート（予選用）
+  Future<void> _importMatchTableFromCsv({int roundNumber = 1}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
@@ -1555,7 +1555,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         title: Row(children: [
           const Icon(Icons.table_chart, color: AppTheme.primaryColor),
           const SizedBox(width: 8),
-          Expanded(child: Text('対戦表インポート', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+          Expanded(child: Text('予選$roundNumber 対戦表インポート', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
         ]),
         content: SizedBox(
           width: double.maxFinite,
@@ -1628,7 +1628,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
       await MatchGenerator().importMatchTable(
         tournamentId: _tournamentId,
-        roundNumber: 1,
+        roundNumber: roundNumber,
         matchRows: matchRows,
       );
       if (mounted) {
@@ -1725,6 +1725,261 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     }
 
     return matchRows;
+  }
+
+  /// 決勝対戦表CSVインポート
+  Future<void> _importFinalsFromCsv() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.first.bytes;
+    if (bytes == null) return;
+
+    String csvString;
+    try {
+      csvString = utf8.decode(bytes);
+    } catch (_) {
+      csvString = latin1.decode(bytes);
+    }
+
+    final rows = const CsvToListConverter().convert(csvString);
+    if (rows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CSVファイルが空です'), backgroundColor: AppTheme.error),
+        );
+      }
+      return;
+    }
+
+    // フォーマット: ブラケット名,試合番号,ラウンド,チームA,チームB
+    // 例: 上位,1,semi,チームA,チームD
+    final hasHeader = rows.first.isNotEmpty &&
+        (rows.first[0].toString().contains('ブラケット') || rows.first[0].toString().toLowerCase().contains('bracket'));
+    final dataRows = hasHeader ? rows.skip(1).toList() : rows;
+
+    // パース
+    final bracketData = <String, List<Map<String, String>>>{};
+    for (final row in dataRows) {
+      if (row.length < 5) continue;
+      final bracketName = row[0].toString().trim();
+      final matchNumber = row[1].toString().trim();
+      final round = row[2].toString().trim();
+      final teamA = row[3].toString().trim();
+      final teamB = row[4].toString().trim();
+      if (bracketName.isEmpty || teamA.isEmpty || teamB.isEmpty) continue;
+      bracketData.putIfAbsent(bracketName, () => []);
+      bracketData[bracketName]!.add({
+        'matchNumber': matchNumber,
+        'round': round,
+        'teamA': teamA,
+        'teamB': teamB,
+      });
+    }
+
+    if (bracketData.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('決勝データを読み取れませんでした'), backgroundColor: AppTheme.error),
+        );
+      }
+      return;
+    }
+
+    // エントリー済みチーム名を取得
+    final entriesSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').get();
+    final nameToId = <String, String>{};
+    for (var d in entriesSnap.docs) {
+      final data = d.data();
+      final name = (data['teamName'] as String? ?? '').trim();
+      nameToId[name] = data['teamId'] ?? d.id;
+    }
+
+    final totalMatches = bracketData.values.fold<int>(0, (sum, list) => sum + list.length);
+
+    // プレビュー
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.emoji_events, color: AppTheme.primaryColor),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('決勝対戦表インポート', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+        ]),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                child: Text('${bracketData.length}ブラケット / $totalMatches試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView(
+                  children: bracketData.entries.map((e) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(e.key, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        ),
+                        ...e.value.map((m) => Padding(
+                          padding: const EdgeInsets.only(left: 12, bottom: 2),
+                          child: Text('${m['round']}#${m['matchNumber']}: ${m['teamA']} vs ${m['teamB']}',
+                              style: const TextStyle(fontSize: 12)),
+                        )),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+            child: const Text('インポート'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Firestore に書き込み
+    try {
+      showDialog(context: context, barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
+
+      int bracketNum = 0;
+      for (var entry in bracketData.entries) {
+        bracketNum++;
+        final bracketRef = _firestore.collection('tournaments').doc(_tournamentId)
+            .collection('brackets').doc('bracket_$bracketNum');
+
+        await bracketRef.set({
+          'bracketNumber': bracketNum,
+          'bracketName': entry.key,
+          'teamCount': entry.value.expand((m) => [m['teamA']!, m['teamB']!]).toSet().length,
+          'type': 'tournament',
+          'status': 'pending',
+        });
+
+        for (var m in entry.value) {
+          final teamAName = m['teamA']!;
+          final teamBName = m['teamB']!;
+          await bracketRef.collection('matches').add({
+            'round': m['round'] ?? 'semi',
+            'matchNumber': int.tryParse(m['matchNumber'] ?? '1') ?? 1,
+            'teamAId': nameToId[teamAName] ?? teamAName,
+            'teamAName': teamAName,
+            'teamBId': nameToId[teamBName] ?? teamBName,
+            'teamBName': teamBName,
+            'status': 'pending',
+            'sets': [],
+            'result': {},
+          });
+        }
+      }
+
+      await _firestore.collection('tournaments').doc(_tournamentId).update({'status': '順位決定中'});
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('決勝対戦表をインポートしました（$totalMatches試合）'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  /// 予選対戦表CSVテンプレートダウンロード
+  Future<void> _downloadMatchTableTemplate() async {
+    const header = 'コート,試合順,チームA,チームB,審判,サブ';
+    const example = '''A,1,チームA,チームB,チームC,チームD
+A,2,チームC,チームD,チームA,チームB
+A,3,チームA,チームD,チームC,チームB
+A,4,チームB,チームC,チームA,チームD
+A,5,チームA,チームC,チームD,チームB
+A,6,チームD,チームB,チームA,チームC
+B,1,チームE,チームF,チームG,チームH
+B,2,チームG,チームH,チームE,チームF''';
+    final csvContent = '$header\n$example\n';
+
+    try {
+      await downloadCsvFile(csvContent, 'match_table_template.csv');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('テンプレートの作成に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  /// 決勝対戦表CSVテンプレートダウンロード
+  Future<void> _downloadFinalsTemplate() async {
+    const header = 'ブラケット名,試合番号,ラウンド,チームA,チームB';
+    const example = '''上位,1,semi,チームA,チームD
+上位,2,semi,チームB,チームC
+上位,3,final,準決勝①勝者,準決勝②勝者
+中位,1,semi,チームE,チームH
+中位,2,semi,チームF,チームG
+中位,3,final,準決勝①勝者,準決勝②勝者''';
+    final csvContent = '$header\n$example\n';
+
+    try {
+      await downloadCsvFile(csvContent, 'finals_template.csv');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('テンプレートの作成に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  /// CSVインポートメニュー画面を表示
+  void _showCsvImportMenu() {
+    final rules = widget.tournament['rules'] as Map<String, dynamic>? ?? {};
+    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
+    final prelimRounds = preliminary['rounds'] ?? 1;
+    final finalEnabled = (rules['final'] as Map<String, dynamic>?)?['enabled'] ?? true;
+
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => _CsvImportMenuScreen(
+        prelimRounds: prelimRounds is int ? prelimRounds : 1,
+        finalEnabled: finalEnabled is bool ? finalEnabled : true,
+        onEntryUpload: _importTeamsFromCsv,
+        onEntryTemplate: _downloadCsvTemplate,
+        onMatchTableUpload1: () => _importMatchTableFromCsv(roundNumber: 1),
+        onMatchTableUpload2: () => _importMatchTableFromCsv(roundNumber: 2),
+        onMatchTableTemplate: _downloadMatchTableTemplate,
+        onFinalsUpload: _importFinalsFromCsv,
+        onFinalsTemplate: _downloadFinalsTemplate,
+      ),
+    ));
   }
 
   void _showEditorsSheet() {
@@ -3866,9 +4121,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         onStatusChange: () => _showStatusDialog(tournData['status'] ?? '準備中'),
         onSelfEntry: () => _showEntrySheet(context),
         onCheckIn: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))),
-        onCsvImport: _importTeamsFromCsv,
-        onMatchTableImport: _importMatchTableFromCsv,
-        onCsvTemplate: _downloadCsvTemplate,
+        onCsvMenu: _showCsvImportMenu,
         onTestTeams: _addTestTeams,
         onFinance: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))),
         onEditors: _showEditorsSheet,
@@ -4991,9 +5244,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
   final VoidCallback onStatusChange;
   final VoidCallback onSelfEntry;
   final VoidCallback onCheckIn;
-  final VoidCallback onCsvImport;
-  final VoidCallback onMatchTableImport;
-  final VoidCallback onCsvTemplate;
+  final VoidCallback onCsvMenu;
   final VoidCallback onTestTeams;
   final VoidCallback onFinance;
   final VoidCallback onEditors;
@@ -5012,9 +5263,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.onStatusChange,
     required this.onSelfEntry,
     required this.onCheckIn,
-    required this.onCsvImport,
-    required this.onMatchTableImport,
-    required this.onCsvTemplate,
+    required this.onCsvMenu,
     required this.onTestTeams,
     required this.onFinance,
     required this.onEditors,
@@ -5057,9 +5306,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           _sectionLabel('参加者管理'),
           _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
           _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
-          _menuTile(context, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', onCsvImport, color: AppTheme.success),
-          _menuTile(context, Icons.table_chart, '対戦表CSVインポート', 'CSVファイルから対戦表をインポート', onMatchTableImport, color: AppTheme.info),
-          _menuTile(context, Icons.download, 'CSVテンプレート', 'エントリー用のCSVテンプレートをダウンロード', onCsvTemplate, color: AppTheme.success),
+          _menuTile(context, Icons.upload_file, 'CSVインポート', 'エントリー・対戦表・決勝のCSV管理', onCsvMenu, color: AppTheme.success),
           _menuTile(context, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', onTestTeams, color: AppTheme.success),
 
           // ━━━ 運営 ━━━
@@ -5127,6 +5374,94 @@ class _OrganizerMenuScreen extends StatelessWidget {
         child: Icon(icon, size: 20, color: c),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDestructive ? AppTheme.error : AppTheme.textPrimary)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+      onTap: () { Navigator.pop(context); onTap(); },
+    );
+  }
+}
+
+// ━━━ CSVインポートメニュー画面 ━━━
+class _CsvImportMenuScreen extends StatelessWidget {
+  final int prelimRounds;
+  final bool finalEnabled;
+  final VoidCallback onEntryUpload;
+  final VoidCallback onEntryTemplate;
+  final VoidCallback onMatchTableUpload1;
+  final VoidCallback onMatchTableUpload2;
+  final VoidCallback onMatchTableTemplate;
+  final VoidCallback onFinalsUpload;
+  final VoidCallback onFinalsTemplate;
+
+  const _CsvImportMenuScreen({
+    required this.prelimRounds,
+    required this.finalEnabled,
+    required this.onEntryUpload,
+    required this.onEntryTemplate,
+    required this.onMatchTableUpload1,
+    required this.onMatchTableUpload2,
+    required this.onMatchTableTemplate,
+    required this.onFinalsUpload,
+    required this.onFinalsTemplate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: const Text('CSVインポート', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 40),
+        children: [
+          // ━━━ エントリー用 ━━━
+          _sectionLabel('エントリー用'),
+          _csvTile(context, Icons.upload_file, 'チーム一括登録', 'CSVファイルからチームをまとめて登録', onEntryUpload, color: AppTheme.success),
+          _csvTile(context, Icons.download, 'テンプレートDL', 'エントリー用のCSVテンプレート', onEntryTemplate, color: AppTheme.success),
+
+          // ━━━ 予選対戦表 ━━━
+          _sectionLabel('予選対戦表'),
+          _csvTile(context, Icons.upload_file, '予選1 アップロード', 'CSVファイルから予選1の対戦表をインポート', onMatchTableUpload1, color: AppTheme.info),
+          if (prelimRounds >= 2)
+            _csvTile(context, Icons.upload_file, '予選2 アップロード', 'CSVファイルから予選2の対戦表をインポート', onMatchTableUpload2, color: AppTheme.info),
+          _csvTile(context, Icons.download, 'テンプレートDL', '予選対戦表用のCSVテンプレート', onMatchTableTemplate, color: AppTheme.info),
+
+          // ━━━ 決勝対戦表 ━━━
+          if (finalEnabled) ...[
+            _sectionLabel('決勝対戦表'),
+            _csvTile(context, Icons.upload_file, '決勝 アップロード', 'CSVファイルから決勝トーナメントをインポート', onFinalsUpload, color: AppTheme.accentColor),
+            _csvTile(context, Icons.download, 'テンプレートDL', '決勝対戦表用のCSVテンプレート', onFinalsTemplate, color: AppTheme.accentColor),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary, letterSpacing: 0.5)),
+    );
+  }
+
+  Widget _csvTile(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap, {Color color = AppTheme.primaryColor}) {
+    return ListTile(
+      dense: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 20, color: color),
+      ),
+      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
       onTap: () { Navigator.pop(context); onTap(); },
