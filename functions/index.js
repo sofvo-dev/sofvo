@@ -9,6 +9,7 @@ admin.initializeApp();
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const GADGET_SHEET_ID = "1IITgU-IvD1xpIqig0MtnlMfQAsoGWcwtbcPLKkNwv60";
 const VENUE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk";
+const PRIZE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk"; // 会場と同じシート（別タブ「景品一覧」）
 
 async function getAccessToken() {
   // Firebase Admin SDK の組み込みクレデンシャルを使用
@@ -1173,5 +1174,182 @@ exports.scheduledSyncGadgets = functions.pubsub
       console.log("Scheduled gadget sync:", count, "gadgets");
     } catch (e) {
       console.error("Scheduled gadget sync error:", e.message);
+    }
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 景品データ Firestore → Google Sheets 同期
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function doSyncPrizesToSheet() {
+  const prizesSnap = await admin.firestore().collection("prizes")
+    .orderBy("name").get();
+
+  const prizeRows = prizesSnap.docs.map((doc) => {
+    const p = doc.data();
+    return [
+      doc.id,
+      p.name || "",
+      p.category || "",
+      p.priceRange || "",
+      p.amazonUrl || "",
+      p.amazonAffiliateUrl || "",
+      p.imageUrl || "",
+      p.memo || "",
+      p.registeredBy || "",
+      p.createdAt ? p.createdAt.toDate().toISOString().split("T")[0] : "",
+    ];
+  });
+
+  const sheetName = "景品一覧";
+  const values = [
+    ["景品ID", "景品名", "カテゴリ", "価格帯", "AmazonURL", "アフィリエイトURL", "画像URL", "メモ", "登録者", "登録日"],
+    ...prizeRows,
+  ];
+
+  try {
+    await sheetsUpdate(PRIZE_SHEET_ID, `${sheetName}!A1`, values);
+  } catch (e) {
+    await sheetsAddSheet(PRIZE_SHEET_ID, sheetName);
+    await sheetsUpdate(PRIZE_SHEET_ID, `${sheetName}!A1`, values);
+  }
+  const nextRow = values.length + 1;
+  await sheetsClear(PRIZE_SHEET_ID, `${sheetName}!A${nextRow}:J10000`);
+
+  return prizeRows.length;
+}
+
+exports.syncPrizesToSheet = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const count = await doSyncPrizesToSheet();
+    res.json({ success: true, count });
+  } catch (e) {
+    console.error("Prize sync error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Firestore トリガー: 景品変更時に自動同期
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.onPrizeWrite = functions.firestore
+  .document("prizes/{prizeId}")
+  .onWrite(async (change) => {
+    if (change.before.exists && change.after.exists) {
+      const before = change.before.data();
+      const after = change.after.data();
+      const fields = ["name", "category", "priceRange", "amazonUrl", "amazonAffiliateUrl", "imageUrl", "memo"];
+      const changed = fields.some((f) => (before[f] || "") !== (after[f] || ""));
+      if (!changed) return;
+    }
+    try {
+      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+      const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncPrizesToSheet`;
+      const ac = new AbortController();
+      const tid = setTimeout(() => ac.abort(), 30000);
+      await fetch(syncUrl, { method: "POST", signal: ac.signal }).finally(() => clearTimeout(tid));
+    } catch (e) {
+      console.warn("Auto prize sync failed (non-critical):", e.message);
+    }
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Google Sheets → Firestore インポート (景品) 共通ロジック
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function isPrizeDataEqual(existing, sheetData) {
+  const fields = ["name", "category", "priceRange", "amazonUrl", "amazonAffiliateUrl", "imageUrl", "memo"];
+  for (const f of fields) {
+    if ((existing[f] || "") !== (sheetData[f] || "")) return false;
+  }
+  return true;
+}
+
+async function doImportPrizes() {
+  const rows = await sheetsRead(PRIZE_SHEET_ID, "景品一覧!A:J");
+  if (rows.length < 2) return { imported: 0, updated: 0, skipped: 0, total: 0 };
+
+  const db = admin.firestore();
+  const dataRows = rows.slice(1);
+  let imported = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const row of dataRows) {
+    const prizeId = (row[0] || "").trim();
+    const name = (row[1] || "").trim();
+    if (!name) { skipped++; continue; }
+
+    const prizeData = {
+      name,
+      category: row[2] || "",
+      priceRange: row[3] || "",
+      amazonUrl: row[4] || "",
+      amazonAffiliateUrl: row[5] || "",
+      imageUrl: row[6] || "",
+      memo: row[7] || "",
+    };
+
+    if (prizeId) {
+      const existing = await db.collection("prizes").doc(prizeId).get();
+      if (existing.exists) {
+        if (isPrizeDataEqual(existing.data(), prizeData)) { skipped++; continue; }
+        prizeData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        await db.collection("prizes").doc(prizeId).update(prizeData);
+        updated++;
+      } else {
+        prizeData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        prizeData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        prizeData.registeredBy = "sheet_import";
+        await db.collection("prizes").doc(prizeId).set(prizeData);
+        imported++;
+      }
+    } else {
+      prizeData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      prizeData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      prizeData.registeredBy = "sheet_import";
+      await db.collection("prizes").add(prizeData);
+      imported++;
+    }
+  }
+
+  return { imported, updated, skipped, total: dataRows.length };
+}
+
+exports.importPrizesFromSheet = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const result = await doImportPrizes();
+    res.json({ success: true, ...result });
+  } catch (e) {
+    console.error("Prize import error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+exports.scheduledSyncPrizes = functions.pubsub
+  .schedule("every 5 minutes")
+  .onRun(async () => {
+    try {
+      const importResult = await doImportPrizes();
+      console.log("Scheduled prize import:", JSON.stringify(importResult));
+    } catch (e) {
+      console.error("Scheduled prize import error:", e.message);
+    }
+    try {
+      const count = await doSyncPrizesToSheet();
+      console.log("Scheduled prize sync:", count, "prizes");
+    } catch (e) {
+      console.error("Scheduled prize sync error:", e.message);
     }
   });

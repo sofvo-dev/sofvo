@@ -10,6 +10,7 @@ import '../../config/app_theme.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
+import '../tournament/prize_search_screen.dart';
 import '../tournament/tournament_management_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'follow_list_screen.dart';
@@ -282,16 +283,16 @@ class MyPageScreen extends StatelessWidget {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const TournamentManagementScreen()));
                         }),
                         _MenuItemData(Icons.card_giftcard_outlined, '景品をさがす', () {
-                          // TODO: 景品検索画面への遷移
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const PrizeSearchScreen()));
                         }),
                       ]),
                     ),
                     const SizedBox(height: 20),
 
-                    // ── チーム・仲間 ──
+                    // ── みんなのツール ──
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildSectionLabel('チーム・仲間'),
+                      child: _buildSectionLabel('みんなのツール'),
                     ),
                     const SizedBox(height: 8),
                     Padding(
@@ -300,19 +301,6 @@ class MyPageScreen extends StatelessWidget {
                         _MenuItemData(Icons.person_search_outlined, 'メンバー募集管理', () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const RecruitmentManagementScreen()));
                         }),
-                      ]),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── 会場 ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildSectionLabel('会場'),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildMenuGroup([
                         _MenuItemData(Icons.location_city_outlined, '会場を登録・検索', () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
                         }),
