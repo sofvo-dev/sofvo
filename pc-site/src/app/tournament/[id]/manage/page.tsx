@@ -529,24 +529,45 @@ function FinanceTab({ tournament, entries, expenses, tournamentId }: { tournamen
 
 function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tournamentId: string }) {
   const [title, setTitle] = useState(tournament.title);
+  const [date, setDate] = useState(tournament.date || "");
   const [location, setLocation] = useState(tournament.location);
+  const [venueAddress, setVenueAddress] = useState(tournament.venueAddress || "");
+  const [area, setArea] = useState(tournament.area || "");
   const [maxTeams, setMaxTeams] = useState(tournament.maxTeams);
   const [courts, setCourts] = useState(tournament.courts);
+  const [entryFee, setEntryFee] = useState(tournament.entryFee || 0);
+  const [type, setType] = useState(tournament.type || "");
+  const [deadline, setDeadline] = useState(tournament.deadline || "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  const prefectures = [
+    "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
+    "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
+    "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県",
+    "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県",
+    "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県",
+    "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県",
+    "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+  ];
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateDoc(doc(db, "tournaments", tournamentId), { title, location, maxTeams, courts });
+      await updateDoc(doc(db, "tournaments", tournamentId), {
+        title, date, location, venueAddress, area, maxTeams, courts, entryFee, type, deadline,
+      });
       setMessage("保存しました");
       setTimeout(() => setMessage(""), 3000);
-    } catch { setMessage("保存に失敗しました"); }
+    } catch (e) {
+      console.error("Save failed:", e);
+      setMessage("保存に失敗しました");
+    }
     finally { setSaving(false); }
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6 max-w-[600px]">
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 max-w-[700px]">
       <h3 className="text-sm font-bold text-foreground mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
         <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281" /></svg>
         大会設定を編集
@@ -562,19 +583,56 @@ function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tou
           <label className="block text-sm font-medium text-foreground mb-1.5">大会名</label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="input-field" />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">開催日</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-field" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">エントリー締切</label>
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="input-field" />
+          </div>
+        </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">会場</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">会場名</label>
           <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">住所</label>
+            <input type="text" value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} className="input-field" placeholder="会場の住所" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">エリア</label>
+            <select value={area} onChange={(e) => setArea(e.target.value)} className="input-field bg-white">
+              <option value="">都道府県を選択</option>
+              {prefectures.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">最大チーム数</label>
-            <input type="number" value={maxTeams} onChange={(e) => setMaxTeams(parseInt(e.target.value) || 0)} className="input-field" />
+            <input type="number" value={maxTeams} onChange={(e) => setMaxTeams(parseInt(e.target.value) || 0)} className="input-field" min={1} />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">コート数</label>
-            <input type="number" value={courts} onChange={(e) => setCourts(parseInt(e.target.value) || 0)} className="input-field" />
+            <input type="number" value={courts} onChange={(e) => setCourts(parseInt(e.target.value) || 0)} className="input-field" min={1} />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">参加費 (円)</label>
+            <input type="number" value={entryFee} onChange={(e) => setEntryFee(parseInt(e.target.value) || 0)} className="input-field" min={0} />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">大会種別</label>
+          <select value={type} onChange={(e) => setType(e.target.value)} className="input-field bg-white">
+            <option value="">選択してください</option>
+            <option value="男子">男子</option>
+            <option value="女子">女子</option>
+            <option value="混合">混合</option>
+            <option value="ミックス">ミックス</option>
+          </select>
         </div>
         <button onClick={handleSave} disabled={saving} className="btn-primary">
           {saving ? (
@@ -582,7 +640,7 @@ function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tou
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               保存中...
             </>
-          ) : "保存"}
+          ) : "変更を保存"}
         </button>
       </div>
     </div>

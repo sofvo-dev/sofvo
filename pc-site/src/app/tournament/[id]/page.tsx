@@ -44,7 +44,7 @@ export default function TournamentPage({
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -208,7 +208,7 @@ export default function TournamentPage({
               </div>
 
               {/* Manage button for organizer */}
-              {user && tournament.organizerId === user.uid && (
+              {!authLoading && user && tournament.organizerId === user.uid && (
                 <Link
                   href={`/tournament/${tournamentId}/manage`}
                   className="flex items-center gap-2 px-5 py-2.5 bg-white/15 text-white rounded-xl text-sm font-medium hover:bg-white/25 transition-colors border border-white/20"
