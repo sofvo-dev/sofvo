@@ -931,6 +931,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         Color sc;
         switch (status) {
           case '募集中': sc = AppTheme.success; break;
+          case 'エントリー締切': sc = AppTheme.accentColor; break;
           case '満員': sc = AppTheme.error; break;
           default: sc = AppTheme.textSecondary;
         }
