@@ -31,9 +31,7 @@ class MatchGenerator {
 
     // 3. Assign teams to courts
     List<List<Map<String, dynamic>>> courts;
-    if (roundNumber == 1) {
-      courts = _assignRandom(entries, courtCount, teamsPerCourt);
-    } else if (assignmentMode == 'random') {
+    if (roundNumber == 1 || assignmentMode == 'random') {
       courts = _assignRandom(entries, courtCount, teamsPerCourt);
     } else {
       courts = await _assignSnakeDraft(tournamentId, entries, courtCount, teamsPerCourt);
