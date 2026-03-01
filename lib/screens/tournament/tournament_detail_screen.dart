@@ -1472,6 +1472,261 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     }
   }
 
+  /// 対戦表CSVインポート
+  Future<void> _importMatchTableFromCsv() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final bytes = result.files.first.bytes;
+    if (bytes == null) return;
+
+    String csvString;
+    try {
+      csvString = utf8.decode(bytes);
+    } catch (_) {
+      csvString = latin1.decode(bytes);
+    }
+
+    final rows = const CsvToListConverter().convert(csvString);
+    if (rows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CSVファイルが空です'), backgroundColor: AppTheme.error),
+        );
+      }
+      return;
+    }
+
+    // Parse match rows - detect format
+    final matchRows = <Map<String, String>>[];
+    final firstRow = rows.first;
+    final firstCell = firstRow.isNotEmpty ? firstRow[0].toString().trim() : '';
+
+    if (firstCell.contains('コート') || firstCell.toLowerCase().contains('court')) {
+      // フラット形式: コート,試合順,チームA,チームB,審判,サブ
+      final dataRows = rows.skip(1).toList();
+      for (final row in dataRows) {
+        if (row.length < 4) continue;
+        final court = row[0].toString().trim();
+        final order = row[1].toString().trim();
+        final teamA = row[2].toString().trim();
+        final teamB = row[3].toString().trim();
+        final referee = row.length > 4 ? row[4].toString().trim() : '';
+        final sub = row.length > 5 ? row[5].toString().trim() : '';
+        if (teamA.isEmpty || teamB.isEmpty) continue;
+        matchRows.add({'court': court, 'matchOrder': order, 'teamA': teamA, 'teamB': teamB, 'referee': referee, 'subReferee': sub});
+      }
+    } else {
+      // スプレッドシート横並び形式を自動検出
+      matchRows.addAll(_parseSpreadsheetFormat(rows));
+    }
+
+    if (matchRows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('対戦データを読み取れませんでした'), backgroundColor: AppTheme.error),
+        );
+      }
+      return;
+    }
+
+    // エントリー済みチーム名を取得して照合チェック
+    final entriesSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').get();
+    final entryNames = entriesSnap.docs.map((d) => (d.data()['teamName'] as String? ?? '').trim()).toSet();
+
+    final allTeamNames = <String>{};
+    for (var m in matchRows) {
+      allTeamNames.add(m['teamA']!);
+      allTeamNames.add(m['teamB']!);
+    }
+    final unmatched = allTeamNames.where((n) => !entryNames.contains(n)).toList();
+
+    // プレビューダイアログ
+    if (!mounted) return;
+    final courtCount = matchRows.map((m) => m['court']).toSet().length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.table_chart, color: AppTheme.primaryColor),
+          const SizedBox(width: 8),
+          Expanded(child: Text('対戦表インポート', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+        ]),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('$courtCountコート / ${matchRows.length}試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  Text('${allTeamNames.length}チーム', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                ]),
+              ),
+              if (unmatched.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppTheme.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('未登録チーム (${unmatched.length})', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.warning)),
+                    Text(unmatched.join(', '), style: TextStyle(fontSize: 12, color: AppTheme.warning)),
+                  ]),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: matchRows.length,
+                  itemBuilder: (_, i) {
+                    final m = matchRows[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(children: [
+                        Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                          alignment: Alignment.center,
+                          child: Text(m['court']!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        ),
+                        const SizedBox(width: 6),
+                        Text('${m['matchOrder']}', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text('${m['teamA']} vs ${m['teamB']}', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                      ]),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+            child: const Text('インポート'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // インポート実行
+    try {
+      showDialog(context: context, barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
+      await MatchGenerator().importMatchTable(
+        tournamentId: _tournamentId,
+        roundNumber: 1,
+        matchRows: matchRows,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('対戦表をインポートしました（${matchRows.length}試合）'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  /// スプレッドシート横並びフォーマットのパース
+  /// 例: Aコート,,,,,,Bコート,,,,,,
+  ///     第1試合,,,審判,サブ,,第1試合,,,審判,サブ
+  ///     テリー,-,GENYA-2,掛川クラブ,こやまーず,,ビンチトーレ,-,ブルースカイ,3MA,わっち
+  List<Map<String, String>> _parseSpreadsheetFormat(List<List<dynamic>> rows) {
+    final matchRows = <Map<String, String>>[];
+
+    // 1. コートヘッダー行を検出（「コート」を含む行）
+    // 各ブロックは: コートヘッダー行 → (試合行ペア: 試合番号行 + データ行) × N
+    int i = 0;
+    while (i < rows.length) {
+      final row = rows[i];
+      // コートヘッダー行を探す（「コート」を含むセルがある行）
+      final courtNames = <int, String>{}; // columnIndex → courtLetter
+      for (int col = 0; col < row.length; col++) {
+        final cell = row[col].toString().trim();
+        if (cell.contains('コート') && cell.isNotEmpty) {
+          // "Aコート" → "A"
+          final letter = cell.replaceAll('コート', '').trim();
+          courtNames[col] = letter.isNotEmpty ? letter : String.fromCharCode(65 + courtNames.length);
+        }
+      }
+
+      if (courtNames.isEmpty) {
+        i++;
+        continue;
+      }
+
+      // コートのスタート列を特定
+      final courtStarts = courtNames.keys.toList()..sort();
+      i++; // コートヘッダー行をスキップ
+
+      // 試合データを読む（試合番号行 + データ行のペア）
+      int matchOrder = 0;
+      while (i < rows.length) {
+        final testRow = rows[i];
+        final testCell = testRow.isNotEmpty ? testRow[0].toString().trim() : '';
+
+        // 次のコートヘッダーが来たら終了
+        if (testCell.contains('コート') && !testCell.contains('試合')) break;
+
+        // 「第N試合」行の場合、次の行がデータ行
+        if (testCell.contains('試合')) {
+          matchOrder++;
+          i++;
+          if (i >= rows.length) break;
+
+          final dataRow = rows[i];
+          // 各コートのデータを読み取る
+          for (int ci = 0; ci < courtStarts.length; ci++) {
+            final startCol = courtStarts[ci];
+            final courtLetter = courtNames[startCol]!;
+
+            // dataRow[startCol+0]=チームA, [+1]="-", [+2]=チームB, [+3]=審判, [+4]=サブ
+            final teamA = (startCol < dataRow.length) ? dataRow[startCol].toString().trim() : '';
+            final teamB = (startCol + 2 < dataRow.length) ? dataRow[startCol + 2].toString().trim() : '';
+            final referee = (startCol + 3 < dataRow.length) ? dataRow[startCol + 3].toString().trim() : '';
+            final subRef = (startCol + 4 < dataRow.length) ? dataRow[startCol + 4].toString().trim() : '';
+
+            if (teamA.isNotEmpty && teamB.isNotEmpty && teamA != '-' && teamB != '-') {
+              matchRows.add({
+                'court': courtLetter,
+                'matchOrder': matchOrder.toString(),
+                'teamA': teamA,
+                'teamB': teamB,
+                'referee': referee,
+                'subReferee': subRef,
+              });
+            }
+          }
+          i++;
+        } else {
+          i++;
+        }
+      }
+    }
+
+    return matchRows;
+  }
+
   void _showEditorsSheet() {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isEmpty) return;
@@ -3612,6 +3867,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         onSelfEntry: () => _showEntrySheet(context),
         onCheckIn: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))),
         onCsvImport: _importTeamsFromCsv,
+        onMatchTableImport: _importMatchTableFromCsv,
         onCsvTemplate: _downloadCsvTemplate,
         onTestTeams: _addTestTeams,
         onFinance: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))),
@@ -4736,6 +4992,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
   final VoidCallback onSelfEntry;
   final VoidCallback onCheckIn;
   final VoidCallback onCsvImport;
+  final VoidCallback onMatchTableImport;
   final VoidCallback onCsvTemplate;
   final VoidCallback onTestTeams;
   final VoidCallback onFinance;
@@ -4756,6 +5013,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.onSelfEntry,
     required this.onCheckIn,
     required this.onCsvImport,
+    required this.onMatchTableImport,
     required this.onCsvTemplate,
     required this.onTestTeams,
     required this.onFinance,
@@ -4800,6 +5058,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
           _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
           _menuTile(context, Icons.upload_file, 'CSV一括登録', 'CSVファイルからチームをまとめて登録', onCsvImport, color: AppTheme.success),
+          _menuTile(context, Icons.table_chart, '対戦表CSVインポート', 'CSVファイルから対戦表をインポート', onMatchTableImport, color: AppTheme.info),
           _menuTile(context, Icons.download, 'CSVテンプレート', 'エントリー用のCSVテンプレートをダウンロード', onCsvTemplate, color: AppTheme.success),
           _menuTile(context, Icons.group_add, 'テストチーム追加', 'テスト用のダミーチームを追加', onTestTeams, color: AppTheme.success),
 

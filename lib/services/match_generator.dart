@@ -97,6 +97,129 @@ class MatchGenerator {
     return allMatches;
   }
 
+  /// Import pre-defined match table (対戦表CSVインポート)
+  /// [matchRows] is a list of maps with keys: court, matchOrder, teamA, teamB, referee, subReferee
+  Future<List<Map<String, dynamic>>> importMatchTable({
+    required String tournamentId,
+    required int roundNumber,
+    required List<Map<String, String>> matchRows,
+  }) async {
+    // 1. Get entries to map teamName → teamId
+    final entriesSnap = await _firestore.collection('tournaments').doc(tournamentId)
+        .collection('entries').get();
+    final nameToId = <String, String>{};
+    final nameToEntry = <String, Map<String, dynamic>>{};
+    for (var d in entriesSnap.docs) {
+      final data = d.data();
+      final name = (data['teamName'] as String? ?? '').trim();
+      nameToId[name] = data['teamId'] ?? d.id;
+      nameToEntry[name] = {'entryId': d.id, 'teamId': data['teamId'] ?? d.id, 'teamName': name, ...data};
+    }
+
+    // 2. Group matchRows by court
+    final courtGroups = <String, List<Map<String, String>>>{};
+    for (var row in matchRows) {
+      final court = row['court'] ?? 'A';
+      courtGroups.putIfAbsent(court, () => []);
+      courtGroups[court]!.add(row);
+    }
+
+    // Sort courts alphabetically
+    final sortedCourts = courtGroups.keys.toList()..sort();
+
+    // 3. Create round document
+    final roundRef = _firestore.collection('tournaments').doc(tournamentId)
+        .collection('rounds').doc('round_$roundNumber');
+    await roundRef.set({
+      'roundNumber': roundNumber,
+      'status': 'pending',
+      'courtCount': sortedCourts.length,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final allMatches = <Map<String, dynamic>>[];
+
+    for (int courtIdx = 0; courtIdx < sortedCourts.length; courtIdx++) {
+      final courtLetter = sortedCourts[courtIdx];
+      final courtId = 'court_${courtIdx + 1}';
+      final courtNumber = courtIdx + 1;
+      final rows = courtGroups[courtLetter]!;
+
+      // Sort by matchOrder
+      rows.sort((a, b) => (int.tryParse(a['matchOrder'] ?? '0') ?? 0)
+          .compareTo(int.tryParse(b['matchOrder'] ?? '0') ?? 0));
+
+      // Collect unique teams in this court
+      final courtTeamNames = <String>{};
+      for (var r in rows) {
+        courtTeamNames.add(r['teamA'] ?? '');
+        courtTeamNames.add(r['teamB'] ?? '');
+      }
+      courtTeamNames.remove('');
+
+      // Create standings
+      final standingRef = roundRef.collection('standings').doc(courtId);
+      final teamIds = courtTeamNames.map((n) => nameToId[n] ?? n).toList();
+      await standingRef.set({'courtNumber': courtNumber, 'teams': teamIds});
+
+      for (var teamName in courtTeamNames) {
+        final tid = nameToId[teamName] ?? teamName;
+        await standingRef.collection('teams').doc(tid).set({
+          'teamId': tid,
+          'teamName': teamName,
+          'matchPoints': 0,
+          'pointDiff': 0,
+          'totalPoints': 0,
+          'wins': 0,
+          'losses': 0,
+          'draws': 0,
+          'rank': 0,
+        });
+      }
+
+      // Create matches
+      int matchOrder = 1;
+      for (var row in rows) {
+        final teamAName = row['teamA'] ?? '';
+        final teamBName = row['teamB'] ?? '';
+        final refName = row['referee'] ?? '';
+        final subRefName = row['subReferee'] ?? '';
+
+        final match = <String, dynamic>{
+          'courtId': courtId,
+          'courtNumber': courtNumber,
+          'teamAId': nameToId[teamAName] ?? teamAName,
+          'teamAName': teamAName,
+          'teamBId': nameToId[teamBName] ?? teamBName,
+          'teamBName': teamBName,
+          'refereeTeamId': nameToId[refName] ?? '',
+          'refereeTeamName': refName,
+          'subRefereeTeamId': nameToId[subRefName] ?? '',
+          'subRefereeTeamName': subRefName,
+          'roundNumber': roundNumber,
+          'matchOrder': matchOrder++,
+          'status': 'pending',
+          'sets': [],
+          'result': {},
+          'confirmedByA': false,
+          'confirmedByB': false,
+        };
+
+        final docRef = await roundRef.collection('matches').add(match);
+        match['matchId'] = docRef.id;
+        allMatches.add(match);
+      }
+    }
+
+    // Update tournament status
+    await _firestore.collection('tournaments').doc(tournamentId).update({
+      'status': '開催中',
+      'currentRound': roundNumber,
+    });
+
+    return allMatches;
+  }
+
   /// Random assignment for round 1
   List<List<Map<String, dynamic>>> _assignRandom(
       List<Map<String, dynamic>> entries, int courtCount, int teamsPerCourt) {
