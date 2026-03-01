@@ -640,9 +640,13 @@ class MatchGenerator {
   }
 
   /// Generate final tournament brackets (順位決定戦)
+  /// Throws if any preliminary round has incomplete matches.
   Future<void> generateFinals({
     required String tournamentId,
   }) async {
+    // 予選が全て完了しているかチェック
+    await _validatePreliminaryComplete(tournamentId);
+
     final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
     final tournData = tournDoc.data()!;
     final rules = tournData['rules'] as Map<String, dynamic>? ?? {};
@@ -659,6 +663,35 @@ class MatchGenerator {
     }
 
     await _firestore.collection('tournaments').doc(tournamentId).update({'status': '順位決定中'});
+  }
+
+  /// 全予選ラウンドの試合が完了しているか検証
+  /// 未完了の試合がある場合はExceptionをthrowする
+  Future<void> _validatePreliminaryComplete(String tournamentId) async {
+    final roundsSnap = await _firestore.collection('tournaments').doc(tournamentId)
+        .collection('rounds').get();
+
+    if (roundsSnap.docs.isEmpty) {
+      throw Exception('予選が生成されていません。先に予選を作成してください。');
+    }
+
+    for (var roundDoc in roundsSnap.docs) {
+      final matchesSnap = await roundDoc.reference.collection('matches').get();
+      if (matchesSnap.docs.isEmpty) continue;
+
+      final pendingMatches = matchesSnap.docs.where((d) {
+        final status = (d.data())['status'] as String? ?? '';
+        return status != 'completed';
+      }).toList();
+
+      if (pendingMatches.isNotEmpty) {
+        final roundNum = (roundDoc.data())['roundNumber'] ?? '?';
+        throw Exception(
+          '予選${roundNum}にまだ未完了の試合が${pendingMatches.length}件あります。'
+          '全試合を完了してから順位決定戦を生成してください。'
+        );
+      }
+    }
   }
 
   /// Aggregate and sort all team stats across preliminary rounds
