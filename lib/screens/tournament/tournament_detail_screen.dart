@@ -671,7 +671,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 _buildFlowStep(2, 'エントリー締切', liveStatus == 'エントリー締切', liveStatus == 'エントリー締切' || liveStatus == '開催中' || liveStatus == '終了'),
                 _buildFlowStep(3, '予選リーグ（ラウンドロビン）', liveStatus == '開催中', false),
                 if ((livePrelim['rounds'] ?? 1) > 1)
-                  _buildFlowStep(4, '予選2（ランク別再編成）', false, false),
+                  _buildFlowStep(4, '予選2', false, false),
                 _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '順位決定戦', liveStatus == '順位決定中', false),
                 _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 6 : 5, '結果発表・表彰', liveStatus == '終了', false, isLast: true),
               ]),
@@ -2774,10 +2774,53 @@ B,2,チームG,チームH,チームE,チームF''';
   }
 
   Future<void> _generateMatches(int roundNumber) async {
+    String assignmentMode = 'snake';
+
+    // 予選2の場合、コート割り振り方法を選択
+    if (roundNumber >= 2) {
+      final selected = await showDialog<String>(
+        context: context,
+        builder: (ctx) {
+          String mode = 'snake';
+          return StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('予選2 コート割り振り', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              RadioListTile<String>(
+                value: 'snake', groupValue: mode, activeColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                title: const Text('実力均等配置', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('予選1の順位をもとに、各コートの実力が均等になるように配置します', style: TextStyle(fontSize: 12)),
+                onChanged: (v) => setDialogState(() => mode = v!),
+              ),
+              const SizedBox(height: 4),
+              RadioListTile<String>(
+                value: 'random', groupValue: mode, activeColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                title: const Text('完全ランダム', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('予選1の結果に関係なく、ランダムに割り振ります', style: TextStyle(fontSize: 12)),
+                onChanged: (v) => setDialogState(() => mode = v!),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, mode),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                child: const Text('生成'),
+              ),
+            ],
+          ));
+        },
+      );
+      if (selected == null) return;
+      assignmentMode = selected;
+    }
+
     try {
       showDialog(context: context, barrierDismissible: false,
           builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
-      await MatchGenerator().generatePreliminary(tournamentId: _tournamentId, roundNumber: roundNumber);
+      await MatchGenerator().generatePreliminary(tournamentId: _tournamentId, roundNumber: roundNumber, assignmentMode: assignmentMode);
       if (mounted) {
         Navigator.pop(context); // close loading
         ScaffoldMessenger.of(context).showSnackBar(

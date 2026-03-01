@@ -8,6 +8,7 @@ class MatchGenerator {
   Future<List<Map<String, dynamic>>> generatePreliminary({
     required String tournamentId,
     required int roundNumber, // 1 or 2
+    String assignmentMode = 'snake', // 'snake' or 'random' (round 2 only)
   }) async {
     // 1. Get tournament data
     final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
@@ -32,8 +33,10 @@ class MatchGenerator {
     List<List<Map<String, dynamic>>> courts;
     if (roundNumber == 1) {
       courts = _assignRandom(entries, courtCount, teamsPerCourt);
+    } else if (assignmentMode == 'random') {
+      courts = _assignRandom(entries, courtCount, teamsPerCourt);
     } else {
-      courts = await _assignByRanking(tournamentId, entries, courtCount, teamsPerCourt);
+      courts = await _assignSnakeDraft(tournamentId, entries, courtCount, teamsPerCourt);
     }
 
     // 4. Generate round-robin matches per court
@@ -248,54 +251,50 @@ class MatchGenerator {
     return courts;
   }
 
-  /// Rank-based assignment for round 2
-  /// 同順位のチームを同じコートにまとめ、上位→下位のブラケットを形成する
-  Future<List<List<Map<String, dynamic>>>> _assignByRanking(
+  /// Snake draft assignment for round 2 (実力均等配置)
+  /// 予選1の総合順位で蛇行配置し、各コートの実力を均等にする
+  /// 例: 8チーム2コート → A: 1,4,5,8位 / B: 2,3,6,7位
+  Future<List<List<Map<String, dynamic>>>> _assignSnakeDraft(
       String tournamentId, List<Map<String, dynamic>> entries,
       int courtCount, int teamsPerCourt) async {
-    // Get round 1 standings
-    final round1Ref = _firestore.collection('tournaments').doc(tournamentId)
-        .collection('rounds').doc('round_1');
-    final standingsSnap = await round1Ref.collection('standings').get();
+    // Get overall sorted standings from round 1
+    final sorted = await _getOverallSortedStandings(tournamentId);
+    final teamIdOrder = sorted.map((e) => e.key).toList();
 
-    // Collect all team rankings (rank within their court)
-    final teamRankings = <String, int>{};
-    for (var courtDoc in standingsSnap.docs) {
-      final teamsSnap = await courtDoc.reference.collection('teams')
-          .orderBy('matchPoints', descending: true)
-          .orderBy('pointDiff', descending: true)
-          .orderBy('totalPoints', descending: true)
-          .get();
-      for (int i = 0; i < teamsSnap.docs.length; i++) {
-        teamRankings[teamsSnap.docs[i].id] = i + 1; // 1st, 2nd, 3rd...
+    // Sort entries by overall ranking
+    final entryMap = <String, Map<String, dynamic>>{};
+    for (var e in entries) {
+      entryMap[e['teamId']] = e;
+    }
+    final rankedEntries = <Map<String, dynamic>>[];
+    for (var teamId in teamIdOrder) {
+      if (entryMap.containsKey(teamId)) {
+        rankedEntries.add(entryMap.remove(teamId)!);
       }
     }
+    // Append any remaining entries not found in standings
+    rankedEntries.addAll(entryMap.values);
 
-    // Group by rank
-    final rankGroups = <int, List<Map<String, dynamic>>>{};
-    for (var entry in entries) {
-      final rank = teamRankings[entry['teamId']] ?? 99;
-      rankGroups.putIfAbsent(rank, () => []);
-      rankGroups[rank]!.add(entry);
-    }
-
-    // 同順位チームを同じコートにグループ化
-    // 例: 2コート×4チーム → コートA: 1位+2位チーム、コートB: 3位+4位チーム
-    final sortedRanks = rankGroups.keys.toList()..sort();
+    // Snake draft: 1→2→3→3→2→1→1→2→3...
     final actualCourts = (entries.length / teamsPerCourt).ceil().clamp(1, courtCount);
     final courts = List.generate(actualCourts, (_) => <Map<String, dynamic>>[]);
 
-    // 順位グループを順番にコートに詰めていく
+    bool forward = true;
     int courtIdx = 0;
-    for (var rank in sortedRanks) {
-      final group = rankGroups[rank]!..shuffle();
-      // この順位グループ全体を現在のコートに入れる
-      for (var team in group) {
-        courts[courtIdx].add(team);
-      }
-      // コートがteamsPerCourt以上になったら次のコートへ
-      if (courts[courtIdx].length >= teamsPerCourt && courtIdx < actualCourts - 1) {
-        courtIdx++;
+    for (var entry in rankedEntries) {
+      courts[courtIdx].add(entry);
+      if (forward) {
+        if (courtIdx >= actualCourts - 1) {
+          forward = false; // reverse direction
+        } else {
+          courtIdx++;
+        }
+      } else {
+        if (courtIdx <= 0) {
+          forward = true; // reverse direction
+        } else {
+          courtIdx--;
+        }
       }
     }
 
