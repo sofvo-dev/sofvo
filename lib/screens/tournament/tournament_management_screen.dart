@@ -117,6 +117,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     Color statusColor;
     switch (status) {
       case '募集中': statusColor = AppTheme.success; break;
+      case 'エントリー締切': statusColor = AppTheme.accentColor; break;
       case '準備中': statusColor = AppTheme.warning; break;
       case '開催中': statusColor = AppTheme.primaryColor; break;
       default: statusColor = AppTheme.textSecondary;
@@ -208,7 +209,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
   // ══════════════════════════════════════
 
   void _showStatusDialog(String docId, String currentStatus) {
-    final statuses = ['準備中', '募集中', '開催中', '終了'];
+    final statuses = ['準備中', '募集中', 'エントリー締切', '開催中', '終了'];
     showDialog(context: context, builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text('ステータス変更', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),

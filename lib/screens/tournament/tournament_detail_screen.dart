@@ -192,6 +192,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     Color statusColor;
     switch (status) {
       case '募集中': statusColor = AppTheme.success; break;
+      case 'エントリー締切': statusColor = AppTheme.accentColor; break;
       case '準備中': statusColor = AppTheme.warning; break;
       case '開催中': statusColor = AppTheme.primaryColor; break;
       case '決勝中': statusColor = Colors.amber; break;
@@ -666,11 +667,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               titleIcon: Icons.timeline,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _buildFlowStep(1, 'エントリー受付', liveStatus == '募集中', liveCurrentTeams > 0),
-                _buildFlowStep(2, '予選リーグ（ラウンドロビン）', liveStatus == '開催中', false),
+                _buildFlowStep(2, 'エントリー締切', liveStatus == 'エントリー締切', liveStatus == 'エントリー締切' || liveStatus == '開催中' || liveStatus == '終了'),
+                _buildFlowStep(3, '予選リーグ（ラウンドロビン）', liveStatus == '開催中', false),
                 if ((livePrelim['rounds'] ?? 1) > 1)
-                  _buildFlowStep(3, '予選2（ランク別再編成）', false, false),
-                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 4 : 3, '順位決定戦', liveStatus == '順位決定中', false),
-                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '結果発表・表彰', liveStatus == '終了', false, isLast: true),
+                  _buildFlowStep(4, '予選2（ランク別再編成）', false, false),
+                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '順位決定戦', liveStatus == '順位決定中', false),
+                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 6 : 5, '結果発表・表彰', liveStatus == '終了', false, isLast: true),
               ]),
             ),
 
@@ -928,7 +930,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.grid_on, size: 64, color: AppTheme.textHint),
                   const SizedBox(height: 16),
-                  Text(status == '募集中' ? '対戦表はエントリー締切後に生成されます' : '対戦表を生成してください',
+                  Text(status == '募集中' || status == 'エントリー締切' ? '対戦表はエントリー締切後に生成されます' : '対戦表を生成してください',
                       style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary), textAlign: TextAlign.center),
                   if (isOrganizer) ...[
                     const SizedBox(height: 24),
@@ -1014,7 +1016,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   // ━━━ ステータス変更 ━━━
   void _showStatusDialog(String currentStatus) {
-    final statuses = ['準備中', '募集中', '開催中', '終了'];
+    final statuses = ['準備中', '募集中', 'エントリー締切', '開催中', '終了'];
     showDialog(context: context, builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text('ステータス変更', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -4471,28 +4473,40 @@ B,2,チームG,チームH,チームE,チームF''';
         final isEnded = status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了');
         if (isEnded) return const SizedBox.shrink();
 
-        // 大会当日 & エントリー済み → チェックインボタン
+        // 大会当日 & エントリー済み → 自チームのチェックイン完了まで表示
         if (_isTournamentToday() && _myEntryTeamId.isNotEmpty) {
-          return Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showCheckInOptions,
-                icon: const Icon(Icons.check_circle_outline, size: 20),
-                label: const Text('チェックイン', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.success,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          return StreamBuilder<QuerySnapshot>(
+            stream: _firestore.collection('tournaments').doc(_tournamentId).collection('checkIns').snapshots(),
+            builder: (context, checkInSnap) {
+              final checkInDocs = checkInSnap.data?.docs ?? [];
+              final myTeamCheckedIn = checkInDocs.any((d) {
+                final data = d.data() as Map<String, dynamic>;
+                return data['teamId'] == _myEntryTeamId;
+              });
+              // 自チームのチェックイン完了 → ボタン非表示
+              if (myTeamCheckedIn) return const SizedBox.shrink();
+              return Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
                 ),
-              ),
-            ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _showCheckInOptions,
+                    icon: const Icon(Icons.check_circle_outline, size: 20),
+                    label: const Text('チェックイン', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              );
+            },
           );
         }
 
@@ -5435,7 +5449,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           // ━━━ 大会情報 ━━━
           _sectionLabel('大会情報'),
           _menuTile(context, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', onEditTournament, color: AppTheme.primaryColor),
-          _menuTile(context, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 開催中 → 終了', onStatusChange, color: AppTheme.primaryColor),
+          _menuTile(context, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 締切 → 開催中 → 終了', onStatusChange, color: AppTheme.primaryColor),
 
           // ━━━ 参加者管理 ━━━
           _sectionLabel('参加者管理'),
