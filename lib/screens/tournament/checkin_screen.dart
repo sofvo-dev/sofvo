@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/app_theme.dart';
 
 /// QRコード受付画面（大会主催者用）
-/// 3パターン:
-///   1. 大会主催者がスキャン  - 大会主催者がカメラでチームのQRを読み取る
-///   2. チームキャプテンがスキャン  - 大会QRを表示、チームキャプテンがカメラで読み取ってチェックイン
-///   3. 手動受付         - チェックリストで手動チェック
+/// 2パターン:
+///   1. QRコード表示  - 大会QRを表示、チームキャプテンがスキャンしてチェックイン
+///   2. 手動受付      - チェックリストで手動チェック
 class CheckInScreen extends StatefulWidget {
   final String tournamentId;
   final String tournamentName;
@@ -31,7 +29,7 @@ class _CheckInScreenState extends State<CheckInScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -52,8 +50,7 @@ class _CheckInScreenState extends State<CheckInScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: AppTheme.accentColor,
           tabs: const [
-            Tab(text: '大会主催者がスキャン'),
-            Tab(text: 'チームキャプテンがスキャン'),
+            Tab(text: 'QRコード表示'),
             Tab(text: '手動受付'),
           ],
         ),
@@ -61,7 +58,6 @@ class _CheckInScreenState extends State<CheckInScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _KeepAlivePage(child: _buildOrganizerScanTab()),
           _KeepAlivePage(child: _buildParticipantScanTab()),
           _KeepAlivePage(child: _buildManualCheckInTab()),
         ],
@@ -69,39 +65,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ タブ1: 大会主催者がカメラでスキャン ━━━
-  // 各チームがQRを表示 → 大会主催者がカメラで読み取る
-  Widget _buildOrganizerScanTab() {
-    return Column(
-      children: [
-        // 到着状況ヘッダー
-        _buildArrivalHeader(),
-        // スキャンボタン
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _openScanner(context),
-              icon: const Icon(Icons.qr_code_scanner, size: 22),
-              label: const Text('カメラでQRをスキャン', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ),
-        const Divider(height: 1),
-        // チェックイン済みリスト
-        Expanded(child: _buildCheckInStatusList()),
-      ],
-    );
-  }
-
-  // ━━━ タブ2: チームキャプテンがスキャン（大会QRを表示） ━━━
+  // ━━━ タブ1: QRコード表示（チームキャプテンがスキャン） ━━━
   Widget _buildParticipantScanTab() {
     final checkInUrl = 'https://sofvo-19d84.web.app/?checkin=${widget.tournamentId}';
     return SingleChildScrollView(
@@ -145,7 +109,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ タブ3: 手動受付 ━━━
+  // ━━━ タブ2: 手動受付 ━━━
   Widget _buildManualCheckInTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -229,62 +193,6 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ 到着状況ヘッダー ━━━
-  Widget _buildArrivalHeader() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('tournaments').doc(widget.tournamentId).collection('entries').snapshots(),
-      builder: (context, entriesSnap) {
-        return StreamBuilder<QuerySnapshot>(
-          stream: _firestore.collection('tournaments').doc(widget.tournamentId).collection('checkIns').snapshots(),
-          builder: (context, checkInSnap) {
-            final total = entriesSnap.data?.docs.length ?? 0;
-            final checked = checkInSnap.data?.docs.length ?? 0;
-            final allArrived = total > 0 && checked >= total;
-
-            return Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Column(children: [
-                Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('到着状況', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text('$checked / $total チーム',
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  ])),
-                  SizedBox(
-                    width: 56, height: 56,
-                    child: CircularProgressIndicator(
-                      value: total > 0 ? checked / total : 0,
-                      strokeWidth: 7,
-                      backgroundColor: Colors.grey[200],
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                          allArrived ? AppTheme.success : AppTheme.primaryColor),
-                    ),
-                  ),
-                ]),
-                if (allArrived) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(color: AppTheme.success.withValues(alpha:0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.check_circle, color: AppTheme.success, size: 18),
-                      const SizedBox(width: 8),
-                      Text('全チーム到着！大会を開始できます',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.success)),
-                    ]),
-                  ),
-                ],
-              ]),
-            );
-          },
-        );
-      },
-    );
-  }
-
   // ━━━ チェックイン済みリスト ━━━
   Widget _buildCheckInStatusList() {
     return StreamBuilder<QuerySnapshot>(
@@ -337,119 +245,6 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ カメラスキャナーを開く ━━━
-  void _openScanner(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _QRScannerPage(
-          onScanned: (code) async {
-            Navigator.pop(context);
-            await _handleScannedCode(code);
-          },
-        ),
-      ),
-    );
-  }
-
-  // ━━━ スキャン結果を処理 ━━━
-  Future<void> _handleScannedCode(String code) async {
-    // 期待フォーマット: sofvo://checkin/{tournamentId}/{teamId}
-    if (!code.startsWith('sofvo://checkin/')) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('無効なQRコードです'), backgroundColor: Colors.orange),
-        );
-      }
-      return;
-    }
-
-    final parts = code.replaceFirst('sofvo://checkin/', '').split('/');
-    if (parts.length < 2) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('QRコードの形式が正しくありません'), backgroundColor: Colors.orange),
-        );
-      }
-      return;
-    }
-
-    final tournamentId = parts[0];
-    final teamId = parts[1];
-
-    if (tournamentId != widget.tournamentId) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('この大会のQRコードではありません'), backgroundColor: Colors.orange),
-        );
-      }
-      return;
-    }
-
-    // チーム名取得
-    final entrySnap = await _firestore
-        .collection('tournaments')
-        .doc(widget.tournamentId)
-        .collection('entries')
-        .where('teamId', isEqualTo: teamId)
-        .limit(1)
-        .get();
-
-    if (entrySnap.docs.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('このチームはエントリーしていません'), backgroundColor: Colors.red),
-        );
-      }
-      return;
-    }
-
-    final teamName = (entrySnap.docs.first.data())['teamName'] ?? '';
-
-    // 重複チェック
-    final existing = await _firestore
-        .collection('tournaments')
-        .doc(widget.tournamentId)
-        .collection('checkIns')
-        .where('teamId', isEqualTo: teamId)
-        .limit(1)
-        .get();
-
-    if (existing.docs.isNotEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$teamName はすでにチェックイン済みです'), backgroundColor: Colors.orange),
-        );
-      }
-      return;
-    }
-
-    // チェックイン登録
-    await _firestore
-        .collection('tournaments')
-        .doc(widget.tournamentId)
-        .collection('checkIns')
-        .add({
-      'teamId': teamId,
-      'teamName': teamName,
-      'checkedInAt': FieldValue.serverTimestamp(),
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Text('$teamName チェックイン完了！'),
-          ]),
-          backgroundColor: AppTheme.success,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
   Future<void> _toggleManualCheckIn(String teamId, String teamName, bool value) async {
     if (value) {
       final existing = await _firestore
@@ -486,81 +281,6 @@ class _CheckInScreenState extends State<CheckInScreen>
       const SizedBox(height: 16),
       Text(message, style: const TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
     ]));
-  }
-}
-
-// ━━━ QRスキャナーページ ━━━
-class _QRScannerPage extends StatefulWidget {
-  final Function(String) onScanned;
-  const _QRScannerPage({required this.onScanned});
-
-  @override
-  State<_QRScannerPage> createState() => _QRScannerPageState();
-}
-
-class _QRScannerPageState extends State<_QRScannerPage> {
-  final MobileScannerController _controller = MobileScannerController();
-  bool _hasScanned = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('QRコードをスキャン'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            onPressed: () => _controller.toggleTorch(),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: (capture) {
-              if (_hasScanned) return;
-              final barcode = capture.barcodes.firstOrNull;
-              if (barcode?.rawValue != null) {
-                setState(() => _hasScanned = true);
-                widget.onScanned(barcode!.rawValue!);
-              }
-            },
-          ),
-          // スキャンガイド枠
-          Center(
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                border: Border.all(color: AppTheme.accentColor, width: 3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          // 説明テキスト
-          Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
-            child: Text(
-              'QRコードを枠内に合わせてください',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
