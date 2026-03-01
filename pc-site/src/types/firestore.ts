@@ -179,8 +179,9 @@ export interface Entry {
 
 /** ブラケット試合 */
 export interface BracketMatch extends Match {
-  round?: number;
-  position?: number;
+  round?: string;
+  matchNumber?: number;
+  label?: string;
 }
 
 /** 投稿 */

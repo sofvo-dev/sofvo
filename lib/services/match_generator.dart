@@ -713,7 +713,8 @@ class MatchGenerator {
     final teamsPerLeague = (sorted.length / leagueCount).ceil();
     final leagues = _splitIntoGroups(sorted, teamsPerLeague);
 
-    final leagueNames = ['上', '中上', '中', '中下', '下', 'エンジョイ'];
+    // リーグ数に応じた名前を動的に決定
+    final leagueNames = _getLeagueNames(leagues.length);
 
     for (int b = 0; b < leagues.length; b++) {
       final league = leagues[b];
@@ -1044,6 +1045,36 @@ class MatchGenerator {
           });
         }
       }
+    }
+  }
+
+  /// リーグ数に応じたリーグ名を返す
+  /// 2 → [上, 下]
+  /// 3 → [上, 中, 下]
+  /// 4 → [上, 中上, 中下, 下]
+  /// 5 → [上, 中上, 中, 中下, 下]
+  /// 6+ → [上, 中上, 中, 中下, 下, エンジョイ, ...]
+  List<String> _getLeagueNames(int count) {
+    switch (count) {
+      case 1:
+        return ['リーグ'];
+      case 2:
+        return ['上', '下'];
+      case 3:
+        return ['上', '中', '下'];
+      case 4:
+        return ['上', '中上', '中下', '下'];
+      case 5:
+        return ['上', '中上', '中', '中下', '下'];
+      case 6:
+        return ['上', '中上', '中', '中下', '下', 'エンジョイ'];
+      default:
+        // 7以上: 上, 中上, 中, 中下, 下, 第6, 第7...
+        final names = ['上', '中上', '中', '中下', '下'];
+        for (int i = 5; i < count; i++) {
+          names.add('第${i + 1}');
+        }
+        return names;
     }
   }
 

@@ -9,19 +9,64 @@ import {
 import { db } from "@/lib/firebase";
 import type { Match } from "@/types/firestore";
 
-interface BracketInfo {
-  id: string;
-  type?: string;
-  matches: Match[];
+/** Bracket match with round info from Firestore */
+interface BracketMatchData extends Match {
+  round?: string;
+  matchNumber?: number;
+  label?: string;
 }
 
-function BracketMatchCard({ match }: { match: Match }) {
+interface BracketInfo {
+  id: string;
+  bracketName?: string;
+  rankRange?: string;
+  teamCount?: number;
+  type?: string;
+  matches: BracketMatchData[];
+}
+
+/** Round key → display label mapping */
+const ROUND_LABELS: Record<string, string> = {
+  qf: "準々決勝",
+  sf_winner: "準決勝（勝者）",
+  sf_loser: "準決勝（敗者）",
+  semi: "準決勝",
+  final_1st: "決勝（1-2位）",
+  final_3rd: "3位決定戦",
+  final_5th: "5位決定戦",
+  final_7th: "7位決定戦",
+  final: "決勝",
+  "round-robin": "総当たり",
+  round1: "1回戦",
+};
+
+/** Round display order */
+const ROUND_ORDER = [
+  "qf",
+  "sf_winner",
+  "sf_loser",
+  "semi",
+  "final_1st",
+  "final_3rd",
+  "final_5th",
+  "final_7th",
+  "final",
+  "round-robin",
+  "round1",
+];
+
+function BracketMatchCard({ match }: { match: BracketMatchData }) {
   const isCompleted = match.status === "completed";
+  const isWaiting = match.status === "waiting";
   const winnerIsA = match.result?.winner === match.teamAId;
   const winnerIsB = match.result?.winner === match.teamBId;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 w-72 overflow-hidden">
+    <div
+      className={`bg-white rounded-lg border w-72 overflow-hidden ${
+        isWaiting ? "border-gray-100 opacity-60" : "border-gray-200"
+      }`}
+    >
       {/* チームA */}
       <div
         className={`flex items-center justify-between px-3 py-2.5 border-b border-gray-100 ${
@@ -32,6 +77,8 @@ function BracketMatchCard({ match }: { match: Match }) {
           className={`text-sm truncate max-w-[60%] ${
             isCompleted && winnerIsA
               ? "font-bold text-blue-700"
+              : isWaiting && !match.teamAId
+              ? "text-gray-400 italic"
               : "text-foreground"
           }`}
         >
@@ -53,6 +100,9 @@ function BracketMatchCard({ match }: { match: Match }) {
               {match.result.setsA}
             </span>
           )}
+          {isWaiting && (
+            <span className="text-xs text-gray-400">待機中</span>
+          )}
         </div>
       </div>
       {/* チームB */}
@@ -65,6 +115,8 @@ function BracketMatchCard({ match }: { match: Match }) {
           className={`text-sm truncate max-w-[60%] ${
             isCompleted && winnerIsB
               ? "font-bold text-red-700"
+              : isWaiting && !match.teamBId
+              ? "text-gray-400 italic"
               : "text-foreground"
           }`}
         >
@@ -92,6 +144,33 @@ function BracketMatchCard({ match }: { match: Match }) {
   );
 }
 
+/** Group matches by round and return sorted groups */
+function groupByRound(matches: BracketMatchData[]) {
+  const groups = new Map<string, BracketMatchData[]>();
+
+  for (const m of matches) {
+    const round = m.round ?? "unknown";
+    if (!groups.has(round)) groups.set(round, []);
+    groups.get(round)!.push(m);
+  }
+
+  // Sort groups by ROUND_ORDER
+  const sortedKeys = [...groups.keys()].sort((a, b) => {
+    const ia = ROUND_ORDER.indexOf(a);
+    const ib = ROUND_ORDER.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
+
+  // Sort matches within each group by matchNumber
+  return sortedKeys.map((key) => ({
+    round: key,
+    label: ROUND_LABELS[key] ?? key,
+    matches: groups.get(key)!.sort(
+      (a, b) => (a.matchNumber ?? 0) - (b.matchNumber ?? 0)
+    ),
+  }));
+}
+
 interface BracketViewProps {
   tournamentId: string;
 }
@@ -116,7 +195,6 @@ export default function BracketView({ tournamentId }: BracketViewProps) {
 
       if (cancelled) return;
 
-      const bracketList: BracketInfo[] = [];
       const unsubscribers: (() => void)[] = [];
 
       for (const bracketDoc of bracketsSnap.docs) {
@@ -136,12 +214,15 @@ export default function BracketView({ tournamentId }: BracketViewProps) {
             const matches = snap.docs.map((d) => ({
               id: d.id,
               ...d.data(),
-            })) as Match[];
+            })) as BracketMatchData[];
 
             setBrackets((prev) => {
               const next = prev.filter((b) => b.id !== bracketId);
               next.push({
                 id: bracketId,
+                bracketName: bracketData.bracketName,
+                rankRange: bracketData.rankRange,
+                teamCount: bracketData.teamCount,
                 type: bracketData.type,
                 matches,
               });
@@ -152,11 +233,6 @@ export default function BracketView({ tournamentId }: BracketViewProps) {
         );
 
         unsubscribers.push(unsub);
-        bracketList.push({
-          id: bracketId,
-          type: bracketData.type,
-          matches: [],
-        });
       }
 
       if (bracketsSnap.empty) {
@@ -193,25 +269,49 @@ export default function BracketView({ tournamentId }: BracketViewProps) {
   }
 
   return (
-    <div className="space-y-8">
-      {brackets.map((bracket) => (
-        <div key={bracket.id}>
-          <h3 className="text-sm font-bold text-muted mb-4 uppercase">
-            {bracket.type === "upper"
-              ? "上位トーナメント"
-              : bracket.type === "lower"
-              ? "下位トーナメント"
-              : bracket.id}
-          </h3>
-          <div className="flex flex-wrap gap-4">
-            {bracket.matches
-              .sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0))
-              .map((m) => (
-                <BracketMatchCard key={m.id} match={m} />
+    <div className="space-y-10">
+      {brackets.map((bracket) => {
+        const roundGroups = groupByRound(bracket.matches);
+
+        return (
+          <div key={bracket.id} className="space-y-4">
+            {/* Bracket header: リーグ名 + 順位範囲 */}
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-bold text-foreground">
+                {bracket.bracketName
+                  ? `${bracket.bracketName}リーグ`
+                  : bracket.id}
+              </h3>
+              {bracket.rankRange && (
+                <span className="text-sm text-muted bg-gray-100 px-2 py-0.5 rounded">
+                  {bracket.rankRange}
+                </span>
+              )}
+              {bracket.teamCount && (
+                <span className="text-sm text-muted">
+                  {bracket.teamCount}チーム
+                </span>
+              )}
+            </div>
+
+            {/* Matches grouped by round */}
+            <div className="space-y-4">
+              {roundGroups.map((group) => (
+                <div key={group.round}>
+                  <h4 className="text-sm font-semibold text-muted mb-2 border-b border-gray-100 pb-1">
+                    {group.label}
+                  </h4>
+                  <div className="flex flex-wrap gap-3">
+                    {group.matches.map((m) => (
+                      <BracketMatchCard key={m.id} match={m} />
+                    ))}
+                  </div>
+                </div>
               ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
