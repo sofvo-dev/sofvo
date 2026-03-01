@@ -31,7 +31,9 @@ class MatchGenerator {
 
     // 3. Assign teams to courts
     List<List<Map<String, dynamic>>> courts;
-    if (roundNumber == 1 || assignmentMode == 'random') {
+    if (roundNumber >= 2 && assignmentMode == 'random') {
+      courts = await _assignRandomAvoidDuplicates(tournamentId, entries, courtCount, teamsPerCourt);
+    } else if (roundNumber == 1) {
       courts = _assignRandom(entries, courtCount, teamsPerCourt);
     } else {
       courts = await _assignSnakeDraft(tournamentId, entries, courtCount, teamsPerCourt);
@@ -244,6 +246,54 @@ class MatchGenerator {
 
     for (int i = 0; i < shuffled.length; i++) {
       courts[i % actualCourts].add(shuffled[i]);
+    }
+
+    return courts;
+  }
+
+  /// Random assignment for round 2 avoiding round 1 same-court teammates
+  /// 予選1で同じコートだったチームをなるべく別コートに配置
+  Future<List<List<Map<String, dynamic>>>> _assignRandomAvoidDuplicates(
+      String tournamentId, List<Map<String, dynamic>> entries,
+      int courtCount, int teamsPerCourt) async {
+    // Get round 1 court groupings
+    final round1Ref = _firestore.collection('tournaments').doc(tournamentId)
+        .collection('rounds').doc('round_1');
+    final standingsSnap = await round1Ref.collection('standings').get();
+
+    // Build a map: teamId -> set of teamIds that were on the same court in round 1
+    final sameCourtMap = <String, Set<String>>{};
+    for (var courtDoc in standingsSnap.docs) {
+      final teams = List<String>.from(courtDoc.data()['teams'] ?? []);
+      for (var tid in teams) {
+        sameCourtMap.putIfAbsent(tid, () => {});
+        sameCourtMap[tid]!.addAll(teams.where((t) => t != tid));
+      }
+    }
+
+    final safeTpc = teamsPerCourt > 0 ? teamsPerCourt : 1;
+    final actualCourts = (entries.length / safeTpc).ceil().clamp(1, courtCount);
+    final courts = List.generate(actualCourts, (_) => <Map<String, dynamic>>[]);
+
+    // Shuffle entries for randomness, then greedily place avoiding duplicates
+    final remaining = List<Map<String, dynamic>>.from(entries)..shuffle();
+
+    for (var entry in remaining) {
+      final teamId = entry['teamId'] as String;
+      final prevTeammates = sameCourtMap[teamId] ?? <String>{};
+
+      // Score each court: count how many round 1 same-court members are already there
+      int bestCourt = 0;
+      int bestOverlap = 999;
+      for (int c = 0; c < actualCourts; c++) {
+        if (courts[c].length >= safeTpc) continue; // court full
+        final overlap = courts[c].where((t) => prevTeammates.contains(t['teamId'])).length;
+        if (overlap < bestOverlap) {
+          bestOverlap = overlap;
+          bestCourt = c;
+        }
+      }
+      courts[bestCourt].add(entry);
     }
 
     return courts;
