@@ -1198,12 +1198,14 @@ async function doSyncPrizesToSheet() {
       p.memo || "",
       p.registeredBy || "",
       p.createdAt ? p.createdAt.toDate().toISOString().split("T")[0] : "",
+      typeof p.rating === "number" ? p.rating.toFixed(1) : "0",
+      typeof p.reviewCount === "number" ? String(p.reviewCount) : "0",
     ];
   });
 
   const sheetName = "景品一覧";
   const values = [
-    ["景品ID", "景品名", "カテゴリ", "価格帯", "AmazonURL", "アフィリエイトURL", "画像URL", "メモ", "登録者", "登録日"],
+    ["景品ID", "景品名", "カテゴリ", "価格帯", "AmazonURL", "アフィリエイトURL", "画像URL", "メモ", "登録者", "登録日", "評価", "レビュー数"],
     ...prizeRows,
   ];
 
@@ -1214,7 +1216,7 @@ async function doSyncPrizesToSheet() {
     await sheetsUpdate(PRIZE_SHEET_ID, `${sheetName}!A1`, values);
   }
   const nextRow = values.length + 1;
-  await sheetsClear(PRIZE_SHEET_ID, `${sheetName}!A${nextRow}:J10000`);
+  await sheetsClear(PRIZE_SHEET_ID, `${sheetName}!A${nextRow}:L10000`);
 
   return prizeRows.length;
 }
@@ -1244,8 +1246,8 @@ exports.onPrizeWrite = functions.firestore
     if (change.before.exists && change.after.exists) {
       const before = change.before.data();
       const after = change.after.data();
-      const fields = ["name", "category", "priceRange", "amazonUrl", "amazonAffiliateUrl", "imageUrl", "memo"];
-      const changed = fields.some((f) => (before[f] || "") !== (after[f] || ""));
+      const fields = ["name", "category", "priceRange", "amazonUrl", "amazonAffiliateUrl", "imageUrl", "memo", "rating", "reviewCount"];
+      const changed = fields.some((f) => String(before[f] || "") !== String(after[f] || ""));
       if (!changed) return;
     }
     try {
@@ -1272,7 +1274,7 @@ function isPrizeDataEqual(existing, sheetData) {
 }
 
 async function doImportPrizes() {
-  const rows = await sheetsRead(PRIZE_SHEET_ID, "景品一覧!A:J");
+  const rows = await sheetsRead(PRIZE_SHEET_ID, "景品一覧!A:L");
   if (rows.length < 2) return { imported: 0, updated: 0, skipped: 0, total: 0 };
 
   const db = admin.firestore();
