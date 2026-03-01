@@ -6,7 +6,6 @@ import '../../config/app_theme.dart';
 import '../../services/bookmark_notification_service.dart';
 import 'tournament_detail_screen.dart';
 import '../chat/chat_screen.dart';
-import '../profile/user_profile_screen.dart';
 
 class TournamentSearchScreen extends StatefulWidget {
   const TournamentSearchScreen({super.key});
@@ -994,44 +993,35 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                   const SizedBox(height: 6),
                   // 主催者
                   if (organizerId.isNotEmpty) ...[
-                    GestureDetector(
-                      onTap: () {
-                        if (organizerId.isNotEmpty) {
-                          Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => UserProfileScreen(userId: organizerId),
-                          ));
-                        }
-                      },
-                      child: Row(children: [
-                        FutureBuilder<String>(
-                          future: _getOrganizerAvatar(organizerId),
-                          builder: (context, snap) {
-                            final url = snap.data ?? '';
-                            if (url.isNotEmpty) {
-                              return CircleAvatar(radius: 9, backgroundImage: NetworkImage(url));
-                            }
-                            return CircleAvatar(
-                              radius: 9,
-                              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                              child: Text(
-                                organizerName.isNotEmpty ? organizerName[0] : '?',
-                                style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                              ),
-                            );
-                          },
+                    Row(children: [
+                      FutureBuilder<String>(
+                        future: _getOrganizerAvatar(organizerId),
+                        builder: (context, snap) {
+                          final url = snap.data ?? '';
+                          if (url.isNotEmpty) {
+                            return CircleAvatar(radius: 9, backgroundImage: NetworkImage(url));
+                          }
+                          return CircleAvatar(
+                            radius: 9,
+                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                            child: Text(
+                              organizerName.isNotEmpty ? organizerName[0] : '?',
+                              style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 5),
+                      Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      if (!isFollowing) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(4)),
+                          child: Text('未フォロー', style: TextStyle(fontSize: 9, color: AppTheme.textHint)),
                         ),
-                        const SizedBox(width: 5),
-                        Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                        if (!isFollowing) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(4)),
-                            child: Text('未フォロー', style: TextStyle(fontSize: 9, color: AppTheme.textHint)),
-                          ),
-                        ],
-                      ]),
-                    ),
+                      ],
+                    ]),
                     const SizedBox(height: 4),
                   ],
                   // 会場
@@ -1340,44 +1330,35 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               ]),
               const SizedBox(height: 6),
               // 主催者
-              GestureDetector(
-                onTap: () {
-                  if (organizerId.isNotEmpty) {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => UserProfileScreen(userId: organizerId),
-                    ));
-                  }
-                },
-                child: Row(children: [
-                  FutureBuilder<String>(
-                    future: _getOrganizerAvatar(organizerId),
-                    builder: (context, snap) {
-                      final url = snap.data ?? '';
-                      if (url.isNotEmpty) {
-                        return CircleAvatar(radius: 9, backgroundImage: NetworkImage(url));
-                      }
-                      return CircleAvatar(
-                        radius: 9,
-                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                        child: Text(
-                          organizerName.isNotEmpty ? organizerName[0] : '?',
-                          style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
-                        ),
-                      );
-                    },
+              Row(children: [
+                FutureBuilder<String>(
+                  future: _getOrganizerAvatar(organizerId),
+                  builder: (context, snap) {
+                    final url = snap.data ?? '';
+                    if (url.isNotEmpty) {
+                      return CircleAvatar(radius: 9, backgroundImage: NetworkImage(url));
+                    }
+                    return CircleAvatar(
+                      radius: 9,
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                      child: Text(
+                        organizerName.isNotEmpty ? organizerName[0] : '?',
+                        style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 5),
+                Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                if (!isFollowing) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(4)),
+                    child: Text('未フォロー', style: TextStyle(fontSize: 9, color: AppTheme.textHint)),
                   ),
-                  const SizedBox(width: 5),
-                  Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                  if (!isFollowing) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(4)),
-                      child: Text('未フォロー', style: TextStyle(fontSize: 9, color: AppTheme.textHint)),
-                    ),
-                  ],
-                ]),
-              ),
+                ],
+              ]),
               const SizedBox(height: 4),
               // 会場
               Row(children: [
