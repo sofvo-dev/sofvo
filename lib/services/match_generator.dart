@@ -756,12 +756,8 @@ class MatchGenerator {
     List<MapEntry<String, Map<String, dynamic>>> sorted,
     Map<String, dynamic> finalRules,
   ) async {
-    // コート数を取得してリーグサイズを決定
-    final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
-    final courtCount = tournDoc.data()?['courts'] ?? 2;
-
-    // リーグあたり2コート使用 → リーグ数 = コート数 / 2
-    final leagueCount = (courtCount / 2).ceil().clamp(1, sorted.length);
+    // ルール設定の区分数（tierCount）を使用
+    final leagueCount = (finalRules['tierCount'] as int? ?? 3).clamp(1, sorted.length);
     final teamsPerLeague = (sorted.length / leagueCount).ceil();
     final leagues = _splitIntoGroups(sorted, teamsPerLeague);
 
