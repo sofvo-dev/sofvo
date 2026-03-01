@@ -46,7 +46,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   String _myEntryTeamId = "";
   bool _showOnlyMyCourts = false;
   Set<String> _myCourtIds = {};
-  String? _selectedCourtFilter; // null=全て, 'MY'=自分のコート, courtId=特定コート
+  final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート)
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
@@ -952,8 +952,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // コート切替チップバー（ラウンドデータから動的に生成）
-                _buildCourtFilterChips(),
                 // Show each round
                 ...roundsSnap.data!.docs.map((roundDoc) {
                   final roundData = roundDoc.data() as Map<String, dynamic>;
@@ -2302,125 +2300,94 @@ B,2,チームG,チームH,チームE,チームF''';
     );
   }
 
-  Widget _buildCourtFilterChips() {
-    // 最初のラウンドのマッチデータからコート一覧を取得
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('tournaments').doc(_tournamentId)
-          .collection('rounds').limit(1).snapshots(),
-      builder: (context, roundSnap) {
-        if (!roundSnap.hasData || roundSnap.data!.docs.isEmpty) return const SizedBox();
-        final roundId = roundSnap.data!.docs.first.id;
-        return StreamBuilder<QuerySnapshot>(
-          stream: _firestore.collection('tournaments').doc(_tournamentId)
-              .collection('rounds').doc(roundId)
-              .collection('matches').orderBy('matchOrder').snapshots(),
-          builder: (context, matchSnap) {
-            if (!matchSnap.hasData || matchSnap.data!.docs.isEmpty) return const SizedBox();
+  Widget _buildCourtChipsForRound(int roundNum, List<MapEntry<String, int>> sortedCourts, Set<String> myCourts) {
+    // 3コート以下ならチップバー不要
+    if (sortedCourts.length <= 3) return const SizedBox();
 
-            // コート一覧を構築
-            final courtMap = <String, int>{}; // courtId -> courtNumber
-            final myCourts = <String>{};
-            for (var m in matchSnap.data!.docs) {
-              final md = m.data() as Map<String, dynamic>;
-              final courtId = md['courtId'] ?? '';
-              final courtNum = md['courtNumber'] ?? 0;
-              if (courtId.isNotEmpty) courtMap[courtId] = courtNum as int;
-              if (_myTeamIds.contains(md['teamAId'] ?? '') || _myTeamIds.contains(md['teamBId'] ?? '') ||
-                  _myTeamIds.contains(md['refereeTeamId'] ?? '') || _myTeamIds.contains(md['subRefereeTeamId'] ?? '')) {
-                myCourts.add(courtId);
-              }
-            }
-
-            final sortedCourts = courtMap.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
-
-            // 3コート以下ならチップバー不要
-            if (sortedCourts.length <= 3) return const SizedBox();
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: SizedBox(
-                height: 38,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    // 「全て」チップ
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: const Text('全て'),
-                        selected: _selectedCourtFilter == null,
-                        selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                        labelStyle: TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600,
-                          color: _selectedCourtFilter == null ? AppTheme.primaryColor : AppTheme.textSecondary,
-                        ),
-                        side: BorderSide(color: _selectedCourtFilter == null ? AppTheme.primaryColor : Colors.grey[300]!),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        showCheckmark: false,
-                        onSelected: (_) => setState(() { _selectedCourtFilter = null; _showOnlyMyCourts = false; }),
-                      ),
-                    ),
-                    // 「MY」チップ（自チームがある場合のみ）
-                    if (myCourts.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          label: const Text('MY'),
-                          selected: _selectedCourtFilter == 'MY',
-                          selectedColor: AppTheme.accentColor.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.bold,
-                            color: _selectedCourtFilter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.7),
-                          ),
-                          side: BorderSide(color: _selectedCourtFilter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.4)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          showCheckmark: false,
-                          onSelected: (_) => setState(() {
-                            _selectedCourtFilter = _selectedCourtFilter == 'MY' ? null : 'MY';
-                            _showOnlyMyCourts = _selectedCourtFilter == 'MY';
-                          }),
-                        ),
-                      ),
-                    // 各コートチップ
-                    ...sortedCourts.map((court) {
-                      final courtId = court.key;
-                      final courtNum = court.value;
-                      final label = '${String.fromCharCode(64 + courtNum)}';
-                      final isSelected = _selectedCourtFilter == courtId;
-                      final isMyCourt = myCourts.contains(courtId);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          label: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(label),
-                            if (isMyCourt) ...[
-                              const SizedBox(width: 3),
-                              Icon(Icons.star, size: 12, color: isSelected ? AppTheme.primaryColor : AppTheme.accentColor),
-                            ],
-                          ]),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600,
-                            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                          ),
-                          side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          showCheckmark: false,
-                          onSelected: (_) => setState(() {
-                            _selectedCourtFilter = isSelected ? null : courtId;
-                            _showOnlyMyCourts = false;
-                          }),
-                        ),
-                      );
-                    }),
-                  ],
+    final filter = _selectedCourtFilter[roundNum];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SizedBox(
+        height: 38,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            // 「全て」チップ
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: const Text('全て'),
+                selected: filter == null,
+                selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                labelStyle: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600,
+                  color: filter == null ? AppTheme.primaryColor : AppTheme.textSecondary,
+                ),
+                side: BorderSide(color: filter == null ? AppTheme.primaryColor : Colors.grey[300]!),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                showCheckmark: false,
+                onSelected: (_) => setState(() { _selectedCourtFilter.remove(roundNum); _showOnlyMyCourts = false; }),
+              ),
+            ),
+            // 「MY」チップ（自チームがある場合のみ）
+            if (myCourts.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: const Text('MY'),
+                  selected: filter == 'MY',
+                  selectedColor: AppTheme.accentColor.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.bold,
+                    color: filter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.7),
+                  ),
+                  side: BorderSide(color: filter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() {
+                    _selectedCourtFilter[roundNum] = filter == 'MY' ? null : 'MY';
+                    if (_selectedCourtFilter[roundNum] == null) _selectedCourtFilter.remove(roundNum);
+                    _showOnlyMyCourts = false;
+                  }),
                 ),
               ),
-            );
-          },
-        );
-      },
+            // 各コートチップ
+            ...sortedCourts.map((court) {
+              final courtId = court.key;
+              final courtNum = court.value;
+              final label = '${String.fromCharCode(64 + courtNum)}';
+              final isSelected = filter == courtId;
+              final isMyCourt = myCourts.contains(courtId);
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(label),
+                    if (isMyCourt) ...[
+                      const SizedBox(width: 3),
+                      Icon(Icons.star, size: 12, color: isSelected ? AppTheme.primaryColor : AppTheme.accentColor),
+                    ],
+                  ]),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                  ),
+                  side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() {
+                    _selectedCourtFilter[roundNum] = isSelected ? null : courtId;
+                    if (_selectedCourtFilter[roundNum] == null) _selectedCourtFilter.remove(roundNum);
+                    _showOnlyMyCourts = false;
+                  }),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2467,21 +2434,31 @@ B,2,チームG,チームH,チームE,チームF''';
             return (aNum as int).compareTo(bNum as int);
           });
 
+          // コートチップ用データ
+          final courtChipData = sortedCourts.map((e) {
+            final num = (e.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
+            return MapEntry(e.key, num as int);
+          }).toList();
+
+          final filter = _selectedCourtFilter[roundNum];
           List<MapEntry<String, List<QueryDocumentSnapshot>>> filteredCourts;
-          if (_selectedCourtFilter == 'MY') {
+          if (filter == 'MY') {
             filteredCourts = sortedCourts.where((court) => myCourts.contains(court.key)).toList();
-          } else if (_selectedCourtFilter != null) {
-            filteredCourts = sortedCourts.where((court) => court.key == _selectedCourtFilter).toList();
+          } else if (filter != null) {
+            filteredCourts = sortedCourts.where((court) => court.key == filter).toList();
           } else if (_showOnlyMyCourts) {
             filteredCourts = sortedCourts.where((court) => myCourts.contains(court.key)).toList();
           } else {
             filteredCourts = sortedCourts;
           }
 
-          return Column(children: filteredCourts.map((court) {
-            final courtNum = (court.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
-            return _buildCourtCard(court.key, courtNum, court.value, roundId, isOrganizer);
-          }).toList());
+          return Column(children: [
+            _buildCourtChipsForRound(roundNum, courtChipData, myCourts),
+            ...filteredCourts.map((court) {
+              final courtNum = (court.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
+              return _buildCourtCard(court.key, courtNum, court.value, roundId, isOrganizer);
+            }),
+          ]);
         },
       ),
       // Standings
@@ -2491,11 +2468,12 @@ B,2,チームG,チームH,チームE,チームF''';
             .collection('standings').snapshots(),
         builder: (context, standSnap) {
           if (!standSnap.hasData || standSnap.data!.docs.isEmpty) return const SizedBox();
+          final standFilter = _selectedCourtFilter[roundNum];
           List<QueryDocumentSnapshot> standDocs;
-          if (_selectedCourtFilter == 'MY' || _showOnlyMyCourts) {
+          if (standFilter == 'MY' || _showOnlyMyCourts) {
             standDocs = standSnap.data!.docs.where((d) => _myCourtIds.contains(d.id)).toList();
-          } else if (_selectedCourtFilter != null) {
-            standDocs = standSnap.data!.docs.where((d) => d.id == _selectedCourtFilter).toList();
+          } else if (standFilter != null) {
+            standDocs = standSnap.data!.docs.where((d) => d.id == standFilter).toList();
           } else {
             standDocs = standSnap.data!.docs;
           }
