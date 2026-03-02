@@ -39,37 +39,6 @@ class AmazonProduct {
   };
 }
 
-/// タイトルから価格を推定（フォールバック用）
-String? extractPriceFromTitle(String title) {
-  // 「￥5,000」「¥5000」のパターン
-  final yenMatch = RegExp(r'[￥¥]\s?([\d,]+)').firstMatch(title);
-  if (yenMatch != null) {
-    final num = int.tryParse(yenMatch.group(1)!.replaceAll(',', ''));
-    if (num != null && num >= 100 && num <= 10000000) {
-      return '￥${_formatWithComma(num)}';
-    }
-  }
-  // 「5,000円」「5000円」のパターン
-  final enMatch = RegExp(r'([\d,]+)\s*円').firstMatch(title);
-  if (enMatch != null) {
-    final num = int.tryParse(enMatch.group(1)!.replaceAll(',', ''));
-    if (num != null && num >= 100 && num <= 10000000) {
-      return '￥${_formatWithComma(num)}';
-    }
-  }
-  return null;
-}
-
-String _formatWithComma(int n) {
-  final s = n.toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-    buf.write(s[i]);
-  }
-  return buf.toString();
-}
-
 class AmazonSearchService {
   static const _baseUrl =
       'https://us-central1-sofvo-19d84.cloudfunctions.net';

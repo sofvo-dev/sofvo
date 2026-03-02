@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import {
   collection, addDoc, doc, updateDoc, increment, serverTimestamp,
 } from "firebase/firestore";
@@ -24,20 +24,6 @@ const categories = [
   "シューズ", "ボール", "ウェア", "サポーター", "バッグ", "プロテクター", "トレーニング用品", "その他",
 ];
 
-function extractPriceFromTitle(title: string): string | null {
-  const yenMatch = title.match(/[￥¥]\s?([\d,]+)/);
-  if (yenMatch) {
-    const num = parseInt(yenMatch[1].replace(/,/g, ""), 10);
-    if (num >= 100 && num <= 10000000) return `￥${num.toLocaleString()}`;
-  }
-  const enMatch = title.match(/([\d,]+)\s*円/);
-  if (enMatch) {
-    const num = parseInt(enMatch[1].replace(/,/g, ""), 10);
-    if (num >= 100 && num <= 10000000) return `￥${num.toLocaleString()}`;
-  }
-  return null;
-}
-
 export default function GadgetRegisterPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
@@ -50,52 +36,6 @@ export default function GadgetRegisterPage() {
   const [hasMore, setHasMore] = useState(false);
   const [showEmptyHint, setShowEmptyHint] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [fetchedPrices, setFetchedPrices] = useState<Record<string, string>>({});
-  const [fetchingPriceAsins, setFetchingPriceAsins] = useState<Set<string>>(new Set());
-  const [priceFetchFailedAsins, setPriceFetchFailedAsins] = useState<Set<string>>(new Set());
-  const abortRef = useRef(false);
-
-  const fetchMissingPrices = useCallback(async (products: AmazonProduct[]) => {
-    const targets = products.filter((p) => !p.price && p.asin);
-    if (targets.length === 0) return;
-    setFetchingPriceAsins((prev) => {
-      const next = new Set(prev);
-      targets.forEach((p) => next.add(p.asin));
-      return next;
-    });
-    for (let i = 0; i < targets.length; i += 5) {
-      if (abortRef.current) break;
-      const batch = targets.slice(i, i + 5);
-      await Promise.all(
-        batch.map(async (p) => {
-          let gotPrice = false;
-          try {
-            const res = await fetch(`${AMAZON_API}/amazonProduct?asin=${p.asin}`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data.price) {
-                setFetchedPrices((prev) => ({ ...prev, [p.asin]: data.price }));
-                gotPrice = true;
-              }
-            }
-          } catch { /* ignore */ } finally {
-            setFetchingPriceAsins((prev) => {
-              const next = new Set(prev);
-              next.delete(p.asin);
-              return next;
-            });
-            if (!gotPrice) {
-              setPriceFetchFailedAsins((prev) => {
-                const next = new Set(prev);
-                next.add(p.asin);
-                return next;
-              });
-            }
-          }
-        })
-      );
-    }
-  }, []);
 
   // Amazon URL fetch
   const [urlInput, setUrlInput] = useState("");
@@ -113,16 +53,11 @@ export default function GadgetRegisterPage() {
 
   const searchAmazon = async () => {
     if (!searchKeyword.trim()) return;
-    abortRef.current = true;
     setIsSearching(true);
     setSearchResults([]);
     setSearchPage(1);
     setHasMore(false);
     setShowEmptyHint(false);
-    setFetchedPrices({});
-    setFetchingPriceAsins(new Set());
-    setPriceFetchFailedAsins(new Set());
-    abortRef.current = false;
     try {
       const res = await fetch(`${AMAZON_API}/amazonSearch?q=${encodeURIComponent(searchKeyword.trim())}&page=1`);
       if (res.ok) {
@@ -131,7 +66,6 @@ export default function GadgetRegisterPage() {
           setSearchResults(data);
           setHasMore(data.length >= 10);
           setShowEmptyHint(data.length === 0);
-          fetchMissingPrices(data);
         }
       } else {
         setShowEmptyHint(true);
@@ -155,7 +89,6 @@ export default function GadgetRegisterPage() {
           setSearchPage(nextPage);
           setSearchResults((prev) => [...prev, ...data]);
           setHasMore(data.length >= 10);
-          fetchMissingPrices(data);
         }
       }
     } catch { /* ignore */ } finally { setIsLoadingMore(false); }
@@ -281,12 +214,7 @@ export default function GadgetRegisterPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground line-clamp-2">{product.title}</p>
-                    {(() => {
-                      const price = product.price || fetchedPrices[product.asin] || extractPriceFromTitle(product.title);
-                      if (price) return <p className="text-xs font-bold text-red-500 mt-0.5">{price}</p>;
-                      if (fetchingPriceAsins.has(product.asin)) return <p className="text-xs text-gray-400 mt-0.5">価格を取得中...</p>;
-                      return null;
-                    })()}
+                    {product.price && <p className="text-xs font-bold text-red-500 mt-0.5">{product.price}</p>}
                   </div>
                   <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>

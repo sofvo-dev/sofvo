@@ -181,10 +181,9 @@ function extractItem(item) {
   const images = item.Images || {};
 
   const asin = item.ASIN || "";
-  const title = info.Title?.DisplayValue || "";
   return {
     asin,
-    title,
+    title: info.Title?.DisplayValue || "",
     imageUrl:
       images.Primary?.Large?.URL ||
       images.Primary?.Medium?.URL ||
@@ -195,7 +194,7 @@ function extractItem(item) {
       item.Offers?.Listings?.[0]?.Price?.DisplayAmount ||
       item.Offers?.Summaries?.[0]?.LowestPrice?.DisplayAmount ||
       item.Offers?.Summaries?.[0]?.HighestPrice?.DisplayAmount ||
-      extractPriceFromTitle(title),
+      null,
   };
 }
 
@@ -272,19 +271,9 @@ async function scrapeAmazonSearch(keyword) {
     const image =
       $el.find("img.s-image").attr("src") || "";
 
-    // 価格（複数のセレクターで試行）
-    let price =
-      $el.find(".a-price .a-offscreen").first().text().trim() ||
-      $el.find(".a-color-price").first().text().trim() ||
-      $el.find('[data-a-color="price"] .a-offscreen').first().text().trim() ||
-      null;
-    // .a-price-whole + .a-price-fraction からの組み立て
-    if (!price) {
-      const whole = $el.find(".a-price-whole").first().text().trim().replace(/[,.\s]/g, "");
-      if (whole && /^\d+$/.test(whole)) {
-        price = `￥${Number(whole).toLocaleString()}`;
-      }
-    }
+    // 価格
+    const price =
+      $el.find(".a-price .a-offscreen").first().text().trim() || null;
 
     if (title && image) {
       items.push({
@@ -293,7 +282,7 @@ async function scrapeAmazonSearch(keyword) {
         imageUrl: image,
         detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
         affiliateUrl: makeAffiliateUrl(asin),
-        price: price || extractPriceFromTitle(title),
+        price,
       });
     }
   });
@@ -302,49 +291,20 @@ async function scrapeAmazonSearch(keyword) {
   return items.slice(0, 10);
 }
 
-// タイトルから価格を推定（フォールバック用）
-function extractPriceFromTitle(title) {
-  if (!title) return null;
-  // 「5,000円」「5000円」「￥5,000」「¥5000」のようなパターンを検出
-  const yenMatch = title.match(/[￥¥]\s?([\d,]+)/);
-  if (yenMatch) {
-    const num = parseInt(yenMatch[1].replace(/,/g, ""), 10);
-    if (num >= 100 && num <= 10000000) {
-      return `￥${num.toLocaleString()}`;
-    }
-  }
-  const enMatch = title.match(/([\d,]+)\s*円/);
-  if (enMatch) {
-    const num = parseInt(enMatch[1].replace(/,/g, ""), 10);
-    if (num >= 100 && num <= 10000000) {
-      return `￥${num.toLocaleString()}`;
-    }
-  }
-  return null;
-}
-
 async function scrapeAmazonProduct(asin) {
   const url = `https://www.amazon.co.jp/dp/${asin}?language=ja_JP`;
 
   const ac = new AbortController();
-  const tid = setTimeout(() => ac.abort(), 10000);
+  const tid = setTimeout(() => ac.abort(), 8000);
   const response = await fetch(url, {
     headers: {
-      "User-Agent": randomUserAgent(),
-      "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Cache-Control": "max-age=0",
-      "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
-      "Sec-Ch-Ua-Mobile": "?0",
-      "Sec-Ch-Ua-Platform": '"Windows"',
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      "Sec-Fetch-User": "?1",
-      "Upgrade-Insecure-Requests": "1",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
+      "Accept":
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     },
-    redirect: "follow",
     signal: ac.signal,
   }).finally(() => clearTimeout(tid));
 
@@ -367,13 +327,8 @@ async function scrapeAmazonProduct(asin) {
     "";
 
   const price =
-    $("#corePriceDisplay_desktop_feature_div .a-price .a-offscreen").first().text().trim() ||
-    $("#corePrice_feature_div .a-price .a-offscreen").first().text().trim() ||
-    $(".apexPriceToPay .a-offscreen").first().text().trim() ||
     $(".a-price .a-offscreen").first().text().trim() ||
     $("#priceblock_ourprice").text().trim() ||
-    $("#priceblock_dealprice").text().trim() ||
-    $(".a-color-price").first().text().trim() ||
     null;
 
   return {
@@ -382,7 +337,7 @@ async function scrapeAmazonProduct(asin) {
     imageUrl: image,
     detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
     affiliateUrl: makeAffiliateUrl(asin),
-    price: price || extractPriceFromTitle(title),
+    price,
   };
 }
 
