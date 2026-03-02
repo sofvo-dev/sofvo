@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   collection, addDoc, doc, updateDoc, increment, serverTimestamp,
 } from "firebase/firestore";
@@ -36,6 +36,42 @@ export default function GadgetRegisterPage() {
   const [hasMore, setHasMore] = useState(false);
   const [showEmptyHint, setShowEmptyHint] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [fetchedPrices, setFetchedPrices] = useState<Record<string, string>>({});
+  const [fetchingPriceAsins, setFetchingPriceAsins] = useState<Set<string>>(new Set());
+  const abortRef = useRef(false);
+
+  const fetchMissingPrices = useCallback(async (products: AmazonProduct[]) => {
+    const targets = products.filter((p) => !p.price && p.asin);
+    if (targets.length === 0) return;
+    setFetchingPriceAsins((prev) => {
+      const next = new Set(prev);
+      targets.forEach((p) => next.add(p.asin));
+      return next;
+    });
+    for (let i = 0; i < targets.length; i += 5) {
+      if (abortRef.current) break;
+      const batch = targets.slice(i, i + 5);
+      await Promise.all(
+        batch.map(async (p) => {
+          try {
+            const res = await fetch(`${AMAZON_API}/amazonProduct?asin=${p.asin}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.price) {
+                setFetchedPrices((prev) => ({ ...prev, [p.asin]: data.price }));
+              }
+            }
+          } catch { /* ignore */ } finally {
+            setFetchingPriceAsins((prev) => {
+              const next = new Set(prev);
+              next.delete(p.asin);
+              return next;
+            });
+          }
+        })
+      );
+    }
+  }, []);
 
   // Amazon URL fetch
   const [urlInput, setUrlInput] = useState("");
@@ -53,11 +89,15 @@ export default function GadgetRegisterPage() {
 
   const searchAmazon = async () => {
     if (!searchKeyword.trim()) return;
+    abortRef.current = true;
     setIsSearching(true);
     setSearchResults([]);
     setSearchPage(1);
     setHasMore(false);
     setShowEmptyHint(false);
+    setFetchedPrices({});
+    setFetchingPriceAsins(new Set());
+    abortRef.current = false;
     try {
       const res = await fetch(`${AMAZON_API}/amazonSearch?q=${encodeURIComponent(searchKeyword.trim())}&page=1`);
       if (res.ok) {
@@ -66,6 +106,7 @@ export default function GadgetRegisterPage() {
           setSearchResults(data);
           setHasMore(data.length >= 10);
           setShowEmptyHint(data.length === 0);
+          fetchMissingPrices(data);
         }
       } else {
         setShowEmptyHint(true);
@@ -89,6 +130,7 @@ export default function GadgetRegisterPage() {
           setSearchPage(nextPage);
           setSearchResults((prev) => [...prev, ...data]);
           setHasMore(data.length >= 10);
+          fetchMissingPrices(data);
         }
       }
     } catch { /* ignore */ } finally { setIsLoadingMore(false); }
@@ -214,7 +256,11 @@ export default function GadgetRegisterPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground line-clamp-2">{product.title}</p>
-                    {product.price && <p className="text-xs font-bold text-red-500 mt-0.5">{product.price}</p>}
+                    {(product.price || fetchedPrices[product.asin]) ? (
+                      <p className="text-xs font-bold text-red-500 mt-0.5">{product.price || fetchedPrices[product.asin]}</p>
+                    ) : fetchingPriceAsins.has(product.asin) ? (
+                      <p className="text-xs text-gray-400 mt-0.5">価格を取得中...</p>
+                    ) : null}
                   </div>
                   <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>

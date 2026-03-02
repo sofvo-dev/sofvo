@@ -769,6 +769,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   bool _isLoadingMore = false;
   List<AmazonProduct> _searchResults = [];
   Map<String, String> _fetchedPrices = {}; // ASIN -> price
+  Set<String> _fetchingPriceAsins = {};
   int _searchPage = 1;
   bool _hasMoreResults = false;
   String _lastSearchKeyword = '';
@@ -809,6 +810,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
       _isSearching = true;
       _searchResults = [];
       _fetchedPrices = {};
+      _fetchingPriceAsins = {};
       _searchPage = 1;
       _hasMoreResults = false;
       _lastSearchKeyword = keyword;
@@ -838,16 +840,24 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   Future<void> _fetchMissingPrices(List<AmazonProduct> products) async {
     final targets = products.where((p) => p.price == null && p.asin.isNotEmpty).toList();
     if (targets.isEmpty) return;
+    if (mounted) {
+      setState(() => _fetchingPriceAsins.addAll(targets.map((p) => p.asin)));
+    }
     // 並列で最大5件ずつ取得
     for (var i = 0; i < targets.length; i += 5) {
       final batch = targets.skip(i).take(5);
       await Future.wait(batch.map((p) async {
         try {
           final price = await AmazonSearchService.fetchPrice(p.asin);
-          if (price != null && mounted) {
-            setState(() => _fetchedPrices[p.asin] = price);
+          if (mounted) {
+            setState(() {
+              if (price != null) _fetchedPrices[p.asin] = price;
+              _fetchingPriceAsins.remove(p.asin);
+            });
           }
-        } catch (_) {}
+        } catch (_) {
+          if (mounted) setState(() => _fetchingPriceAsins.remove(p.asin));
+        }
       }));
     }
   }
@@ -1531,6 +1541,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
 
   Widget _buildSearchResultTile(AmazonProduct product) {
     final displayPrice = product.price ?? _fetchedPrices[product.asin];
+    final isFetchingPrice = _fetchingPriceAsins.contains(product.asin);
     return InkWell(
       onTap: () => _selectProduct(product),
       child: Padding(
@@ -1557,8 +1568,11 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(product.title, maxLines: 2, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+              const SizedBox(height: 2),
               if (displayPrice != null)
-                Text(displayPrice, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error)),
+                Text(displayPrice, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error))
+              else if (isFetchingPrice)
+                Text('価格を取得中...', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
             ]),
           ),
           const Icon(Icons.add_circle_outline, color: Color(0xFFFF9900), size: 22),
