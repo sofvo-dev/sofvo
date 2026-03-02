@@ -404,7 +404,8 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
 
       if (response.ok) {
         const items = (data.SearchResult?.Items || []).map(extractItem);
-        console.log(`[amazonSearch] PA-API success: ${items.length} items, raw offers sample:`,
+        const totalResults = data.SearchResult?.TotalResultCount || items.length;
+        console.log(`[amazonSearch] PA-API success: ${items.length} items, totalResults=${totalResults}, raw offers sample:`,
           JSON.stringify(data.SearchResult?.Items?.[0]?.Offers || "no-offers").substring(0, 200));
 
         // PA-APIで価格が取れないアイテムがある場合、並行してスクレイピングで価格補完を試行
@@ -428,7 +429,7 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
           }
         }
 
-        res.json(items);
+        res.json({ totalResults, items });
         return;
       }
 
@@ -443,11 +444,11 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
     console.log(`[amazonSearch] Trying scraping fallback...`);
     const items = await scrapeAmazonSearch(keyword);
     console.log(`[amazonSearch] Scraping success: ${items.length} items`);
-    res.json(items);
+    res.json({ totalResults: items.length, items });
   } catch (scrapeError) {
     console.error(`[amazonSearch] Scraping also failed: ${scrapeError.message}`);
-    // エラーでも空配列を返す（UIで手動入力を促す）
-    res.json([]);
+    // エラーでも空を返す（UIで手動入力を促す）
+    res.json({ totalResults: 0, items: [] });
   }
 });
 

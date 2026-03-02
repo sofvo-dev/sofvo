@@ -769,6 +769,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   bool _isLoadingMore = false;
   List<AmazonProduct> _searchResults = [];
   Map<String, String> _fetchedPrices = {}; // ASIN -> price
+  int _totalResults = 0;
   int _searchPage = 1;
   bool _hasMoreResults = false;
   String _lastSearchKeyword = '';
@@ -815,14 +816,15 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
       _showEmptyHint = false;
     });
     try {
-      final results = await AmazonSearchService.searchProducts(keyword);
+      final result = await AmazonSearchService.searchProducts(keyword);
       setState(() {
-        _searchResults = results;
-        _hasMoreResults = results.length >= 10;
-        _showEmptyHint = results.isEmpty;
+        _searchResults = result.items;
+        _totalResults = result.totalResults;
+        _hasMoreResults = result.items.length >= 10;
+        _showEmptyHint = result.items.isEmpty;
       });
       // 価格が無い商品の価格を非同期で取得
-      _fetchMissingPrices(results);
+      _fetchMissingPrices(result.items);
     } catch (_) {
       setState(() => _showEmptyHint = true);
       if (mounted) {
@@ -857,13 +859,13 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _searchPage + 1;
-      final results = await AmazonSearchService.searchProducts(_lastSearchKeyword, page: nextPage);
+      final result = await AmazonSearchService.searchProducts(_lastSearchKeyword, page: nextPage);
       setState(() {
         _searchPage = nextPage;
-        _searchResults.addAll(results);
-        _hasMoreResults = results.length >= 10;
+        _searchResults.addAll(result.items);
+        _hasMoreResults = result.items.length >= 10;
       });
-      _fetchMissingPrices(results);
+      _fetchMissingPrices(result.items);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1301,7 +1303,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
                 if (_searchResults.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   const Divider(),
-                  Text('${_searchResults.length}件見つかりました',
+                  Text('$_totalResults件見つかりました',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                   const SizedBox(height: 4),
                   const Text('タップして商品を選択してください',
