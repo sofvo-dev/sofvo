@@ -375,9 +375,12 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
           "Images.Primary.Large",
           "Images.Primary.Medium",
           "Offers.Listings.Price",
+          "Offers.Listings.MerchantInfo",
+          "Offers.Listings.Condition",
           "Offers.Summaries.LowestPrice",
           "Offers.Summaries.HighestPrice",
         ],
+        Condition: "New",
         SearchIndex: "All",
         ItemCount: 10,
         ItemPage: page,
@@ -401,7 +404,30 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
 
       if (response.ok) {
         const items = (data.SearchResult?.Items || []).map(extractItem);
-        console.log(`[amazonSearch] PA-API success: ${items.length} items`);
+        console.log(`[amazonSearch] PA-API success: ${items.length} items, raw offers sample:`,
+          JSON.stringify(data.SearchResult?.Items?.[0]?.Offers || "no-offers").substring(0, 200));
+
+        // PA-APIで価格が取れないアイテムがある場合、並行してスクレイピングで価格補完を試行
+        const itemsNeedingPrice = items.filter(i => !i.price);
+        if (itemsNeedingPrice.length > 0) {
+          console.log(`[amazonSearch] ${itemsNeedingPrice.length} items without price, trying scraping supplement...`);
+          try {
+            const scrapedItems = await scrapeAmazonSearch(keyword);
+            const priceMap = {};
+            for (const si of scrapedItems) {
+              if (si.price) priceMap[si.asin] = si.price;
+            }
+            for (const item of items) {
+              if (!item.price && priceMap[item.asin]) {
+                item.price = priceMap[item.asin];
+              }
+            }
+            console.log(`[amazonSearch] Price supplemented for ${Object.keys(priceMap).length} items via scraping`);
+          } catch (e) {
+            console.warn(`[amazonSearch] Scraping price supplement failed: ${e.message}`);
+          }
+        }
+
         res.json(items);
         return;
       }
@@ -454,9 +480,12 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
           "Images.Primary.Large",
           "Images.Primary.Medium",
           "Offers.Listings.Price",
+          "Offers.Listings.MerchantInfo",
+          "Offers.Listings.Condition",
           "Offers.Summaries.LowestPrice",
           "Offers.Summaries.HighestPrice",
         ],
+        Condition: "New",
         PartnerTag: partnerTag,
         PartnerType: "Associates",
         Marketplace: "www.amazon.co.jp",
@@ -557,7 +586,13 @@ exports.amazonSearchDebug = functions.https.onRequest(async (req, res) => {
       const { partnerTag } = getCredentials();
       const payload = JSON.stringify({
         Keywords: keyword,
-        Resources: ["ItemInfo.Title"],
+        Resources: [
+          "ItemInfo.Title",
+          "Offers.Listings.Price",
+          "Offers.Summaries.LowestPrice",
+          "Offers.Summaries.HighestPrice",
+        ],
+        Condition: "New",
         SearchIndex: "All",
         ItemCount: 1,
         PartnerTag: partnerTag,
@@ -573,12 +608,15 @@ exports.amazonSearchDebug = functions.https.onRequest(async (req, res) => {
       }).finally(() => clearTimeout(tid));
 
       const data = await response.json();
+      const firstItem = data.SearchResult?.Items?.[0];
       result.paapiTest = {
         status: response.status,
         ok: response.ok,
         itemCount: data.SearchResult?.Items?.length || 0,
         error: data.Errors ? data.Errors.map(e => e.Message).join("; ") : null,
-        rawSnippet: JSON.stringify(data).substring(0, 300),
+        hasOffers: !!firstItem?.Offers,
+        offersData: firstItem?.Offers ? JSON.stringify(firstItem.Offers).substring(0, 500) : "no offers returned",
+        rawSnippet: JSON.stringify(data).substring(0, 500),
       };
     } catch (e) {
       result.paapiTest = { error: e.message };
