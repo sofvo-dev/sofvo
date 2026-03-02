@@ -717,9 +717,8 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   }
 
   Widget _buildSearchResultTile(AmazonProduct product) {
-    final displayPrice = product.price ?? _fetchedPrices[product.asin];
-    final isFetchingPrice = _fetchingPriceAsins.contains(product.asin);
-    final isFailed = _priceFetchFailedAsins.contains(product.asin);
+    final displayPrice = product.price ?? _fetchedPrices[product.asin] ?? extractPriceFromTitle(product.title);
+    final isFetchingPrice = displayPrice == null && _fetchingPriceAsins.contains(product.asin);
     return InkWell(
       onTap: () => _selectProduct(product),
       child: Padding(
@@ -762,9 +761,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                     Text(displayPrice,
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error))
                   else if (isFetchingPrice)
-                    Text('価格を取得中...', style: TextStyle(fontSize: 11, color: Colors.grey[400]))
-                  else if (isFailed)
-                    Text('価格取得不可', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                    Text('価格を取得中...', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
                 ],
               ),
             ),
