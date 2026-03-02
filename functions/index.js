@@ -256,30 +256,30 @@ async function scrapeAmazonSearch(keyword) {
   const $ = cheerio.load(html);
   const items = [];
 
-  // 検索結果の総件数を抽出
-  // Amazon.co.jp: "1-48 of over 1,000 results" or "1,000以上の結果"
+  // 検索結果の総件数をHTMLテキストからregexで抽出
   let totalResults = 0;
-  const resultCountText =
-    $(".s-breadcrumb .a-text-bold").text().trim() ||
-    $('[data-component-type="s-result-info-bar"] .a-text-bold').text().trim() ||
-    $(".sg-col-inner .a-section .a-text-bold").text().trim() ||
-    $(".a-section .a-spacing-small .a-text-bold").text().trim();
-  if (resultCountText) {
-    // "1,000" or "10,000以上" -> extract numeric part
-    const numMatch = resultCountText.replace(/[,，]/g, "").match(/(\d+)/);
-    if (numMatch) {
-      totalResults = parseInt(numMatch[1], 10);
+  // Amazon.co.jp patterns:
+  //   "1,000以上の結果" / "10,000 以上の結果"
+  //   "1-48 of over 1,000 results" / "of 500 results"
+  //   "1,000件中" / "500 件の結果"
+  const countPatterns = [
+    /([\d,，]+)\s*以上の結果/,
+    /([\d,，]+)\s*件以上の結果/,
+    /([\d,，]+)\s*件中/,
+    /([\d,，]+)\s*件の結果/,
+    /of\s+over\s+([\d,]+)\s+result/,
+    /of\s+([\d,]+)\s+result/,
+    />([\d,，]+)\s*以上</, // inside HTML tags
+    />([\d,，]+)\s*件</,
+  ];
+  for (const pat of countPatterns) {
+    const m = html.match(pat);
+    if (m) {
+      totalResults = parseInt(m[1].replace(/[,，]/g, ""), 10);
+      if (totalResults > 0) break;
     }
   }
-  // Fallback: try the result count span
-  if (totalResults === 0) {
-    const countSpan = $(".s-main-slot .a-section .a-text-normal").text() ||
-      $('[cel_widget_id="UPPER-RESULT_INFO_BAR-0"]').text();
-    const numMatch = countSpan.replace(/[,，]/g, "").match(/(\d+)\s*以上|(\d+)\s*件|of\s+(?:over\s+)?(\d+)/);
-    if (numMatch) {
-      totalResults = parseInt(numMatch[1] || numMatch[2] || numMatch[3], 10);
-    }
-  }
+  console.log(`[scrapeAmazonSearch] Extracted totalResults=${totalResults} from HTML`);
 
   // 検索結果カードを解析
   $('[data-component-type="s-search-result"]').each((_, el) => {
