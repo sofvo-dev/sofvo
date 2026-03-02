@@ -24,6 +24,20 @@ const categories = [
   "シューズ", "ボール", "ウェア", "サポーター", "バッグ", "プロテクター", "トレーニング用品", "その他",
 ];
 
+function extractPriceFromTitle(title: string): string | null {
+  const yenMatch = title.match(/[￥¥]\s?([\d,]+)/);
+  if (yenMatch) {
+    const num = parseInt(yenMatch[1].replace(/,/g, ""), 10);
+    if (num >= 100 && num <= 10000000) return `￥${num.toLocaleString()}`;
+  }
+  const enMatch = title.match(/([\d,]+)\s*円/);
+  if (enMatch) {
+    const num = parseInt(enMatch[1].replace(/,/g, ""), 10);
+    if (num >= 100 && num <= 10000000) return `￥${num.toLocaleString()}`;
+  }
+  return null;
+}
+
 export default function GadgetRegisterPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
@@ -267,13 +281,12 @@ export default function GadgetRegisterPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground line-clamp-2">{product.title}</p>
-                    {(product.price || fetchedPrices[product.asin]) ? (
-                      <p className="text-xs font-bold text-red-500 mt-0.5">{product.price || fetchedPrices[product.asin]}</p>
-                    ) : fetchingPriceAsins.has(product.asin) ? (
-                      <p className="text-xs text-gray-400 mt-0.5">価格を取得中...</p>
-                    ) : priceFetchFailedAsins.has(product.asin) ? (
-                      <p className="text-xs text-gray-400 mt-0.5">価格取得不可</p>
-                    ) : null}
+                    {(() => {
+                      const price = product.price || fetchedPrices[product.asin] || extractPriceFromTitle(product.title);
+                      if (price) return <p className="text-xs font-bold text-red-500 mt-0.5">{price}</p>;
+                      if (fetchingPriceAsins.has(product.asin)) return <p className="text-xs text-gray-400 mt-0.5">価格を取得中...</p>;
+                      return null;
+                    })()}
                   </div>
                   <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>

@@ -181,9 +181,10 @@ function extractItem(item) {
   const images = item.Images || {};
 
   const asin = item.ASIN || "";
+  const title = info.Title?.DisplayValue || "";
   return {
     asin,
-    title: info.Title?.DisplayValue || "",
+    title,
     imageUrl:
       images.Primary?.Large?.URL ||
       images.Primary?.Medium?.URL ||
@@ -194,7 +195,7 @@ function extractItem(item) {
       item.Offers?.Listings?.[0]?.Price?.DisplayAmount ||
       item.Offers?.Summaries?.[0]?.LowestPrice?.DisplayAmount ||
       item.Offers?.Summaries?.[0]?.HighestPrice?.DisplayAmount ||
-      null,
+      extractPriceFromTitle(title),
   };
 }
 
@@ -292,13 +293,34 @@ async function scrapeAmazonSearch(keyword) {
         imageUrl: image,
         detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
         affiliateUrl: makeAffiliateUrl(asin),
-        price,
+        price: price || extractPriceFromTitle(title),
       });
     }
   });
 
   console.log(`[scrapeAmazonSearch] Parsed ${items.length} items from HTML (length: ${html.length})`);
   return items.slice(0, 10);
+}
+
+// タイトルから価格を推定（フォールバック用）
+function extractPriceFromTitle(title) {
+  if (!title) return null;
+  // 「5,000円」「5000円」「￥5,000」「¥5000」のようなパターンを検出
+  const yenMatch = title.match(/[￥¥]\s?([\d,]+)/);
+  if (yenMatch) {
+    const num = parseInt(yenMatch[1].replace(/,/g, ""), 10);
+    if (num >= 100 && num <= 10000000) {
+      return `￥${num.toLocaleString()}`;
+    }
+  }
+  const enMatch = title.match(/([\d,]+)\s*円/);
+  if (enMatch) {
+    const num = parseInt(enMatch[1].replace(/,/g, ""), 10);
+    if (num >= 100 && num <= 10000000) {
+      return `￥${num.toLocaleString()}`;
+    }
+  }
+  return null;
 }
 
 async function scrapeAmazonProduct(asin) {
@@ -360,7 +382,7 @@ async function scrapeAmazonProduct(asin) {
     imageUrl: image,
     detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
     affiliateUrl: makeAffiliateUrl(asin),
-    price,
+    price: price || extractPriceFromTitle(title),
   };
 }
 
