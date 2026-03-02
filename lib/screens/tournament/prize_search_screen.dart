@@ -770,6 +770,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   List<AmazonProduct> _searchResults = [];
   Map<String, String> _fetchedPrices = {}; // ASIN -> price
   Set<String> _fetchingPriceAsins = {};
+  Set<String> _priceFetchFailedAsins = {};
   int _searchPage = 1;
   bool _hasMoreResults = false;
   String _lastSearchKeyword = '';
@@ -811,6 +812,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
       _searchResults = [];
       _fetchedPrices = {};
       _fetchingPriceAsins = {};
+      _priceFetchFailedAsins = {};
       _searchPage = 1;
       _hasMoreResults = false;
       _lastSearchKeyword = keyword;
@@ -851,12 +853,21 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           final price = await AmazonSearchService.fetchPrice(p.asin);
           if (mounted) {
             setState(() {
-              if (price != null) _fetchedPrices[p.asin] = price;
               _fetchingPriceAsins.remove(p.asin);
+              if (price != null) {
+                _fetchedPrices[p.asin] = price;
+              } else {
+                _priceFetchFailedAsins.add(p.asin);
+              }
             });
           }
         } catch (_) {
-          if (mounted) setState(() => _fetchingPriceAsins.remove(p.asin));
+          if (mounted) {
+            setState(() {
+              _fetchingPriceAsins.remove(p.asin);
+              _priceFetchFailedAsins.add(p.asin);
+            });
+          }
         }
       }));
     }
@@ -1542,6 +1553,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   Widget _buildSearchResultTile(AmazonProduct product) {
     final displayPrice = product.price ?? _fetchedPrices[product.asin];
     final isFetchingPrice = _fetchingPriceAsins.contains(product.asin);
+    final isFailed = _priceFetchFailedAsins.contains(product.asin);
     return InkWell(
       onTap: () => _selectProduct(product),
       child: Padding(
@@ -1572,7 +1584,9 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
               if (displayPrice != null)
                 Text(displayPrice, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error))
               else if (isFetchingPrice)
-                Text('価格を取得中...', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                Text('価格を取得中...', style: TextStyle(fontSize: 11, color: Colors.grey[400]))
+              else if (isFailed)
+                Text('価格取得不可', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
             ]),
           ),
           const Icon(Icons.add_circle_outline, color: Color(0xFFFF9900), size: 22),

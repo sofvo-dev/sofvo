@@ -271,9 +271,19 @@ async function scrapeAmazonSearch(keyword) {
     const image =
       $el.find("img.s-image").attr("src") || "";
 
-    // 価格
-    const price =
-      $el.find(".a-price .a-offscreen").first().text().trim() || null;
+    // 価格（複数のセレクターで試行）
+    let price =
+      $el.find(".a-price .a-offscreen").first().text().trim() ||
+      $el.find(".a-color-price").first().text().trim() ||
+      $el.find('[data-a-color="price"] .a-offscreen').first().text().trim() ||
+      null;
+    // .a-price-whole + .a-price-fraction からの組み立て
+    if (!price) {
+      const whole = $el.find(".a-price-whole").first().text().trim().replace(/[,.\s]/g, "");
+      if (whole && /^\d+$/.test(whole)) {
+        price = `￥${Number(whole).toLocaleString()}`;
+      }
+    }
 
     if (title && image) {
       items.push({
@@ -295,16 +305,24 @@ async function scrapeAmazonProduct(asin) {
   const url = `https://www.amazon.co.jp/dp/${asin}?language=ja_JP`;
 
   const ac = new AbortController();
-  const tid = setTimeout(() => ac.abort(), 8000);
+  const tid = setTimeout(() => ac.abort(), 10000);
   const response = await fetch(url, {
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "ja-JP,ja;q=0.9,en;q=0.8",
-      "Accept":
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "User-Agent": randomUserAgent(),
+      "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "max-age=0",
+      "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+      "Sec-Ch-Ua-Mobile": "?0",
+      "Sec-Ch-Ua-Platform": '"Windows"',
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1",
     },
+    redirect: "follow",
     signal: ac.signal,
   }).finally(() => clearTimeout(tid));
 
@@ -327,8 +345,13 @@ async function scrapeAmazonProduct(asin) {
     "";
 
   const price =
+    $("#corePriceDisplay_desktop_feature_div .a-price .a-offscreen").first().text().trim() ||
+    $("#corePrice_feature_div .a-price .a-offscreen").first().text().trim() ||
+    $(".apexPriceToPay .a-offscreen").first().text().trim() ||
     $(".a-price .a-offscreen").first().text().trim() ||
     $("#priceblock_ourprice").text().trim() ||
+    $("#priceblock_dealprice").text().trim() ||
+    $(".a-color-price").first().text().trim() ||
     null;
 
   return {

@@ -38,6 +38,7 @@ export default function GadgetRegisterPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [fetchedPrices, setFetchedPrices] = useState<Record<string, string>>({});
   const [fetchingPriceAsins, setFetchingPriceAsins] = useState<Set<string>>(new Set());
+  const [priceFetchFailedAsins, setPriceFetchFailedAsins] = useState<Set<string>>(new Set());
   const abortRef = useRef(false);
 
   const fetchMissingPrices = useCallback(async (products: AmazonProduct[]) => {
@@ -53,12 +54,14 @@ export default function GadgetRegisterPage() {
       const batch = targets.slice(i, i + 5);
       await Promise.all(
         batch.map(async (p) => {
+          let gotPrice = false;
           try {
             const res = await fetch(`${AMAZON_API}/amazonProduct?asin=${p.asin}`);
             if (res.ok) {
               const data = await res.json();
               if (data.price) {
                 setFetchedPrices((prev) => ({ ...prev, [p.asin]: data.price }));
+                gotPrice = true;
               }
             }
           } catch { /* ignore */ } finally {
@@ -67,6 +70,13 @@ export default function GadgetRegisterPage() {
               next.delete(p.asin);
               return next;
             });
+            if (!gotPrice) {
+              setPriceFetchFailedAsins((prev) => {
+                const next = new Set(prev);
+                next.add(p.asin);
+                return next;
+              });
+            }
           }
         })
       );
@@ -97,6 +107,7 @@ export default function GadgetRegisterPage() {
     setShowEmptyHint(false);
     setFetchedPrices({});
     setFetchingPriceAsins(new Set());
+    setPriceFetchFailedAsins(new Set());
     abortRef.current = false;
     try {
       const res = await fetch(`${AMAZON_API}/amazonSearch?q=${encodeURIComponent(searchKeyword.trim())}&page=1`);
@@ -260,6 +271,8 @@ export default function GadgetRegisterPage() {
                       <p className="text-xs font-bold text-red-500 mt-0.5">{product.price || fetchedPrices[product.asin]}</p>
                     ) : fetchingPriceAsins.has(product.asin) ? (
                       <p className="text-xs text-gray-400 mt-0.5">価格を取得中...</p>
+                    ) : priceFetchFailedAsins.has(product.asin) ? (
+                      <p className="text-xs text-gray-400 mt-0.5">価格取得不可</p>
                     ) : null}
                   </div>
                   <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
