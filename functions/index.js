@@ -256,6 +256,31 @@ async function scrapeAmazonSearch(keyword) {
   const $ = cheerio.load(html);
   const items = [];
 
+  // 検索結果の総件数を抽出
+  // Amazon.co.jp: "1-48 of over 1,000 results" or "1,000以上の結果"
+  let totalResults = 0;
+  const resultCountText =
+    $(".s-breadcrumb .a-text-bold").text().trim() ||
+    $('[data-component-type="s-result-info-bar"] .a-text-bold').text().trim() ||
+    $(".sg-col-inner .a-section .a-text-bold").text().trim() ||
+    $(".a-section .a-spacing-small .a-text-bold").text().trim();
+  if (resultCountText) {
+    // "1,000" or "10,000以上" -> extract numeric part
+    const numMatch = resultCountText.replace(/[,，]/g, "").match(/(\d+)/);
+    if (numMatch) {
+      totalResults = parseInt(numMatch[1], 10);
+    }
+  }
+  // Fallback: try the result count span
+  if (totalResults === 0) {
+    const countSpan = $(".s-main-slot .a-section .a-text-normal").text() ||
+      $('[cel_widget_id="UPPER-RESULT_INFO_BAR-0"]').text();
+    const numMatch = countSpan.replace(/[,，]/g, "").match(/(\d+)\s*以上|(\d+)\s*件|of\s+(?:over\s+)?(\d+)/);
+    if (numMatch) {
+      totalResults = parseInt(numMatch[1] || numMatch[2] || numMatch[3], 10);
+    }
+  }
+
   // 検索結果カードを解析
   $('[data-component-type="s-search-result"]').each((_, el) => {
     const $el = $(el);
@@ -287,8 +312,11 @@ async function scrapeAmazonSearch(keyword) {
     }
   });
 
-  console.log(`[scrapeAmazonSearch] Parsed ${items.length} items from HTML (length: ${html.length})`);
-  return items.slice(0, 10);
+  const sliced = items.slice(0, 10);
+  // totalResultsが取れなかった場合はアイテム数をフォールバック
+  if (totalResults === 0) totalResults = sliced.length;
+  console.log(`[scrapeAmazonSearch] Parsed ${items.length} items, totalResults=${totalResults} from HTML (length: ${html.length})`);
+  return { items: sliced, totalResults };
 }
 
 async function scrapeAmazonProduct(asin) {
@@ -413,9 +441,9 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
         if (itemsNeedingPrice.length > 0) {
           console.log(`[amazonSearch] ${itemsNeedingPrice.length} items without price, trying scraping supplement...`);
           try {
-            const scrapedItems = await scrapeAmazonSearch(keyword);
+            const scraped = await scrapeAmazonSearch(keyword);
             const priceMap = {};
-            for (const si of scrapedItems) {
+            for (const si of scraped.items) {
               if (si.price) priceMap[si.asin] = si.price;
             }
             for (const item of items) {
@@ -442,9 +470,9 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
   // 2) フォールバック: スクレイピング
   try {
     console.log(`[amazonSearch] Trying scraping fallback...`);
-    const items = await scrapeAmazonSearch(keyword);
-    console.log(`[amazonSearch] Scraping success: ${items.length} items`);
-    res.json({ totalResults: items.length, items });
+    const scraped = await scrapeAmazonSearch(keyword);
+    console.log(`[amazonSearch] Scraping success: ${scraped.items.length} items, totalResults=${scraped.totalResults}`);
+    res.json({ totalResults: scraped.totalResults, items: scraped.items });
   } catch (scrapeError) {
     console.error(`[amazonSearch] Scraping also failed: ${scrapeError.message}`);
     // エラーでも空を返す（UIで手動入力を促す）
