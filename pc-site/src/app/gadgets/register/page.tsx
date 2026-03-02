@@ -31,6 +31,7 @@ export default function GadgetRegisterPage() {
   // Amazon search
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<AmazonProduct[]>([]);
+  const [totalResults, setTotalResults] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [searchPage, setSearchPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -62,8 +63,15 @@ export default function GadgetRegisterPage() {
       const res = await fetch(`${AMAZON_API}/amazonSearch?q=${encodeURIComponent(searchKeyword.trim())}&page=1`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
+        if (data && typeof data === "object" && Array.isArray(data.items)) {
+          setSearchResults(data.items);
+          setTotalResults(data.totalResults ?? data.items.length);
+          setHasMore(data.items.length >= 10);
+          setShowEmptyHint(data.items.length === 0);
+        } else if (Array.isArray(data)) {
+          // 後方互換
           setSearchResults(data);
+          setTotalResults(data.length);
           setHasMore(data.length >= 10);
           setShowEmptyHint(data.length === 0);
         }
@@ -85,10 +93,11 @@ export default function GadgetRegisterPage() {
       const res = await fetch(`${AMAZON_API}/amazonSearch?q=${encodeURIComponent(searchKeyword.trim())}&page=${nextPage}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
+        const items = data && Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [];
+        if (items.length > 0) {
           setSearchPage(nextPage);
-          setSearchResults((prev) => [...prev, ...data]);
-          setHasMore(data.length >= 10);
+          setSearchResults((prev) => [...prev, ...items]);
+          setHasMore(items.length >= 10);
         }
       }
     } catch { /* ignore */ } finally { setIsLoadingMore(false); }
@@ -203,7 +212,7 @@ export default function GadgetRegisterPage() {
         {/* Search Results */}
         {searchResults.length > 0 && (
           <div className="mt-4 border-t border-amber-200/50 pt-3">
-            <p className="text-xs font-semibold text-muted mb-1">{searchResults.length}件見つかりました</p>
+            <p className="text-xs font-semibold text-muted mb-1">{totalResults}件見つかりました</p>
             <p className="text-xs text-hint mb-2">タップして商品を選択してください</p>
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {searchResults.map((product, i) => (

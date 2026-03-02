@@ -39,14 +39,21 @@ class AmazonProduct {
   };
 }
 
+class AmazonSearchResult {
+  final int totalResults;
+  final List<AmazonProduct> items;
+
+  AmazonSearchResult({required this.totalResults, required this.items});
+}
+
 class AmazonSearchService {
   static const _baseUrl =
       'https://us-central1-sofvo-19d84.cloudfunctions.net';
 
   /// Amazon商品をキーワードで検索
   /// Cloud Functions経由（PA-API → スクレイピング フォールバック）
-  static Future<List<AmazonProduct>> searchProducts(String keyword, {int page = 1}) async {
-    if (keyword.trim().isEmpty) return [];
+  static Future<AmazonSearchResult> searchProducts(String keyword, {int page = 1}) async {
+    if (keyword.trim().isEmpty) return AmazonSearchResult(totalResults: 0, items: []);
 
     final uri = Uri.parse('$_baseUrl/amazonSearch')
         .replace(queryParameters: {'q': keyword, 'page': page.toString()});
@@ -57,10 +64,17 @@ class AmazonSearchService {
 
     if (response.statusCode == 200) {
       final body = json.decode(response.body);
+      if (body is Map<String, dynamic>) {
+        final totalResults = body['totalResults'] as int? ?? 0;
+        final items = (body['items'] as List?)
+            ?.map((item) => AmazonProduct.fromJson(item))
+            .toList() ?? [];
+        return AmazonSearchResult(totalResults: totalResults, items: items);
+      }
+      // 後方互換: 配列レスポンスにも対応
       if (body is List) {
-        return body
-            .map((item) => AmazonProduct.fromJson(item))
-            .toList();
+        final items = body.map((item) => AmazonProduct.fromJson(item)).toList();
+        return AmazonSearchResult(totalResults: items.length, items: items);
       }
     }
 
@@ -76,7 +90,7 @@ class AmazonSearchService {
       throw Exception(message);
     }
 
-    return [];
+    return AmazonSearchResult(totalResults: 0, items: []);
   }
 
   /// Amazon URLからASINを抽出
