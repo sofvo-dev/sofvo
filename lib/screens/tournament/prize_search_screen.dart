@@ -768,6 +768,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   bool _isFetchingUrl = false;
   bool _isLoadingMore = false;
   List<AmazonProduct> _searchResults = [];
+  Map<String, String> _fetchedPrices = {}; // ASIN -> price
   int _searchPage = 1;
   bool _hasMoreResults = false;
   String _lastSearchKeyword = '';
@@ -807,6 +808,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
     setState(() {
       _isSearching = true;
       _searchResults = [];
+      _fetchedPrices = {};
       _searchPage = 1;
       _hasMoreResults = false;
       _lastSearchKeyword = keyword;
@@ -819,6 +821,8 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
         _hasMoreResults = results.length >= 10;
         _showEmptyHint = results.isEmpty;
       });
+      // 価格が無い商品の価格を非同期で取得
+      _fetchMissingPrices(results);
     } catch (_) {
       setState(() => _showEmptyHint = true);
       if (mounted) {
@@ -828,6 +832,23 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
       }
     } finally {
       setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _fetchMissingPrices(List<AmazonProduct> products) async {
+    final targets = products.where((p) => p.price == null && p.asin.isNotEmpty).toList();
+    if (targets.isEmpty) return;
+    // 並列で最大5件ずつ取得
+    for (var i = 0; i < targets.length; i += 5) {
+      final batch = targets.skip(i).take(5);
+      await Future.wait(batch.map((p) async {
+        try {
+          final price = await AmazonSearchService.fetchPrice(p.asin);
+          if (price != null && mounted) {
+            setState(() => _fetchedPrices[p.asin] = price);
+          }
+        } catch (_) {}
+      }));
     }
   }
 
@@ -842,6 +863,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
         _searchResults.addAll(results);
         _hasMoreResults = results.length >= 10;
       });
+      _fetchMissingPrices(results);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1508,6 +1530,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   }
 
   Widget _buildSearchResultTile(AmazonProduct product) {
+    final displayPrice = product.price ?? _fetchedPrices[product.asin];
     return InkWell(
       onTap: () => _selectProduct(product),
       child: Padding(
@@ -1534,8 +1557,8 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(product.title, maxLines: 2, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
-              if (product.price != null)
-                Text(product.price!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.error)),
+              if (displayPrice != null)
+                Text(displayPrice, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error)),
             ]),
           ),
           const Icon(Icons.add_circle_outline, color: Color(0xFFFF9900), size: 22),
