@@ -34,6 +34,8 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   bool _isFetchingUrl = false;
   bool _isLoadingMore = false;
   List<AmazonProduct> _searchResults = [];
+  Map<String, String> _fetchedPrices = {};
+  Set<String> _fetchingPriceAsins = {};
   int _searchPage = 1;
   bool _hasMoreResults = false;
   String _lastSearchKeyword = '';
@@ -74,6 +76,8 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
     setState(() {
       _isSearching = true;
       _searchResults = [];
+      _fetchedPrices = {};
+      _fetchingPriceAsins = {};
       _searchPage = 1;
       _hasMoreResults = false;
       _lastSearchKeyword = keyword;
@@ -86,6 +90,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
         _hasMoreResults = results.length >= 10;
         _showEmptyHint = results.isEmpty;
       });
+      _fetchMissingPrices(results);
     } catch (_) {
       setState(() => _showEmptyHint = true);
       if (mounted) {
@@ -115,6 +120,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
         _searchResults.addAll(results);
         _hasMoreResults = results.length >= 10;
       });
+      _fetchMissingPrices(results);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,6 +132,30 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
       }
     } finally {
       setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _fetchMissingPrices(List<AmazonProduct> products) async {
+    final targets = products.where((p) => p.price == null && p.asin.isNotEmpty).toList();
+    if (targets.isEmpty) return;
+    if (mounted) {
+      setState(() => _fetchingPriceAsins.addAll(targets.map((p) => p.asin)));
+    }
+    for (var i = 0; i < targets.length; i += 5) {
+      final batch = targets.skip(i).take(5);
+      await Future.wait(batch.map((p) async {
+        try {
+          final price = await AmazonSearchService.fetchPrice(p.asin);
+          if (mounted) {
+            setState(() {
+              if (price != null) _fetchedPrices[p.asin] = price;
+              _fetchingPriceAsins.remove(p.asin);
+            });
+          }
+        } catch (_) {
+          if (mounted) setState(() => _fetchingPriceAsins.remove(p.asin));
+        }
+      }));
     }
   }
 
@@ -676,6 +706,8 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   }
 
   Widget _buildSearchResultTile(AmazonProduct product) {
+    final displayPrice = product.price ?? _fetchedPrices[product.asin];
+    final isFetchingPrice = _fetchingPriceAsins.contains(product.asin);
     return InkWell(
       onTap: () => _selectProduct(product),
       child: Padding(
@@ -713,9 +745,12 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                   ),
-                  if (product.price != null)
-                    Text(product.price!,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.error)),
+                  const SizedBox(height: 2),
+                  if (displayPrice != null)
+                    Text(displayPrice,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error))
+                  else if (isFetchingPrice)
+                    Text('価格を取得中...', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
                 ],
               ),
             ),
