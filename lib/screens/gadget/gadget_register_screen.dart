@@ -704,11 +704,19 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                product.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                  ),
+                  if (product.price != null)
+                    Text(product.price!,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error)),
+                ],
               ),
             ),
             const Icon(Icons.add_circle_outline, color: Color(0xFFFF9900), size: 22),
