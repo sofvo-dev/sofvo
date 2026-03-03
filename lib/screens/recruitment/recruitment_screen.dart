@@ -45,13 +45,23 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         final isOrganizer = data['organizerId'] == uid;
         final entriesSnap = await doc.reference
             .collection('entries')
-            .where('memberUids', arrayContains: uid)
-            .limit(1)
             .get();
-        final isEntered = entriesSnap.docs.isNotEmpty;
-        if (!isEntered) continue;
 
-        final teamName = entriesSnap.docs.first.data()['teamName'] ?? '';
+        // enteredBy OR memberUids にUIDが含まれるエントリーを検索
+        final myEntry = entriesSnap.docs.where((e) {
+          final d = e.data();
+          if (d['enteredBy'] == uid) return true;
+          final memberUids = d['memberUids'];
+          if (memberUids is List && memberUids.contains(uid)) return true;
+          return false;
+        });
+        final isEntered = myEntry.isNotEmpty;
+
+        if (!isEntered && !isOrganizer) continue;
+
+        final teamName = isEntered
+            ? (myEntry.first.data()['teamName'] ?? '')
+            : '';
         final status = data['status'] ?? '準備中';
         final entry = {
           ...data,
