@@ -5561,15 +5561,22 @@ class _OverallStandingsAggregator extends StatefulWidget {
 class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator> {
   final _firestore = FirebaseFirestore.instance;
   final List<StreamSubscription<QuerySnapshot>> _subs = [];
+  StreamSubscription<DocumentSnapshot>? _rulesSub;
   // key: "roundId/courtId" → team list
   final Map<String, List<Map<String, dynamic>>> _data = {};
   bool _loaded = false;
   // Track standing doc listeners per round
   final List<StreamSubscription<QuerySnapshot>> _standingSubs = [];
 
+  // 決勝ルール情報
+  int _tierCount = 3;
+  String _finalFormat = '順位別複数';
+  bool _finalEnabled = false;
+
   @override
   void initState() {
     super.initState();
+    _subscribeRules();
     _subscribeAll();
   }
 
@@ -5581,6 +5588,20 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       _cancelAll();
       _subscribeAll();
     }
+  }
+
+  void _subscribeRules() {
+    _rulesSub = _firestore.collection('tournaments').doc(widget.tournamentId).snapshots().listen((snap) {
+      if (!mounted) return;
+      final data = snap.data() as Map<String, dynamic>? ?? {};
+      final rules = data['rules'] as Map<String, dynamic>? ?? {};
+      final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
+      setState(() {
+        _tierCount = finalRules['tierCount'] as int? ?? 3;
+        _finalFormat = finalRules['format'] as String? ?? '順位別複数';
+        _finalEnabled = finalRules['enabled'] as bool? ?? false;
+      });
+    });
   }
 
   void _subscribeAll() {
@@ -5647,8 +5668,24 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
 
   @override
   void dispose() {
+    _rulesSub?.cancel();
     _cancelAll();
     super.dispose();
+  }
+
+  /// リーグ名を返す（match_generator.dart と同じロジック）
+  List<String> _getLeagueNames(int count) {
+    switch (count) {
+      case 1: return ['リーグ'];
+      case 2: return ['上', '下'];
+      case 3: return ['上', '中', '下'];
+      case 4: return ['上', '中上', '中下', '下'];
+      case 5: return ['上', '中上', '中', '中下', '下'];
+      default:
+        final names = ['上', '中上', '中', '中下', '下'];
+        for (int i = 5; i < count; i++) names.add('第${i + 1}');
+        return names;
+    }
   }
 
   @override
@@ -5692,6 +5729,20 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       return (b['totalPoints'] as num).compareTo(a['totalPoints'] as num);
     });
 
+    // 区分境界を計算（match_generator と同じ ceil ロジック）
+    final tierBoundaries = <int, String>{};
+    if (_finalEnabled && _finalFormat == '順位別複数' && _tierCount >= 2) {
+      final leagueCount = _tierCount.clamp(1, allTeams.length);
+      final teamsPerTier = (allTeams.length / leagueCount).ceil();
+      final leagueNames = _getLeagueNames(leagueCount);
+      for (int t = 1; t < leagueCount; t++) {
+        final boundary = t * teamsPerTier;
+        if (boundary < allTeams.length) {
+          tierBoundaries[boundary] = t < leagueNames.length ? leagueNames[t] : '';
+        }
+      }
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -5731,8 +5782,22 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
           final i = e.key;
           final t = e.value;
           final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
+          final isTierBoundary = tierBoundaries.containsKey(i);
           return [
-            if (i > 0) Divider(height: 1, color: Colors.grey[200]),
+            // 区分境界: 赤い線 + ラベル
+            if (isTierBoundary)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(children: [
+                  const SizedBox(width: 8),
+                  Text(tierBoundaries[i]!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                  const SizedBox(width: 6),
+                  Expanded(child: Container(height: 2, color: Colors.red)),
+                  const SizedBox(width: 8),
+                ]),
+              )
+            else if (i > 0)
+              Divider(height: 1, color: Colors.grey[200]),
             Container(
               color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
               child: Padding(
