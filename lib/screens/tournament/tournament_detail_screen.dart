@@ -286,7 +286,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 大会名 + ステータスバッジを1行に
+          // 大会名 + カテゴリ
           Row(
             children: [
               Expanded(
@@ -296,24 +296,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-                ),
-                child: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
-                child: Text((t['type'] ?? '') as String, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10)),
+                child: Text((t['type'] ?? '') as String, style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          // 日付・チーム数・場所を1行に
+          // 日付・場所
           Row(children: [
             const Icon(Icons.calendar_today, size: 13, color: Colors.white70),
             const SizedBox(width: 4),
@@ -327,6 +317,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   overflow: TextOverflow.ellipsis),
             ),
           ]),
+          const SizedBox(height: 6),
+          // ステータスバッジ
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+            ),
+            child: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
         ],
       ),
     );
