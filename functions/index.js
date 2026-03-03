@@ -613,16 +613,27 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
 exports.amazonSearchDebug = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  // Firebase Auth トークン検証（管理者のみアクセス可能）
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  try {
+    await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+  } catch (e) {
+    res.status(403).json({ error: "Invalid or expired token" });
+    return;
+  }
 
   const result = {
     credentials: {
       hasAccessKey: !!process.env.AMAZON_ACCESS_KEY,
       hasSecretKey: !!process.env.AMAZON_SECRET_KEY,
       hasPartnerTag: !!process.env.AMAZON_PARTNER_TAG,
-      partnerTag: process.env.AMAZON_PARTNER_TAG || "(not set)",
-      accessKeyPrefix: process.env.AMAZON_ACCESS_KEY ? process.env.AMAZON_ACCESS_KEY.substring(0, 6) + "..." : "(not set)",
     },
     paapiTest: null,
     scrapeTest: null,
@@ -852,8 +863,21 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
 exports.clearVenues = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  // Firebase Auth トークン検証（破壊的操作のため認証必須）
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  try {
+    await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+  } catch (e) {
+    res.status(403).json({ error: "Invalid or expired token" });
+    return;
+  }
 
   try {
     const db = admin.firestore();

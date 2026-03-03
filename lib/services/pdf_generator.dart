@@ -428,39 +428,6 @@ class PdfGenerator {
     );
   }
 
-  /// セクションカード
-  pw.Widget _sectionCard(String title, PdfColor accentColor, List<pw.Widget> children) {
-    return pw.Container(
-      width: double.infinity,
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: _divider, width: 0.5),
-        borderRadius: pw.BorderRadius.circular(8),
-      ),
-      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-        // セクションヘッダー
-        pw.Container(
-          width: double.infinity,
-          padding: const pw.EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-          decoration: pw.BoxDecoration(
-            color: accentColor,
-            borderRadius: const pw.BorderRadius.only(
-              topLeft: pw.Radius.circular(8),
-              topRight: pw.Radius.circular(8),
-            ),
-          ),
-          child: pw.Text(title, style: pw.TextStyle(
-            fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.white,
-          )),
-        ),
-        // コンテンツ
-        pw.Padding(
-          padding: const pw.EdgeInsets.all(16),
-          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: children),
-        ),
-      ]),
-    );
-  }
-
   /// コートバッジ
   pw.Widget _courtBadge(String label) {
     return pw.Container(

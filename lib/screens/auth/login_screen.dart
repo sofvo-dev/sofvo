@@ -26,14 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    // 空欄ならデフォルトアカウントでログイン
-    final email = _emailController.text.trim().isEmpty
-        ? 'shusuke1027@gmail.com'
-        : _emailController.text.trim();
-    final password = _passwordController.text.isEmpty
-        ? 'a4869a'
-        : _passwordController.text;
-    if (email == _emailController.text.trim() && !_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
     setState(() => _isLoading = true);
     try {
       await AuthService().signInWithEmail(email, password);

@@ -110,7 +110,9 @@ class _AuthGateState extends State<AuthGate> {
           MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data)),
         );
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('招待リンクの大会遷移に失敗: $e');
+    }
   }
 
   /// セルフチェックイン用の自動遷移
@@ -130,7 +132,9 @@ class _AuthGateState extends State<AuthGate> {
           MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data, autoCheckIn: true)),
         );
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('セルフチェックイン遷移に失敗: $e');
+    }
   }
 
   @override
