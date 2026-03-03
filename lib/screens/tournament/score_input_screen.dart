@@ -277,7 +277,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
       appBar: AppBar(
-        title: Text('${_match!['teamAName']} vs ${_match!['teamBName']}',
+        title: Text('${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート  第${_match!['matchOrder'] ?? ''}試合',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1A1A2E), foregroundColor: Colors.white, elevation: 0,
       ),
@@ -302,19 +302,6 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
                     style: TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w600))),
               ]),
             ),
-
-          // === コート・試合番号 ===
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text('${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート  第${_match!['matchOrder'] ?? ''}試合',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70)),
-          ),
 
           // === 審判チーム ===
           if (_match!["refereeTeamName"] != null && (_match!["refereeTeamName"] as String).isNotEmpty)
