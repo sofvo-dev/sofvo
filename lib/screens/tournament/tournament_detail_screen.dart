@@ -48,6 +48,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   bool _showOnlyMyCourts = true;
   Set<String> _myCourtIds = {};
   final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート) default: MY
+  final Map<int, bool> _collapsedRounds = {}; // roundNum -> 折りたたみ状態
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
@@ -2419,11 +2420,26 @@ B,2,チームG,チームH,チームE,チームF''';
   }
 
   Widget _buildRoundSection(String roundId, int roundNum, bool isOrganizer) {
+    final isCollapsed = _collapsedRounds[roundNum] ?? false;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text('予選$roundNum', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+      GestureDetector(
+        onTap: () => setState(() => _collapsedRounds[roundNum] = !isCollapsed),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Text('予選$roundNum', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+              const SizedBox(width: 4),
+              Icon(
+                isCollapsed ? Icons.arrow_right : Icons.arrow_drop_down,
+                color: AppTheme.primaryColor,
+                size: 28,
+              ),
+            ],
+          ),
+        ),
       ),
+      if (!isCollapsed)
       StreamBuilder<QuerySnapshot>(
         stream: _firestore.collection('tournaments').doc(_tournamentId)
             .collection('rounds').doc(roundId)
