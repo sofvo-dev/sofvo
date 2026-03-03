@@ -66,6 +66,17 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
             }
           }
 
+          // 自分がオーナーのチームを先頭にソート
+          int ownerSort(QueryDocumentSnapshot a, QueryDocumentSnapshot b) {
+            final aOwner = (a.data() as Map<String, dynamic>)['ownerId'] == _currentUser!.uid;
+            final bOwner = (b.data() as Map<String, dynamic>)['ownerId'] == _currentUser!.uid;
+            if (aOwner && !bOwner) return -1;
+            if (!aOwner && bOwner) return 1;
+            return 0;
+          }
+          mainTeams.sort(ownerSort);
+          otherTeams.sort(ownerSort);
+
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             children: [
