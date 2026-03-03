@@ -501,7 +501,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               child: Column(children: [
                 _buildTimelineRow(live['openTime'] as String? ?? t['openTime'] as String? ?? '8:00', '会場オープン', Icons.location_on),
                 _buildTimelineRow(live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '8:30', '受付開始', Icons.how_to_reg),
-                _buildTimelineRow(live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '8:45', 'チームキャプテン会議', Icons.groups),
+                _buildTimelineRow(live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '8:45', 'キャプテン会議', Icons.groups),
                 _buildTimelineRow(live['openingTime'] as String? ?? t['openingTime'] as String? ?? '9:00', '開会式', Icons.campaign),
                 _buildTimelineRow(live['matchStartTime'] as String? ?? t['matchStartTime'] as String? ?? '9:15', '試合開始', Icons.sports_volleyball),
                 _buildTimelineRow(live['finalTime'] as String? ?? t['finalTime'] as String? ?? '15:00', '終了', Icons.flag),
@@ -1347,7 +1347,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   // ━━━ CSVテンプレートダウンロード ━━━
   Future<void> _downloadCsvTemplate() async {
-    const header = 'チーム名,チームキャプテン,メンバー1,メンバー2,メンバー3,メンバー4,メンバー5,メンバー6';
+    const header = 'チーム名,キャプテン,メンバー1,メンバー2,メンバー3,メンバー4,メンバー5,メンバー6';
     const example1 = 'サンプルチームA,佐藤花子,田中太郎,佐藤花子,鈴木一郎,高橋美咲,,';
     const example2 = 'サンプルチームB,伊藤さくら,山田次郎,伊藤さくら,渡辺健太,中村あい,小林大輔,';
     final csvContent = '$header\n$example1\n$example2\n';
@@ -1401,7 +1401,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final hasHeader = firstRow.isNotEmpty &&
         (firstRow[0].toString().contains('チーム') || firstRow[0].toString().toLowerCase().contains('team'));
 
-    // 「チームキャプテン」列があるか判定（2列目がキャプテン列）
+    // 「キャプテン」列があるか判定（2列目がキャプテン列）
     final hasCaptainCol = hasHeader && firstRow.length >= 2 &&
         (firstRow[1].toString().contains('キャプテン') || firstRow[1].toString().toLowerCase().contains('captain'));
 
@@ -2747,7 +2747,7 @@ B,2,チームG,チームH,チームE,チームF''';
         child: Row(children: [
           const Icon(Icons.emoji_events, size: 20, color: Colors.amber),
           const SizedBox(width: 8),
-          Text('${bData['bracketName'] ?? '順位決定'}リーグ',
+          Text('${bData['bracketName'] ?? '順位決定'}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
           if (rankRange.isNotEmpty) ...[
             const SizedBox(width: 8),
@@ -3010,7 +3010,7 @@ B,2,チームG,チームH,チームE,チームF''';
                         child: Text('${i + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isSelected ? AppTheme.error : AppTheme.primaryColor)),
                       ),
                       title: Text(e['teamName'] as String, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.error : null)),
-                      subtitle: Text('チームキャプテン: ${e['leaderName']} / ${e['memberCount']}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      subtitle: Text('キャプテン: ${e['leaderName']} / ${e['memberCount']}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     );
                   },
                 ),
@@ -3137,7 +3137,7 @@ B,2,チームG,チームH,チームE,チームF''';
                               style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
                         ),
                   title: Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                  subtitle: isFirst ? Text('チームキャプテン', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)) : null,
+                  subtitle: isFirst ? Text('キャプテン', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)) : null,
                   trailing: GestureDetector(
                     onTap: () {
                       Navigator.pop(ctx);
@@ -3276,7 +3276,7 @@ B,2,チームG,チームH,チームE,チームF''';
                             Text(teamName.toString(), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isMyTeam ? Colors.red : AppTheme.textPrimary)),
                             const SizedBox(height: 4),
                             Row(children: [
-                              Text('チームキャプテン: $leader / ${memberUids.length}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                              Text('キャプテン: $leader / ${memberUids.length}人', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                               if (isCheckedIn) ...[
                                 const SizedBox(width: 8),
                                 Container(
@@ -5519,7 +5519,8 @@ B,2,チームG,チームH,チームE,チームF''';
   }
 
   Widget _buildTierInfoRow(int tierCount, int maxTeams) {
-    final names = _getTierDisplayNames(tierCount);
+    final shortNames = _getTierDisplayNames(tierCount);
+    final fullNames = _getTierFullNames(tierCount);
     final teamsPerTier = maxTeams > 0 ? (maxTeams / tierCount).ceil() : 0;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -5531,7 +5532,7 @@ B,2,チームG,チームH,チームE,チームF''';
         children: [
           Text('区分', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           const SizedBox(height: 8),
-          ...List.generate(names.length, (i) {
+          ...List.generate(shortNames.length, (i) {
             final rankStart = i * teamsPerTier + 1;
             final rankEnd = ((i + 1) * teamsPerTier).clamp(1, maxTeams > 0 ? maxTeams : (i + 1) * teamsPerTier);
             final rankText = maxTeams > 0 ? '（予選$rankStart〜$rankEnd位）' : '';
@@ -5543,19 +5544,19 @@ B,2,チームG,チームH,チームE,チームF''';
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: _tierColor(i, names.length).withValues(alpha: 0.12),
+                      color: _tierColor(i, shortNames.length).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Center(
-                      child: Text(names[i],
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _tierColor(i, names.length)),
+                      child: Text(shortNames[i],
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _tierColor(i, shortNames.length)),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '${names[i]}リーグ$rankText',
+                      '${fullNames[i]}$rankText',
                       style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                     ),
                   ),
@@ -5575,6 +5576,7 @@ B,2,チームG,チームH,チームE,チームF''';
     );
   }
 
+  /// ルール設定用の短い名前（上/中/下）
   List<String> _getTierDisplayNames(int count) {
     switch (count) {
       case 1: return ['リーグ'];
@@ -5586,6 +5588,22 @@ B,2,チームG,チームH,チームE,チームF''';
       default:
         final names = ['上', '中上', '中', '中下', '下'];
         for (int i = 5; i < count; i++) names.add('第${i + 1}');
+        return names;
+    }
+  }
+
+  /// 表示用のフルネーム（上位リーグ/中位リーグ/下位リーグ）
+  List<String> _getTierFullNames(int count) {
+    switch (count) {
+      case 1: return ['リーグ'];
+      case 2: return ['上位リーグ', '下位リーグ'];
+      case 3: return ['上位リーグ', '中位リーグ', '下位リーグ'];
+      case 4: return ['上位リーグ', '中上位リーグ', '中下位リーグ', '下位リーグ'];
+      case 5: return ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
+      case 6: return ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ', 'エンジョイ'];
+      default:
+        final names = ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
+        for (int i = 5; i < count; i++) names.add('第${i + 1}リーグ');
         return names;
     }
   }
@@ -5837,13 +5855,13 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
   List<String> _getLeagueNames(int count) {
     switch (count) {
       case 1: return ['リーグ'];
-      case 2: return ['上', '下'];
-      case 3: return ['上', '中', '下'];
-      case 4: return ['上', '中上', '中下', '下'];
-      case 5: return ['上', '中上', '中', '中下', '下'];
+      case 2: return ['上位リーグ', '下位リーグ'];
+      case 3: return ['上位リーグ', '中位リーグ', '下位リーグ'];
+      case 4: return ['上位リーグ', '中上位リーグ', '中下位リーグ', '下位リーグ'];
+      case 5: return ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
       default:
-        final names = ['上', '中上', '中', '中下', '下'];
-        for (int i = 5; i < count; i++) names.add('第${i + 1}');
+        final names = ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
+        for (int i = 5; i < count; i++) names.add('第${i + 1}リーグ');
         return names;
     }
   }

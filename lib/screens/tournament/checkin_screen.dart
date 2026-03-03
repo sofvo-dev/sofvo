@@ -5,7 +5,7 @@ import '../../config/app_theme.dart';
 
 /// QRコード受付画面（大会主催者用）
 /// 2パターン:
-///   1. QRコード表示  - 大会QRを表示、チームキャプテンがスキャンしてチェックイン
+///   1. QRコード表示  - 大会QRを表示、キャプテンがスキャンしてチェックイン
 ///   2. 手動受付      - チェックリストで手動チェック
 class CheckInScreen extends StatefulWidget {
   final String tournamentId;
@@ -65,7 +65,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ タブ1: QRコード表示（チームキャプテンがスキャン） ━━━
+  // ━━━ タブ1: QRコード表示（キャプテンがスキャン） ━━━
   Widget _buildParticipantScanTab() {
     final checkInUrl = 'https://sofvo-19d84.web.app/?checkin=${widget.tournamentId}';
     return SingleChildScrollView(
@@ -74,7 +74,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         children: [
           const SizedBox(height: 8),
           Text(
-            'このQRコードを受付に掲示してください\nチームキャプテンがスキャンして自動チェックイン',
+            'このQRコードを受付に掲示してください\nキャプテンがスキャンして自動チェックイン',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),
