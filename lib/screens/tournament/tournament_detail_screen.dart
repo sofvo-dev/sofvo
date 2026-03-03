@@ -335,6 +335,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       color: Colors.white,
       child: TabBar(
         controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
         labelColor: AppTheme.primaryColor,
         unselectedLabelColor: AppTheme.textSecondary,
         indicatorColor: AppTheme.primaryColor,
@@ -3053,55 +3055,78 @@ B,2,チームG,チームH,チームE,チームF''';
       if (!aIsLeader && bIsLeader) return 1;
       return 0;
     });
+
+    // メンバーのアバターURLを取得
+    final memberAvatars = <String, String>{};
+    Future<void> loadAvatars() async {
+      for (final entry in members) {
+        final uid = entry.key;
+        final userDoc = await _firestore.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          memberAvatars[uid] = (userDoc.data()?['avatarUrl'] ?? '').toString();
+        }
+      }
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 16),
-            Text(teamName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text('${members.length}人のメンバー', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-            const SizedBox(height: 16),
-            ...members.asMap().entries.map((entry) {
-              final uid = entry.value.key;
-              final name = entry.value.value?.toString() ?? '名前なし';
-              final isFirst = entry.key == 0;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                  child: Text(name.isNotEmpty ? name[0] : '?',
-                      style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-                ),
-                title: Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                subtitle: isFirst ? Text('チームキャプテン', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)) : null,
-                trailing: GestureDetector(
+      builder: (ctx) => FutureBuilder(
+        future: loadAvatars(),
+        builder: (ctx, snapshot) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 16),
+              Text(teamName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('${members.length}人のメンバー', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              const SizedBox(height: 16),
+              ...members.asMap().entries.map((entry) {
+                final uid = entry.value.key;
+                final name = entry.value.value?.toString() ?? '名前なし';
+                final isFirst = entry.key == 0;
+                final avatarUrl = memberAvatars[uid] ?? '';
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: avatarUrl.isNotEmpty
+                      ? CircleAvatar(
+                          radius: 20,
+                          backgroundImage: NetworkImage(avatarUrl),
+                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                        )
+                      : CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                          child: Text(name.isNotEmpty ? name[0] : '?',
+                              style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                        ),
+                  title: Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  subtitle: isFirst ? Text('チームキャプテン', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)) : null,
+                  trailing: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(userId: uid),
+                      ));
+                    },
+                    child: Icon(Icons.chevron_right, color: AppTheme.textHint),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     Navigator.push(context, MaterialPageRoute(
                       builder: (_) => UserProfileScreen(userId: uid),
                     ));
                   },
-                  child: Icon(Icons.chevron_right, color: AppTheme.textHint),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => UserProfileScreen(userId: uid),
-                  ));
-                },
-              );
-            }),
-          ],
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );

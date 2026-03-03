@@ -258,14 +258,12 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         children: [
           _buildNextHighlight(_upcoming.first),
           const SizedBox(height: 20),
-          if (_upcoming.length > 1) ...[
-            _sectionHeader(Icons.calendar_month, 'すべての予定', _upcoming.length),
-            const SizedBox(height: 10),
-            ..._upcoming.map((t) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildUpcomingCard(t),
-                )),
-          ],
+          _sectionHeader(Icons.calendar_month, 'すべての予定', _upcoming.length),
+          const SizedBox(height: 10),
+          ..._upcoming.skip(1).map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildUpcomingCard(t),
+              )),
         ],
       ),
     );
@@ -364,8 +362,21 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // 日付ブロック
-              _dateBlock(month, day, weekday, navyColor),
+              // 日付ブロック + 種別
+              Column(children: [
+                _dateBlock(month, day, weekday, navyColor),
+                if ((t['type'] ?? '').toString().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(t['type'], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                  ),
+                ],
+              ]),
               const SizedBox(width: 14),
               Expanded(
                   child: Column(
@@ -411,17 +422,6 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                                 fontWeight: FontWeight.bold,
                                 color: roleColor)),
                       ),
-                      if ((t['type'] ?? '').toString().isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.textSecondary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(t['type'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
-                        ),
-                      ],
                     ]),
                   ])),
               Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
@@ -488,7 +488,20 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _dateBlock(month, day, weekday, sc),
+            Column(children: [
+              _dateBlock(month, day, weekday, sc),
+              if ((t['type'] ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(t['type'], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                ),
+              ],
+            ]),
             const SizedBox(width: 14),
             Expanded(
                 child: Column(
@@ -539,19 +552,6 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                   ],
                   _infoRow(
                       Icons.groups_outlined, t['teamName'] ?? ''),
-                  if ((t['type'] ?? '').toString().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.textSecondary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(t['type'], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                      ),
-                    ]),
-                  ],
                 ])),
             Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
           ]),
