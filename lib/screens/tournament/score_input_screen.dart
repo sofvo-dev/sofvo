@@ -303,6 +303,19 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
               ]),
             ),
 
+          // === コート・試合番号 ===
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text('${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート  第${_match!['matchOrder'] ?? ''}試合',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70)),
+          ),
+
           // === 審判チーム ===
           if (_match!["refereeTeamName"] != null && (_match!["refereeTeamName"] as String).isNotEmpty)
             Container(
@@ -324,11 +337,10 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           Row(children: [
             Expanded(child: Text(_match!['teamAName'] ?? '', textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6CA6FF)))),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text('${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート\n第${_match!['matchOrder'] ?? ''}試合',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white54, height: 1.4)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text('VS', textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white54)),
             ),
             Expanded(child: Text(_match!['teamBName'] ?? '', textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFF6C6C)))),
