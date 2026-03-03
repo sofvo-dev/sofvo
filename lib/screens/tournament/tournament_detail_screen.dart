@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,7 +58,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     _isEntryDeadlinePassed = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid;
     _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
     _tabController = TabController(
-      length: _isEntryDeadlinePassed ? 5 : 4,
+      length: _isEntryDeadlinePassed ? 6 : 4,
       vsync: this,
     );
     _loadMyTeams().then((_) {
@@ -221,6 +222,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               children: [
                 _KeepAlivePage(child: _buildOverviewTab()),
                 if (_isEntryDeadlinePassed) _KeepAlivePage(child: _buildMatchTableTab()),
+                if (_isEntryDeadlinePassed) _KeepAlivePage(child: _buildStandingsTab()),
                 _KeepAlivePage(child: _buildTeamsTab()),
                 _KeepAlivePage(child: _buildTimelineTab()),
                 _KeepAlivePage(child: _buildPhotoGalleryTab()),
@@ -333,6 +335,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         tabs: [
           const Tab(text: '概要'),
           if (_isEntryDeadlinePassed) const Tab(text: '対戦表'),
+          if (_isEntryDeadlinePassed) const Tab(text: '順位表'),
           const Tab(text: 'チーム'),
           const Tab(text: '掲示板'),
           const Tab(text: 'フォト'),
@@ -982,6 +985,63 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
 
+
+  // ━━━ 順位表タブ（全体） ━━━
+  Widget _buildStandingsTab() {
+    if (_tournamentId.isEmpty) return const Center(child: Text('大会IDが見つかりません'));
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore.collection('tournaments').doc(_tournamentId).collection('rounds').snapshots(),
+      builder: (context, roundsSnap) {
+        if (!roundsSnap.hasData) return const Center(child: CircularProgressIndicator());
+        final rounds = roundsSnap.data!.docs;
+        if (rounds.isEmpty) {
+          return const Center(child: Text('予選がまだ生成されていません', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)));
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: rounds.map((roundDoc) {
+              final roundData = roundDoc.data() as Map<String, dynamic>;
+              final roundNum = roundData['roundNumber'] ?? 1;
+              return _buildOverallStandingsForRound(roundDoc.id, roundNum);
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOverallStandingsForRound(String roundId, int roundNum) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore.collection('tournaments').doc(_tournamentId)
+          .collection('rounds').doc(roundId)
+          .collection('standings').snapshots(),
+      builder: (context, standSnap) {
+        if (!standSnap.hasData || standSnap.data!.docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('予選$roundNum 総合順位', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+              const SizedBox(height: 8),
+              const Text('まだ試合結果がありません', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+            ]),
+          );
+        }
+        final courtDocs = standSnap.data!.docs;
+        // Build a StreamBuilder for each court's teams subcollection
+        return _OverallStandingsAggregator(
+          tournamentId: _tournamentId,
+          roundId: roundId,
+          roundNum: roundNum,
+          courtDocs: courtDocs,
+          myTeamIds: _myTeamIds,
+        );
+      },
+    );
+  }
 
   // ━━━ ステータス変更 ━━━
   void _showStatusDialog(String currentStatus) {
@@ -5517,6 +5577,173 @@ B,2,チームG,チームH,チームE,チームF''';
           {'label': '0-2 負け', 'pts1': s1['lose02'] ?? 0, 'pts2': s2?['lose02'] ?? s1['lose02'] ?? 0},
         ];
     }
+  }
+}
+
+// ━━━ 全体順位表集計ウィジェット ━━━
+class _OverallStandingsAggregator extends StatefulWidget {
+  final String tournamentId;
+  final String roundId;
+  final int roundNum;
+  final List<QueryDocumentSnapshot> courtDocs;
+  final List<String> myTeamIds;
+
+  const _OverallStandingsAggregator({
+    required this.tournamentId,
+    required this.roundId,
+    required this.roundNum,
+    required this.courtDocs,
+    required this.myTeamIds,
+  });
+
+  @override
+  State<_OverallStandingsAggregator> createState() => _OverallStandingsAggregatorState();
+}
+
+class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator> {
+  final _firestore = FirebaseFirestore.instance;
+  final List<StreamSubscription<QuerySnapshot>> _subs = [];
+  final Map<String, List<Map<String, dynamic>>> _courtTeams = {};
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OverallStandingsAggregator old) {
+    super.didUpdateWidget(old);
+    if (old.roundId != widget.roundId || old.courtDocs.length != widget.courtDocs.length) {
+      _cancelSubs();
+      _courtTeams.clear();
+      _loaded = false;
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
+    for (final courtDoc in widget.courtDocs) {
+      final sub = _firestore
+          .collection('tournaments').doc(widget.tournamentId)
+          .collection('rounds').doc(widget.roundId)
+          .collection('standings').doc(courtDoc.id)
+          .collection('teams').snapshots()
+          .listen((snap) {
+        if (!mounted) return;
+        setState(() {
+          _courtTeams[courtDoc.id] = snap.docs.map((d) => Map<String, dynamic>.from(d.data())).toList();
+          _loaded = true;
+        });
+      });
+      _subs.add(sub);
+    }
+  }
+
+  void _cancelSubs() {
+    for (final sub in _subs) {
+      sub.cancel();
+    }
+    _subs.clear();
+  }
+
+  @override
+  void dispose() {
+    _cancelSubs();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+
+    // Aggregate all teams from all courts
+    final allTeams = <Map<String, dynamic>>[];
+    for (final teams in _courtTeams.values) {
+      allTeams.addAll(teams);
+    }
+
+    if (allTeams.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('予選${widget.roundNum} 総合順位', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+          const SizedBox(height: 8),
+          const Text('まだ試合結果がありません', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+        ]),
+      );
+    }
+
+    // Sort: matchPoints desc → pointDiff desc → totalPoints desc
+    allTeams.sort((a, b) {
+      final mp = ((b['matchPoints'] ?? 0) as num).compareTo((a['matchPoints'] ?? 0) as num);
+      if (mp != 0) return mp;
+      final pd = ((b['pointDiff'] ?? 0) as num).compareTo((a['pointDiff'] ?? 0) as num);
+      if (pd != 0) return pd;
+      return ((b['totalPoints'] ?? 0) as num).compareTo((a['totalPoints'] ?? 0) as num);
+    });
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withValues(alpha: 0.08),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.leaderboard, size: 18, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text('予選${widget.roundNum} 総合順位', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text('${allTeams.length}チーム', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ]),
+        ),
+        // Column labels
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: Row(children: const [
+            SizedBox(width: 28, child: Text('#', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+            Expanded(flex: 3, child: Text('チーム', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+            SizedBox(width: 40, child: Text('勝点', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
+            SizedBox(width: 40, child: Text('得失', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
+            SizedBox(width: 40, child: Text('総得', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
+          ]),
+        ),
+        Divider(height: 1, color: Colors.grey[200]),
+        // Team rows
+        ...allTeams.asMap().entries.map((e) {
+          final i = e.key;
+          final t = e.value;
+          final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
+          return Container(
+            color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Row(children: [
+                SizedBox(width: 28, child: Text('${i + 1}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
+                    color: i == 0 ? Colors.amber[700] : (i < 3 ? AppTheme.primaryColor : AppTheme.textPrimary)))),
+                Expanded(flex: 3, child: Text(t['teamName'] ?? '', style: TextStyle(fontSize: 14,
+                    color: isMyTeam ? Colors.red : null,
+                    fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
+                SizedBox(width: 40, child: Text('${t['matchPoints'] ?? 0}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                SizedBox(width: 40, child: Text('${t['pointDiff'] ?? 0}', style: TextStyle(fontSize: 13,
+                    color: ((t['pointDiff'] ?? 0) as num) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
+                SizedBox(width: 40, child: Text('${t['totalPoints'] ?? 0}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
+              ]),
+            ),
+          );
+        }),
+      ]),
+    );
   }
 }
 
