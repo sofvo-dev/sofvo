@@ -669,7 +669,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 child: Column(children: [
                   _buildTimeRow('会場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
                   _buildTimeRow('受付', receptionTime, (v) => setSheetState(() => receptionTime = v), ctx),
-                  _buildTimeRow('チームキャプテン会議', captainMeetingTime, (v) => setSheetState(() => captainMeetingTime = v), ctx),
+                  _buildTimeRow('キャプテン会議', captainMeetingTime, (v) => setSheetState(() => captainMeetingTime = v), ctx),
                   _buildTimeRow('開会式', openingTime, (v) => setSheetState(() => openingTime = v), ctx),
                   _buildTimeRow('試合開始 *', matchStartTime, (v) => setSheetState(() => matchStartTime = v), ctx),
                   _buildTimeRow('終了 *', finalTime, (v) => setSheetState(() => finalTime = v), ctx),
