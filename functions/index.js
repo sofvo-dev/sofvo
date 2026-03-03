@@ -182,6 +182,31 @@ function extractItem(item) {
   const images = item.Images || {};
 
   const asin = item.ASIN || "";
+
+  // 金額取得: DisplayAmount → Amount(数値)からフォーマット
+  let price =
+    item.Offers?.Listings?.[0]?.Price?.DisplayAmount ||
+    item.Offers?.Summaries?.[0]?.LowestPrice?.DisplayAmount ||
+    item.Offers?.Summaries?.[0]?.HighestPrice?.DisplayAmount ||
+    null;
+
+  // DisplayAmountがない場合、Amount(数値)から生成
+  if (!price) {
+    const amount =
+      item.Offers?.Listings?.[0]?.Price?.Amount ||
+      item.Offers?.Summaries?.[0]?.LowestPrice?.Amount ||
+      item.Offers?.Summaries?.[0]?.HighestPrice?.Amount;
+    const currency =
+      item.Offers?.Listings?.[0]?.Price?.Currency ||
+      item.Offers?.Summaries?.[0]?.LowestPrice?.Currency ||
+      "JPY";
+    if (amount != null) {
+      price = currency === "JPY"
+        ? `￥${Number(amount).toLocaleString()}`
+        : `${currency} ${amount}`;
+    }
+  }
+
   return {
     asin,
     title: info.Title?.DisplayValue || "",
@@ -191,11 +216,7 @@ function extractItem(item) {
       "",
     detailPageUrl: `https://www.amazon.co.jp/dp/${asin}`,
     affiliateUrl: makeAffiliateUrl(asin),
-    price:
-      item.Offers?.Listings?.[0]?.Price?.DisplayAmount ||
-      item.Offers?.Summaries?.[0]?.LowestPrice?.DisplayAmount ||
-      item.Offers?.Summaries?.[0]?.HighestPrice?.DisplayAmount ||
-      null,
+    price,
   };
 }
 
@@ -410,7 +431,6 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
           "Offers.Summaries.LowestPrice",
           "Offers.Summaries.HighestPrice",
         ],
-        Condition: "New",
         SearchIndex: "All",
         ItemCount: 10,
         ItemPage: page,
@@ -516,7 +536,6 @@ exports.amazonProduct = functions.https.onRequest(async (req, res) => {
           "Offers.Summaries.LowestPrice",
           "Offers.Summaries.HighestPrice",
         ],
-        Condition: "New",
         PartnerTag: partnerTag,
         PartnerType: "Associates",
         Marketplace: "www.amazon.co.jp",
