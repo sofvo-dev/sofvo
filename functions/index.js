@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+// v2: totalResults対応 + CI自動デプロイ
 
 admin.initializeApp();
 
