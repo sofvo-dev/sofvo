@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/profile/user_profile_screen.dart';
+import '../screens/tournament/tournament_detail_screen.dart';
 
 class PushNotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -104,19 +105,42 @@ class PushNotificationService {
     final type = data['type'] as String?;
     final targetId = data['targetId'] as String?;
 
-    if (type == null || targetId == null) return;
+    if (type == null) return;
 
     switch (type) {
       case 'chat':
-        _navigateToChat(navigator, targetId);
+        if (targetId != null) _navigateToChat(navigator, targetId);
         break;
       case 'follow':
-        navigator.push(MaterialPageRoute(
-          builder: (_) => UserProfileScreen(userId: targetId),
-        ));
+        if (targetId != null) {
+          navigator.push(MaterialPageRoute(
+            builder: (_) => UserProfileScreen(userId: targetId),
+          ));
+        }
+        break;
+      case 'tournament_announcement':
+      case 'tournament_end':
+      case 'waitlist_available':
+        final tournamentId = data['tournamentId'] as String? ?? targetId;
+        if (tournamentId != null) _navigateToTournament(navigator, tournamentId);
         break;
       default:
         debugPrint('Unknown notification type: $type');
+    }
+  }
+
+  /// 大会詳細に遷移
+  static Future<void> _navigateToTournament(NavigatorState navigator, String tournamentId) async {
+    try {
+      final doc = await _firestore.collection('tournaments').doc(tournamentId).get();
+      if (!doc.exists) return;
+      final data = doc.data()!;
+      data['id'] = doc.id;
+      navigator.push(MaterialPageRoute(
+        builder: (_) => TournamentDetailScreen(tournament: data),
+      ));
+    } catch (e) {
+      debugPrint('Failed to navigate to tournament: $e');
     }
   }
 
