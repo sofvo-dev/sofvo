@@ -45,9 +45,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   bool _isBoardTeam = false; // false=大会掲示板, true=チーム掲示板
   XFile? _selectedBoardImage;
   String _myEntryTeamId = "";
-  bool _showOnlyMyCourts = false;
+  bool _showOnlyMyCourts = true;
   Set<String> _myCourtIds = {};
-  final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート)
+  final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート) default: MY
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
@@ -2333,7 +2333,7 @@ B,2,チームG,チームH,チームE,チームF''';
     // 3コート以下ならチップバー不要
     if (sortedCourts.length <= 3) return const SizedBox();
 
-    final filter = _selectedCourtFilter[roundNum];
+    final filter = _selectedCourtFilter.containsKey(roundNum) ? _selectedCourtFilter[roundNum] : 'MY';
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: SizedBox(
@@ -2355,7 +2355,7 @@ B,2,チームG,チームH,チームE,チームF''';
                 side: BorderSide(color: filter == null ? AppTheme.primaryColor : Colors.grey[300]!),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 showCheckmark: false,
-                onSelected: (_) => setState(() { _selectedCourtFilter.remove(roundNum); _showOnlyMyCourts = false; }),
+                onSelected: (_) => setState(() { _selectedCourtFilter[roundNum] = null; _showOnlyMyCourts = false; }),
               ),
             ),
             // 「MY」チップ（自チームがある場合のみ）
@@ -2375,7 +2375,6 @@ B,2,チームG,チームH,チームE,チームF''';
                   showCheckmark: false,
                   onSelected: (_) => setState(() {
                     _selectedCourtFilter[roundNum] = filter == 'MY' ? null : 'MY';
-                    if (_selectedCourtFilter[roundNum] == null) _selectedCourtFilter.remove(roundNum);
                     _showOnlyMyCourts = false;
                   }),
                 ),
@@ -2408,7 +2407,6 @@ B,2,チームG,チームH,チームE,チームF''';
                   showCheckmark: false,
                   onSelected: (_) => setState(() {
                     _selectedCourtFilter[roundNum] = isSelected ? null : courtId;
-                    if (_selectedCourtFilter[roundNum] == null) _selectedCourtFilter.remove(roundNum);
                     _showOnlyMyCourts = false;
                   }),
                 ),
@@ -2469,7 +2467,7 @@ B,2,チームG,チームH,チームE,チームF''';
             return MapEntry(e.key, num as int);
           }).toList();
 
-          final filter = _selectedCourtFilter[roundNum];
+          final filter = _selectedCourtFilter.containsKey(roundNum) ? _selectedCourtFilter[roundNum] : 'MY';
           List<MapEntry<String, List<QueryDocumentSnapshot>>> filteredCourts;
           if (filter == 'MY') {
             filteredCourts = sortedCourts.where((court) => myCourts.contains(court.key)).toList();
@@ -2490,28 +2488,7 @@ B,2,チームG,チームH,チームE,チームF''';
           ]);
         },
       ),
-      // Standings
-      StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('tournaments').doc(_tournamentId)
-            .collection('rounds').doc(roundId)
-            .collection('standings').snapshots(),
-        builder: (context, standSnap) {
-          if (!standSnap.hasData || standSnap.data!.docs.isEmpty) return const SizedBox();
-          final standFilter = _selectedCourtFilter[roundNum];
-          List<QueryDocumentSnapshot> standDocs;
-          if (standFilter == 'MY' || _showOnlyMyCourts) {
-            standDocs = standSnap.data!.docs.where((d) => _myCourtIds.contains(d.id)).toList();
-          } else if (standFilter != null) {
-            standDocs = standSnap.data!.docs.where((d) => d.id == standFilter).toList();
-          } else {
-            standDocs = standSnap.data!.docs;
-          }
-          return Column(children: standDocs.map((courtDoc) {
-            final courtData = courtDoc.data() as Map<String, dynamic>;
-            return _buildStandingsCard(courtDoc.id, courtData['courtNumber'] ?? 0, roundId);
-          }).toList());
-        },
-      ),
+      // Standings removed — now in dedicated 順位表 tab
       const SizedBox(height: 8),
     ]);
   }
