@@ -1532,6 +1532,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   }
 
   Widget _buildSearchResultTile(AmazonProduct product) {
+    final displayPrice = product.price ?? _fetchedPrices[product.asin];
     return InkWell(
       onTap: () => _selectProduct(product),
       child: Padding(
@@ -1558,8 +1559,8 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(product.title, maxLines: 2, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
-              if (product.price != null)
-                Text(product.price!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error)),
+              if (displayPrice != null)
+                Text(displayPrice, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.error)),
             ]),
           ),
           const Icon(Icons.add_circle_outline, color: Color(0xFFFF9900), size: 22),
