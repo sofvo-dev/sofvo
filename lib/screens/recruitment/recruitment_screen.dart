@@ -45,7 +45,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         final isOrganizer = data['organizerId'] == uid;
         final entriesSnap = await doc.reference
             .collection('entries')
-            .where('enteredBy', isEqualTo: uid)
+            .where('memberUids', arrayContains: uid)
             .limit(1)
             .get();
         final isEntered = entriesSnap.docs.isNotEmpty;
