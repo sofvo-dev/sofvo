@@ -123,7 +123,9 @@ class NotificationService {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      // 優勝チーム取得失敗時は汎用メッセージにフォールバック
+    }
 
     final resultMessage = winnerTeamName.isNotEmpty
         ? '「$tournamentName」が終了しました！優勝: $winnerTeamName'
