@@ -441,7 +441,7 @@ class PdfGenerator {
       final matchesSnap = await bDoc.reference.collection('matches')
           .orderBy('matchNumber').get();
 
-      final bracketName = bData['bracketName'] ?? '順位決定';
+      final bracketName = _toFullLeagueName(bData['bracketName'] as String? ?? '順位決定');
       final teamCount = bData['teamCount'] as int? ?? 0;
       final matches = <Map<String, dynamic>>[];
       for (var mDoc in matchesSnap.docs) {
@@ -686,6 +686,15 @@ class PdfGenerator {
         }),
       ],
     ));
+  }
+
+  /// 旧名称（上/中/下）をフルネームに変換
+  String _toFullLeagueName(String name) {
+    const map = {
+      '上': '上位リーグ', '中': '中位リーグ', '下': '下位リーグ',
+      '中上': '中上位リーグ', '中下': '中下位リーグ',
+    };
+    return map[name] ?? name;
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
