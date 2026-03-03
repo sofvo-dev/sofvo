@@ -115,6 +115,7 @@ class _BookmarkList extends StatelessWidget {
           if (doc.exists && context.mounted) {
             final tData = doc.data()!;
             tData['id'] = doc.id;
+            tData['name'] = tData['title'] ?? tData['name'] ?? '';
             Navigator.push(context,
                 MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: tData)));
           }

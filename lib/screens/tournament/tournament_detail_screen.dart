@@ -290,7 +290,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           Row(
             children: [
               Expanded(
-                child: Text(t['name'] as String,
+                child: Text((t['name'] ?? t['title'] ?? '') as String,
                     style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
@@ -308,7 +308,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
-                child: Text(t['type'] as String, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                child: Text((t['type'] ?? '') as String, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -317,7 +317,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           Row(children: [
             const Icon(Icons.calendar_today, size: 13, color: Colors.white70),
             const SizedBox(width: 4),
-            Text(t['date'] as String, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            Text((t['date'] ?? '') as String, style: const TextStyle(fontSize: 12, color: Colors.white70)),
             const SizedBox(width: 12),
             const Icon(Icons.location_on, size: 13, color: Colors.white70),
             const SizedBox(width: 3),
@@ -4113,10 +4113,10 @@ B,2,チームG,チームH,チームE,チームF''';
                         border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.15)),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(widget.tournament['name'] as String,
+                        Text((widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String,
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                         const SizedBox(height: 4),
-                        Text(widget.tournament['date'] as String,
+                        Text((widget.tournament['date'] ?? '') as String,
                             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                       ]),
                     ),
@@ -4261,8 +4261,8 @@ B,2,チームG,チームH,チームE,チームF''';
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(8)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(widget.tournament['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(widget.tournament['date'] as String, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                Text((widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text((widget.tournament['date'] ?? '') as String, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               ]),
             ),
             if (members.isNotEmpty) ...[
@@ -4913,7 +4913,7 @@ B,2,チームG,チームH,チームE,チームF''';
                 border: Border.all(color: AppTheme.warning.withValues(alpha: 0.2)),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(widget.tournament['name'] as String,
+                Text((widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String,
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 const SizedBox(height: 4),
                 Text('空きが出た場合に通知が届きます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
@@ -5073,10 +5073,10 @@ B,2,チームG,チームH,チームE,チームF''';
                         border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.15)),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(widget.tournament['name'] as String,
+                        Text((widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String,
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                         const SizedBox(height: 4),
-                        Text(widget.tournament['date'] as String,
+                        Text((widget.tournament['date'] ?? '') as String,
                             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                       ]),
                     ),

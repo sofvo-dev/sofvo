@@ -72,6 +72,7 @@ class TournamentHistoryScreen extends StatelessWidget {
     for (final doc in organized.docs) {
       final data = doc.data();
       data['id'] = doc.id;
+      data['name'] = data['title'] ?? data['name'] ?? '';
       data['role'] = '主催';
       result.add(data);
     }
@@ -97,6 +98,7 @@ class TournamentHistoryScreen extends StatelessWidget {
       if (entries.docs.isNotEmpty) {
         final data = doc.data();
         data['id'] = doc.id;
+        data['name'] = data['title'] ?? data['name'] ?? '';
         data['role'] = '参加';
         result.add(data);
       }

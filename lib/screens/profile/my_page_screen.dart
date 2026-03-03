@@ -647,7 +647,7 @@ class _TournamentCardsRow extends StatelessWidget {
 
               return GestureDetector(
                 onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {...d, 'id': doc.id}))),
+                    MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {...d, 'id': doc.id, 'name': d['title'] ?? d['name'] ?? ''}))),
                 child: Container(
                   width: 180,
                   padding: const EdgeInsets.all(12),
