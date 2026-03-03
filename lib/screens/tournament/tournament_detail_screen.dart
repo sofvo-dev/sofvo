@@ -80,7 +80,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   @override
   void initState() {
     super.initState();
-    final status = widget.tournament['status'] as String;
+    final status = (widget.tournament['status'] as String?) ?? '';
     _isEntryDeadlinePassed = status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid;
     _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
     _tabController = TabController(
@@ -650,6 +650,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       _buildRuleTableRow('方式', liveFinal['type'] == 'round_robin' ? '総当たり' : 'トーナメント'),
                       _buildRuleTableRow('セット形式', _setFormatDisplayLabel(liveFinal['sets'] ?? 3)),
                       _buildRuleTableRow('デュース', (liveFinal['deuce'] ?? false) ? 'あり' : 'なし'),
+                      if (liveFinal['format'] == '順位別複数') ...[
+                        _buildRuleTableRow('区分数', '${liveFinal['tierCount'] ?? 3}区分'),
+                        _buildTierInfoRow(liveFinal['tierCount'] as int? ?? 3, liveMaxTeams),
+                      ],
                     ],
                   ),
                 ],
@@ -709,7 +713,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _buildFlowStep(1, 'エントリー受付', liveStatus == '募集中', liveCurrentTeams > 0),
                 _buildFlowStep(2, 'エントリー締切', liveStatus == 'エントリー締切', liveStatus == 'エントリー締切' || liveStatus == '開催中' || liveStatus == '終了'),
-                _buildFlowStep(3, '予選リーグ（ラウンドロビン）', liveStatus == '開催中', false),
+                _buildFlowStep(3, '予選リーグ', liveStatus == '開催中', false),
                 if ((livePrelim['rounds'] ?? 1) > 1)
                   _buildFlowStep(4, '予選2', false, false),
                 _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '順位決定戦', liveStatus == '順位決定中', false),
@@ -5512,6 +5516,84 @@ B,2,チームG,チームH,チームE,チームF''';
         Expanded(child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
       ]),
     );
+  }
+
+  Widget _buildTierInfoRow(int tierCount, int maxTeams) {
+    final names = _getTierDisplayNames(tierCount);
+    final teamsPerTier = maxTeams > 0 ? (maxTeams / tierCount).ceil() : 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey[100]!)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('区分', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          const SizedBox(height: 8),
+          ...List.generate(names.length, (i) {
+            final rankStart = i * teamsPerTier + 1;
+            final rankEnd = ((i + 1) * teamsPerTier).clamp(1, maxTeams > 0 ? maxTeams : (i + 1) * teamsPerTier);
+            final rankText = maxTeams > 0 ? '（予選$rankStart〜$rankEnd位）' : '';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: _tierColor(i, names.length).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Center(
+                      child: Text(names[i],
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _tierColor(i, names.length)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${names[i]}リーグ$rankText',
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              '予選リーグの順位をもとに$tierCount区分に分かれてトーナメント戦を行います',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _getTierDisplayNames(int count) {
+    switch (count) {
+      case 1: return ['リーグ'];
+      case 2: return ['上', '下'];
+      case 3: return ['上', '中', '下'];
+      case 4: return ['上', '中上', '中下', '下'];
+      case 5: return ['上', '中上', '中', '中下', '下'];
+      case 6: return ['上', '中上', '中', '中下', '下', 'エンジョイ'];
+      default:
+        final names = ['上', '中上', '中', '中下', '下'];
+        for (int i = 5; i < count; i++) names.add('第${i + 1}');
+        return names;
+    }
+  }
+
+  Color _tierColor(int index, int total) {
+    if (index == 0) return Colors.amber[700]!;
+    if (index == total - 1) return AppTheme.primaryColor;
+    return AppTheme.accentColor;
   }
 
   Widget _buildScoringTable(Map<String, dynamic> prelim, Map<String, dynamic> scoring) {
