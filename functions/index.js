@@ -387,9 +387,9 @@ exports.amazonSearch = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  // デバッグ: 認証情報の有無をログ出力
+  // 認証情報の有無をログ出力
   const hasCredentials = hasPaapiCredentials();
-  console.log(`[amazonSearch] keyword="${keyword}", hasPaapiCredentials=${hasCredentials}`);
+  console.log(`[amazonSearch] keyword="${keyword}", page=${page}, hasPaapiCredentials=${hasCredentials}`);
 
   // 1) PA-API が使える場合はそちらを優先
   if (hasCredentials) {
