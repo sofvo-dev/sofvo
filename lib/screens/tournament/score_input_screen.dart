@@ -198,6 +198,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     int setsA = 0, setsB = 0, totalA = 0, totalB = 0;
     final setsData = <Map<String, int>>[];
     for (int i = 0; i < _totalSets; i++) {
+      if (!_setConfirmed[i]) continue; // 未プレーのセットはスキップ
       final a = int.tryParse(_ctrlA[i].text) ?? 0;
       final b = int.tryParse(_ctrlB[i].text) ?? 0;
       setsData.add({'a': a, 'b': b});

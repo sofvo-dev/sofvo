@@ -974,6 +974,10 @@ class MatchGenerator {
           .compareTo((b.data() as Map<String, dynamic>)['matchNumber'] as int));
     }
 
+    // Helper: skip update if the target match is already completed
+    bool _isCompleted(QueryDocumentSnapshot doc) =>
+        (doc.data() as Map<String, dynamic>)['status'] == 'completed';
+
     // 8-team: QF → SF winner + SF loser
     if (byRound.containsKey('qf')) {
       final qf = byRound['qf']!;
@@ -986,30 +990,38 @@ class MatchGenerator {
 
         final sfW = byRound['sf_winner'] ?? [];
         if (sfW.length >= 2) {
-          await sfW[0].reference.update({
-            'teamAId': _winnerId(q1), 'teamAName': _winnerName(q1),
-            'teamBId': _winnerId(q2), 'teamBName': _winnerName(q2),
-            'status': 'pending',
-          });
-          await sfW[1].reference.update({
-            'teamAId': _winnerId(q3), 'teamAName': _winnerName(q3),
-            'teamBId': _winnerId(q4), 'teamBName': _winnerName(q4),
-            'status': 'pending',
-          });
+          if (!_isCompleted(sfW[0])) {
+            await sfW[0].reference.update({
+              'teamAId': _winnerId(q1), 'teamAName': _winnerName(q1),
+              'teamBId': _winnerId(q2), 'teamBName': _winnerName(q2),
+              'status': 'pending',
+            });
+          }
+          if (!_isCompleted(sfW[1])) {
+            await sfW[1].reference.update({
+              'teamAId': _winnerId(q3), 'teamAName': _winnerName(q3),
+              'teamBId': _winnerId(q4), 'teamBName': _winnerName(q4),
+              'status': 'pending',
+            });
+          }
         }
 
         final sfL = byRound['sf_loser'] ?? [];
         if (sfL.length >= 2) {
-          await sfL[0].reference.update({
-            'teamAId': _loserId(q1), 'teamAName': _loserName(q1),
-            'teamBId': _loserId(q2), 'teamBName': _loserName(q2),
-            'status': 'pending',
-          });
-          await sfL[1].reference.update({
-            'teamAId': _loserId(q3), 'teamAName': _loserName(q3),
-            'teamBId': _loserId(q4), 'teamBName': _loserName(q4),
-            'status': 'pending',
-          });
+          if (!_isCompleted(sfL[0])) {
+            await sfL[0].reference.update({
+              'teamAId': _loserId(q1), 'teamAName': _loserName(q1),
+              'teamBId': _loserId(q2), 'teamBName': _loserName(q2),
+              'status': 'pending',
+            });
+          }
+          if (!_isCompleted(sfL[1])) {
+            await sfL[1].reference.update({
+              'teamAId': _loserId(q3), 'teamAName': _loserName(q3),
+              'teamBId': _loserId(q4), 'teamBName': _loserName(q4),
+              'status': 'pending',
+            });
+          }
         }
       }
     }
@@ -1023,7 +1035,7 @@ class MatchGenerator {
         final sw2 = sfW[1].data() as Map<String, dynamic>;
 
         final f1st = byRound['final_1st']?.firstOrNull;
-        if (f1st != null) {
+        if (f1st != null && !_isCompleted(f1st)) {
           await f1st.reference.update({
             'teamAId': _winnerId(sw1), 'teamAName': _winnerName(sw1),
             'teamBId': _winnerId(sw2), 'teamBName': _winnerName(sw2),
@@ -1031,7 +1043,7 @@ class MatchGenerator {
           });
         }
         final f3rd = byRound['final_3rd']?.firstOrNull;
-        if (f3rd != null) {
+        if (f3rd != null && !_isCompleted(f3rd)) {
           await f3rd.reference.update({
             'teamAId': _loserId(sw1), 'teamAName': _loserName(sw1),
             'teamBId': _loserId(sw2), 'teamBName': _loserName(sw2),
@@ -1050,7 +1062,7 @@ class MatchGenerator {
         final sl2 = sfL[1].data() as Map<String, dynamic>;
 
         final f5th = byRound['final_5th']?.firstOrNull;
-        if (f5th != null) {
+        if (f5th != null && !_isCompleted(f5th)) {
           await f5th.reference.update({
             'teamAId': _winnerId(sl1), 'teamAName': _winnerName(sl1),
             'teamBId': _winnerId(sl2), 'teamBName': _winnerName(sl2),
@@ -1058,7 +1070,7 @@ class MatchGenerator {
           });
         }
         final f7th = byRound['final_7th']?.firstOrNull;
-        if (f7th != null) {
+        if (f7th != null && !_isCompleted(f7th)) {
           await f7th.reference.update({
             'teamAId': _loserId(sl1), 'teamAName': _loserName(sl1),
             'teamBId': _loserId(sl2), 'teamBName': _loserName(sl2),
@@ -1077,7 +1089,7 @@ class MatchGenerator {
         final s2 = semi[1].data() as Map<String, dynamic>;
 
         final f1st = byRound['final_1st']?.firstOrNull;
-        if (f1st != null) {
+        if (f1st != null && !_isCompleted(f1st)) {
           await f1st.reference.update({
             'teamAId': _winnerId(s1), 'teamAName': _winnerName(s1),
             'teamBId': _winnerId(s2), 'teamBName': _winnerName(s2),
@@ -1085,7 +1097,7 @@ class MatchGenerator {
           });
         }
         final f3rd = byRound['final_3rd']?.firstOrNull;
-        if (f3rd != null) {
+        if (f3rd != null && !_isCompleted(f3rd)) {
           await f3rd.reference.update({
             'teamAId': _loserId(s1), 'teamAName': _loserName(s1),
             'teamBId': _loserId(s2), 'teamBName': _loserName(s2),
