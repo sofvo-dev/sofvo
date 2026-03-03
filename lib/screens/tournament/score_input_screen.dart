@@ -326,7 +326,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6CA6FF)))),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text('${String.fromCharCode(64 + (_match!['courtNumber'] ?? 1))}コート\n第${_match!['matchOrder'] ?? ''}試合',
+              child: Text('${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート\n第${_match!['matchOrder'] ?? ''}試合',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white54, height: 1.4)),
             ),
