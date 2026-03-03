@@ -2747,7 +2747,7 @@ B,2,チームG,チームH,チームE,チームF''';
         child: Row(children: [
           const Icon(Icons.emoji_events, size: 20, color: Colors.amber),
           const SizedBox(width: 8),
-          Text('${bData['bracketName'] ?? '順位決定'}',
+          Text(_toFullLeagueName(bData['bracketName'] as String? ?? '順位決定'),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
           if (rankRange.isNotEmpty) ...[
             const SizedBox(width: 8),
@@ -5590,6 +5590,15 @@ B,2,チームG,チームH,チームE,チームF''';
         for (int i = 5; i < count; i++) names.add('第${i + 1}');
         return names;
     }
+  }
+
+  /// 旧名称（上/中/下）をフルネームに変換
+  String _toFullLeagueName(String name) {
+    const map = {
+      '上': '上位リーグ', '中': '中位リーグ', '下': '下位リーグ',
+      '中上': '中上位リーグ', '中下': '中下位リーグ',
+    };
+    return map[name] ?? name;
   }
 
   /// 表示用のフルネーム（上位リーグ/中位リーグ/下位リーグ）
