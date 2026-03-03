@@ -29,7 +29,8 @@ import '../../services/notification_service.dart';
 class TournamentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> tournament;
   final bool autoCheckIn;
-  const TournamentDetailScreen({super.key, required this.tournament, this.autoCheckIn = false});
+  final String? initialTab; // 'overview', 'matches', 'standings', 'teams', 'board', 'photo'
+  const TournamentDetailScreen({super.key, required this.tournament, this.autoCheckIn = false, this.initialTab});
   @override
   State<TournamentDetailScreen> createState() => _TournamentDetailScreenState();
 }
@@ -52,6 +53,30 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
+  int _resolveInitialTab() {
+    final tab = widget.initialTab;
+    if (tab == null) return 0;
+    // 6タブ: 概要(0), 対戦表(1), 順位表(2), チーム(3), 掲示板(4), フォト(5)
+    // 4タブ: 概要(0), チーム(1), 掲示板(2), フォト(3)
+    if (_isEntryDeadlinePassed) {
+      switch (tab) {
+        case 'matches': return 1;
+        case 'standings': return 2;
+        case 'teams': return 3;
+        case 'board': return 4;
+        case 'photo': return 5;
+        default: return 0;
+      }
+    } else {
+      switch (tab) {
+        case 'teams': return 1;
+        case 'board': return 2;
+        case 'photo': return 3;
+        default: return 0;
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +86,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     _tabController = TabController(
       length: _isEntryDeadlinePassed ? 6 : 4,
       vsync: this,
+      initialIndex: _resolveInitialTab(),
     );
     _loadMyTeams().then((_) {
       if (mounted && widget.autoCheckIn) _performSelfCheckIn();

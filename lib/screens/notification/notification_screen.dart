@@ -124,10 +124,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
         if (!doc.exists || !mounted) return;
         final tData = doc.data()!;
         tData['id'] = doc.id;
+        // 掲示板の通知は掲示板タブを開く
+        final initialTab = type == 'tournament_announcement' ? 'board' : null;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => TournamentDetailScreen(tournament: tData),
+            builder: (_) => TournamentDetailScreen(
+              tournament: tData,
+              initialTab: initialTab,
+            ),
           ),
         );
       } catch (e) {
