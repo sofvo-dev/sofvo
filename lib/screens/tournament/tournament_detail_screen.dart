@@ -77,9 +77,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   Future<void> _loadMyTeams() async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isEmpty || _tournamentId.isEmpty) return;
-    final entries = await _firestore.collection('tournaments').doc(_tournamentId)
-        .collection('entries').where('enteredBy', isEqualTo: uid).get();
-    final teamIds = entries.docs.map((d) => d['teamId'] as String? ?? '').where((id) => id.isNotEmpty).toList();
+    final allEntries = await _firestore.collection('tournaments').doc(_tournamentId)
+        .collection('entries').get();
+    // enteredBy OR memberUids にUIDが含まれるエントリーを検索
+    final myDocs = allEntries.docs.where((d) {
+      final data = d.data();
+      if (data['enteredBy'] == uid) return true;
+      final memberUids = data['memberUids'];
+      if (memberUids is List && memberUids.contains(uid)) return true;
+      return false;
+    });
+    final teamIds = myDocs.map((d) => d['teamId'] as String? ?? '').where((id) => id.isNotEmpty).toList();
     if (mounted) setState(() {
       _myTeamIds = teamIds;
       _myEntryTeamId = teamIds.isNotEmpty ? teamIds.first : "";
@@ -4212,12 +4220,19 @@ B,2,チームG,チームH,チームE,チームF''';
 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    // 同名チーム重複チェック
-    final existing = await _firestore
+    // エントリー重複チェック（enteredBy OR memberUidsに含まれる場合）
+    final allEntries = await _firestore
         .collection('tournaments').doc(_tournamentId)
-        .collection('entries').where('enteredBy', isEqualTo: uid).get();
+        .collection('entries').get();
+    final alreadyEntered = allEntries.docs.any((d) {
+      final data = d.data();
+      if (data['enteredBy'] == uid) return true;
+      final memberUids = data['memberUids'];
+      if (memberUids is List && memberUids.contains(uid)) return true;
+      return false;
+    });
 
-    if (existing.docs.isNotEmpty) {
+    if (alreadyEntered) {
       Navigator.pop(sheetContext);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
