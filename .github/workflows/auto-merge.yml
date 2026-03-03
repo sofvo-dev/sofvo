@@ -171,4 +171,12 @@ jobs:
 
       - name: Functions - Deploy Cloud Functions
         if: steps.detect.outputs.functions == 'true'
-        run: npx firebase-tools deploy --only functions --project sofvo-19d84 --force
+        run: |
+          for i in 1 2 3; do
+            echo "Deploy attempt $i..."
+            npx firebase-tools deploy --only functions --project sofvo-19d84 --force && exit 0
+            echo "Attempt $i failed, retrying in ${i}0s..."
+            sleep $((i * 10))
+          done
+          echo "All deploy attempts failed"
+          exit 1
