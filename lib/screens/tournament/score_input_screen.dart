@@ -9,6 +9,7 @@ class ScoreInputScreen extends StatefulWidget {
   final String roundId;
   final bool isBracket;
   final String? bracketId;
+  final bool isOrganizer;
 
   const ScoreInputScreen({
     super.key,
@@ -17,6 +18,7 @@ class ScoreInputScreen extends StatefulWidget {
     required this.roundId,
     this.isBracket = false,
     this.bracketId,
+    this.isOrganizer = false,
   });
 
   @override
@@ -40,6 +42,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   bool _matchEnded = false;
   String _winner = '';
   int _activeSetIndex = -1;
+  bool _readOnly = false; // 確定済み試合かつ非運営者の場合true
 
   @override
   void initState() {
@@ -72,6 +75,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     }
 
     final matchData = matchDoc.data() as Map<String, dynamic>? ?? {};
+    final isAlreadyCompleted = matchData['status'] == 'completed';
     final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
     final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
 
@@ -129,6 +133,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       _refereeConfirmed = matchData['refereeConfirmed'] ?? false;
       _coachAConfirmed = matchData['confirmedByA'] ?? false;
       _coachBConfirmed = matchData['confirmedByB'] ?? false;
+      _readOnly = isAlreadyCompleted && !widget.isOrganizer;
     });
 
     _checkMatchEnd();
@@ -168,7 +173,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   }
 
   Future<void> _autoSave() async {
-    if (_match == null) return;
+    if (_match == null || _readOnly) return;
     final sets = <Map<String, dynamic>>[];
     for (int i = 0; i < _totalSets; i++) {
       sets.add({'a': int.tryParse(_ctrlA[i].text) ?? 0, 'b': int.tryParse(_ctrlB[i].text) ?? 0});
@@ -187,6 +192,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   }
 
   Future<void> _saveResult() async {
+    if (_readOnly) return;
     setState(() => _saving = true);
 
     int setsA = 0, setsB = 0, totalA = 0, totalB = 0;
@@ -279,6 +285,24 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
 
+          // === 確定済みバナー ===
+          if (_readOnly)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.lock, size: 18, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(child: Text('この試合は確定済みです。編集は大会運営者のみ可能です',
+                    style: TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w600))),
+              ]),
+            ),
+
           // === 審判チーム ===
           if (_match!["refereeTeamName"] != null && (_match!["refereeTeamName"] as String).isNotEmpty)
             Container(
@@ -316,7 +340,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           if (_matchEnded) _buildResultSummary(),
 
           // === Confirmation sliders ===
-          if (_matchEnded) ...[
+          if (_matchEnded && !_readOnly) ...[
             const SizedBox(height: 16),
             if (_winner == 'a')
               _buildConfirmSlider('${_match!['teamAName']} 監督確認（勝利チーム）', _coachAConfirmed, Icons.person,
@@ -335,7 +359,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           ],
 
           // === Save button ===
-          if (_matchEnded && _refereeConfirmed && _coachAConfirmed && _coachBConfirmed) ...[
+          if (!_readOnly && _matchEnded && _refereeConfirmed && _coachAConfirmed && _coachBConfirmed) ...[
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _saving ? null : _saveResult,
@@ -356,10 +380,10 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   Widget _buildSetRow(int setIndex) {
     final confirmed = _setConfirmed[setIndex];
     final prevConfirmed = setIndex == 0 || _setConfirmed[setIndex - 1];
-    final isActive = _activeSetIndex == setIndex && !confirmed && prevConfirmed;
-    final isInputTarget = !confirmed && prevConfirmed;
-    // 入力不可（前セット未確定 or 確定済み以外のロック状態）
-    final isDisabled = !confirmed && !prevConfirmed;
+    final isActive = !_readOnly && _activeSetIndex == setIndex && !confirmed && prevConfirmed;
+    final isInputTarget = !_readOnly && !confirmed && prevConfirmed;
+    // 入力不可（読み取り専用 or 前セット未確定 or 確定済み以外のロック状態）
+    final isDisabled = _readOnly || (!confirmed && !prevConfirmed);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -426,7 +450,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           Expanded(child: TextField(
             controller: _ctrlA[setIndex],
             focusNode: _focusA.length > setIndex ? _focusA[setIndex] : null,
-            enabled: !confirmed && prevConfirmed,
+            enabled: !_readOnly && !confirmed && prevConfirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900,
@@ -458,7 +482,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           Expanded(child: TextField(
             controller: _ctrlB[setIndex],
             focusNode: _focusB.length > setIndex ? _focusB[setIndex] : null,
-            enabled: !confirmed && prevConfirmed,
+            enabled: !_readOnly && !confirmed && prevConfirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900,
@@ -484,7 +508,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             onChanged: (_) { _checkMatchEnd(); _autoSave(); },
           )),
         ]),
-        if (!confirmed && prevConfirmed) ...[
+        if (!_readOnly && !confirmed && prevConfirmed) ...[
           const SizedBox(height: 12),
           _buildConfirmSlider('スライドしてセット確認', false, Icons.check, () {
             final a = int.tryParse(_ctrlA[setIndex].text) ?? 0;
