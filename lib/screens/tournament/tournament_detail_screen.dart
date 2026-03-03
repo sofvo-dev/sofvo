@@ -5784,17 +5784,11 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
           final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
           final isTierBoundary = tierBoundaries.containsKey(i);
           return [
-            // 区分境界: 赤い線 + ラベル
+            // 区分境界: 赤い線
             if (isTierBoundary)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(children: [
-                  const SizedBox(width: 8),
-                  Text(tierBoundaries[i]!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
-                  const SizedBox(width: 6),
-                  Expanded(child: Container(height: 2, color: Colors.red)),
-                  const SizedBox(width: 8),
-                ]),
+                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+                child: Container(height: 2, color: Colors.red),
               )
             else if (i > 0)
               Divider(height: 1, color: Colors.grey[200]),
