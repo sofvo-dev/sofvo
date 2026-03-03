@@ -5727,27 +5727,30 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
         ),
         Divider(height: 1, color: Colors.grey[200]),
         // Team rows
-        ...allTeams.asMap().entries.map((e) {
+        ...allTeams.asMap().entries.expand((e) {
           final i = e.key;
           final t = e.value;
           final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
-          return Container(
-            color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: Row(children: [
-                SizedBox(width: 28, child: Text('${i + 1}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
-                    color: i == 0 ? Colors.amber[700] : (i < 3 ? AppTheme.primaryColor : AppTheme.textPrimary)))),
-                Expanded(flex: 3, child: Text(t['teamName'] ?? '', style: TextStyle(fontSize: 14,
-                    color: isMyTeam ? Colors.red : null,
-                    fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
-                SizedBox(width: 40, child: Text('${t['matchPoints']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 40, child: Text('${t['pointDiff']}', style: TextStyle(fontSize: 13,
-                    color: (t['pointDiff'] as num) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
-                SizedBox(width: 40, child: Text('${t['totalPoints']}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
-              ]),
+          return [
+            if (i > 0) Divider(height: 1, color: Colors.grey[200]),
+            Container(
+              color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Row(children: [
+                  SizedBox(width: 28, child: Text('${i + 1}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
+                      color: i == 0 ? Colors.amber[700] : (i < 3 ? AppTheme.primaryColor : AppTheme.textPrimary)))),
+                  Expanded(flex: 3, child: Text(t['teamName'] ?? '', style: TextStyle(fontSize: 14,
+                      color: isMyTeam ? Colors.red : null,
+                      fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
+                  SizedBox(width: 40, child: Text('${t['matchPoints']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                  SizedBox(width: 40, child: Text('${t['pointDiff']}', style: TextStyle(fontSize: 13,
+                      color: (t['pointDiff'] as num) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
+                  SizedBox(width: 40, child: Text('${t['totalPoints']}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
+                ]),
+              ),
             ),
-          );
+          ];
         }),
       ]),
     );
