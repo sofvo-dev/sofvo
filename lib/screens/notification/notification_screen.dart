@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../tournament/tournament_detail_screen.dart';
 import '../profile/user_profile_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -104,6 +105,49 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
+  Future<void> _onNotificationTap(Map<String, dynamic> data) async {
+    final type = data['type'] ?? '';
+    final tournamentId = data['tournamentId'] as String?;
+    final senderId = data['senderId'] as String?;
+
+    // 大会関連通知 → 大会詳細へ遷移
+    if ((type == 'tournament_announcement' ||
+            type == 'tournament_end' ||
+            type == 'waitlist_available') &&
+        tournamentId != null &&
+        tournamentId.isNotEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('tournaments')
+            .doc(tournamentId)
+            .get();
+        if (!doc.exists || !mounted) return;
+        final tData = doc.data()!;
+        tData['id'] = doc.id;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TournamentDetailScreen(tournament: tData),
+          ),
+        );
+      } catch (e) {
+        debugPrint('大会遷移に失敗: $e');
+      }
+      return;
+    }
+
+    // フォロー通知 → ユーザープロフィールへ遷移
+    if (type == 'follow' && senderId != null && senderId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(userId: senderId),
+        ),
+      );
+      return;
+    }
+  }
+
   Widget _buildNotificationItem(Map<String, dynamic> data, String docId) {
     final type = data['type'] ?? '';
     final senderId = data['senderId'] as String? ?? '';
@@ -128,6 +172,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'follow':
         icon = Icons.person_add;
         iconColor = AppTheme.accentColor;
+        break;
+      case 'tournament_announcement':
+        icon = Icons.campaign;
+        iconColor = AppTheme.accentColor;
+        break;
+      case 'tournament_end':
+        icon = Icons.emoji_events;
+        iconColor = AppTheme.accentColor;
+        break;
+      case 'waitlist_available':
+        icon = Icons.how_to_reg;
+        iconColor = AppTheme.success;
         break;
       default:
         icon = Icons.notifications;
@@ -156,10 +212,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ? Colors.transparent
             : AppTheme.primaryColor.withValues(alpha: 0.04),
         child: ListTile(
-          onTap: senderId.isNotEmpty && senderId != 'system'
-              ? () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => UserProfileScreen(userId: senderId)))
-              : null,
+          onTap: () => _onNotificationTap(data),
           leading: Stack(
             children: [
               senderAvatar.isNotEmpty
