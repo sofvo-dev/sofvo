@@ -171,4 +171,4 @@ jobs:
 
       - name: Functions - Deploy Cloud Functions
         if: steps.detect.outputs.functions == 'true'
-        run: npx firebase-tools deploy --only functions --project sofvo-19d84 --force
+        run: npx firebase-tools deploy --only functions --project sofvo-19d84 --force --debug 2>&1 | tail -100
