@@ -152,6 +152,17 @@ jobs:
         if: steps.detect.outputs.functions == 'true'
         run: cd functions && npm install
 
+      - name: Functions - Create .env from secrets
+        if: steps.detect.outputs.functions == 'true'
+        env:
+          AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
+          AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
+          AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
+        run: |
+          echo "AMAZON_ACCESS_KEY=${AMAZON_ACCESS_KEY}" > functions/.env
+          echo "AMAZON_SECRET_KEY=${AMAZON_SECRET_KEY}" >> functions/.env
+          echo "AMAZON_PARTNER_TAG=${AMAZON_PARTNER_TAG}" >> functions/.env
+
       - name: Functions - Authenticate to Google Cloud
         if: steps.detect.outputs.functions == 'true'
         uses: google-github-actions/auth@v2
