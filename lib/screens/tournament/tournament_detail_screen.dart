@@ -2554,7 +2554,7 @@ B,2,チームG,チームH,チームE,チームF''';
                 return;
               }
               Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId)));
+                tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId, isOrganizer: isOrganizer)));
             },
             child: Container(
             color: isNextToInput ? AppTheme.primaryColor.withValues(alpha: 0.06) : null,
@@ -2741,7 +2741,7 @@ B,2,チームG,チームH,チームE,チームF''';
                   child: InkWell(
                     onTap: (isOrganizer && status != 'waiting') ? () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                        tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId)));
+                        tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId, isOrganizer: isOrganizer)));
                     } : null,
                     child: Padding(
                       padding: const EdgeInsets.all(14),
