@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../profile/user_profile_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -105,6 +106,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Widget _buildNotificationItem(Map<String, dynamic> data, String docId) {
     final type = data['type'] ?? '';
+    final senderId = data['senderId'] as String? ?? '';
     final senderName = data['senderName'] ?? '不明';
     final senderAvatar = data['senderAvatar'] ?? '';
     final message = data['message'] ?? '';
@@ -154,6 +156,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ? Colors.transparent
             : AppTheme.primaryColor.withValues(alpha: 0.04),
         child: ListTile(
+          onTap: senderId.isNotEmpty && senderId != 'system'
+              ? () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => UserProfileScreen(userId: senderId)))
+              : null,
           leading: Stack(
             children: [
               senderAvatar.isNotEmpty
