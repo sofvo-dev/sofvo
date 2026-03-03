@@ -383,10 +383,10 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   Widget _buildSetRow(int setIndex) {
     final confirmed = _setConfirmed[setIndex];
     final prevConfirmed = setIndex == 0 || _setConfirmed[setIndex - 1];
-    final isActive = !_readOnly && _activeSetIndex == setIndex && !confirmed && prevConfirmed;
-    final isInputTarget = !_readOnly && !confirmed && prevConfirmed;
-    // 入力不可（読み取り専用 or 前セット未確定 or 確定済み以外のロック状態）
-    final isDisabled = _readOnly || (!confirmed && !prevConfirmed);
+    // 試合が終了済みかつ未確定のセットは入力不可（例: 2セット先取で2-0確定後の第3セット）
+    final isActive = !_readOnly && !_matchEnded && _activeSetIndex == setIndex && !confirmed && prevConfirmed;
+    final isInputTarget = !_readOnly && !_matchEnded && !confirmed && prevConfirmed;
+    final isDisabled = _readOnly || (!confirmed && !prevConfirmed) || (_matchEnded && !confirmed);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -453,7 +453,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           Expanded(child: TextField(
             controller: _ctrlA[setIndex],
             focusNode: _focusA.length > setIndex ? _focusA[setIndex] : null,
-            enabled: !_readOnly && !confirmed && prevConfirmed,
+            enabled: !isDisabled && !confirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900,
@@ -485,7 +485,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           Expanded(child: TextField(
             controller: _ctrlB[setIndex],
             focusNode: _focusB.length > setIndex ? _focusB[setIndex] : null,
-            enabled: !_readOnly && !confirmed && prevConfirmed,
+            enabled: !isDisabled && !confirmed,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900,
@@ -511,7 +511,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             onChanged: (_) { _checkMatchEnd(); _autoSave(); },
           )),
         ]),
-        if (!_readOnly && !confirmed && prevConfirmed) ...[
+        if (!_readOnly && !_matchEnded && !confirmed && prevConfirmed) ...[
           const SizedBox(height: 12),
           _buildConfirmSlider('スライドしてセット確認', false, Icons.check, () {
             final a = int.tryParse(_ctrlA[setIndex].text) ?? 0;
