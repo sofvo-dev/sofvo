@@ -986,7 +986,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
 
 
-  // ━━━ 順位表タブ（全体） ━━━
+  // ━━━ 順位表タブ（全予選合計） ━━━
   Widget _buildStandingsTab() {
     if (_tournamentId.isEmpty) return const Center(child: Text('大会IDが見つかりません'));
 
@@ -999,45 +999,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           return const Center(child: Text('予選がまだ生成されていません', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)));
         }
 
+        final roundIds = rounds.map((d) => d.id).toList();
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: rounds.map((roundDoc) {
-              final roundData = roundDoc.data() as Map<String, dynamic>;
-              final roundNum = roundData['roundNumber'] ?? 1;
-              return _buildOverallStandingsForRound(roundDoc.id, roundNum);
-            }).toList(),
+          child: _OverallStandingsAggregator(
+            tournamentId: _tournamentId,
+            roundIds: roundIds,
+            myTeamIds: _myTeamIds,
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildOverallStandingsForRound(String roundId, int roundNum) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('tournaments').doc(_tournamentId)
-          .collection('rounds').doc(roundId)
-          .collection('standings').snapshots(),
-      builder: (context, standSnap) {
-        if (!standSnap.hasData || standSnap.data!.docs.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('予選$roundNum 総合順位', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-              const SizedBox(height: 8),
-              const Text('まだ試合結果がありません', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
-            ]),
-          );
-        }
-        final courtDocs = standSnap.data!.docs;
-        // Build a StreamBuilder for each court's teams subcollection
-        return _OverallStandingsAggregator(
-          tournamentId: _tournamentId,
-          roundId: roundId,
-          roundNum: roundNum,
-          courtDocs: courtDocs,
-          myTeamIds: _myTeamIds,
         );
       },
     );
@@ -5580,19 +5549,15 @@ B,2,チームG,チームH,チームE,チームF''';
   }
 }
 
-// ━━━ 全体順位表集計ウィジェット ━━━
+// ━━━ 全予選合計の順位表ウィジェット ━━━
 class _OverallStandingsAggregator extends StatefulWidget {
   final String tournamentId;
-  final String roundId;
-  final int roundNum;
-  final List<QueryDocumentSnapshot> courtDocs;
+  final List<String> roundIds;
   final List<String> myTeamIds;
 
   const _OverallStandingsAggregator({
     required this.tournamentId,
-    required this.roundId,
-    required this.roundNum,
-    required this.courtDocs,
+    required this.roundIds,
     required this.myTeamIds,
   });
 
@@ -5603,54 +5568,93 @@ class _OverallStandingsAggregator extends StatefulWidget {
 class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator> {
   final _firestore = FirebaseFirestore.instance;
   final List<StreamSubscription<QuerySnapshot>> _subs = [];
-  final Map<String, List<Map<String, dynamic>>> _courtTeams = {};
+  // key: "roundId/courtId" → team list
+  final Map<String, List<Map<String, dynamic>>> _data = {};
   bool _loaded = false;
+  // Track standing doc listeners per round
+  final List<StreamSubscription<QuerySnapshot>> _standingSubs = [];
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _subscribeAll();
   }
 
   @override
   void didUpdateWidget(covariant _OverallStandingsAggregator old) {
     super.didUpdateWidget(old);
-    if (old.roundId != widget.roundId || old.courtDocs.length != widget.courtDocs.length) {
-      _cancelSubs();
-      _courtTeams.clear();
-      _loaded = false;
-      _subscribe();
+    if (old.roundIds.length != widget.roundIds.length ||
+        old.roundIds.join(',') != widget.roundIds.join(',')) {
+      _cancelAll();
+      _subscribeAll();
     }
   }
 
-  void _subscribe() {
-    for (final courtDoc in widget.courtDocs) {
+  void _subscribeAll() {
+    _data.clear();
+    _loaded = false;
+    // For each round, listen to standings collection to discover courts
+    for (final roundId in widget.roundIds) {
       final sub = _firestore
           .collection('tournaments').doc(widget.tournamentId)
-          .collection('rounds').doc(widget.roundId)
-          .collection('standings').doc(courtDoc.id)
-          .collection('teams').snapshots()
-          .listen((snap) {
+          .collection('rounds').doc(roundId)
+          .collection('standings').snapshots()
+          .listen((standingsSnap) {
         if (!mounted) return;
-        setState(() {
-          _courtTeams[courtDoc.id] = snap.docs.map((d) => Map<String, dynamic>.from(d.data())).toList();
-          _loaded = true;
-        });
+        // Remove old team subs for this round
+        _removeSubsForRound(roundId);
+        // Subscribe to each court's teams
+        for (final courtDoc in standingsSnap.docs) {
+          _subscribeCourtTeams(roundId, courtDoc.id);
+        }
+        if (standingsSnap.docs.isEmpty) {
+          setState(() => _loaded = true);
+        }
       });
-      _subs.add(sub);
+      _standingSubs.add(sub);
     }
   }
 
-  void _cancelSubs() {
+  void _subscribeCourtTeams(String roundId, String courtId) {
+    final key = '$roundId/$courtId';
+    final sub = _firestore
+        .collection('tournaments').doc(widget.tournamentId)
+        .collection('rounds').doc(roundId)
+        .collection('standings').doc(courtId)
+        .collection('teams').snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      setState(() {
+        _data[key] = snap.docs.map((d) => Map<String, dynamic>.from(d.data())).toList();
+        _loaded = true;
+      });
+    });
+    _subs.add(sub);
+  }
+
+  void _removeSubsForRound(String roundId) {
+    final keysToRemove = _data.keys.where((k) => k.startsWith('$roundId/')).toList();
+    for (final key in keysToRemove) {
+      _data.remove(key);
+    }
+  }
+
+  void _cancelAll() {
     for (final sub in _subs) {
       sub.cancel();
     }
     _subs.clear();
+    for (final sub in _standingSubs) {
+      sub.cancel();
+    }
+    _standingSubs.clear();
+    _data.clear();
+    _loaded = false;
   }
 
   @override
   void dispose() {
-    _cancelSubs();
+    _cancelAll();
     super.dispose();
   }
 
@@ -5658,34 +5662,44 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
 
-    // Aggregate all teams from all courts
-    final allTeams = <Map<String, dynamic>>[];
-    for (final teams in _courtTeams.values) {
-      allTeams.addAll(teams);
+    // Aggregate: sum matchPoints/pointDiff/totalPoints per teamId across all rounds & courts
+    final Map<String, Map<String, dynamic>> merged = {};
+    for (final teams in _data.values) {
+      for (final t in teams) {
+        final teamId = t['teamId'] as String? ?? '';
+        if (teamId.isEmpty) continue;
+        if (merged.containsKey(teamId)) {
+          merged[teamId]!['matchPoints'] = (merged[teamId]!['matchPoints'] as num) + ((t['matchPoints'] ?? 0) as num);
+          merged[teamId]!['pointDiff'] = (merged[teamId]!['pointDiff'] as num) + ((t['pointDiff'] ?? 0) as num);
+          merged[teamId]!['totalPoints'] = (merged[teamId]!['totalPoints'] as num) + ((t['totalPoints'] ?? 0) as num);
+        } else {
+          merged[teamId] = {
+            'teamId': teamId,
+            'teamName': t['teamName'] ?? '',
+            'matchPoints': (t['matchPoints'] ?? 0) as num,
+            'pointDiff': (t['pointDiff'] ?? 0) as num,
+            'totalPoints': (t['totalPoints'] ?? 0) as num,
+          };
+        }
+      }
     }
 
+    final allTeams = merged.values.toList();
+
     if (allTeams.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('予選${widget.roundNum} 総合順位', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-          const SizedBox(height: 8),
-          const Text('まだ試合結果がありません', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
-        ]),
-      );
+      return const Center(child: Text('まだ試合結果がありません', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)));
     }
 
     // Sort: matchPoints desc → pointDiff desc → totalPoints desc
     allTeams.sort((a, b) {
-      final mp = ((b['matchPoints'] ?? 0) as num).compareTo((a['matchPoints'] ?? 0) as num);
+      final mp = (b['matchPoints'] as num).compareTo(a['matchPoints'] as num);
       if (mp != 0) return mp;
-      final pd = ((b['pointDiff'] ?? 0) as num).compareTo((a['pointDiff'] ?? 0) as num);
+      final pd = (b['pointDiff'] as num).compareTo(a['pointDiff'] as num);
       if (pd != 0) return pd;
-      return ((b['totalPoints'] ?? 0) as num).compareTo((a['totalPoints'] ?? 0) as num);
+      return (b['totalPoints'] as num).compareTo(a['totalPoints'] as num);
     });
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -5702,7 +5716,7 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
           child: Row(children: [
             const Icon(Icons.leaderboard, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
-            Text('予選${widget.roundNum} 総合順位', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const Text('予選 総合順位', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             const Spacer(),
             Text('${allTeams.length}チーム', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
@@ -5734,10 +5748,10 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
                 Expanded(flex: 3, child: Text(t['teamName'] ?? '', style: TextStyle(fontSize: 14,
                     color: isMyTeam ? Colors.red : null,
                     fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
-                SizedBox(width: 40, child: Text('${t['matchPoints'] ?? 0}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 40, child: Text('${t['pointDiff'] ?? 0}', style: TextStyle(fontSize: 13,
-                    color: ((t['pointDiff'] ?? 0) as num) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
-                SizedBox(width: 40, child: Text('${t['totalPoints'] ?? 0}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
+                SizedBox(width: 40, child: Text('${t['matchPoints']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                SizedBox(width: 40, child: Text('${t['pointDiff']}', style: TextStyle(fontSize: 13,
+                    color: (t['pointDiff'] as num) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
+                SizedBox(width: 40, child: Text('${t['totalPoints']}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
               ]),
             ),
           );
