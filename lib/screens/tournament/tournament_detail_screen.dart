@@ -2539,7 +2539,7 @@ B,2,チームG,チームH,チームE,チームF''';
           final prevDone = matchOrd <= 1 || (prevMatch != null && (prevMatch.data() as Map<String, dynamic>)['status'] == 'completed');
           final isReferee = _myTeamIds.contains(m['refereeTeamId'] ?? '') || _myTeamIds.contains(m['subRefereeTeamId'] ?? '');
           final isMyMatch = _myTeamIds.contains(m['teamAId'] ?? '') || _myTeamIds.contains(m['teamBId'] ?? '') || isReferee;
-          final canInput = isOrganizer || isReferee;
+          final canInput = isOrganizer || isMyMatch;
           final isCompleted = status == 'completed';
           final isNextToInput = !isCompleted && prevDone && isMyMatch;
           return InkWell(
