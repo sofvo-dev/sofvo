@@ -22,7 +22,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Set<String> _bookmarkedRecruits = {};
 
   // ── Top-level swipeable page (0=tournament, 1=recruitment) ──
-  late PageController _pageController;
   late TabController _tabController;
   int _currentPage = 0;
 
@@ -54,15 +53,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging && _tabController.index != _currentPage) {
-        _pageController.animateToPage(
-          _tabController.index,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+      if (_tabController.index != _currentPage) {
+        setState(() => _currentPage = _tabController.index);
       }
     });
     _refreshStreams();
@@ -204,7 +198,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   @override
   void dispose() {
     _debounceTimer?.cancel();
-    _pageController.dispose();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -595,17 +588,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Widget _buildContent() {
     if (_isSavedMode) return _buildSavedList();
 
-    // Swipeable PageView for tournament / recruitment
-    return PageView(
-      controller: _pageController,
-      onPageChanged: (page) {
-        if (_currentPage != page) {
-          setState(() => _currentPage = page);
-          if (_tabController.index != page) {
-            _tabController.animateTo(page);
-          }
-        }
-      },
+    // Swipeable TabBarView for tournament / recruitment
+    return TabBarView(
+      controller: _tabController,
       children: [
         _KeepAlivePage(child: _buildTournamentList(_friendsOnly)),
         _KeepAlivePage(child: _buildRecruitList(_friendsOnly)),

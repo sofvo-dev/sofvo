@@ -3163,6 +3163,18 @@ B,2,チームG,チームH,チームE,チームF''';
             }
             final checkedCount = entries.where((e) => checkedInTeamIds.contains((e.data() as Map<String, dynamic>)['teamId'])).length;
 
+            // 自分のチームを先頭にソート
+            final sortedEntries = List<QueryDocumentSnapshot>.from(entries);
+            sortedEntries.sort((a, b) {
+              final aData = a.data() as Map<String, dynamic>;
+              final bData = b.data() as Map<String, dynamic>;
+              final aIsMyTeam = _myTeamIds.contains(aData['teamId'] ?? '');
+              final bIsMyTeam = _myTeamIds.contains(bData['teamId'] ?? '');
+              if (aIsMyTeam && !bIsMyTeam) return -1;
+              if (!aIsMyTeam && bIsMyTeam) return 1;
+              return 0;
+            });
+
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -3189,7 +3201,7 @@ B,2,チームG,チームH,チームE,チームF''';
                     ),
                 ]),
                 const SizedBox(height: 12),
-                ...entries.map((doc) {
+                ...sortedEntries.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final teamId = data['teamId'] ?? '';
                   final teamName = data['teamName'] ?? 'チーム';
