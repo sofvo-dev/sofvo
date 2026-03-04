@@ -1091,6 +1091,7 @@ class MatchGenerator {
 
     int matchIdx = 0;
     final courtCount = leagueCourts.length;
+    final slotReferees = <int, Set<String>>{};
 
     // SF: 1vs4, 2vs3
     final sfPairs = [[0, 3], [1, 2]];
