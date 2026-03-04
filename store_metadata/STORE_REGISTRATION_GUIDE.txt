@@ -1,0 +1,168 @@
+============================================================
+Sofvo アプリストア登録ガイド
+============================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 事前準備（共通）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[済] アプリアイコン（iOS/Android両方設定済み）
+[済] プライバシーポリシー（https://sofvo-19d84.web.app/privacy.html）
+[済] 利用規約（https://sofvo-19d84.web.app/terms.html）
+[済] Firebase設定（Auth, Firestore, Storage, FCM）
+[済] Apple Sign In / Google Sign In 実装済み
+[済] ビルドスクリプト（deploy.sh）
+
+[ ] スクリーンショット撮影（各画面6枚程度）
+[ ] フィーチャーグラフィック作成（Android用 1024x500px）
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. iOS App Store 登録手順
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ ステップ1: Apple Developer Program に登録
+  → https://developer.apple.com/programs/
+  → 年会費: 12,980円（税込）/年
+  → 個人 or 組織アカウントを選択
+  → 登録完了まで最大48時間
+
+■ ステップ2: App ID を作成
+  1. https://developer.apple.com/account にログイン
+  2. Certificates, Identifiers & Profiles → Identifiers
+  3. 「+」ボタン → App IDs → App を選択
+  4. Bundle ID: com.sofvo.app（Explicit）
+  5. Capabilities で以下を有効化:
+     - Push Notifications
+     - Sign In with Apple
+  6. Register
+
+■ ステップ3: App Store Connect でアプリを作成
+  1. https://appstoreconnect.apple.com にログイン
+  2. 「マイApp」→「+」→「新規App」
+  3. 入力内容:
+     - プラットフォーム: iOS
+     - 名前: Sofvo - ソフトバレーボール
+     - プライマリ言語: 日本語
+     - バンドルID: com.sofvo.app
+     - SKU: com.sofvo.app（任意の一意文字列）
+  4. 作成
+
+■ ステップ4: アプリ情報を入力
+  → store_metadata/ios/app_store_metadata.txt の内容を参照
+  → スクリーンショットをアップロード
+  → 説明文・キーワードを入力
+  → 年齢制限レーティングを設定
+  → プライバシーポリシーURLを設定
+
+■ ステップ5: ビルド＆アップロード
+  方法A: Xcode から手動
+    1. macOS で: flutter build ios --release
+    2. Xcode で Runner.xcworkspace を開く
+    3. Product → Archive
+    4. Distribute App → App Store Connect → Upload
+
+  方法B: コマンドラインから
+    ./deploy.sh ios
+    → 生成された .xcarchive を Xcode で Distribute
+
+  方法C: Fastlane（推奨）
+    cd ios && fastlane beta   # TestFlight
+    cd ios && fastlane release # App Store
+
+■ ステップ6: 審査に提出
+  1. App Store Connect でビルドを選択
+  2. 「審査に提出」をクリック
+  3. レビュー用のテストアカウント情報を入力
+  4. 審査期間: 通常1〜3日
+
+■ App Review で注意すべき点:
+  - テストアカウント情報を必ず提供する
+  - ユーザー生成コンテンツの通報・ブロック機能があることを説明
+  - Sign In with Apple が正しく動作することを確認
+  - カメラ/フォトライブラリの使用目的の説明が適切であること
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. Google Play Store 登録手順
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ ステップ1: Google Play Developer アカウントを作成
+  → https://play.google.com/console/signup
+  → 登録料: $25（一回のみ）
+  → 本人確認が必要（最大数日）
+
+■ ステップ2: アプリを作成
+  1. Play Console にログイン
+  2. 「アプリを作成」をクリック
+  3. 入力内容:
+     - アプリ名: Sofvo - ソフトバレーボール
+     - デフォルト言語: 日本語
+     - アプリ / ゲーム: アプリ
+     - 無料 / 有料: 無料
+  4. 宣言事項に同意して作成
+
+■ ステップ3: ストア掲載情報を入力
+  → store_metadata/android/play_store_metadata.txt の内容を参照
+  1. 「メインのストアの掲載情報」
+     - アプリ名、短い説明、詳しい説明を入力
+     - アプリアイコン（512x512）をアップロード
+     - フィーチャーグラフィック（1024x500）をアップロード
+     - スクリーンショットをアップロード
+  2. 「コンテンツのレーティング」
+     - IARC 質問票に回答
+  3. 「データセーフティ」
+     - 収集データ・利用目的を申告
+  4. 「ターゲット ユーザー」
+     - 対象年齢層を選択
+
+■ ステップ4: 署名キーの設定
+  → deploy.sh に含まれるキーストア生成を利用
+  → Play App Signing を有効にすることを推奨
+    （Google がアプリ署名キーを管理）
+
+■ ステップ5: ビルド＆アップロード
+  方法A: 手動
+    1. flutter build appbundle --release
+    2. Play Console → リリース → 製品版 → 新しいリリースを作成
+    3. app-release.aab をアップロード
+
+  方法B: deploy.sh
+    ./deploy.sh android
+    → 生成された AAB を Play Console にアップロード
+
+  方法C: Fastlane（推奨）
+    cd android && fastlane internal  # 内部テスト
+    cd android && fastlane release   # 本番リリース
+
+■ ステップ6: 審査に提出
+  1. 内部テストトラックから開始することを推奨
+  2. テスターを追加してテスト
+  3. 問題なければ本番トラックに昇格
+  4. 審査期間: 初回は最大7日、以降は通常数時間〜1日
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. 推奨する登録順序
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. スクリーンショットを撮影する（実機 or エミュレータ）
+2. フィーチャーグラフィックを作成する（Canva等で可）
+3. Google Play Console でアプリを作成（審査が比較的早い）
+4. 内部テストトラックで AAB をアップロード
+5. テストして問題なければ本番リリース
+6. Apple Developer Program に登録
+7. App Store Connect でアプリを作成
+8. TestFlight でベータテスト
+9. 本審査に提出
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. 費用まとめ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+| 項目                        | 費用           |
+|-----------------------------|----------------|
+| Apple Developer Program     | 12,980円/年     |
+| Google Play Developer       | $25（一回のみ） |
+| 合計（初年度）               | 約16,500円      |

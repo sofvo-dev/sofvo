@@ -1,0 +1,10 @@
+# Apple Developer アカウント情報
+# apple_id("your-apple-id@example.com")
+# team_id("YOUR_TEAM_ID")
+# app_identifier("com.sofvo.app")
+
+app_identifier("com.sofvo.app")
+
+# Apple ID と Team ID は環境変数から読み込むことも可能:
+# apple_id(ENV["APPLE_ID"])
+# team_id(ENV["TEAM_ID"])

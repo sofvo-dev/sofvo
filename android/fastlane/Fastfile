@@ -1,0 +1,26 @@
+default_platform(:android)
+
+platform :android do
+  desc "Google Play Store 内部テストトラックにアップロード"
+  lane :internal do
+    sh("cd ../.. && flutter build appbundle --release")
+
+    upload_to_play_store(
+      track: "internal",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Google Play Store 本番リリース"
+  lane :release do
+    sh("cd ../.. && flutter build appbundle --release")
+
+    upload_to_play_store(
+      track: "production",
+      aab: "../build/app/outputs/bundle/release/app-release.aab"
+    )
+  end
+end
