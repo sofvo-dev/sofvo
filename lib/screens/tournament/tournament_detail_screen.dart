@@ -1064,7 +1064,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             if (v != null) {
               await _firestore.collection('tournaments').doc(_tournamentId).update({'status': v});
               if (ctx.mounted) Navigator.pop(ctx);
-              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ステータスを「$v」に変更しました'), backgroundColor: AppTheme.success));
+              if (mounted) {
+                setState(() { widget.tournament['status'] = v; });
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ステータスを「$v」に変更しました'), backgroundColor: AppTheme.success));
+              }
             }
           });
       }).toList()),
