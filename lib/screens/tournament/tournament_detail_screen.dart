@@ -2822,17 +2822,25 @@ B,2,チームG,チームH,チームE,チームF''';
             courtMatchOrder[matchNum] = courtMatchCount[courtId]!;
           }
 
-          // ラウンド別にグループ化（出現順を保持）
-          final roundOrder = <String>[];
+          // ラウンド別にグループ化
           final roundMatches = <String, List<QueryDocumentSnapshot>>{};
           for (var mDoc in allMatches) {
             final round = (mDoc.data() as Map<String, dynamic>)['round'] as String? ?? '';
-            if (!roundMatches.containsKey(round)) {
-              roundOrder.add(round);
-              roundMatches[round] = [];
-            }
+            roundMatches.putIfAbsent(round, () => []);
             roundMatches[round]!.add(mDoc);
           }
+
+          // ラウンド表示順（決勝・3位決定戦を最後に）
+          const roundPriority = {
+            'qf': 0, 'sf_winner': 1, 'sf_loser': 2, 'semi': 3,
+            'round-robin': 4,
+            'final_7th': 10, 'final_5th': 11, 'final_3rd': 12, 'final_1st': 13, 'final': 14,
+          };
+          final roundOrder = roundMatches.keys.toList()..sort((a, b) {
+            final pa = roundPriority[a] ?? 5;
+            final pb = roundPriority[b] ?? 5;
+            return pa.compareTo(pb);
+          });
 
           return Column(children: roundOrder.map((round) {
             final matches = roundMatches[round]!;
