@@ -983,6 +983,7 @@ class MatchGenerator {
     }
 
     int matchIdx = 0;
+    final slotReferees = <int, Set<String>>{};
 
     // QF: 1v8, 4v5, 2v7, 3v6（シード配置）
     final qfPairs = [
@@ -1007,7 +1008,7 @@ class MatchGenerator {
       final a = qfValidPairs[i][0];
       final b = qfValidPairs[i][1];
 
-      // 同時進行する試合の全出場チームを収集
+      // 同時進行する試合の全出場チーム＋既に割り当てられた審判を収集
       final concurrentSlot = matchIdx ~/ courtCount;
       final busyIds = <String>{a.key, b.key};
       for (int j = 0; j < qfValidPairs.length; j++) {
@@ -1016,8 +1017,12 @@ class MatchGenerator {
           busyIds.add(qfValidPairs[j][1].key);
         }
       }
+      busyIds.addAll(slotReferees[concurrentSlot] ?? {});
 
       final refs = _pickRefs(busyIds, leagueTeams.length);
+      // 割り当てた審判をスロットに記録
+      if (refs['refereeTeamId']!.isNotEmpty) slotReferees.putIfAbsent(concurrentSlot, () => {}).add(refs['refereeTeamId']!);
+      if (refs['subRefereeTeamId']!.isNotEmpty) slotReferees.putIfAbsent(concurrentSlot, () => {}).add(refs['subRefereeTeamId']!);
       final courtNum = leagueCourts[matchIdx % courtCount];
       matchIdx++;
       await bracketRef.collection('matches').add({
@@ -1097,7 +1102,7 @@ class MatchGenerator {
       final aName = teams[aIdx].value['teamName'] ?? '';
       final bName = bIdx < teams.length ? teams[bIdx].value['teamName'] ?? '' : '';
 
-      // 同時進行する試合の全出場チームを収集
+      // 同時進行する試合の全出場チーム＋既に割り当てられた審判を収集
       final concurrentSlot = matchIdx ~/ courtCount;
       final busyIds = <String>{aId, bId};
       for (int j = 0; j < sfPairs.length; j++) {
@@ -1106,12 +1111,16 @@ class MatchGenerator {
           if (sfPairs[j][1] < teams.length) busyIds.add(teams[sfPairs[j][1]].key);
         }
       }
+      busyIds.addAll(slotReferees[concurrentSlot] ?? {});
 
-      // 審判割り当て（同時進行チームを除外）
+      // 審判割り当て（同時進行チーム＋既割当審判を除外）
       final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
       available.sort((a, b) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b['teamId']]!));
       final mainRef = available.isNotEmpty ? available.first : null;
-      if (mainRef != null) mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
+      if (mainRef != null) {
+        mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
+        slotReferees.putIfAbsent(concurrentSlot, () => {}).add(mainRef['teamId']!);
+      }
 
       String subRefId = '', subRefName = '';
       if (leagueTeams.length >= 4 && available.length >= 2) {
@@ -1121,6 +1130,7 @@ class MatchGenerator {
           subRefId = subCandidates.first['teamId']!;
           subRefName = subCandidates.first['teamName']!;
           subRefCount[subRefId] = (subRefCount[subRefId] ?? 0) + 1;
+          slotReferees.putIfAbsent(concurrentSlot, () => {}).add(subRefId);
         }
       }
 
@@ -1187,11 +1197,12 @@ class MatchGenerator {
     }
 
     final courtCount = allCourts.length;
+    final slotReferees = <int, Set<String>>{};
     for (int i = 0; i < pairs.length; i++) {
       final a = pairs[i][0];
       final b = pairs[i][1];
 
-      // 同時進行する試合の全出場チームを収集
+      // 同時進行する試合の全出場チーム＋既に割り当てられた審判を収集
       final concurrentSlot = i ~/ courtCount;
       final busyIds = <String>{a.key, b.key};
       for (int j = 0; j < pairs.length; j++) {
@@ -1200,11 +1211,15 @@ class MatchGenerator {
           busyIds.add(pairs[j][1].key);
         }
       }
+      busyIds.addAll(slotReferees[concurrentSlot] ?? {});
 
       final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
       available.sort((x, y) => (mainRefCount[x['teamId']]!).compareTo(mainRefCount[y['teamId']]!));
       final mainRef = available.isNotEmpty ? available.first : null;
-      if (mainRef != null) mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
+      if (mainRef != null) {
+        mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
+        slotReferees.putIfAbsent(concurrentSlot, () => {}).add(mainRef['teamId']!);
+      }
 
       String subRefId = '', subRefName = '';
       if (sorted.length >= 4 && available.length >= 2) {
@@ -1214,6 +1229,7 @@ class MatchGenerator {
           subRefId = subCandidates.first['teamId']!;
           subRefName = subCandidates.first['teamName']!;
           subRefCount[subRefId] = (subRefCount[subRefId] ?? 0) + 1;
+          slotReferees.putIfAbsent(concurrentSlot, () => {}).add(subRefId);
         }
       }
 
@@ -1502,6 +1518,9 @@ class MatchGenerator {
       final courtCount = leagueCourts.length;
       final docs = matchesSnap.docs;
 
+      // スロット毎の審判割当を記録（同時進行する試合間で審判が重複しないように）
+      final slotReferees = <int, Set<String>>{};
+
       for (int i = 0; i < docs.length; i++) {
         final mDoc = docs[i];
         final m = mDoc.data();
@@ -1509,12 +1528,12 @@ class MatchGenerator {
         final bId = m['teamBId'] as String? ?? '';
 
         final courtNum = leagueCourts[i % courtCount];
+        final concurrentSlot = i ~/ courtCount;
 
         // チームが確定している試合のみ審判割当
         String refId = '', refName = '', subRefId = '', subRefName = '';
         if (aId.isNotEmpty && bId.isNotEmpty) {
-          // 同時進行する試合の全出場チームを収集
-          final concurrentSlot = i ~/ courtCount;
+          // 同時進行する試合の全出場チーム＋既に割り当てられた審判を収集
           final busyIds = <String>{aId, bId};
           for (int j = 0; j < docs.length; j++) {
             if (j != i && (j ~/ courtCount) == concurrentSlot) {
@@ -1525,6 +1544,8 @@ class MatchGenerator {
               if (otherB.isNotEmpty) busyIds.add(otherB);
             }
           }
+          // 同スロットで既に審判割当済みのチームも除外
+          busyIds.addAll(slotReferees[concurrentSlot] ?? {});
 
           final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
           available.sort((a, b2) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b2['teamId']]!));
@@ -1532,6 +1553,7 @@ class MatchGenerator {
             refId = available.first['teamId']!;
             refName = available.first['teamName']!;
             mainRefCount[refId] = (mainRefCount[refId] ?? 0) + 1;
+            slotReferees.putIfAbsent(concurrentSlot, () => {}).add(refId);
           }
           if (leagueTeams.length >= 4 && available.length >= 2) {
             final subCandidates = available.where((t) => t['teamId'] != refId).toList();
@@ -1540,6 +1562,7 @@ class MatchGenerator {
               subRefId = subCandidates.first['teamId']!;
               subRefName = subCandidates.first['teamName']!;
               subRefCount[subRefId] = (subRefCount[subRefId] ?? 0) + 1;
+              slotReferees.putIfAbsent(concurrentSlot, () => {}).add(subRefId);
             }
           }
         }
