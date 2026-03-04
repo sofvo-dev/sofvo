@@ -4390,6 +4390,21 @@ B,2,チームG,チームH,チームE,チームF''';
       );
       if (pickedList.isEmpty || !mounted) return;
 
+      // 画像ファイルのみフィルタ（「ファイルを選択」から非画像が選ばれた場合を除外）
+      const allowedExtensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp'};
+      final imageFiles = pickedList.where((f) {
+        final ext = f.name.contains('.') ? '.${f.name.split('.').last.toLowerCase()}' : '';
+        return allowedExtensions.contains(ext);
+      }).toList();
+      if (imageFiles.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('写真ファイルのみアップロードできます'), backgroundColor: AppTheme.error),
+          );
+        }
+        return;
+      }
+
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -4399,7 +4414,7 @@ B,2,チームG,チームH,チームE,チームF''';
       final userDoc = await _firestore.collection('users').doc(uid).get();
       final uploaderName = (userDoc.data()?['nickname'] as String?) ?? 'ユーザー';
 
-      for (final picked in pickedList) {
+      for (final picked in imageFiles) {
         final bytes = await picked.readAsBytes();
         final fileName = '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
         final ref = FirebaseStorage.instance
@@ -4422,7 +4437,7 @@ B,2,チームG,チームH,チームE,チームF''';
       if (mounted) {
         Navigator.pop(context); // ローディング閉じる
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${pickedList.length}枚の写真をアップロードしました'), backgroundColor: AppTheme.success),
+          SnackBar(content: Text('${imageFiles.length}枚の写真をアップロードしました'), backgroundColor: AppTheme.success),
         );
       }
     } catch (e) {
