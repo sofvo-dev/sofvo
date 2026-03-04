@@ -383,11 +383,25 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(t['title'] ?? '',
-                        style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary)),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(
+                          child: Text(t['title'] ?? '',
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: roleColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: Text(roleLabel,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: roleColor)),
+                      ),
+                    ]),
                     const SizedBox(height: 8),
                     _infoRow(Icons.location_on_outlined, t['location'] ?? ''),
                     const SizedBox(height: 4),
@@ -430,21 +444,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                     ]),
                   ])),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                        color: roleColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6)),
-                    child: Text(roleLabel,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: roleColor)),
-                  ),
-                  const SizedBox(height: 4),
-                  Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
-                ],
-              ),
+              Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
             ]),
           ),
         ]),
