@@ -1030,12 +1030,12 @@ class MatchGenerator {
       });
     }
 
-    // 決勝(1-2位), 3位決定戦, 5位決定戦, 7位決定戦
+    // 決勝系（下位から順に → 決勝が最後）
     for (final entry in [
-      {'round': 'final_1st', 'num': 9, 'a': 'SF勝者①勝者', 'b': 'SF勝者②勝者', 'label': '決勝（1-2位）'},
-      {'round': 'final_3rd', 'num': 10, 'a': 'SF勝者①敗者', 'b': 'SF勝者②敗者', 'label': '3位決定戦'},
-      {'round': 'final_5th', 'num': 11, 'a': 'SF敗者①勝者', 'b': 'SF敗者②勝者', 'label': '5位決定戦'},
-      {'round': 'final_7th', 'num': 12, 'a': 'SF敗者①敗者', 'b': 'SF敗者②敗者', 'label': '7位決定戦'},
+      {'round': 'final_7th', 'num': 9, 'a': 'SF敗者①敗者', 'b': 'SF敗者②敗者', 'label': '7位決定戦'},
+      {'round': 'final_5th', 'num': 10, 'a': 'SF敗者①勝者', 'b': 'SF敗者②勝者', 'label': '5位決定戦'},
+      {'round': 'final_3rd', 'num': 11, 'a': 'SF勝者①敗者', 'b': 'SF勝者②敗者', 'label': '3位決定戦'},
+      {'round': 'final_1st', 'num': 12, 'a': 'SF勝者①勝者', 'b': 'SF勝者②勝者', 'label': '決勝（1-2位）'},
     ]) {
       final courtNum = leagueCourts[matchIdx % leagueCourts.length];
       matchIdx++;
@@ -1105,10 +1105,10 @@ class MatchGenerator {
       });
     }
 
-    // 決勝 + 3位決定戦（チーム未定のため審判は空）
+    // 3位決定戦 → 決勝（決勝が最後）
     for (final entry in [
-      {'round': 'final_1st', 'a': 'SF①勝者', 'b': 'SF②勝者', 'label': '決勝（1-2位）'},
       {'round': 'final_3rd', 'a': 'SF①敗者', 'b': 'SF②敗者', 'label': '3位決定戦'},
+      {'round': 'final_1st', 'a': 'SF①勝者', 'b': 'SF②勝者', 'label': '決勝（1-2位）'},
     ]) {
       final courtNum = leagueCourts[matchIdx % leagueCourts.length];
       matchIdx++;

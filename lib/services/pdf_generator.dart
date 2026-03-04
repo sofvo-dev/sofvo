@@ -462,12 +462,12 @@ class PdfGenerator {
     return pdf.save();
   }
 
-  /// 8チームSEトーナメント（勝者側ツリー）
+  /// 8チームSEトーナメント — 1ページに全順位決定戦を表示
+  /// 上→下の自然な流れ: QF → SF → 決勝
   void _add8TeamBracketPages(
     pw.Document pdf, pw.Font font, pw.Font fontBold,
     String tournamentName, String bracketName, List<Map<String, dynamic>> matches,
   ) {
-    // ラウンド分類
     final qfMatches = matches.where((m) => m['round'] == 'qf').toList()
       ..sort((a, b) => (a['matchNumber'] as int? ?? 0).compareTo(b['matchNumber'] as int? ?? 0));
     final sfWinner = matches.where((m) => m['round'] == 'sf_winner').toList()
@@ -479,129 +479,127 @@ class PdfGenerator {
     final final5th = matches.where((m) => m['round'] == 'final_5th').firstOrNull;
     final final7th = matches.where((m) => m['round'] == 'final_7th').firstOrNull;
 
-    // ページ1: 勝者トーナメント（QF → SF勝者 → 決勝）
     pdf.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(24),
+      margin: const pw.EdgeInsets.all(20),
       theme: pw.ThemeData.withFont(base: font, bold: fontBold),
       build: (context) {
         return pw.Column(children: [
           _buildTitleBanner('$bracketNameトーナメント'),
-          pw.SizedBox(height: 6),
-          pw.Text('勝者トーナメント（1〜4位決定）', style: pw.TextStyle(fontSize: 9, color: _textMedium)),
-          pw.SizedBox(height: 12),
-          // 決勝（トップ）
-          if (final1st != null) ...[
-            _crownIcon(),
-            pw.SizedBox(height: 4),
-            _matchBox(final1st, label: '決勝（1-2位）', highlight: true),
-            pw.SizedBox(height: 4),
-            _connectorDown2(),
-            pw.SizedBox(height: 4),
-          ],
-          // SF勝者
-          pw.Row(children: [
-            pw.Expanded(child: sfWinner.isNotEmpty
-                ? _matchBox(sfWinner[0], label: '準決勝①')
-                : pw.SizedBox()),
-            pw.SizedBox(width: 20),
-            pw.Expanded(child: sfWinner.length > 1
-                ? _matchBox(sfWinner[1], label: '準決勝②')
-                : pw.SizedBox()),
-          ]),
+          pw.SizedBox(height: 8),
+
+          // ━━━ 準々決勝 ━━━
+          _sectionHeader('準々決勝'),
           pw.SizedBox(height: 4),
-          // コネクタ
-          pw.Row(children: [
-            pw.Expanded(child: _connectorDown2()),
-            pw.SizedBox(width: 20),
-            pw.Expanded(child: _connectorDown2()),
-          ]),
-          pw.SizedBox(height: 4),
-          // QF
           pw.Row(children: [
             pw.Expanded(child: qfMatches.isNotEmpty
-                ? _matchBox(qfMatches[0], label: 'QF①', compact: true)
+                ? _matchBox(qfMatches[0], label: '①', compact: true)
                 : pw.SizedBox()),
-            pw.SizedBox(width: 6),
+            pw.SizedBox(width: 4),
             pw.Expanded(child: qfMatches.length > 1
-                ? _matchBox(qfMatches[1], label: 'QF②', compact: true)
+                ? _matchBox(qfMatches[1], label: '②', compact: true)
                 : pw.SizedBox()),
-            pw.SizedBox(width: 6),
+            pw.SizedBox(width: 4),
             pw.Expanded(child: qfMatches.length > 2
-                ? _matchBox(qfMatches[2], label: 'QF③', compact: true)
+                ? _matchBox(qfMatches[2], label: '③', compact: true)
                 : pw.SizedBox()),
-            pw.SizedBox(width: 6),
+            pw.SizedBox(width: 4),
             pw.Expanded(child: qfMatches.length > 3
-                ? _matchBox(qfMatches[3], label: 'QF④', compact: true)
+                ? _matchBox(qfMatches[3], label: '④', compact: true)
                 : pw.SizedBox()),
           ]),
-          pw.SizedBox(height: 16),
-          // 3位決定戦
-          if (final3rd != null) ...[
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.symmetric(vertical: 2),
-              child: pw.Text('3位決定戦', style: pw.TextStyle(fontSize: 9, color: _textMedium, fontWeight: pw.FontWeight.bold),
-                  textAlign: pw.TextAlign.center),
-            ),
-            pw.SizedBox(height: 4),
-            pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 60),
-              child: _matchBox(final3rd, label: '3位決定戦'),
-            ),
-          ],
-          pw.Spacer(),
-          _footerLine(),
-        ]);
-      },
-    ));
-
-    // ページ2: 敗者トーナメント（SF敗者 → 5位/7位決定戦）
-    pdf.addPage(pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(24),
-      theme: pw.ThemeData.withFont(base: font, bold: fontBold),
-      build: (context) {
-        return pw.Column(children: [
-          _buildTitleBanner('$bracketNameトーナメント'),
+          pw.SizedBox(height: 4),
+          _connectorDown4(),
           pw.SizedBox(height: 6),
-          pw.Text('敗者トーナメント（5〜8位決定）', style: pw.TextStyle(fontSize: 9, color: _textMedium)),
-          pw.SizedBox(height: 16),
-          // 5位・7位決定戦
-          pw.Row(children: [
-            pw.Expanded(child: pw.Column(children: [
-              pw.Text('5位決定戦', style: pw.TextStyle(fontSize: 9, color: _textMedium, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 6),
-              if (final5th != null) _matchBox(final5th, label: '5位決定戦'),
-            ])),
-            pw.SizedBox(width: 16),
-            pw.Expanded(child: pw.Column(children: [
-              pw.Text('7位決定戦', style: pw.TextStyle(fontSize: 9, color: _textMedium, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 6),
-              if (final7th != null) _matchBox(final7th, label: '7位決定戦'),
-            ])),
-          ]),
-          pw.SizedBox(height: 8),
-          pw.Row(children: [
-            pw.Expanded(child: _connectorDown2()),
-            pw.SizedBox(width: 16),
-            pw.Expanded(child: _connectorDown2()),
-          ]),
-          pw.SizedBox(height: 8),
-          // SF敗者
-          pw.Row(children: [
-            pw.Expanded(child: pw.Column(children: [
-              pw.Text('敗者準決勝①', style: pw.TextStyle(fontSize: 8, color: _textMedium)),
+
+          // ━━━ 準決勝 ━━━
+          pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            // 勝者準決勝
+            pw.Expanded(flex: 1, child: pw.Column(children: [
+              _sectionHeader('準決勝（勝者）'),
               pw.SizedBox(height: 4),
-              if (sfLoser.isNotEmpty) _matchBox(sfLoser[0]),
+              pw.Row(children: [
+                pw.Expanded(child: sfWinner.isNotEmpty
+                    ? _matchBox(sfWinner[0], label: '①勝 vs ②勝', compact: true) : pw.SizedBox()),
+                pw.SizedBox(width: 4),
+                pw.Expanded(child: sfWinner.length > 1
+                    ? _matchBox(sfWinner[1], label: '③勝 vs ④勝', compact: true) : pw.SizedBox()),
+              ]),
             ])),
-            pw.SizedBox(width: 16),
-            pw.Expanded(child: pw.Column(children: [
-              pw.Text('敗者準決勝②', style: pw.TextStyle(fontSize: 8, color: _textMedium)),
+            pw.SizedBox(width: 12),
+            // 敗者準決勝
+            pw.Expanded(flex: 1, child: pw.Column(children: [
+              _sectionHeader('準決勝（敗者）'),
               pw.SizedBox(height: 4),
-              if (sfLoser.length > 1) _matchBox(sfLoser[1]),
+              pw.Row(children: [
+                pw.Expanded(child: sfLoser.isNotEmpty
+                    ? _matchBox(sfLoser[0], label: '①負 vs ②負', compact: true) : pw.SizedBox()),
+                pw.SizedBox(width: 4),
+                pw.Expanded(child: sfLoser.length > 1
+                    ? _matchBox(sfLoser[1], label: '③負 vs ④負', compact: true) : pw.SizedBox()),
+              ]),
             ])),
           ]),
+          pw.SizedBox(height: 6),
+          _connectorDown4(),
+          pw.SizedBox(height: 6),
+
+          // ━━━ 順位決定戦 ━━━
+          _sectionHeader('順位決定戦'),
+          pw.SizedBox(height: 4),
+          pw.Row(children: [
+            pw.Expanded(child: final7th != null
+                ? _matchBox(final7th, label: '7位決定戦', compact: true)
+                : pw.SizedBox()),
+            pw.SizedBox(width: 4),
+            pw.Expanded(child: final5th != null
+                ? _matchBox(final5th, label: '5位決定戦', compact: true)
+                : pw.SizedBox()),
+            pw.SizedBox(width: 4),
+            pw.Expanded(child: final3rd != null
+                ? _matchBox(final3rd, label: '3位決定戦', compact: true)
+                : pw.SizedBox()),
+            pw.SizedBox(width: 4),
+            pw.Expanded(child: final1st != null
+                ? _matchBox(final1st, label: '決勝（1-2位）', highlight: true, compact: true)
+                : pw.SizedBox()),
+          ]),
+          pw.SizedBox(height: 12),
+
+          // ━━━ 対戦フロー図 ━━━
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFFF5F5F5),
+              borderRadius: pw.BorderRadius.circular(6),
+              border: pw.Border.all(color: _divider),
+            ),
+            child: pw.Column(children: [
+              pw.Text('対戦フロー', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _navy)),
+              pw.SizedBox(height: 6),
+              pw.Row(children: [
+                pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                  _flowLine('QF① 勝者 ┐'),
+                  _flowLine('            ├→ 準決勝（勝者①）→ 勝→ 決勝（1-2位）'),
+                  _flowLine('QF② 勝者 ┘                  └ 負→ 3位決定戦'),
+                  pw.SizedBox(height: 3),
+                  _flowLine('QF③ 勝者 ┐'),
+                  _flowLine('            ├→ 準決勝（勝者②）→ 勝→ 決勝（1-2位）'),
+                  _flowLine('QF④ 勝者 ┘                  └ 負→ 3位決定戦'),
+                  pw.SizedBox(height: 6),
+                  _flowLine('QF① 敗者 ┐'),
+                  _flowLine('            ├→ 準決勝（敗者①）→ 勝→ 5位決定戦'),
+                  _flowLine('QF② 敗者 ┘                  └ 負→ 7位決定戦'),
+                  pw.SizedBox(height: 3),
+                  _flowLine('QF③ 敗者 ┐'),
+                  _flowLine('            ├→ 準決勝（敗者②）→ 勝→ 5位決定戦'),
+                  _flowLine('QF④ 敗者 ┘                  └ 負→ 7位決定戦'),
+                ])),
+              ]),
+            ]),
+          ),
+
           pw.Spacer(),
           _footerLine(),
         ]);
@@ -609,7 +607,7 @@ class PdfGenerator {
     ));
   }
 
-  /// 4チームSEトーナメント
+  /// 4チームSEトーナメント — 上→下の自然な流れ
   void _add4TeamBracketPage(
     pw.Document pdf, pw.Font font, pw.Font fontBold,
     String tournamentName, String bracketName, List<Map<String, dynamic>> matches,
@@ -626,37 +624,58 @@ class PdfGenerator {
       build: (context) {
         return pw.Column(children: [
           _buildTitleBanner('$bracketNameトーナメント'),
-          pw.SizedBox(height: 20),
-          // 決勝
-          if (final1st != null) ...[
-            _crownIcon(),
-            pw.SizedBox(height: 6),
-            pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 40),
-              child: _matchBox(final1st, label: '決勝', highlight: true),
-            ),
-            pw.SizedBox(height: 8),
-            _connectorDown2(),
-            pw.SizedBox(height: 8),
-          ],
-          // 準決勝
+          pw.SizedBox(height: 16),
+
+          // ━━━ 準決勝 ━━━
+          _sectionHeader('準決勝'),
+          pw.SizedBox(height: 6),
           pw.Row(children: [
             pw.Expanded(child: semiMatches.isNotEmpty
-                ? _matchBox(semiMatches[0], label: '準決勝①')
-                : pw.SizedBox()),
+                ? _matchBox(semiMatches[0], label: '準決勝①') : pw.SizedBox()),
             pw.SizedBox(width: 20),
             pw.Expanded(child: semiMatches.length > 1
-                ? _matchBox(semiMatches[1], label: '準決勝②')
+                ? _matchBox(semiMatches[1], label: '準決勝②') : pw.SizedBox()),
+          ]),
+          pw.SizedBox(height: 6),
+          _connectorDown2(),
+          pw.SizedBox(height: 10),
+
+          // ━━━ 順位決定戦 ━━━
+          _sectionHeader('順位決定戦'),
+          pw.SizedBox(height: 6),
+          pw.Row(children: [
+            pw.Expanded(child: final3rd != null
+                ? _matchBox(final3rd, label: '3位決定戦')
+                : pw.SizedBox()),
+            pw.SizedBox(width: 20),
+            pw.Expanded(child: final1st != null
+                ? _matchBox(final1st, label: '決勝（1-2位）', highlight: true)
                 : pw.SizedBox()),
           ]),
-          pw.SizedBox(height: 24),
-          // 3位決定戦
-          if (final3rd != null) ...[
-            pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 60),
-              child: _matchBox(final3rd, label: '3位決定戦'),
+          pw.SizedBox(height: 16),
+
+          // フロー図
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFFF5F5F5),
+              borderRadius: pw.BorderRadius.circular(6),
+              border: pw.Border.all(color: _divider),
             ),
-          ],
+            child: pw.Column(children: [
+              pw.Text('対戦フロー', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _navy)),
+              pw.SizedBox(height: 4),
+              _flowLine('準決勝①の勝者 ┐'),
+              _flowLine('                    ├→ 決勝（1-2位）'),
+              _flowLine('準決勝②の勝者 ┘'),
+              pw.SizedBox(height: 3),
+              _flowLine('準決勝①の敗者 ┐'),
+              _flowLine('                    ├→ 3位決定戦'),
+              _flowLine('準決勝②の敗者 ┘'),
+            ]),
+          ),
+
           pw.Spacer(),
           _footerLine(),
         ]);
@@ -795,6 +814,43 @@ class PdfGenerator {
         ),
         child: pw.Center(child: pw.Text('👑', style: pw.TextStyle(fontSize: 16))),
       ),
+    );
+  }
+
+  /// セクションヘッダー
+  pw.Widget _sectionHeader(String title) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+      decoration: pw.BoxDecoration(
+        color: _navyLight,
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(title, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _navy), textAlign: pw.TextAlign.center),
+    );
+  }
+
+  /// フロー説明テキスト
+  pw.Widget _flowLine(String text) {
+    return pw.Text(text, style: pw.TextStyle(fontSize: 7, color: _textMedium));
+  }
+
+  /// 下方向コネクタ（4分岐 → 2分岐）
+  pw.Widget _connectorDown4() {
+    return pw.CustomPaint(
+      size: const PdfPoint(0, 12),
+      painter: (canvas, size) {
+        final paint = PdfColor.fromInt(0xFFBDBDBD);
+        canvas.setStrokeColor(paint);
+        canvas.setLineWidth(0.6);
+        // 下方向の矢印線
+        final midX = size.x / 2;
+        canvas.drawLine(midX, 0, midX, size.y);
+        canvas.strokePath();
+        // 横線
+        canvas.drawLine(size.x * 0.15, size.y * 0.5, size.x * 0.85, size.y * 0.5);
+        canvas.strokePath();
+      },
     );
   }
 
