@@ -2961,8 +2961,10 @@ B,2,チームG,チームH,チームE,チームF''';
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           child: Row(children: [
-                            Expanded(flex: 3, child: Text(m['teamAName'] ?? '', style: TextStyle(fontSize: 16,
-                                color: _myTeamIds.contains(m['teamAId'] ?? '') ? Colors.red : null,
+                            Expanded(flex: 3, child: Text(
+                                (m['teamAId'] ?? '').isEmpty ? _friendlyPlaceholder(m['teamAName'] ?? '') : (m['teamAName'] ?? ''),
+                                style: TextStyle(fontSize: 16,
+                                color: (m['teamAId'] ?? '').isEmpty ? AppTheme.textHint : (_myTeamIds.contains(m['teamAId'] ?? '') ? Colors.red : null),
                                 fontWeight: _myTeamIds.contains(m['teamAId'] ?? '') || (isCompleted && result['winner'] == m['teamAId']) ? FontWeight.bold : FontWeight.normal),
                                 textAlign: TextAlign.right)),
                             Container(
@@ -2976,8 +2978,10 @@ B,2,チームG,チームH,チームE,チームF''';
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
                                     color: isCompleted ? Colors.amber[800] : AppTheme.textSecondary)),
                             ),
-                            Expanded(flex: 3, child: Text(m['teamBName'] ?? '', style: TextStyle(fontSize: 16,
-                                color: _myTeamIds.contains(m['teamBId'] ?? '') ? Colors.red : null,
+                            Expanded(flex: 3, child: Text(
+                                (m['teamBId'] ?? '').isEmpty ? _friendlyPlaceholder(m['teamBName'] ?? '') : (m['teamBName'] ?? ''),
+                                style: TextStyle(fontSize: 16,
+                                color: (m['teamBId'] ?? '').isEmpty ? AppTheme.textHint : (_myTeamIds.contains(m['teamBId'] ?? '') ? Colors.red : null),
                                 fontWeight: _myTeamIds.contains(m['teamBId'] ?? '') || (isCompleted && result['winner'] == m['teamBId']) ? FontWeight.bold : FontWeight.normal))),
                             if (isCompleted)
                               const Icon(Icons.check_circle, size: 16, color: Colors.amber)
@@ -6079,6 +6083,38 @@ B,2,チームG,チームH,チームE,チームF''';
       '中上': '中上位リーグ', '中下': '中下位リーグ',
     };
     return map[name] ?? name;
+  }
+
+  /// 未確定チーム名のプレースホルダーをわかりやすい表記に変換
+  String _friendlyPlaceholder(String name) {
+    // QF①勝者 → 第1試合 勝者
+    final qfMatch = RegExp(r'^QF([①②③④])(.+)$').firstMatch(name);
+    if (qfMatch != null) {
+      const numMap = {'①': '1', '②': '2', '③': '3', '④': '4'};
+      final num = numMap[qfMatch.group(1)] ?? qfMatch.group(1)!;
+      return '第${num}試合 ${qfMatch.group(2)}';
+    }
+    // SF勝者①勝者 → 第5試合 勝者, SF勝者②敗者 → 第6試合 敗者
+    // SF敗者①敗者 → 第7試合 敗者, SF敗者②勝者 → 第8試合 勝者
+    final sfFinalMatch = RegExp(r'^SF(勝者|敗者)([①②])(.+)$').firstMatch(name);
+    if (sfFinalMatch != null) {
+      const numMap = {'①': '1', '②': '2'};
+      final sfType = sfFinalMatch.group(1)!; // 勝者 or 敗者
+      final idx = numMap[sfFinalMatch.group(2)] ?? '1';
+      final result = sfFinalMatch.group(3)!;
+      // SF勝者①→第5試合, SF勝者②→第6試合, SF敗者①→第7試合, SF敗者②→第8試合
+      final baseNum = sfType == '勝者' ? 4 : 6;
+      final matchNum = baseNum + int.parse(idx);
+      return '第${matchNum}試合 $result';
+    }
+    // SF①勝者 → 第1試合 勝者 (4チームSE)
+    final sfMatch = RegExp(r'^SF([①②])(.+)$').firstMatch(name);
+    if (sfMatch != null) {
+      const numMap = {'①': '1', '②': '2'};
+      final num = numMap[sfMatch.group(1)] ?? sfMatch.group(1)!;
+      return '第${num}試合 ${sfMatch.group(2)}';
+    }
+    return name;
   }
 
   /// 表示用のフルネーム（上位リーグ/中位リーグ/下位リーグ）
