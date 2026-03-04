@@ -286,6 +286,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ステータスバッジ（上部中央）
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+              ),
+              child: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ),
+          const SizedBox(height: 6),
           // 大会名 + カテゴリ
           Row(
             children: [
@@ -317,17 +330,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   overflow: TextOverflow.ellipsis),
             ),
           ]),
-          const SizedBox(height: 6),
-          // ステータスバッジ
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-            ),
-            child: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
         ],
       ),
     );
