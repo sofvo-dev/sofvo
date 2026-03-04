@@ -2812,10 +2812,23 @@ B,2,チームG,チームH,チームE,チームF''';
             'final_5th': '5位決定戦', 'final_7th': '7位決定戦', 'final': '決勝', 'round-robin': '総当たり',
           };
 
-          // コート毎の試合番号を計算（そのコートで何試合目か）
+          // コート毎の試合番号を計算（時間順にソートしてから）
+          const _roundTemporal = {
+            'qf': 0, 'semi': 1, 'sf_winner': 2, 'sf_loser': 3,
+            'round-robin': 4,
+            'final_7th': 5, 'final_5th': 6, 'final_3rd': 7, 'final_1st': 8, 'final': 9,
+          };
+          final sortedForCourt = List<QueryDocumentSnapshot>.from(allMatches)..sort((a, b) {
+            final aM = a.data() as Map<String, dynamic>;
+            final bM = b.data() as Map<String, dynamic>;
+            final aPri = _roundTemporal[aM['round'] as String? ?? ''] ?? 99;
+            final bPri = _roundTemporal[bM['round'] as String? ?? ''] ?? 99;
+            if (aPri != bPri) return aPri.compareTo(bPri);
+            return ((aM['matchNumber'] as int?) ?? 0).compareTo((bM['matchNumber'] as int?) ?? 0);
+          });
           final courtMatchCount = <String, int>{};
           final courtMatchOrder = <int, int>{}; // matchNumber -> コート内順番
-          for (var mDoc in allMatches) {
+          for (var mDoc in sortedForCourt) {
             final m = mDoc.data() as Map<String, dynamic>;
             final courtId = m['courtId'] as String? ?? 'no_court';
             final matchNum = m['matchNumber'] as int? ?? 0;
