@@ -1036,12 +1036,12 @@ class MatchGenerator {
     }
 
     // SF以降はチーム未定のため審判は空、コートは割り当て
-    // SF勝者
+    // SF勝者・敗者
     for (final entry in [
-      {'round': 'sf_winner', 'num': 5, 'a': 'QF①勝者', 'b': 'QF②勝者'},
-      {'round': 'sf_winner', 'num': 6, 'a': 'QF③勝者', 'b': 'QF④勝者'},
-      {'round': 'sf_loser', 'num': 7, 'a': 'QF①敗者', 'b': 'QF②敗者'},
-      {'round': 'sf_loser', 'num': 8, 'a': 'QF③敗者', 'b': 'QF④敗者'},
+      {'round': 'sf_winner', 'num': 5, 'a': '第1試合 勝者', 'b': '第2試合 勝者'},
+      {'round': 'sf_winner', 'num': 6, 'a': '第3試合 勝者', 'b': '第4試合 勝者'},
+      {'round': 'sf_loser', 'num': 7, 'a': '第1試合 敗者', 'b': '第2試合 敗者'},
+      {'round': 'sf_loser', 'num': 8, 'a': '第3試合 敗者', 'b': '第4試合 敗者'},
     ]) {
       final courtNum = leagueCourts[matchIdx % leagueCourts.length];
       matchIdx++;
@@ -1058,10 +1058,10 @@ class MatchGenerator {
 
     // 決勝系（下位から順に → 決勝が最後）
     for (final entry in [
-      {'round': 'final_7th', 'num': 9, 'a': 'SF敗者①敗者', 'b': 'SF敗者②敗者', 'label': '7位決定戦'},
-      {'round': 'final_5th', 'num': 10, 'a': 'SF敗者①勝者', 'b': 'SF敗者②勝者', 'label': '5位決定戦'},
-      {'round': 'final_3rd', 'num': 11, 'a': 'SF勝者①敗者', 'b': 'SF勝者②敗者', 'label': '3位決定戦'},
-      {'round': 'final_1st', 'num': 12, 'a': 'SF勝者①勝者', 'b': 'SF勝者②勝者', 'label': '決勝（1-2位）'},
+      {'round': 'final_7th', 'num': 9, 'a': '第7試合 敗者', 'b': '第8試合 敗者', 'label': '7位決定戦'},
+      {'round': 'final_5th', 'num': 10, 'a': '第7試合 勝者', 'b': '第8試合 勝者', 'label': '5位決定戦'},
+      {'round': 'final_3rd', 'num': 11, 'a': '第5試合 敗者', 'b': '第6試合 敗者', 'label': '3位決定戦'},
+      {'round': 'final_1st', 'num': 12, 'a': '第5試合 勝者', 'b': '第6試合 勝者', 'label': '決勝（1-2位）'},
     ]) {
       final courtNum = leagueCourts[matchIdx % leagueCourts.length];
       matchIdx++;
@@ -1150,8 +1150,8 @@ class MatchGenerator {
 
     // 3位決定戦 → 決勝（決勝が最後）
     for (final entry in [
-      {'round': 'final_3rd', 'a': 'SF①敗者', 'b': 'SF②敗者', 'label': '3位決定戦'},
-      {'round': 'final_1st', 'a': 'SF①勝者', 'b': 'SF②勝者', 'label': '決勝（1-2位）'},
+      {'round': 'final_3rd', 'a': '第1試合 敗者', 'b': '第2試合 敗者', 'label': '3位決定戦'},
+      {'round': 'final_1st', 'a': '第1試合 勝者', 'b': '第2試合 勝者', 'label': '決勝（1-2位）'},
     ]) {
       final courtNum = leagueCourts[matchIdx % leagueCourts.length];
       matchIdx++;
