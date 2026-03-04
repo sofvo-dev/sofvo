@@ -993,17 +993,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             }
 
             // Show rounds and matches
-            final hideRounds = status == '順位決定中' || status == '決勝中' || status == '終了' || (status.contains('完了'));
+            final collapseRounds = status == '順位決定中' || status == '決勝中' || status == '終了' || (status.contains('完了'));
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Show each round (hide when in ranking determination phase)
-                if (!hideRounds)
-                  ...roundsSnap.data!.docs.map((roundDoc) {
-                    final roundData = roundDoc.data() as Map<String, dynamic>;
-                    final roundNum = roundData['roundNumber'] ?? 1;
-                    return _buildRoundSection(roundDoc.id, roundNum, isOrganizer);
-                  }),
+                // Show each round (collapsed by default when in ranking/finals phase)
+                ...roundsSnap.data!.docs.map((roundDoc) {
+                  final roundData = roundDoc.data() as Map<String, dynamic>;
+                  final roundNum = roundData['roundNumber'] ?? 1;
+                  return _buildRoundSection(roundDoc.id, roundNum, isOrganizer, defaultCollapsed: collapseRounds);
+                }),
 
                 // Show brackets if exist (自分のリーグ優先表示)
                 StreamBuilder<QuerySnapshot>(
@@ -2475,8 +2474,8 @@ B,2,チームG,チームH,チームE,チームF''';
     );
   }
 
-  Widget _buildRoundSection(String roundId, int roundNum, bool isOrganizer) {
-    final isCollapsed = _collapsedRounds[roundNum] ?? false;
+  Widget _buildRoundSection(String roundId, int roundNum, bool isOrganizer, {bool defaultCollapsed = false}) {
+    final isCollapsed = _collapsedRounds[roundNum] ?? defaultCollapsed;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       GestureDetector(
         onTap: () => setState(() => _collapsedRounds[roundNum] = !isCollapsed),
