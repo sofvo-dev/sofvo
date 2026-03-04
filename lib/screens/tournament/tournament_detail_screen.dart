@@ -993,15 +993,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             }
 
             // Show rounds and matches
+            final hideRounds = status == '順位決定中' || status == '決勝中' || status == '終了' || (status.contains('完了'));
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Show each round
-                ...roundsSnap.data!.docs.map((roundDoc) {
-                  final roundData = roundDoc.data() as Map<String, dynamic>;
-                  final roundNum = roundData['roundNumber'] ?? 1;
-                  return _buildRoundSection(roundDoc.id, roundNum, isOrganizer);
-                }),
+                // Show each round (hide when in ranking determination phase)
+                if (!hideRounds)
+                  ...roundsSnap.data!.docs.map((roundDoc) {
+                    final roundData = roundDoc.data() as Map<String, dynamic>;
+                    final roundNum = roundData['roundNumber'] ?? 1;
+                    return _buildRoundSection(roundDoc.id, roundNum, isOrganizer);
+                  }),
 
                 // Show brackets if exist (自分のリーグ優先表示)
                 StreamBuilder<QuerySnapshot>(
