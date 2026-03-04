@@ -69,6 +69,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           'teamName': teamName,
           'isOrganizer': isOrganizer,
           'isEntered': isEntered,
+          'entryCount': entriesSnap.docs.length,
         };
 
         if (status == '終了') {
@@ -328,6 +329,20 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
               const Spacer(),
               Container(
                 padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: roleColor.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(roleLabel,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: daysLeft <= 0
@@ -409,19 +424,24 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                     ],
                     _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
                     const SizedBox(height: 10),
+                    // 参加費・チーム数
                     Row(children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                            color: roleColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Text(roleLabel,
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: roleColor)),
-                      ),
+                      if (() {
+                        final f = t['entryFee'] ?? t['fee'];
+                        return f != null && f.toString().isNotEmpty && f.toString() != '0';
+                      }()) ...[
+                        Icon(Icons.payments_outlined, size: 14, color: AppTheme.primaryColor),
+                        const SizedBox(width: 4),
+                        Text(() {
+                          final f = t['entryFee'] ?? t['fee'];
+                          return f is int ? '¥$f' : '$f';
+                        }(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+                        const SizedBox(width: 12),
+                      ],
+                      Icon(Icons.groups, size: 14, color: AppTheme.accentColor),
+                      const SizedBox(width: 4),
+                      Text('${t['entryCount'] ?? t['currentTeams'] ?? 0}/${t['maxTeams'] ?? '-'}チーム',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                     ]),
                   ])),
               Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
