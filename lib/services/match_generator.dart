@@ -1494,6 +1494,23 @@ class MatchGenerator {
       final matchesSnap = await bracketDoc.reference
           .collection('matches').orderBy('matchNumber').get();
 
+      // 正しい時間順に並び替え（qf→sf_winner→sf_loser→7位→5位→3位→決勝）
+      const _roundTemporalOrder = {
+        'qf': 0, 'semi': 1, 'sf_winner': 2, 'sf_loser': 3,
+        'round-robin': 4,
+        'final_7th': 5, 'final_5th': 6, 'final_3rd': 7, 'final_1st': 8, 'final': 9,
+      };
+      final docs = matchesSnap.docs.toList()..sort((a, b) {
+        final aRound = (a.data())['round'] as String? ?? '';
+        final bRound = (b.data())['round'] as String? ?? '';
+        final aPri = _roundTemporalOrder[aRound] ?? 99;
+        final bPri = _roundTemporalOrder[bRound] ?? 99;
+        if (aPri != bPri) return aPri.compareTo(bPri);
+        final aNum = (a.data())['matchNumber'] as int? ?? 0;
+        final bNum = (b.data())['matchNumber'] as int? ?? 0;
+        return aNum.compareTo(bNum);
+      });
+
       // リーグ内の全チームIDを収集
       final teamMap = <String, String>{}; // teamId -> teamName
       for (var mDoc in matchesSnap.docs) {
@@ -1517,7 +1534,6 @@ class MatchGenerator {
       for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
 
       final courtCount = leagueCourts.length;
-      final docs = matchesSnap.docs;
 
       // スロット毎の審判割当を記録（同時進行する試合間で審判が重複しないように）
       final slotReferees = <int, Set<String>>{};
@@ -1569,6 +1585,7 @@ class MatchGenerator {
         }
 
         await mDoc.reference.update({
+          'matchNumber': i + 1,
           'courtNumber': courtNum,
           'courtId': 'court_$courtNum',
           'refereeTeamId': refId,
