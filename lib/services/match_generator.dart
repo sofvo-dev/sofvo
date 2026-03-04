@@ -10,6 +10,17 @@ class MatchGenerator {
     required int roundNumber, // 1 or 2
     String assignmentMode = 'snake', // 'snake' or 'random' (round 2 only)
   }) async {
+    final preview = await previewPreliminary(tournamentId: tournamentId, roundNumber: roundNumber, assignmentMode: assignmentMode);
+    return savePreliminaryPreview(tournamentId: tournamentId, roundNumber: roundNumber, preview: preview);
+  }
+
+  /// Preview preliminary round without saving to Firestore.
+  /// Returns { 'courts': List<List<Map>>, 'matches': List<Map> }
+  Future<Map<String, dynamic>> previewPreliminary({
+    required String tournamentId,
+    required int roundNumber,
+    String assignmentMode = 'snake',
+  }) async {
     // 予選2以降の場合、前ラウンドが全て完了しているかチェック
     if (roundNumber >= 2) {
       await _validateRoundComplete(tournamentId, roundNumber - 1);
@@ -44,8 +55,38 @@ class MatchGenerator {
       courts = await _assignSnakeDraft(tournamentId, entries, courtCount, teamsPerCourt);
     }
 
-    // 4. Generate round-robin matches per court
+    // 4. Generate round-robin matches per court (in memory only)
     final allMatches = <Map<String, dynamic>>[];
+    for (int courtIdx = 0; courtIdx < courts.length; courtIdx++) {
+      final courtTeams = courts[courtIdx];
+      final courtId = 'court_${courtIdx + 1}';
+      final matches = _generateRoundRobin(courtTeams, courtId, courtIdx + 1);
+
+      int matchOrder = 1;
+      for (var match in matches) {
+        match['roundNumber'] = roundNumber;
+        match['matchOrder'] = matchOrder++;
+        match['status'] = 'pending';
+        match['sets'] = [];
+        match['result'] = {};
+        match['confirmedByA'] = false;
+        match['confirmedByB'] = false;
+        allMatches.add(match);
+      }
+    }
+
+    return {'courts': courts, 'matches': allMatches};
+  }
+
+  /// Save a previously-previewed preliminary round to Firestore.
+  Future<List<Map<String, dynamic>>> savePreliminaryPreview({
+    required String tournamentId,
+    required int roundNumber,
+    required Map<String, dynamic> preview,
+  }) async {
+    final courts = (preview['courts'] as List).cast<List<Map<String, dynamic>>>();
+    final allMatches = (preview['matches'] as List).cast<Map<String, dynamic>>();
+
     final roundRef = _firestore.collection('tournaments').doc(tournamentId)
         .collection('rounds').doc('round_$roundNumber');
 
@@ -63,7 +104,6 @@ class MatchGenerator {
     for (int courtIdx = 0; courtIdx < courts.length; courtIdx++) {
       final courtTeams = courts[courtIdx];
       final courtId = 'court_${courtIdx + 1}';
-      final matches = _generateRoundRobin(courtTeams, courtId, courtIdx + 1);
 
       // Save court standings structure
       final standingRef = roundRef.collection('standings').doc(courtId);
@@ -82,21 +122,14 @@ class MatchGenerator {
           'rank': 0,
         });
       }
+    }
 
-      // Save matches
-      int matchOrder = 1;
-      for (var match in matches) {
-        match['roundNumber'] = roundNumber;
-        match['matchOrder'] = matchOrder++;
-        match['status'] = 'pending';
-        match['sets'] = [];
-        match['result'] = {};
-        match['confirmedByA'] = false;
-        match['confirmedByB'] = false;
-        final docRef = await roundRef.collection('matches').add(match);
-        match['matchId'] = docRef.id;
-        allMatches.add(match);
-      }
+    // Save matches
+    final savedMatches = <Map<String, dynamic>>[];
+    for (var match in allMatches) {
+      final docRef = await roundRef.collection('matches').add(match);
+      match['matchId'] = docRef.id;
+      savedMatches.add(match);
     }
 
     // Update tournament status
@@ -105,7 +138,7 @@ class MatchGenerator {
       'currentRound': roundNumber,
     });
 
-    return allMatches;
+    return savedMatches;
   }
 
   /// Import pre-defined match table (対戦表CSVインポート)
@@ -649,7 +682,15 @@ class MatchGenerator {
   Future<void> generateFinals({
     required String tournamentId,
   }) async {
-    // 予選が全て完了しているかチェック
+    final preview = await previewFinals(tournamentId: tournamentId);
+    await saveFinalsPreview(tournamentId: tournamentId, preview: preview);
+  }
+
+  /// Preview finals bracket without saving to Firestore.
+  /// Returns { 'sorted': overall standings, 'brackets': bracket data with matches }
+  Future<Map<String, dynamic>> previewFinals({
+    required String tournamentId,
+  }) async {
     await _validatePreliminaryComplete(tournamentId);
 
     final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
@@ -658,8 +699,54 @@ class MatchGenerator {
     final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
     final format = finalRules['format'] ?? '順位別複数';
 
-    // Get overall standings
     final sorted = await _getOverallSortedStandings(tournamentId);
+
+    final brackets = <Map<String, dynamic>>[];
+
+    if (format == '順位別複数') {
+      final leagueCount = (finalRules['tierCount'] as int? ?? 3).clamp(1, sorted.length);
+      final teamsPerLeague = (sorted.length / leagueCount).ceil();
+      final leagues = _splitIntoGroups(sorted, teamsPerLeague);
+      final leagueNames = _getLeagueNames(leagues.length);
+
+      for (int b = 0; b < leagues.length; b++) {
+        final league = leagues[b];
+        final leagueName = b < leagueNames.length ? leagueNames[b] : '第${b + 1}';
+        final rankStart = b * teamsPerLeague + 1;
+        final rankEnd = (rankStart + league.length - 1).clamp(rankStart, sorted.length);
+
+        brackets.add({
+          'bracketName': leagueName,
+          'rankRange': '$rankStart〜$rankEnd位',
+          'teams': league.map((e) => {'teamId': e.key, 'teamName': e.value['teamName']}).toList(),
+          'teamCount': league.length,
+        });
+      }
+    } else {
+      brackets.add({
+        'bracketName': '順位決定戦',
+        'rankRange': '全チーム',
+        'teams': sorted.map((e) => {'teamId': e.key, 'teamName': e.value['teamName']}).toList(),
+        'teamCount': sorted.length,
+      });
+    }
+
+    return {
+      'sorted': sorted,
+      'brackets': brackets,
+      'format': format,
+      'finalRules': finalRules,
+    };
+  }
+
+  /// Save a previously-previewed finals bracket to Firestore.
+  Future<void> saveFinalsPreview({
+    required String tournamentId,
+    required Map<String, dynamic> preview,
+  }) async {
+    final sorted = preview['sorted'] as List<MapEntry<String, Map<String, dynamic>>>;
+    final format = preview['format'] as String;
+    final finalRules = preview['finalRules'] as Map<String, dynamic>;
 
     if (format == '順位別複数') {
       await _generateTierBrackets(tournamentId, sorted, finalRules);

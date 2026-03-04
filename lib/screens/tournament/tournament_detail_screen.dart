@@ -2838,57 +2838,34 @@ B,2,チームG,チームH,チームE,チームF''';
   }
 
   Future<void> _generateMatches(int roundNumber) async {
-    String assignmentMode = 'snake';
-
-    // 予選2の場合、コート割り振り方法を選択
-    if (roundNumber >= 2) {
-      final selected = await showDialog<String>(
-        context: context,
-        builder: (ctx) {
-          String mode = 'snake';
-          return StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('予選2 コート割り振り', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              RadioListTile<String>(
-                value: 'snake', groupValue: mode, activeColor: AppTheme.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                title: const Text('実力均等配置', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('予選1の順位をもとに、各コートの実力が均等になるように配置します', style: TextStyle(fontSize: 12)),
-                onChanged: (v) => setDialogState(() => mode = v!),
-              ),
-              const SizedBox(height: 4),
-              RadioListTile<String>(
-                value: 'random', groupValue: mode, activeColor: AppTheme.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                title: const Text('完全ランダム', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('ランダムに割り振ります（予選1で同じコートだったチームはなるべく別コートに配置）', style: TextStyle(fontSize: 12)),
-                onChanged: (v) => setDialogState(() => mode = v!),
-              ),
-            ]),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, mode),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                child: const Text('生成'),
-              ),
-            ],
-          ));
-        },
-      );
-      if (selected == null) return;
-      assignmentMode = selected;
-    }
+    // 予選1: ランダム、予選2: なるべく対戦していないチームと当たるように
+    final assignmentMode = roundNumber >= 2 ? 'random' : 'random';
 
     try {
+      // ローディング表示
       showDialog(context: context, barrierDismissible: false,
           builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
-      await MatchGenerator().generatePreliminary(tournamentId: _tournamentId, roundNumber: roundNumber, assignmentMode: assignmentMode);
+
+      final preview = await MatchGenerator().previewPreliminary(
+        tournamentId: _tournamentId, roundNumber: roundNumber, assignmentMode: assignmentMode);
+
+      if (!mounted) return;
+      Navigator.pop(context); // close loading
+
+      // プレビューモーダル表示
+      final confirmed = await _showPreliminaryPreviewModal(roundNumber, preview);
+      if (confirmed != true || !mounted) return;
+
+      // 反映
+      showDialog(context: context, barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
+      await MatchGenerator().savePreliminaryPreview(
+        tournamentId: _tournamentId, roundNumber: roundNumber, preview: preview);
+
       if (mounted) {
-        Navigator.pop(context); // close loading
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('予選$roundNumber の対戦表を生成しました！'), backgroundColor: AppTheme.success));
+            SnackBar(content: Text('予選$roundNumber の対戦表を反映しました'), backgroundColor: AppTheme.success));
       }
     } catch (e) {
       if (mounted) {
@@ -2897,6 +2874,156 @@ B,2,チームG,チームH,チームE,チームF''';
             SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
       }
     }
+  }
+
+  /// 予選対戦表のプレビューモーダル
+  Future<bool?> _showPreliminaryPreviewModal(int roundNumber, Map<String, dynamic> preview) {
+    final courts = (preview['courts'] as List).cast<List<Map<String, dynamic>>>();
+    final matches = (preview['matches'] as List).cast<Map<String, dynamic>>();
+
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.85,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(children: [
+            // ヘッダー
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
+              ),
+              child: Column(children: [
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Icon(Icons.preview, color: AppTheme.primaryColor, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('予選$roundNumber 対戦表プレビュー',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+                ]),
+                const SizedBox(height: 4),
+                Text(roundNumber == 1
+                    ? 'ランダムに割り振られた対戦表です。内容を確認してください。'
+                    : '予選1で対戦していないチームとなるべく当たるように割り振られています。',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              ]),
+            ),
+            // コート別プレビュー
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: courts.length,
+                itemBuilder: (ctx, courtIdx) {
+                  final courtTeams = courts[courtIdx];
+                  final courtId = 'court_${courtIdx + 1}';
+                  final courtLabel = String.fromCharCode(65 + courtIdx); // A, B, C...
+                  final courtMatches = matches.where((m) => m['courtId'] == courtId).toList();
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      // コートヘッダー
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                        child: Row(children: [
+                          Icon(Icons.sports_volleyball, size: 18, color: AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Text('$courtLabelコート', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                          const Spacer(),
+                          Text('${courtTeams.length}チーム', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                        ]),
+                      ),
+                      // チーム一覧
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: courtTeams.map((t) => Chip(
+                            label: Text(t['teamName'] ?? '', style: const TextStyle(fontSize: 13)),
+                            backgroundColor: Colors.grey[100],
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          )).toList(),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      // 試合一覧
+                      ...courtMatches.map((m) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        child: Row(children: [
+                          SizedBox(width: 24, child: Text('${m['matchOrder']}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w500))),
+                          Expanded(flex: 3, child: Text(m['teamAName'] ?? '', style: const TextStyle(fontSize: 14), textAlign: TextAlign.right)),
+                          const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('vs', style: TextStyle(fontSize: 12, color: Colors.grey))),
+                          Expanded(flex: 3, child: Text(m['teamBName'] ?? '', style: const TextStyle(fontSize: 14))),
+                          const SizedBox(width: 8),
+                          if ((m['refereeTeamName'] ?? '').isNotEmpty)
+                            Expanded(flex: 3, child: Text(
+                              '主審: ${m['refereeTeamName']}${(m['subRefereeTeamName'] ?? '').isNotEmpty ? ' / 副審: ${m['subRefereeTeamName']}' : ''}',
+                              style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+                              overflow: TextOverflow.ellipsis,
+                            )),
+                        ]),
+                      )),
+                      const SizedBox(height: 8),
+                    ]),
+                  );
+                },
+              ),
+            ),
+            // フッターボタン
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
+              ),
+              child: Row(children: [
+                Expanded(child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('キャンセル'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('この内容で反映', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                )),
+              ]),
+            ),
+          ]),
+        );
+      },
+    );
   }
 
   Future<void> _resetRounds() async {
@@ -3063,11 +3190,25 @@ B,2,チームG,チームH,チームE,チームF''';
     try {
       showDialog(context: context, barrierDismissible: false,
           builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
-      await MatchGenerator().generateFinals(tournamentId: _tournamentId);
+
+      final preview = await MatchGenerator().previewFinals(tournamentId: _tournamentId);
+
+      if (!mounted) return;
+      Navigator.pop(context); // close loading
+
+      // プレビューモーダル表示
+      final confirmed = await _showFinalsPreviewModal(preview);
+      if (confirmed != true || !mounted) return;
+
+      // 反映
+      showDialog(context: context, barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
+      await MatchGenerator().saveFinalsPreview(tournamentId: _tournamentId, preview: preview);
+
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('順位決定戦を生成しました！'), backgroundColor: AppTheme.success));
+            const SnackBar(content: Text('順位決定戦を反映しました'), backgroundColor: AppTheme.success));
       }
     } catch (e) {
       if (mounted) {
@@ -3076,6 +3217,154 @@ B,2,チームG,チームH,チームE,チームF''';
             SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
       }
     }
+  }
+
+  /// 順位決定戦のプレビューモーダル
+  Future<bool?> _showFinalsPreviewModal(Map<String, dynamic> preview) {
+    final brackets = (preview['brackets'] as List).cast<Map<String, dynamic>>();
+
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.85,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(children: [
+            // ヘッダー
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
+              ),
+              child: Column(children: [
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Icon(Icons.emoji_events, color: Colors.amber[700], size: 24),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('順位決定戦プレビュー',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+                ]),
+                const SizedBox(height: 4),
+                Text('予選の総合順位をもとにリーグ分けされています。内容を確認してください。',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              ]),
+            ),
+            // リーグ別プレビュー
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: brackets.length,
+                itemBuilder: (ctx, idx) {
+                  final bracket = brackets[idx];
+                  final teams = (bracket['teams'] as List).cast<Map<String, dynamic>>();
+                  final bracketName = bracket['bracketName'] ?? '';
+                  final rankRange = bracket['rankRange'] ?? '';
+                  final teamCount = bracket['teamCount'] as int;
+
+                  String formatLabel;
+                  if (teamCount >= 8) {
+                    formatLabel = 'トーナメント（全順位決定）';
+                  } else if (teamCount >= 4) {
+                    formatLabel = 'トーナメント（準決勝→決勝）';
+                  } else if (teamCount == 3) {
+                    formatLabel = '総当たり';
+                  } else {
+                    formatLabel = '決勝戦';
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      // リーグヘッダー
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.08),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                        child: Row(children: [
+                          Icon(Icons.emoji_events, size: 18, color: Colors.amber[700]),
+                          const SizedBox(width: 8),
+                          Text(bracketName, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                            child: Text(rankRange, style: TextStyle(fontSize: 12, color: Colors.amber[800])),
+                          ),
+                          const Spacer(),
+                          Text(formatLabel, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        ]),
+                      ),
+                      // チーム一覧（順位付き）
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: teams.asMap().entries.map((e) {
+                            final rank = e.key + 1;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(children: [
+                                SizedBox(width: 28, child: Text('$rank.', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
+                                Expanded(child: Text(e.value['teamName'] ?? '', style: const TextStyle(fontSize: 14))),
+                              ]),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ]),
+                  );
+                },
+              ),
+            ),
+            // フッターボタン
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
+              ),
+              child: Row(children: [
+                Expanded(child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('キャンセル'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('この内容で反映', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber[700], foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                )),
+              ]),
+            ),
+          ]),
+        );
+      },
+    );
   }
   void _showMemberList(String teamName, Map<String, dynamic> memberNames, String leaderName) {
     final members = memberNames.entries.toList();
@@ -6115,20 +6404,50 @@ class _OrganizerMenuScreen extends StatelessWidget {
               final hasRound2 = existingRoundNumbers.contains(2);
               final hasAnyRound = roundDocs.isNotEmpty;
 
+              // 最終ラウンドのmatchesをStreamで監視して全完了かチェック
+              final lastRoundNum = hasRound2 ? 2 : (hasRound1 ? 1 : 0);
+
               return StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('tournaments').doc(tournamentId)
                     .collection('brackets').snapshots(),
                 builder: (context, bracketsSnap) {
                   final hasBrackets = bracketsSnap.hasData && bracketsSnap.data!.docs.isNotEmpty;
 
-                  return Column(children: [
-                    if (prelimRounds >= 2 && hasRound1 && !hasRound2)
-                      _menuTile(context, Icons.replay, '予選2 生成', '予選1完了後に予選2の対戦表を生成', onGenerateRound2, color: AppTheme.info),
-                    if (finalEnabled && hasRound1 && !hasBrackets)
-                      _menuTile(context, Icons.emoji_events, '順位決定戦生成', '予選完了後に決勝トーナメントを生成', onGenerateFinals, color: AppTheme.info),
-                    if (hasAnyRound || hasBrackets)
-                      _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
-                  ]);
+                  if (lastRoundNum == 0) {
+                    return Column(children: [
+                      if (hasAnyRound || hasBrackets)
+                        _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
+                    ]);
+                  }
+
+                  // 該当ラウンドの試合完了状況をリアルタイムで監視
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('tournaments').doc(tournamentId)
+                        .collection('rounds').doc('round_$lastRoundNum').collection('matches').snapshots(),
+                    builder: (context, matchesSnap) {
+                      final matchDocs = matchesSnap.data?.docs ?? [];
+                      final allMatchesCompleted = matchDocs.isNotEmpty &&
+                          matchDocs.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
+
+                      // 予選1完了 → 予選2ボタン表示
+                      final showRound2Button = prelimRounds >= 2 && hasRound1 && !hasRound2 &&
+                          lastRoundNum == 1 && allMatchesCompleted;
+
+                      // 全予選完了 → 順位決定戦ボタン表示
+                      final showFinalsButton = finalEnabled && !hasBrackets && allMatchesCompleted &&
+                          (prelimRounds == 1 ? hasRound1 : (hasRound1 && hasRound2)) &&
+                          lastRoundNum == (prelimRounds == 1 ? 1 : 2);
+
+                      return Column(children: [
+                        if (showRound2Button)
+                          _menuTile(context, Icons.replay, '予選2の対戦表を生成', '予選1の全試合完了済み — 予選2を生成できます', onGenerateRound2, color: AppTheme.info),
+                        if (showFinalsButton)
+                          _menuTile(context, Icons.emoji_events, '順位決定戦の対戦表を生成', '全予選完了済み — 順位決定戦を生成できます', onGenerateFinals, color: AppTheme.info),
+                        if (hasAnyRound || hasBrackets)
+                          _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
+                      ]);
+                    },
+                  );
                 },
               );
             },
