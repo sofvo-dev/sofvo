@@ -991,22 +991,43 @@ class MatchGenerator {
       [1, 6], // 2位 vs 7位
       [2, 5], // 3位 vs 6位
     ];
-    for (int i = 0; i < qfPairs.length; i++) {
-      final a = qfPairs[i][0] < teams.length ? teams[qfPairs[i][0]] : null;
-      final b = qfPairs[i][1] < teams.length ? teams[qfPairs[i][1]] : null;
-      if (a != null && b != null) {
-        final refs = _pickRefs({a.key, b.key}, leagueTeams.length);
-        final courtNum = leagueCourts[matchIdx % leagueCourts.length];
-        matchIdx++;
-        await bracketRef.collection('matches').add({
-          'round': 'qf', 'matchNumber': i + 1,
-          'teamAId': a.key, 'teamAName': a.value['teamName'],
-          'teamBId': b.key, 'teamBName': b.value['teamName'],
-          ...refs,
-          'courtNumber': courtNum, 'courtId': 'court_$courtNum',
-          'status': 'pending', 'sets': [], 'result': {},
-        });
+
+    // 同時進行試合をコート数でグループ化して、同時に出場するチームを把握
+    final courtCount = leagueCourts.length;
+    // QFの有効ペアを先に構築
+    final qfValidPairs = <List<MapEntry<String, Map<String, dynamic>>>>[];
+    for (final pair in qfPairs) {
+      final a = pair[0] < teams.length ? teams[pair[0]] : null;
+      final b = pair[1] < teams.length ? teams[pair[1]] : null;
+      if (a != null && b != null) qfValidPairs.add([a, b]);
+    }
+
+    // 同時進行する試合グループ（コート数分ずつ同時進行）
+    for (int i = 0; i < qfValidPairs.length; i++) {
+      final a = qfValidPairs[i][0];
+      final b = qfValidPairs[i][1];
+
+      // 同時進行する試合の全出場チームを収集
+      final concurrentSlot = matchIdx ~/ courtCount;
+      final busyIds = <String>{a.key, b.key};
+      for (int j = 0; j < qfValidPairs.length; j++) {
+        if (j != i && (j ~/ courtCount) == concurrentSlot) {
+          busyIds.add(qfValidPairs[j][0].key);
+          busyIds.add(qfValidPairs[j][1].key);
+        }
       }
+
+      final refs = _pickRefs(busyIds, leagueTeams.length);
+      final courtNum = leagueCourts[matchIdx % courtCount];
+      matchIdx++;
+      await bracketRef.collection('matches').add({
+        'round': 'qf', 'matchNumber': i + 1,
+        'teamAId': a.key, 'teamAName': a.value['teamName'],
+        'teamBId': b.key, 'teamBName': b.value['teamName'],
+        ...refs,
+        'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+        'status': 'pending', 'sets': [], 'result': {},
+      });
     }
 
     // SF以降はチーム未定のため審判は空、コートは割り当て
@@ -1064,19 +1085,30 @@ class MatchGenerator {
     for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
 
     int matchIdx = 0;
+    final courtCount = leagueCourts.length;
 
     // SF: 1vs4, 2vs3
-    for (final pair in [[0, 3], [1, 2]]) {
-      final aIdx = pair[0];
-      final bIdx = pair[1];
+    final sfPairs = [[0, 3], [1, 2]];
+    for (int i = 0; i < sfPairs.length; i++) {
+      final aIdx = sfPairs[i][0];
+      final bIdx = sfPairs[i][1];
       final aId = teams[aIdx].key;
       final bId = bIdx < teams.length ? teams[bIdx].key : '';
       final aName = teams[aIdx].value['teamName'] ?? '';
       final bName = bIdx < teams.length ? teams[bIdx].value['teamName'] ?? '' : '';
-      final playingIds = {aId, bId};
 
-      // 審判割り当て
-      final available = leagueTeams.where((t) => !playingIds.contains(t['teamId'])).toList();
+      // 同時進行する試合の全出場チームを収集
+      final concurrentSlot = matchIdx ~/ courtCount;
+      final busyIds = <String>{aId, bId};
+      for (int j = 0; j < sfPairs.length; j++) {
+        if (j != i && (j ~/ courtCount) == concurrentSlot) {
+          busyIds.add(teams[sfPairs[j][0]].key);
+          if (sfPairs[j][1] < teams.length) busyIds.add(teams[sfPairs[j][1]].key);
+        }
+      }
+
+      // 審判割り当て（同時進行チームを除外）
+      final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
       available.sort((a, b) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b['teamId']]!));
       final mainRef = available.isNotEmpty ? available.first : null;
       if (mainRef != null) mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
@@ -1092,7 +1124,7 @@ class MatchGenerator {
         }
       }
 
-      final courtNum = leagueCourts[matchIdx % leagueCourts.length];
+      final courtNum = leagueCourts[matchIdx % courtCount];
       matchIdx++;
       await bracketRef.collection('matches').add({
         'round': 'semi', 'matchNumber': matchIdx,
@@ -1148,12 +1180,28 @@ class MatchGenerator {
     final subRefCount = <String, int>{};
     for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
 
+    // 全ペアを先に構築
+    final pairs = <List<MapEntry<String, Map<String, dynamic>>>>[];
     for (int i = 0; i < sorted.length ~/ 2; i++) {
-      final a = sorted[i];
-      final b = sorted[sorted.length - 1 - i];
-      final playingIds = {a.key, b.key};
+      pairs.add([sorted[i], sorted[sorted.length - 1 - i]]);
+    }
 
-      final available = leagueTeams.where((t) => !playingIds.contains(t['teamId'])).toList();
+    final courtCount = allCourts.length;
+    for (int i = 0; i < pairs.length; i++) {
+      final a = pairs[i][0];
+      final b = pairs[i][1];
+
+      // 同時進行する試合の全出場チームを収集
+      final concurrentSlot = i ~/ courtCount;
+      final busyIds = <String>{a.key, b.key};
+      for (int j = 0; j < pairs.length; j++) {
+        if (j != i && (j ~/ courtCount) == concurrentSlot) {
+          busyIds.add(pairs[j][0].key);
+          busyIds.add(pairs[j][1].key);
+        }
+      }
+
+      final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
       available.sort((x, y) => (mainRefCount[x['teamId']]!).compareTo(mainRefCount[y['teamId']]!));
       final mainRef = available.isNotEmpty ? available.first : null;
       if (mainRef != null) mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
@@ -1169,7 +1217,7 @@ class MatchGenerator {
         }
       }
 
-      final courtNum = allCourts[i % allCourts.length];
+      final courtNum = allCourts[i % courtCount];
       await bracketRef.collection('matches').add({
         'round': 'round1', 'matchNumber': i + 1,
         'teamAId': a.key, 'teamAName': a.value['teamName'],
