@@ -1,0 +1,41 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "App Store Connect にアップロード"
+  lane :release do
+    # Flutter ビルド
+    sh("cd ../.. && flutter build ios --release")
+
+    # Xcode Archive & App Store Connect へアップロード
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "../build/ios",
+      output_name: "Sofvo.ipa"
+    )
+
+    upload_to_app_store(
+      skip_metadata: true,
+      skip_screenshots: true,
+      precheck_include_in_app_purchases: false
+    )
+  end
+
+  desc "TestFlight にアップロード（ベータテスト用）"
+  lane :beta do
+    sh("cd ../.. && flutter build ios --release")
+
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "../build/ios",
+      output_name: "Sofvo.ipa"
+    )
+
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
