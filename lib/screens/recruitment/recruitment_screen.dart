@@ -258,7 +258,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         children: [
           _buildNextHighlight(_upcoming.first),
           const SizedBox(height: 20),
-          _sectionHeader(Icons.calendar_month, 'すべての予定', _upcoming.length),
+          _sectionHeader(Icons.calendar_month, 'その他の予定', _upcoming.length),
           const SizedBox(height: 10),
           ..._upcoming.skip(1).map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
