@@ -1499,20 +1499,34 @@ class MatchGenerator {
       final subRefCount = <String, int>{};
       for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
 
-      int matchIdx = 0;
-      for (var mDoc in matchesSnap.docs) {
+      final courtCount = leagueCourts.length;
+      final docs = matchesSnap.docs;
+
+      for (int i = 0; i < docs.length; i++) {
+        final mDoc = docs[i];
         final m = mDoc.data();
         final aId = m['teamAId'] as String? ?? '';
         final bId = m['teamBId'] as String? ?? '';
 
-        final courtNum = leagueCourts[matchIdx % leagueCourts.length];
-        matchIdx++;
+        final courtNum = leagueCourts[i % courtCount];
 
         // チームが確定している試合のみ審判割当
         String refId = '', refName = '', subRefId = '', subRefName = '';
         if (aId.isNotEmpty && bId.isNotEmpty) {
-          final playingIds = {aId, bId};
-          final available = leagueTeams.where((t) => !playingIds.contains(t['teamId'])).toList();
+          // 同時進行する試合の全出場チームを収集
+          final concurrentSlot = i ~/ courtCount;
+          final busyIds = <String>{aId, bId};
+          for (int j = 0; j < docs.length; j++) {
+            if (j != i && (j ~/ courtCount) == concurrentSlot) {
+              final other = docs[j].data();
+              final otherA = other['teamAId'] as String? ?? '';
+              final otherB = other['teamBId'] as String? ?? '';
+              if (otherA.isNotEmpty) busyIds.add(otherA);
+              if (otherB.isNotEmpty) busyIds.add(otherB);
+            }
+          }
+
+          final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
           available.sort((a, b2) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b2['teamId']]!));
           if (available.isNotEmpty) {
             refId = available.first['teamId']!;
