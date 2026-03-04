@@ -241,13 +241,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: statusColor.withValues(alpha: 0.5)),
           ),
-          child: Text(status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+          child: Text(status, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
         ),
         centerTitle: true,
         actions: [
