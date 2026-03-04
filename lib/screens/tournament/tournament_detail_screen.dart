@@ -51,6 +51,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート) default: MY
   final Map<int, bool> _collapsedRounds = {}; // roundNum -> 折りたたみ状態
   final Map<String, String?> _bracketCourtFilter = {}; // bracketId -> (null=全て, 'MY', courtId)
+  final Map<String, bool> _collapsedBrackets = {}; // bracketId -> 折りたたみ状態
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
@@ -2756,35 +2757,46 @@ B,2,チームG,チームH,チームE,チームF''';
   Widget _buildBracketSection(String bracketId, Map<String, dynamic> bData, bool isOrganizer) {
     final rankRange = bData['rankRange'] as String? ?? '';
     final isMyLeague = _isMyBracket(bData);
-    final isCollapsed = !isMyLeague && !isOrganizer;
+    // 自分のリーグ以外はデフォルト折りたたみ（予選と同じ）
+    final isCollapsed = _collapsedBrackets[bracketId] ?? (!isMyLeague);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // リーグヘッダー（予選と同様のタイトル行）
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(children: [
-          const Icon(Icons.emoji_events, size: 20, color: Colors.amber),
-          const SizedBox(width: 8),
-          Text(_toFullLeagueName(bData['bracketName'] as String? ?? '順位決定'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber[800])),
-          if (isMyLeague) ...[
+      // リーグヘッダー（タップで折りたたみ — 予選と同じ▶/▼スタイル）
+      GestureDetector(
+        onTap: () => setState(() => _collapsedBrackets[bracketId] = !isCollapsed),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(children: [
+            const Icon(Icons.emoji_events, size: 20, color: Colors.amber),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)),
-              child: const Text('MY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(_toFullLeagueName(bData['bracketName'] as String? ?? '順位決定'),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+            const SizedBox(width: 4),
+            Icon(
+              isCollapsed ? Icons.arrow_right : Icons.arrow_drop_down,
+              color: Colors.amber[800],
+              size: 28,
             ),
-          ],
-          if (rankRange.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-              child: Text(rankRange, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[800])),
-            ),
-          ],
-        ]),
+            if (isMyLeague) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)),
+                child: const Text('MY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+            ],
+            if (rankRange.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                child: Text(rankRange, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+              ),
+            ],
+          ]),
+        ),
       ),
+      if (!isCollapsed)
       StreamBuilder<QuerySnapshot>(
         stream: _firestore.collection('tournaments').doc(_tournamentId)
             .collection('brackets').doc(bracketId)
@@ -2855,21 +2867,6 @@ B,2,チームG,チームH,チームE,チームF''';
             filteredCourts = sortedCourts.where((court) => court.key == filter).toList();
           } else {
             filteredCourts = sortedCourts;
-          }
-
-          // 自分のリーグでない場合は折りたたみ
-          if (isCollapsed) {
-            return ExpansionTile(
-              title: Text('試合一覧（${allMatches.length}試合）', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
-              initiallyExpanded: false,
-              children: [
-                _buildBracketCourtChips(bracketId, courtChipData, myCourts),
-                ...filteredCourts.map((court) {
-                  final courtNum = (court.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
-                  return _buildBracketCourtCard(court.key, courtNum, court.value, bracketId, isOrganizer, roundLabels);
-                }),
-              ],
-            );
           }
 
           return Column(children: [
