@@ -329,20 +329,6 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
               const Spacer(),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: roleColor.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(roleLabel,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: daysLeft <= 0
@@ -440,11 +426,25 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                       ],
                       Icon(Icons.groups, size: 14, color: AppTheme.accentColor),
                       const SizedBox(width: 4),
-                      Text('${t['entryCount'] ?? t['currentTeams'] ?? 0}/${t['maxTeams'] ?? '-'}チーム',
+                      Text('${t['entryCount'] ?? t['currentTeams'] ?? 0}チーム',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                     ]),
                   ])),
-              Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: roleColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text(roleLabel,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: roleColor)),
+                  ),
+                  const SizedBox(height: 4),
+                  Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+                ],
+              ),
             ]),
           ),
         ]),
