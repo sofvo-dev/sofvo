@@ -1396,4 +1396,102 @@ class MatchGenerator {
     return wId == m['teamAId'] ? (m['teamBName'] ?? '') : (m['teamAName'] ?? '');
   }
 
+  /// 既存ブラケットにコート・審判を後付け更新
+  Future<void> updateBracketCourtsAndReferees(String tournamentId) async {
+    final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
+    final totalCourts = (tournDoc.data()?['courts'] ?? 2) as int;
+
+    final bracketsSnap = await _firestore.collection('tournaments').doc(tournamentId)
+        .collection('brackets').orderBy('bracketNumber').get();
+    if (bracketsSnap.docs.isEmpty) return;
+
+    final leagueCount = bracketsSnap.docs.length;
+
+    // コートをリーグに均等配分
+    final courtsPerLeague = <int, List<int>>{};
+    int courtIdx = 1;
+    for (int b = 0; b < leagueCount; b++) {
+      final courtCount = (totalCourts / leagueCount).ceil().clamp(1, totalCourts);
+      courtsPerLeague[b] = [];
+      for (int c = 0; c < courtCount && courtIdx <= totalCourts; c++) {
+        courtsPerLeague[b]!.add(courtIdx++);
+      }
+      if (courtsPerLeague[b]!.isEmpty) {
+        courtsPerLeague[b]!.add(b + 1);
+      }
+    }
+
+    for (int b = 0; b < bracketsSnap.docs.length; b++) {
+      final bracketDoc = bracketsSnap.docs[b];
+      final leagueCourts = courtsPerLeague[b] ?? [b + 1];
+
+      // ブラケットドキュメントにcourtsとteamIdsを追加
+      final matchesSnap = await bracketDoc.reference
+          .collection('matches').orderBy('matchNumber').get();
+
+      // リーグ内の全チームIDを収集
+      final teamMap = <String, String>{}; // teamId -> teamName
+      for (var mDoc in matchesSnap.docs) {
+        final m = mDoc.data();
+        final aId = m['teamAId'] as String? ?? '';
+        final bId = m['teamBId'] as String? ?? '';
+        if (aId.isNotEmpty) teamMap[aId] = m['teamAName'] ?? '';
+        if (bId.isNotEmpty) teamMap[bId] = m['teamBName'] ?? '';
+      }
+      final leagueTeams = teamMap.entries.map((e) => {'teamId': e.key, 'teamName': e.value}).toList();
+
+      // ブラケットドキュメント更新
+      await bracketDoc.reference.update({
+        'courts': leagueCourts,
+        'teamIds': teamMap.keys.toList(),
+      });
+
+      // 審判カウント
+      final mainRefCount = <String, int>{};
+      final subRefCount = <String, int>{};
+      for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
+
+      int matchIdx = 0;
+      for (var mDoc in matchesSnap.docs) {
+        final m = mDoc.data();
+        final aId = m['teamAId'] as String? ?? '';
+        final bId = m['teamBId'] as String? ?? '';
+
+        final courtNum = leagueCourts[matchIdx % leagueCourts.length];
+        matchIdx++;
+
+        // チームが確定している試合のみ審判割当
+        String refId = '', refName = '', subRefId = '', subRefName = '';
+        if (aId.isNotEmpty && bId.isNotEmpty) {
+          final playingIds = {aId, bId};
+          final available = leagueTeams.where((t) => !playingIds.contains(t['teamId'])).toList();
+          available.sort((a, b2) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b2['teamId']]!));
+          if (available.isNotEmpty) {
+            refId = available.first['teamId']!;
+            refName = available.first['teamName']!;
+            mainRefCount[refId] = (mainRefCount[refId] ?? 0) + 1;
+          }
+          if (leagueTeams.length >= 4 && available.length >= 2) {
+            final subCandidates = available.where((t) => t['teamId'] != refId).toList();
+            subCandidates.sort((a, b2) => (subRefCount[a['teamId']]!).compareTo(subRefCount[b2['teamId']]!));
+            if (subCandidates.isNotEmpty) {
+              subRefId = subCandidates.first['teamId']!;
+              subRefName = subCandidates.first['teamName']!;
+              subRefCount[subRefId] = (subRefCount[subRefId] ?? 0) + 1;
+            }
+          }
+        }
+
+        await mDoc.reference.update({
+          'courtNumber': courtNum,
+          'courtId': 'court_$courtNum',
+          'refereeTeamId': refId,
+          'refereeTeamName': refName,
+          'subRefereeTeamId': subRefId,
+          'subRefereeTeamName': subRefName,
+        });
+      }
+    }
+  }
+
 }

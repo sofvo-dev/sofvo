@@ -3320,6 +3320,25 @@ B,2,チームG,チームH,チームE,チームF''';
     }
   }
 
+  Future<void> _updateBracketCourtsAndReferees() async {
+    try {
+      showDialog(context: context, barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
+      await MatchGenerator().updateBracketCourtsAndReferees(_tournamentId);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('コート・審判を更新しました'), backgroundColor: AppTheme.success));
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
+      }
+    }
+  }
+
   /// 順位決定戦のプレビューモーダル
   Future<bool?> _showFinalsPreviewModal(Map<String, dynamic> preview) {
     final brackets = (preview['brackets'] as List).cast<Map<String, dynamic>>();
@@ -4919,6 +4938,7 @@ B,2,チームG,チームH,チームE,チームF''';
         onEndTournament: _showEndTournamentDialog,
         onSaveTemplate: () => _saveAsTemplate(tournData),
         onDelete: () => _showDeleteDialog(tournData['title'] ?? ''),
+        onUpdateBracketCourts: _updateBracketCourtsAndReferees,
       ),
     ));
   }
@@ -6439,6 +6459,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
   final VoidCallback onEndTournament;
   final VoidCallback onSaveTemplate;
   final VoidCallback onDelete;
+  final VoidCallback onUpdateBracketCourts;
 
   const _OrganizerMenuScreen({
     required this.tournData,
@@ -6458,6 +6479,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.onEndTournament,
     required this.onSaveTemplate,
     required this.onDelete,
+    required this.onUpdateBracketCourts,
   });
 
   @override
@@ -6550,6 +6572,8 @@ class _OrganizerMenuScreen extends StatelessWidget {
                           _menuTile(context, Icons.replay, '予選2の対戦表を生成', '予選1の全試合完了済み — 予選2を生成できます', onGenerateRound2, color: AppTheme.info),
                         if (showFinalsButton)
                           _menuTile(context, Icons.emoji_events, '順位決定戦の対戦表を生成', '全予選完了済み — 順位決定戦を生成できます', onGenerateFinals, color: AppTheme.info),
+                        if (hasBrackets)
+                          _menuTile(context, Icons.sports_volleyball, 'コート・審判を更新', '順位決定戦のコート割振・審判割当を再設定', onUpdateBracketCourts, color: Colors.amber),
                         if (hasAnyRound || hasBrackets)
                           _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
                       ]);
