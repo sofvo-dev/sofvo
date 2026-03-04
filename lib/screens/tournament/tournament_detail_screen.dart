@@ -4305,7 +4305,7 @@ B,2,チームG,チームH,チームE,チームF''';
                 children: [
                   Icon(Icons.add_photo_alternate, color: AppTheme.primaryColor, size: 22),
                   SizedBox(width: 8),
-                  Text('大会の写真をアップロード', style: TextStyle(
+                  Text('大会の写真をアップロード（複数選択可）', style: TextStyle(
                     fontSize: 14, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
                 ],
               ),
@@ -4378,18 +4378,17 @@ B,2,チームG,チームH,チームE,チームF''';
     );
   }
 
-  // ── 写真ギャラリーにアップロード ──
+  // ── 写真ギャラリーにアップロード（複数選択対応） ──
   Future<void> _uploadGalleryPhoto(String uid) async {
     if (_tournamentId.isEmpty) return;
 
     try {
-      final picked = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
+      final pickedList = await ImagePicker().pickMultiImage(
         imageQuality: 75,
         maxWidth: 1024,
         maxHeight: 1024,
       );
-      if (picked == null || !mounted) return;
+      if (pickedList.isEmpty || !mounted) return;
 
       showDialog(
         context: context,
@@ -4397,31 +4396,33 @@ B,2,チームG,チームH,チームE,チームF''';
         builder: (_) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
 
-      final bytes = await picked.readAsBytes();
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('tournament_photos')
-          .child(_tournamentId)
-          .child(fileName);
-
-      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-      final downloadUrl = await ref.getDownloadURL();
-
       final userDoc = await _firestore.collection('users').doc(uid).get();
       final uploaderName = (userDoc.data()?['nickname'] as String?) ?? 'ユーザー';
 
-      await _firestore.collection('tournaments').doc(_tournamentId).collection('photos').add({
-        'imageUrl': downloadUrl,
-        'uploadedBy': uid,
-        'uploaderName': uploaderName,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      for (final picked in pickedList) {
+        final bytes = await picked.readAsBytes();
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child('tournament_photos')
+            .child(_tournamentId)
+            .child(fileName);
+
+        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+        final downloadUrl = await ref.getDownloadURL();
+
+        await _firestore.collection('tournaments').doc(_tournamentId).collection('photos').add({
+          'imageUrl': downloadUrl,
+          'uploadedBy': uid,
+          'uploaderName': uploaderName,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       if (mounted) {
         Navigator.pop(context); // ローディング閉じる
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('写真をアップロードしました'), backgroundColor: AppTheme.success),
+          SnackBar(content: Text('${pickedList.length}枚の写真をアップロードしました'), backgroundColor: AppTheme.success),
         );
       }
     } catch (e) {

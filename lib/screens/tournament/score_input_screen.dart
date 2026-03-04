@@ -43,6 +43,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   String _winner = '';
   int _activeSetIndex = -1;
   bool _readOnly = false; // 確定済み試合かつ非運営者の場合true
+  String _stageLabel = ''; // 予選1, 順位決定戦 上位リーグ etc.
 
   @override
   void initState() {
@@ -78,6 +79,18 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     final isAlreadyCompleted = matchData['status'] == 'completed';
     final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
     final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
+
+    // Build stage label (e.g. "予選1", "順位決定戦 上位リーグ")
+    if (widget.isBracket && widget.bracketId != null) {
+      final bracketDoc = await _firestore.collection('tournaments').doc(widget.tournamentId)
+          .collection('brackets').doc(widget.bracketId).get();
+      final bracketData = bracketDoc.data() as Map<String, dynamic>? ?? {};
+      final bracketName = bracketData['bracketName'] as String? ?? '';
+      _stageLabel = bracketName == '順位決定戦' ? '順位決定戦' : '順位決定戦 $bracketName';
+    } else {
+      final roundNumber = int.tryParse(widget.roundId.replaceAll('round_', '')) ?? 1;
+      _stageLabel = '予選$roundNumber';
+    }
 
     // Resolve set count: for brackets use final rules, for prelim use per-round rules
     int setCount;
@@ -278,7 +291,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
       appBar: AppBar(
-        title: Text('${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート  第${_match!['matchOrder'] ?? ''}試合',
+        title: Text(
+            '$_stageLabel ${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート第${_match!['matchOrder'] ?? _match!['matchNumber'] ?? ''}試合',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1A1A2E), foregroundColor: Colors.white, elevation: 0,
       ),
