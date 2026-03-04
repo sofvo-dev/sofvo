@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -56,26 +57,30 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   int _resolveInitialTab() {
     final tab = widget.initialTab;
-    if (tab == null) return 0;
     // 6タブ: 概要(0), 対戦表(1), 順位表(2), チーム(3), 掲示板(4), フォト(5)
     // 4タブ: 概要(0), チーム(1), 掲示板(2), フォト(3)
-    if (_isEntryDeadlinePassed) {
-      switch (tab) {
-        case 'matches': return 1;
-        case 'standings': return 2;
-        case 'teams': return 3;
-        case 'board': return 4;
-        case 'photo': return 5;
-        default: return 0;
-      }
-    } else {
-      switch (tab) {
-        case 'teams': return 1;
-        case 'board': return 2;
-        case 'photo': return 3;
-        default: return 0;
+    if (tab != null) {
+      if (_isEntryDeadlinePassed) {
+        switch (tab) {
+          case 'matches': return 1;
+          case 'standings': return 2;
+          case 'teams': return 3;
+          case 'board': return 4;
+          case 'photo': return 5;
+          default: return 0;
+        }
+      } else {
+        switch (tab) {
+          case 'teams': return 1;
+          case 'board': return 2;
+          case 'photo': return 3;
+          default: return 0;
+        }
       }
     }
+    // 大会当日は対戦表タブを初期表示
+    if (_isEntryDeadlinePassed && _isTournamentToday()) return 1;
+    return 0;
   }
 
   @override
@@ -244,9 +249,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         title: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.2),
+            color: statusColor == AppTheme.primaryColor
+                ? Colors.white.withValues(alpha: 0.15)
+                : statusColor.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+            border: Border.all(
+              color: statusColor == AppTheme.primaryColor
+                  ? Colors.white.withValues(alpha: 0.5)
+                  : statusColor.withValues(alpha: 0.5),
+            ),
           ),
           child: Text(status, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
         ),
@@ -4352,7 +4363,7 @@ B,2,チームG,チームH,チームE,チームF''';
                   final uploaderName = (data['uploaderName'] as String?) ?? '';
                   final uploadedBy = (data['uploadedBy'] as String?) ?? '';
                   return GestureDetector(
-                    onTap: () => _showGalleryPhoto(imageUrl, uploaderName, data['createdAt'] as Timestamp?),
+                    onTap: () => _showGalleryPhotoViewer(photos, index),
                     onLongPress: uploadedBy == uid
                         ? () => _confirmDeleteGalleryPhoto(photoDoc.id)
                         : null,
@@ -4404,6 +4415,50 @@ B,2,チームG,チームH,チームE,チームF''';
         }
         return;
       }
+
+      // アップロード確認画面
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('${imageFiles.length}枚の写真をアップロード', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: imageFiles.length == 1 ? 200 : 160,
+            child: GridView.builder(
+              shrinkWrap: true,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: imageFiles.length == 1 ? 1 : 3,
+                crossAxisSpacing: 4, mainAxisSpacing: 4,
+              ),
+              itemCount: imageFiles.length,
+              itemBuilder: (_, i) => FutureBuilder<Uint8List>(
+                future: imageFiles[i].readAsBytes(),
+                builder: (_, snap) {
+                  if (!snap.hasData) return Container(color: Colors.grey[200]);
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(snap.data!, fit: BoxFit.cover),
+                  );
+                },
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+              child: const Text('アップロード'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
 
       showDialog(
         context: context,
@@ -4482,64 +4537,12 @@ B,2,チームG,チームH,チームE,チームF''';
     );
   }
 
-  // ── ギャラリー写真フルスクリーン ──
-  void _showGalleryPhoto(String url, String uploaderName, Timestamp? createdAt) {
-    String timeText = '';
-    if (createdAt != null) {
-      final date = createdAt.toDate();
-      timeText = '${date.year}/${date.month}/${date.day}';
-    }
-
+  // ── ギャラリー写真フルスクリーン（横スワイプ対応） ──
+  void _showGalleryPhotoViewer(List<QueryDocumentSnapshot> photos, int initialIndex) {
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 閉じるボタン
-            Align(
-              alignment: Alignment.topRight,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(ctx),
-                child: Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(18)),
-                  child: const Icon(Icons.close, color: Colors.white, size: 22),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // 画像
-            Flexible(
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(url, fit: BoxFit.contain),
-                ),
-              ),
-            ),
-            // 投稿者情報
-            if (uploaderName.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$uploaderName  $timeText',
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+      barrierColor: Colors.black87,
+      builder: (ctx) => _GalleryPhotoViewer(photos: photos, initialIndex: initialIndex),
     );
   }
 
@@ -6496,41 +6499,187 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
           ]),
         ),
         Divider(height: 1, color: Colors.grey[200]),
-        // Team rows
-        ...allTeams.asMap().entries.expand((e) {
-          final i = e.key;
-          final t = e.value;
-          final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
-          final isTierBoundary = tierBoundaries.containsKey(i);
-          return [
-            // 区分境界: 赤い線
-            if (isTierBoundary)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-                child: Container(height: 2, color: Colors.red),
-              )
-            else if (i > 0)
-              Divider(height: 1, color: Colors.grey[200]),
-            Container(
-              color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: Row(children: [
-                  SizedBox(width: 28, child: Text('${i + 1}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
-                      color: i == 0 ? Colors.amber[700] : (i < 3 ? AppTheme.primaryColor : AppTheme.textPrimary)))),
-                  Expanded(flex: 3, child: Text(t['teamName'] ?? '', style: TextStyle(fontSize: 14,
-                      color: isMyTeam ? Colors.red : null,
-                      fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
-                  SizedBox(width: 40, child: Text('${t['matchPoints']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                  SizedBox(width: 40, child: Text('${t['pointDiff']}', style: TextStyle(fontSize: 13,
-                      color: (t['pointDiff'] as num) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
-                  SizedBox(width: 40, child: Text('${t['totalPoints']}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
-                ]),
+        // Team rows（同順位対応）
+        ...() {
+          // 同順位の計算: matchPoints, pointDiff, totalPoints が全て同じ場合は同順位
+          final ranks = <int>[];
+          for (int i = 0; i < allTeams.length; i++) {
+            if (i == 0) {
+              ranks.add(1);
+            } else {
+              final prev = allTeams[i - 1];
+              final curr = allTeams[i];
+              if (curr['matchPoints'] == prev['matchPoints'] &&
+                  curr['pointDiff'] == prev['pointDiff'] &&
+                  curr['totalPoints'] == prev['totalPoints']) {
+                ranks.add(ranks[i - 1]); // 同順位
+              } else {
+                ranks.add(i + 1);
+              }
+            }
+          }
+          return allTeams.asMap().entries.expand((e) {
+            final i = e.key;
+            final t = e.value;
+            final rank = ranks[i];
+            final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
+            final isTierBoundary = tierBoundaries.containsKey(i);
+            return [
+              // 区分境界: 赤い線
+              if (isTierBoundary)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+                  child: Container(height: 2, color: Colors.red),
+                )
+              else if (i > 0)
+                Divider(height: 1, color: Colors.grey[200]),
+              Container(
+                color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  child: Row(children: [
+                    SizedBox(width: 28, child: Text('$rank', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
+                        color: rank == 1 ? Colors.amber[700] : (rank <= 3 ? AppTheme.primaryColor : AppTheme.textPrimary)))),
+                    Expanded(flex: 3, child: Text(t['teamName'] ?? '', style: TextStyle(fontSize: 14,
+                        color: isMyTeam ? Colors.red : null,
+                        fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
+                    SizedBox(width: 40, child: Text('${t['matchPoints']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                    SizedBox(width: 40, child: Text('${t['pointDiff']}', style: TextStyle(fontSize: 13,
+                        color: (t['pointDiff'] as num) >= 0 ? AppTheme.success : AppTheme.error), textAlign: TextAlign.center)),
+                    SizedBox(width: 40, child: Text('${t['totalPoints']}', style: const TextStyle(fontSize: 13), textAlign: TextAlign.center)),
+                  ]),
+                ),
               ),
-            ),
-          ];
-        }),
+            ];
+          });
+        }(),
       ]),
+    );
+  }
+}
+
+// ━━━ ギャラリー写真ビューア（横スワイプ＋ダウンロード） ━━━
+class _GalleryPhotoViewer extends StatefulWidget {
+  final List<QueryDocumentSnapshot> photos;
+  final int initialIndex;
+  const _GalleryPhotoViewer({required this.photos, required this.initialIndex});
+
+  @override
+  State<_GalleryPhotoViewer> createState() => _GalleryPhotoViewerState();
+}
+
+class _GalleryPhotoViewerState extends State<_GalleryPhotoViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height,
+        child: Stack(children: [
+          // 横スワイプ可能な画像
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.photos.length,
+            onPageChanged: (i) => setState(() => _currentIndex = i),
+            itemBuilder: (context, index) {
+              final data = widget.photos[index].data() as Map<String, dynamic>;
+              final imageUrl = (data['imageUrl'] as String?) ?? '';
+              return InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.network(imageUrl, fit: BoxFit.contain,
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2));
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          // 上部バー: 閉じる + ページ番号
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16, right: 16,
+            child: Row(children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(18)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 22),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                child: Text('${_currentIndex + 1} / ${widget.photos.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
+              const Spacer(),
+              // ダウンロードボタン
+              GestureDetector(
+                onTap: () async {
+                  final data = widget.photos[_currentIndex].data() as Map<String, dynamic>;
+                  final imageUrl = (data['imageUrl'] as String?) ?? '';
+                  if (imageUrl.isNotEmpty) {
+                    final uri = Uri.parse(imageUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  }
+                },
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(18)),
+                  child: const Icon(Icons.download, color: Colors.white, size: 22),
+                ),
+              ),
+            ]),
+          ),
+          // 下部: 投稿者情報
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+            left: 16, right: 16,
+            child: Center(child: Builder(builder: (_) {
+              final data = widget.photos[_currentIndex].data() as Map<String, dynamic>;
+              final uploaderName = (data['uploaderName'] as String?) ?? '';
+              final createdAt = data['createdAt'] as Timestamp?;
+              String timeText = '';
+              if (createdAt != null) {
+                final date = createdAt.toDate();
+                timeText = '${date.year}/${date.month}/${date.day}';
+              }
+              if (uploaderName.isEmpty) return const SizedBox.shrink();
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                child: Text('$uploaderName  $timeText', style: const TextStyle(color: Colors.white, fontSize: 13)),
+              );
+            })),
+          ),
+        ]),
+      ),
     );
   }
 }
