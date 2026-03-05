@@ -1618,7 +1618,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final firstCell = firstRow.isNotEmpty ? firstRow[0].toString().trim() : '';
 
     if (firstCell.contains('コート') || firstCell.toLowerCase().contains('court')) {
-      // フラット形式: コート,試合順,チームA,チームB,審判,サブ
+      // フラット形式: コート,試合順,チームA,チームB,審判,サブ,セット1A,セット1B,セット2A,セット2B,セット3A,セット3B
       final dataRows = rows.skip(1).toList();
       for (final row in dataRows) {
         if (row.length < 4) continue;
@@ -1629,7 +1629,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final referee = row.length > 4 ? row[4].toString().trim() : '';
         final sub = row.length > 5 ? row[5].toString().trim() : '';
         if (teamA.isEmpty || teamB.isEmpty) continue;
-        matchRows.add({'court': court, 'matchOrder': order, 'teamA': teamA, 'teamB': teamB, 'referee': referee, 'subReferee': sub});
+        final m = {'court': court, 'matchOrder': order, 'teamA': teamA, 'teamB': teamB, 'referee': referee, 'subReferee': sub};
+        // Parse score columns (index 6-11): セット1A,セット1B,セット2A,セット2B,セット3A,セット3B
+        for (int s = 0; s < 3; s++) {
+          final colA = 6 + s * 2;
+          final colB = 7 + s * 2;
+          final scoreA = row.length > colA ? row[colA].toString().trim() : '';
+          final scoreB = row.length > colB ? row[colB].toString().trim() : '';
+          if (scoreA.isNotEmpty && scoreB.isNotEmpty) {
+            m['set${s + 1}A'] = scoreA;
+            m['set${s + 1}B'] = scoreB;
+          }
+        }
+        matchRows.add(m);
       }
     } else {
       // スプレッドシート横並び形式を自動検出
@@ -1674,14 +1686,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('$courtCountコート / ${matchRows.length}試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  Text('${allTeamNames.length}チーム', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                ]),
-              ),
+              Builder(builder: (_) {
+                final scoredCount = matchRows.where((m) => m.containsKey('set1A')).length;
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('$courtCountコート / ${matchRows.length}試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    Text('${allTeamNames.length}チーム', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    if (scoredCount > 0)
+                      Text('得点あり: $scoredCount試合', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.success)),
+                  ]),
+                );
+              }),
               if (unmatched.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -1699,6 +1716,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   itemCount: matchRows.length,
                   itemBuilder: (_, i) {
                     final m = matchRows[i];
+                    final hasScore = m.containsKey('set1A');
+                    // Build score summary text
+                    String scoreText = '';
+                    if (hasScore) {
+                      final parts = <String>[];
+                      for (int s = 1; s <= 3; s++) {
+                        if (m.containsKey('set${s}A')) {
+                          parts.add('${m['set${s}A']}-${m['set${s}B']}');
+                        }
+                      }
+                      scoreText = parts.join(' / ');
+                    }
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Row(children: [
@@ -1712,6 +1741,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         Text('${m['matchOrder']}', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                         const SizedBox(width: 6),
                         Expanded(child: Text('${m['teamA']} vs ${m['teamB']}', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                        if (hasScore)
+                          Text(scoreText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.success)),
                       ]),
                     );
                   },
@@ -1884,12 +1915,24 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       final teamB = row[4].toString().trim();
       if (bracketName.isEmpty || teamA.isEmpty || teamB.isEmpty) continue;
       bracketData.putIfAbsent(bracketName, () => []);
-      bracketData[bracketName]!.add({
+      final m = {
         'matchNumber': matchNumber,
         'round': round,
         'teamA': teamA,
         'teamB': teamB,
-      });
+      };
+      // Parse score columns (index 5-10): セット1A,セット1B,セット2A,セット2B,セット3A,セット3B
+      for (int s = 0; s < 3; s++) {
+        final colA = 5 + s * 2;
+        final colB = 6 + s * 2;
+        final scoreA = row.length > colA ? row[colA].toString().trim() : '';
+        final scoreB = row.length > colB ? row[colB].toString().trim() : '';
+        if (scoreA.isNotEmpty && scoreB.isNotEmpty) {
+          m['set${s + 1}A'] = scoreA;
+          m['set${s + 1}B'] = scoreB;
+        }
+      }
+      bracketData[bracketName]!.add(m);
     }
 
     if (bracketData.isEmpty) {
@@ -1929,11 +1972,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-                child: Text('${bracketData.length}ブラケット / $totalMatches試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              ),
+              Builder(builder: (_) {
+                final scoredCount = bracketData.values.expand((l) => l).where((m) => m.containsKey('set1A')).length;
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${bracketData.length}ブラケット / $totalMatches試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    if (scoredCount > 0)
+                      Text('得点あり: $scoredCount試合', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.success)),
+                  ]),
+                );
+              }),
               const SizedBox(height: 12),
               Expanded(
                 child: ListView(
@@ -1945,11 +1995,24 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Text(e.key, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                         ),
-                        ...e.value.map((m) => Padding(
-                          padding: const EdgeInsets.only(left: 12, bottom: 2),
-                          child: Text('${m['round']}#${m['matchNumber']}: ${m['teamA']} vs ${m['teamB']}',
-                              style: const TextStyle(fontSize: 12)),
-                        )),
+                        ...e.value.map((m) {
+                          final hasScore = m.containsKey('set1A');
+                          String scoreText = '';
+                          if (hasScore) {
+                            final parts = <String>[];
+                            for (int s = 1; s <= 3; s++) {
+                              if (m.containsKey('set${s}A')) {
+                                parts.add('${m['set${s}A']}-${m['set${s}B']}');
+                              }
+                            }
+                            scoreText = ' (${parts.join(' / ')})';
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 12, bottom: 2),
+                            child: Text('${m['round']}#${m['matchNumber']}: ${m['teamA']} vs ${m['teamB']}$scoreText',
+                                style: TextStyle(fontSize: 12, color: hasScore ? AppTheme.success : null)),
+                          );
+                        }),
                       ],
                     );
                   }).toList(),
@@ -1993,16 +2056,49 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         for (var m in entry.value) {
           final teamAName = m['teamA']!;
           final teamBName = m['teamB']!;
+          final teamAId = nameToId[teamAName] ?? teamAName;
+          final teamBId = nameToId[teamBName] ?? teamBName;
+
+          // Parse scores from CSV
+          final sets = <Map<String, int>>[];
+          for (int s = 1; s <= 3; s++) {
+            final a = int.tryParse(m['set${s}A'] ?? '');
+            final b = int.tryParse(m['set${s}B'] ?? '');
+            if (a != null && b != null) {
+              sets.add({'a': a, 'b': b});
+            }
+          }
+          final hasScore = sets.isNotEmpty;
+
+          Map<String, dynamic> result = {};
+          String status = 'pending';
+          if (hasScore) {
+            int setsA = 0, setsB = 0, totalA = 0, totalB = 0;
+            for (var set in sets) {
+              totalA += set['a']!;
+              totalB += set['b']!;
+              if (set['a']! > set['b']!) setsA++;
+              else if (set['b']! > set['a']!) setsB++;
+            }
+            final winner = setsA > setsB ? teamAId : (setsB > setsA ? teamBId : (totalA > totalB ? teamAId : (totalB > totalA ? teamBId : '引き分け')));
+            result = {
+              'setsA': setsA, 'setsB': setsB,
+              'totalPointsA': totalA, 'totalPointsB': totalB,
+              'winner': winner,
+            };
+            status = 'completed';
+          }
+
           await bracketRef.collection('matches').add({
             'round': m['round'] ?? 'semi',
             'matchNumber': int.tryParse(m['matchNumber'] ?? '1') ?? 1,
-            'teamAId': nameToId[teamAName] ?? teamAName,
+            'teamAId': teamAId,
             'teamAName': teamAName,
-            'teamBId': nameToId[teamBName] ?? teamBName,
+            'teamBId': teamBId,
             'teamBName': teamBName,
-            'status': 'pending',
-            'sets': [],
-            'result': {},
+            'status': status,
+            'sets': sets,
+            'result': result,
           });
         }
       }
@@ -2027,15 +2123,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   /// 予選対戦表CSVテンプレートダウンロード
   Future<void> _downloadMatchTableTemplate() async {
-    const header = 'コート,試合順,チームA,チームB,審判,サブ';
-    const example = '''A,1,チームA,チームB,チームC,チームD
-A,2,チームC,チームD,チームA,チームB
-A,3,チームA,チームD,チームC,チームB
-A,4,チームB,チームC,チームA,チームD
-A,5,チームA,チームC,チームD,チームB
-A,6,チームD,チームB,チームA,チームC
-B,1,チームE,チームF,チームG,チームH
-B,2,チームG,チームH,チームE,チームF''';
+    const header = 'コート,試合順,チームA,チームB,審判,サブ,セット1A,セット1B,セット2A,セット2B,セット3A,セット3B';
+    const example = '''A,1,チームA,チームB,チームC,チームD,25,20,25,18,,
+A,2,チームC,チームD,チームA,チームB,,,,,
+A,3,チームA,チームD,チームC,チームB,,,,,
+A,4,チームB,チームC,チームA,チームD,,,,,
+A,5,チームA,チームC,チームD,チームB,,,,,
+A,6,チームD,チームB,チームA,チームC,,,,,
+B,1,チームE,チームF,チームG,チームH,,,,,
+B,2,チームG,チームH,チームE,チームF,,,,,''';
     final csvContent = '$header\n$example\n';
 
     try {
@@ -2051,13 +2147,13 @@ B,2,チームG,チームH,チームE,チームF''';
 
   /// 決勝対戦表CSVテンプレートダウンロード
   Future<void> _downloadFinalsTemplate() async {
-    const header = 'ブラケット名,試合番号,ラウンド,チームA,チームB';
-    const example = '''上位,1,semi,チームA,チームD
-上位,2,semi,チームB,チームC
-上位,3,final,準決勝①勝者,準決勝②勝者
-中位,1,semi,チームE,チームH
-中位,2,semi,チームF,チームG
-中位,3,final,準決勝①勝者,準決勝②勝者''';
+    const header = 'ブラケット名,試合番号,ラウンド,チームA,チームB,セット1A,セット1B,セット2A,セット2B,セット3A,セット3B';
+    const example = '''上位,1,semi,チームA,チームD,25,20,25,18,,
+上位,2,semi,チームB,チームC,,,,,
+上位,3,final,準決勝①勝者,準決勝②勝者,,,,,
+中位,1,semi,チームE,チームH,,,,,
+中位,2,semi,チームF,チームG,,,,,
+中位,3,final,準決勝①勝者,準決勝②勝者,,,,,''';
     final csvContent = '$header\n$example\n';
 
     try {

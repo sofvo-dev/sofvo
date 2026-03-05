@@ -233,6 +233,39 @@ class MatchGenerator {
         final refName = row['referee'] ?? '';
         final subRefName = row['subReferee'] ?? '';
 
+        // Parse scores from CSV (set1A, set1B, set2A, set2B, set3A, set3B)
+        final sets = <Map<String, int>>[];
+        for (int s = 1; s <= 3; s++) {
+          final a = int.tryParse(row['set${s}A'] ?? '');
+          final b = int.tryParse(row['set${s}B'] ?? '');
+          if (a != null && b != null) {
+            sets.add({'a': a, 'b': b});
+          }
+        }
+        final hasScore = sets.isNotEmpty;
+
+        // Calculate result if scores exist
+        Map<String, dynamic> result = {};
+        String status = 'pending';
+        if (hasScore) {
+          int setsA = 0, setsB = 0, totalA = 0, totalB = 0;
+          for (var set in sets) {
+            totalA += set['a']!;
+            totalB += set['b']!;
+            if (set['a']! > set['b']!) setsA++;
+            else if (set['b']! > set['a']!) setsB++;
+          }
+          final teamAId = nameToId[teamAName] ?? teamAName;
+          final teamBId = nameToId[teamBName] ?? teamBName;
+          final winner = setsA > setsB ? teamAId : (setsB > setsA ? teamBId : (totalA > totalB ? teamAId : (totalB > totalA ? teamBId : '引き分け')));
+          result = {
+            'setsA': setsA, 'setsB': setsB,
+            'totalPointsA': totalA, 'totalPointsB': totalB,
+            'winner': winner,
+          };
+          status = 'completed';
+        }
+
         final match = <String, dynamic>{
           'courtId': courtId,
           'courtNumber': courtNumber,
@@ -246,12 +279,16 @@ class MatchGenerator {
           'subRefereeTeamName': subRefName,
           'roundNumber': roundNumber,
           'matchOrder': matchOrder++,
-          'status': 'pending',
-          'sets': [],
-          'result': {},
-          'confirmedByA': false,
-          'confirmedByB': false,
+          'status': status,
+          'sets': sets,
+          'result': result,
+          'confirmedByA': hasScore,
+          'confirmedByB': hasScore,
         };
+
+        if (hasScore) {
+          match['refereeConfirmed'] = true;
+        }
 
         final docRef = await roundRef.collection('matches').add(match);
         match['matchId'] = docRef.id;
@@ -259,9 +296,21 @@ class MatchGenerator {
       }
     }
 
+    // Update standings for courts that have scored matches
+    final courtsWithScores = <String>{};
+    for (var match in allMatches) {
+      if (match['status'] == 'completed') {
+        courtsWithScores.add(match['courtId'] as String);
+      }
+    }
+    for (var cid in courtsWithScores) {
+      await updateStandings(tournamentId: tournamentId, roundNumber: roundNumber, courtId: cid);
+    }
+
     // Update tournament status
+    final allCompleted = allMatches.every((m) => m['status'] == 'completed');
     await _firestore.collection('tournaments').doc(tournamentId).update({
-      'status': '開催中',
+      'status': allCompleted ? '予選${roundNumber}完了' : '開催中',
       'currentRound': roundNumber,
     });
 
