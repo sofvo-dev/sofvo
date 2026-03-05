@@ -2123,6 +2123,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             'result': result,
           });
         }
+
+        // 得点付き試合がある場合、ブラケット進行を更新（semi勝者→finalへ反映など）
+        final hasAnyScore = entry.value.any((m) => m.containsKey('set1A'));
+        if (hasAnyScore) {
+          await MatchGenerator().updateBracketProgression(
+            tournamentId: _tournamentId, bracketId: 'bracket_$bracketNum');
+
+          // 全試合完了ならブラケットstatusも更新
+          final allDone = entry.value.every((m) => m.containsKey('set1A'));
+          if (allDone) {
+            await bracketRef.update({'status': 'completed'});
+          } else {
+            await bracketRef.update({'status': 'in_progress'});
+          }
+        }
       }
 
       await _firestore.collection('tournaments').doc(_tournamentId).update({'status': '順位決定中'});
