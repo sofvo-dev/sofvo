@@ -2160,18 +2160,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   /// 予選対戦表CSVテンプレートダウンロード（大会専用）
   Future<void> _downloadMatchTableTemplate() async {
+    try {
     final rules = widget.tournament['rules'] as Map<String, dynamic>? ?? {};
     final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
-    final courtCount = widget.tournament['courts'] ?? 2;
-    final prelimRounds = preliminary['rounds'] ?? 1;
+    final courtCount = (widget.tournament['courts'] as num?)?.toInt() ?? 2;
+    final prelimRounds = (preliminary['rounds'] as num?)?.toInt() ?? 1;
 
     // セット数を取得
     int setCount;
     if (prelimRounds == 2) {
       final r1 = preliminary['round1'] as Map<String, dynamic>? ?? {};
-      setCount = r1['sets'] ?? preliminary['sets'] ?? 2;
+      setCount = (r1['sets'] as num?)?.toInt() ?? (preliminary['sets'] as num?)?.toInt() ?? 2;
     } else {
-      setCount = preliminary['sets'] ?? 2;
+      setCount = (preliminary['sets'] as num?)?.toInt() ?? 2;
     }
 
     // ヘッダー生成（セット数に応じた列）
@@ -2184,13 +2185,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     // 既存の対戦表があるか確認（予選1）
     final roundRef = _firestore.collection('tournaments').doc(_tournamentId)
         .collection('rounds').doc('round_1');
-    final matchesSnap = await roundRef.collection('matches').orderBy('courtNumber').orderBy('matchOrder').get();
+    final matchesSnap = await roundRef.collection('matches').orderBy('matchOrder').get();
 
     if (matchesSnap.docs.isNotEmpty) {
       // ━━━ 対戦表生成済み → 既存マッチからテンプレ生成 ━━━
       for (var doc in matchesSnap.docs) {
         final m = doc.data();
-        final courtLetter = String.fromCharCode(64 + (m['courtNumber'] as int? ?? 1)); // 1→A, 2→B
+        final courtNum = (m['courtNumber'] as num?)?.toInt() ?? 1;
+        final courtLetter = String.fromCharCode(64 + courtNum); // 1→A, 2→B
         final existingSets = m['sets'] as List<dynamic>? ?? [];
         final scoreValues = <String>[];
         for (int i = 0; i < setCount; i++) {
@@ -2225,7 +2227,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
       // コートにチームを均等分配
       final courts = <List<String>>[];
-      final actualCourts = courtCount > 0 ? (courtCount as int) : 2;
+      final actualCourts = courtCount > 0 ? courtCount : 2;
       for (int i = 0; i < actualCourts; i++) {
         courts.add([]);
       }
@@ -2250,9 +2252,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     final csvContent = '$header\n${rows.join('\n')}\n';
     final title = widget.tournament['title'] ?? '大会';
-
-    try {
-      await downloadCsvFile(csvContent, '${title}_予選対戦表テンプレート.csv');
+    await downloadCsvFile(csvContent, '${title}_予選対戦表テンプレート.csv');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2264,14 +2264,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   /// 決勝対戦表CSVテンプレートダウンロード（大会専用）
   Future<void> _downloadFinalsTemplate() async {
+    try {
     final rules = widget.tournament['rules'] as Map<String, dynamic>? ?? {};
     final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
-    final setCount = finalRules['sets'] ?? 3;
+    final setCount = (finalRules['sets'] as num?)?.toInt() ?? 3;
 
     // ヘッダー生成
-    final scoreCols = List.generate(setCount as int, (i) => 'セット${i + 1}A(任意),セット${i + 1}B(任意)').join(',');
+    final scoreCols = List.generate(setCount, (i) => 'セット${i + 1}A(任意),セット${i + 1}B(任意)').join(',');
     final header = 'ブラケット名,試合番号,ラウンド,チームA,チームB,$scoreCols';
-    final emptyScores = List.generate((setCount as int) * 2, (_) => '').join(',');
+    final emptyScores = List.generate(setCount * 2, (_) => '').join(',');
 
     final rows = <String>[];
 
@@ -2290,7 +2291,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           final m = matchDoc.data();
           final existingSets = m['sets'] as List<dynamic>? ?? [];
           final scoreValues = <String>[];
-          for (int i = 0; i < (setCount as int); i++) {
+          for (int i = 0; i < setCount; i++) {
             if (i < existingSets.length && existingSets[i] is Map) {
               final a = existingSets[i]['a'] ?? '';
               final b = existingSets[i]['b'] ?? '';
@@ -2321,12 +2322,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       }
 
       // 簡易的にチーム名を列挙したテンプレを出力
-      final tierCount = finalRules['tierCount'] ?? 2;
+      final tierCount = (finalRules['tierCount'] as num?)?.toInt() ?? 2;
       final tierNames = ['上位', '中位', '下位'];
-      final teamsPerTier = (teamNames.length / (tierCount as int)).ceil().clamp(2, teamNames.length);
+      final teamsPerTier = (teamNames.length / tierCount).ceil().clamp(2, teamNames.length);
 
       int teamIdx = 0;
-      for (int t = 0; t < (tierCount as int); t++) {
+      for (int t = 0; t < tierCount; t++) {
         final tierName = t < tierNames.length ? tierNames[t] : 'リーグ${t + 1}';
         final tierTeams = <String>[];
         for (int i = 0; i < teamsPerTier && teamIdx < teamNames.length; i++) {
@@ -2349,9 +2350,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     final csvContent = '$header\n${rows.join('\n')}\n';
     final title = widget.tournament['title'] ?? '大会';
-
-    try {
-      await downloadCsvFile(csvContent, '${title}_決勝対戦表テンプレート.csv');
+    await downloadCsvFile(csvContent, '${title}_決勝対戦表テンプレート.csv');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
