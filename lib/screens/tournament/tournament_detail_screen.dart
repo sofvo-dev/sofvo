@@ -2158,18 +2158,101 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     }
   }
 
-  /// 予選対戦表CSVテンプレートダウンロード
+  /// 予選対戦表CSVテンプレートダウンロード（大会専用）
   Future<void> _downloadMatchTableTemplate() async {
-    const header = 'コート,試合順,チームA,チームB,審判,サブ,セット1A(任意),セット1B(任意),セット2A(任意),セット2B(任意),セット3A(任意),セット3B(任意)';
-    const example = '''A,1,チームA,チームB,チームC,チームD,25,20,25,18,,
-A,2,チームC,チームD,チームA,チームB,20,25,25,23,,
-A,3,チームA,チームD,チームC,チームB,,,,,,
-B,1,チームE,チームF,チームG,チームH,,,,,,
-B,2,チームG,チームH,チームE,チームF,,,,,,''';
-    final csvContent = '$header\n$example\n';
+    final rules = widget.tournament['rules'] as Map<String, dynamic>? ?? {};
+    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
+    final courtCount = widget.tournament['courts'] ?? 2;
+    final prelimRounds = preliminary['rounds'] ?? 1;
+
+    // セット数を取得
+    int setCount;
+    if (prelimRounds == 2) {
+      final r1 = preliminary['round1'] as Map<String, dynamic>? ?? {};
+      setCount = r1['sets'] ?? preliminary['sets'] ?? 2;
+    } else {
+      setCount = preliminary['sets'] ?? 2;
+    }
+
+    // ヘッダー生成（セット数に応じた列）
+    final scoreCols = List.generate(setCount, (i) => 'セット${i + 1}A(任意),セット${i + 1}B(任意)').join(',');
+    final header = 'コート,試合順,チームA,チームB,審判,サブ,$scoreCols';
+    final emptyScores = List.generate(setCount * 2, (_) => '').join(',');
+
+    final rows = <String>[];
+
+    // 既存の対戦表があるか確認（予選1）
+    final roundRef = _firestore.collection('tournaments').doc(_tournamentId)
+        .collection('rounds').doc('round_1');
+    final matchesSnap = await roundRef.collection('matches').orderBy('courtNumber').orderBy('matchOrder').get();
+
+    if (matchesSnap.docs.isNotEmpty) {
+      // ━━━ 対戦表生成済み → 既存マッチからテンプレ生成 ━━━
+      for (var doc in matchesSnap.docs) {
+        final m = doc.data();
+        final courtLetter = String.fromCharCode(64 + (m['courtNumber'] as int? ?? 1)); // 1→A, 2→B
+        final existingSets = m['sets'] as List<dynamic>? ?? [];
+        final scoreValues = <String>[];
+        for (int i = 0; i < setCount; i++) {
+          if (i < existingSets.length && existingSets[i] is Map) {
+            final a = existingSets[i]['a'] ?? '';
+            final b = existingSets[i]['b'] ?? '';
+            // 0,0 は未入力とみなして空にする
+            if (a == 0 && b == 0) {
+              scoreValues.addAll(['', '']);
+            } else {
+              scoreValues.addAll(['$a', '$b']);
+            }
+          } else {
+            scoreValues.addAll(['', '']);
+          }
+        }
+        rows.add('$courtLetter,${m['matchOrder']},${m['teamAName']},${m['teamBName']},${m['refereeTeamName'] ?? ''},${m['subRefereeTeamName'] ?? ''},${scoreValues.join(',')}');
+      }
+    } else {
+      // ━━━ 対戦表未生成 → エントリーからスケルトン生成 ━━━
+      final entriesSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').get();
+      final teamNames = entriesSnap.docs.map((d) => (d.data()['teamName'] as String? ?? '').trim()).where((n) => n.isNotEmpty).toList();
+
+      if (teamNames.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('エントリーがありません。先にチームを登録してください'), backgroundColor: AppTheme.error),
+          );
+        }
+        return;
+      }
+
+      // コートにチームを均等分配
+      final courts = <List<String>>[];
+      final actualCourts = courtCount > 0 ? (courtCount as int) : 2;
+      for (int i = 0; i < actualCourts; i++) {
+        courts.add([]);
+      }
+      for (int i = 0; i < teamNames.length; i++) {
+        courts[i % actualCourts].add(teamNames[i]);
+      }
+
+      // 各コートのチーム用に行を生成（対戦組み合わせは空欄でチーム名だけ列挙）
+      for (int c = 0; c < courts.length; c++) {
+        final courtLetter = String.fromCharCode(65 + c); // A, B, C...
+        final teams = courts[c];
+        int matchOrder = 1;
+        // ラウンドロビン的にペアを作る
+        for (int i = 0; i < teams.length; i++) {
+          for (int j = i + 1; j < teams.length; j++) {
+            rows.add('$courtLetter,$matchOrder,${teams[i]},${teams[j]},,$emptyScores');
+            matchOrder++;
+          }
+        }
+      }
+    }
+
+    final csvContent = '$header\n${rows.join('\n')}\n';
+    final title = widget.tournament['title'] ?? '大会';
 
     try {
-      await downloadCsvFile(csvContent, 'match_table_template.csv');
+      await downloadCsvFile(csvContent, '${title}_予選対戦表テンプレート.csv');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2179,19 +2262,96 @@ B,2,チームG,チームH,チームE,チームF,,,,,,''';
     }
   }
 
-  /// 決勝対戦表CSVテンプレートダウンロード
+  /// 決勝対戦表CSVテンプレートダウンロード（大会専用）
   Future<void> _downloadFinalsTemplate() async {
-    const header = 'ブラケット名,試合番号,ラウンド,チームA,チームB,セット1A(任意),セット1B(任意),セット2A(任意),セット2B(任意),セット3A(任意),セット3B(任意)';
-    const example = '''上位,1,semi,チームA,チームD,25,20,25,18,,
-上位,2,semi,チームB,チームC,20,25,25,23,,
-上位,3,final,準決勝①勝者,準決勝②勝者,,,,,,
-中位,1,semi,チームE,チームH,,,,,,
-中位,2,semi,チームF,チームG,,,,,,
-中位,3,final,準決勝①勝者,準決勝②勝者,,,,,,''';
-    final csvContent = '$header\n$example\n';
+    final rules = widget.tournament['rules'] as Map<String, dynamic>? ?? {};
+    final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
+    final setCount = finalRules['sets'] ?? 3;
+
+    // ヘッダー生成
+    final scoreCols = List.generate(setCount as int, (i) => 'セット${i + 1}A(任意),セット${i + 1}B(任意)').join(',');
+    final header = 'ブラケット名,試合番号,ラウンド,チームA,チームB,$scoreCols';
+    final emptyScores = List.generate((setCount as int) * 2, (_) => '').join(',');
+
+    final rows = <String>[];
+
+    // 既存のブラケットがあるか確認
+    final bracketsSnap = await _firestore.collection('tournaments').doc(_tournamentId)
+        .collection('brackets').get();
+
+    if (bracketsSnap.docs.isNotEmpty) {
+      // ━━━ ブラケット生成済み → 既存マッチからテンプレ生成 ━━━
+      for (var bracketDoc in bracketsSnap.docs) {
+        final bracketData = bracketDoc.data();
+        final bracketName = bracketData['bracketName'] ?? bracketDoc.id;
+        final matchesSnap = await bracketDoc.reference.collection('matches').orderBy('matchNumber').get();
+
+        for (var matchDoc in matchesSnap.docs) {
+          final m = matchDoc.data();
+          final existingSets = m['sets'] as List<dynamic>? ?? [];
+          final scoreValues = <String>[];
+          for (int i = 0; i < (setCount as int); i++) {
+            if (i < existingSets.length && existingSets[i] is Map) {
+              final a = existingSets[i]['a'] ?? '';
+              final b = existingSets[i]['b'] ?? '';
+              if (a == 0 && b == 0) {
+                scoreValues.addAll(['', '']);
+              } else {
+                scoreValues.addAll(['$a', '$b']);
+              }
+            } else {
+              scoreValues.addAll(['', '']);
+            }
+          }
+          rows.add('$bracketName,${m['matchNumber']},${m['round'] ?? ''},${m['teamAName'] ?? ''},${m['teamBName'] ?? ''},${scoreValues.join(',')}');
+        }
+      }
+    } else {
+      // ━━━ ブラケット未生成 → エントリーからスケルトン生成 ━━━
+      final entriesSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').get();
+      final teamNames = entriesSnap.docs.map((d) => (d.data()['teamName'] as String? ?? '').trim()).where((n) => n.isNotEmpty).toList();
+
+      if (teamNames.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('エントリーがありません。先にチームを登録してください'), backgroundColor: AppTheme.error),
+          );
+        }
+        return;
+      }
+
+      // 簡易的にチーム名を列挙したテンプレを出力
+      final tierCount = finalRules['tierCount'] ?? 2;
+      final tierNames = ['上位', '中位', '下位'];
+      final teamsPerTier = (teamNames.length / (tierCount as int)).ceil().clamp(2, teamNames.length);
+
+      int teamIdx = 0;
+      for (int t = 0; t < (tierCount as int); t++) {
+        final tierName = t < tierNames.length ? tierNames[t] : 'リーグ${t + 1}';
+        final tierTeams = <String>[];
+        for (int i = 0; i < teamsPerTier && teamIdx < teamNames.length; i++) {
+          tierTeams.add(teamNames[teamIdx++]);
+        }
+        // semi-final pairs
+        int matchNum = 1;
+        for (int i = 0; i < tierTeams.length; i += 2) {
+          final teamA = tierTeams[i];
+          final teamB = (i + 1 < tierTeams.length) ? tierTeams[i + 1] : '';
+          rows.add('$tierName,$matchNum,semi,$teamA,$teamB,$emptyScores');
+          matchNum++;
+        }
+        // final placeholder
+        rows.add('$tierName,$matchNum,final_1st,準決勝①勝者,準決勝②勝者,$emptyScores');
+        matchNum++;
+        rows.add('$tierName,$matchNum,final_3rd,準決勝①敗者,準決勝②敗者,$emptyScores');
+      }
+    }
+
+    final csvContent = '$header\n${rows.join('\n')}\n';
+    final title = widget.tournament['title'] ?? '大会';
 
     try {
-      await downloadCsvFile(csvContent, 'finals_template.csv');
+      await downloadCsvFile(csvContent, '${title}_決勝対戦表テンプレート.csv');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -7083,13 +7243,13 @@ class _CsvImportMenuScreen extends StatelessWidget {
           _csvTile(context, Icons.upload_file, '予選1 アップロード', 'CSVファイルから予選1の対戦表をインポート\n※ 得点列があればスコアも一括登録', onMatchTableUpload1, color: AppTheme.info),
           if (prelimRounds >= 2)
             _csvTile(context, Icons.upload_file, '予選2 アップロード', 'CSVファイルから予選2の対戦表をインポート\n※ 得点列があればスコアも一括登録', onMatchTableUpload2, color: AppTheme.info),
-          _csvTile(context, Icons.download, 'テンプレートDL', '予選対戦表用のCSVテンプレート', onMatchTableTemplate, color: AppTheme.info),
+          _csvTile(context, Icons.download, 'テンプレートDL', 'この大会専用の予選対戦表テンプレート', onMatchTableTemplate, color: AppTheme.info),
 
           // ━━━ 決勝対戦表 ━━━
           if (finalEnabled) ...[
             _sectionLabel('決勝対戦表'),
             _csvTile(context, Icons.upload_file, '決勝 アップロード', 'CSVファイルから決勝トーナメントをインポート\n※ 得点列があればスコアも一括登録', onFinalsUpload, color: AppTheme.accentColor),
-            _csvTile(context, Icons.download, 'テンプレートDL', '決勝対戦表用のCSVテンプレート', onFinalsTemplate, color: AppTheme.accentColor),
+            _csvTile(context, Icons.download, 'テンプレートDL', 'この大会専用の決勝対戦表テンプレート', onFinalsTemplate, color: AppTheme.accentColor),
           ],
         ],
       ),
