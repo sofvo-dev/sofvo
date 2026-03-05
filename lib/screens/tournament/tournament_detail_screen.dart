@@ -1694,8 +1694,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('$courtCountコート / ${matchRows.length}試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     Text('${allTeamNames.length}チーム', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 4),
                     if (scoredCount > 0)
-                      Text('得点あり: $scoredCount試合', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.success)),
+                      Row(children: [
+                        Icon(Icons.scoreboard, size: 14, color: AppTheme.success),
+                        const SizedBox(width: 4),
+                        Text('得点あり $scoredCount / ${matchRows.length}試合', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.success)),
+                      ])
+                    else
+                      Row(children: [
+                        Icon(Icons.info_outline, size: 14, color: AppTheme.textSecondary),
+                        const SizedBox(width: 4),
+                        Text('得点なし（対戦表のみ）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                      ]),
                   ]),
                 );
               }),
@@ -1979,8 +1990,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('${bracketData.length}ブラケット / $totalMatches試合', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
                     if (scoredCount > 0)
-                      Text('得点あり: $scoredCount試合', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.success)),
+                      Row(children: [
+                        Icon(Icons.scoreboard, size: 14, color: AppTheme.success),
+                        const SizedBox(width: 4),
+                        Text('得点あり $scoredCount / $totalMatches試合', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.success)),
+                      ])
+                    else
+                      Row(children: [
+                        Icon(Icons.info_outline, size: 14, color: AppTheme.textSecondary),
+                        const SizedBox(width: 4),
+                        Text('得点なし（対戦表のみ）', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                      ]),
                   ]),
                 );
               }),
@@ -2123,15 +2145,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   /// 予選対戦表CSVテンプレートダウンロード
   Future<void> _downloadMatchTableTemplate() async {
-    const header = 'コート,試合順,チームA,チームB,審判,サブ,セット1A,セット1B,セット2A,セット2B,セット3A,セット3B';
+    const header = 'コート,試合順,チームA,チームB,審判,サブ,セット1A(任意),セット1B(任意),セット2A(任意),セット2B(任意),セット3A(任意),セット3B(任意)';
     const example = '''A,1,チームA,チームB,チームC,チームD,25,20,25,18,,
-A,2,チームC,チームD,チームA,チームB,,,,,
-A,3,チームA,チームD,チームC,チームB,,,,,
-A,4,チームB,チームC,チームA,チームD,,,,,
-A,5,チームA,チームC,チームD,チームB,,,,,
-A,6,チームD,チームB,チームA,チームC,,,,,
-B,1,チームE,チームF,チームG,チームH,,,,,
-B,2,チームG,チームH,チームE,チームF,,,,,''';
+A,2,チームC,チームD,チームA,チームB,20,25,25,23,,
+A,3,チームA,チームD,チームC,チームB,,,,,,
+B,1,チームE,チームF,チームG,チームH,,,,,,
+B,2,チームG,チームH,チームE,チームF,,,,,,''';
     final csvContent = '$header\n$example\n';
 
     try {
@@ -2147,13 +2166,13 @@ B,2,チームG,チームH,チームE,チームF,,,,,''';
 
   /// 決勝対戦表CSVテンプレートダウンロード
   Future<void> _downloadFinalsTemplate() async {
-    const header = 'ブラケット名,試合番号,ラウンド,チームA,チームB,セット1A,セット1B,セット2A,セット2B,セット3A,セット3B';
+    const header = 'ブラケット名,試合番号,ラウンド,チームA,チームB,セット1A(任意),セット1B(任意),セット2A(任意),セット2B(任意),セット3A(任意),セット3B(任意)';
     const example = '''上位,1,semi,チームA,チームD,25,20,25,18,,
-上位,2,semi,チームB,チームC,,,,,
-上位,3,final,準決勝①勝者,準決勝②勝者,,,,,
-中位,1,semi,チームE,チームH,,,,,
-中位,2,semi,チームF,チームG,,,,,
-中位,3,final,準決勝①勝者,準決勝②勝者,,,,,''';
+上位,2,semi,チームB,チームC,20,25,25,23,,
+上位,3,final,準決勝①勝者,準決勝②勝者,,,,,,
+中位,1,semi,チームE,チームH,,,,,,
+中位,2,semi,チームF,チームG,,,,,,
+中位,3,final,準決勝①勝者,準決勝②勝者,,,,,,''';
     final csvContent = '$header\n$example\n';
 
     try {
@@ -7046,15 +7065,15 @@ class _CsvImportMenuScreen extends StatelessWidget {
 
           // ━━━ 予選対戦表 ━━━
           _sectionLabel('予選対戦表'),
-          _csvTile(context, Icons.upload_file, '予選1 アップロード', 'CSVファイルから予選1の対戦表をインポート', onMatchTableUpload1, color: AppTheme.info),
+          _csvTile(context, Icons.upload_file, '予選1 アップロード', 'CSVファイルから予選1の対戦表をインポート\n※ 得点列があればスコアも一括登録', onMatchTableUpload1, color: AppTheme.info),
           if (prelimRounds >= 2)
-            _csvTile(context, Icons.upload_file, '予選2 アップロード', 'CSVファイルから予選2の対戦表をインポート', onMatchTableUpload2, color: AppTheme.info),
+            _csvTile(context, Icons.upload_file, '予選2 アップロード', 'CSVファイルから予選2の対戦表をインポート\n※ 得点列があればスコアも一括登録', onMatchTableUpload2, color: AppTheme.info),
           _csvTile(context, Icons.download, 'テンプレートDL', '予選対戦表用のCSVテンプレート', onMatchTableTemplate, color: AppTheme.info),
 
           // ━━━ 決勝対戦表 ━━━
           if (finalEnabled) ...[
             _sectionLabel('決勝対戦表'),
-            _csvTile(context, Icons.upload_file, '決勝 アップロード', 'CSVファイルから決勝トーナメントをインポート', onFinalsUpload, color: AppTheme.accentColor),
+            _csvTile(context, Icons.upload_file, '決勝 アップロード', 'CSVファイルから決勝トーナメントをインポート\n※ 得点列があればスコアも一括登録', onFinalsUpload, color: AppTheme.accentColor),
             _csvTile(context, Icons.download, 'テンプレートDL', '決勝対戦表用のCSVテンプレート', onFinalsTemplate, color: AppTheme.accentColor),
           ],
         ],
@@ -7082,7 +7101,7 @@ class _CsvImportMenuScreen extends StatelessWidget {
         child: Icon(icon, size: 20, color: color),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
       trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
       onTap: () { Navigator.pop(context); onTap(); },
     );
