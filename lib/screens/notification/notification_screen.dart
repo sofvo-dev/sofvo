@@ -66,6 +66,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
             .limit(50)
             .snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
+          }
           if (!snapshot.hasData) {
             return const Center(
                 child: CircularProgressIndicator(
@@ -122,7 +125,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             .doc(tournamentId)
             .get();
         if (!doc.exists || !mounted) return;
-        final tData = doc.data()!;
+        final tData = doc.data() ?? {};
         tData['id'] = doc.id;
         // Firestoreの'title'を'name'にマッピング（TournamentDetailScreenが'name'を期待）
         tData['name'] = tData['title'] ?? tData['name'] ?? '';

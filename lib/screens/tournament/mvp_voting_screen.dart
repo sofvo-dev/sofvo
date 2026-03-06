@@ -223,7 +223,7 @@ class _MvpVotingScreenState extends State<MvpVotingScreen> {
               final data = entries[i];
               final teamId = data['teamId'] as String? ?? '';
               final teamName = data['teamName'] as String? ?? '不明';
-              final voteCount = (data['mvpVoteCount'] ?? 0) as int;
+              final voteCount = (data['mvpVoteCount'] as num?)?.toInt() ?? 0;
               final isMyVote = teamId == _myVoteTeamId;
               final rank = i + 1;
 

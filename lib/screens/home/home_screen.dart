@@ -22,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final Set<String> _hiddenPostIds = {};
+  List<String>? _followingIds;
 
   @override
   void initState() {
@@ -31,19 +32,26 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       animationDuration: const Duration(milliseconds: 200),
     );
-    _loadHiddenPosts();
+    _loadInitialData();
   }
 
-  Future<void> _loadHiddenPosts() async {
+  Future<void> _loadInitialData() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final snap = await FirebaseFirestore.instance
-        .collection('users').doc(uid).collection('hiddenPosts').get();
-    if (mounted) {
-      setState(() {
-        _hiddenPostIds.addAll(snap.docs.map((d) => d.id));
-      });
-    }
+    // 並列でフォローリストと非表示投稿を取得
+    final results = await Future.wait([
+      FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('following').get(),
+      FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('hiddenPosts').get(),
+    ]);
+    if (!mounted) return;
+    final followSnap = results[0];
+    final hiddenSnap = results[1];
+    setState(() {
+      _followingIds = [uid, ...followSnap.docs.map((d) => d.id)];
+      _hiddenPostIds.addAll(hiddenSnap.docs.map((d) => d.id));
+    });
   }
 
   @override
@@ -206,70 +214,54 @@ class _HomeScreenState extends State<HomeScreen>
       return const Center(child: Text('ログインしてください'));
     }
 
+    if (_followingIds == null) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor));
+    }
+
+    final queryIds = _followingIds!.take(30).toList();
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .collection('following')
+          .collection('posts')
+          .where('userId', whereIn: queryIds)
+          .orderBy('createdAt', descending: true)
+          .limit(50)
           .snapshots(),
-      builder: (context, followSnapshot) {
-        if (!followSnapshot.hasData) {
+      builder: (context, postSnapshot) {
+        if (postSnapshot.hasError) {
+          debugPrint("TIMELINE ERROR: ${postSnapshot.error}");
+          return _buildEmptyTimeline();
+        }
+        if (!postSnapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(
                   color: AppTheme.primaryColor));
         }
 
-        final followingIds = <String>[currentUser.uid];
-        if (followSnapshot.data != null) {
-          for (final doc in followSnapshot.data!.docs) {
-            followingIds.add(doc.id);
-          }
+        final allPosts = postSnapshot.data?.docs ?? [];
+        final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
+        if (posts.isEmpty) {
+          return _buildEmptyTimeline();
         }
 
-        final queryIds = followingIds.take(30).toList();
-
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('posts')
-              .where('userId', whereIn: queryIds)
-              .orderBy('createdAt', descending: true)
-              .limit(50)
-              .snapshots(),
-          builder: (context, postSnapshot) {
-            if (!postSnapshot.hasData) {
-              return const Center(
-                  child: CircularProgressIndicator(
-                      color: AppTheme.primaryColor));
-            }
-
-            if (postSnapshot.hasError) {
-              debugPrint("TIMELINE ERROR: ${postSnapshot.error}");
-              return _buildEmptyTimeline();
-            }
-
-            final allPosts = postSnapshot.data?.docs ?? [];
-            final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
-            if (posts.isEmpty) {
-              return _buildEmptyTimeline();
-            }
-
-            return RefreshIndicator(
-              color: AppTheme.primaryColor,
-              onRefresh: () async { setState(() {}); },
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 4, bottom: 80),
-                itemCount: posts.length,
-                separatorBuilder: (_, __) =>
-                    Divider(height: 1, thickness: 1, color: Colors.grey[100]),
-                itemBuilder: (context, index) {
-                  final data =
-                      posts[index].data() as Map<String, dynamic>;
-                  return _buildPostItem(posts[index].id, data);
-                },
-              ),
-            );
+        return RefreshIndicator(
+          color: AppTheme.primaryColor,
+          onRefresh: () async {
+            await _loadInitialData();
           },
+          child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(top: 4, bottom: 80),
+            itemCount: posts.length,
+            separatorBuilder: (_, __) =>
+                Divider(height: 1, thickness: 1, color: Colors.grey[100]),
+            itemBuilder: (context, index) {
+              final data =
+                  posts[index].data() as Map<String, dynamic>? ?? {};
+              return _buildPostItem(posts[index].id, data);
+            },
+          ),
         );
       },
     );
@@ -337,7 +329,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildBadgeCard(Map<String, dynamic> data) {
     final badgeName = data['badgeName'] as String? ?? '';
-    final colorValue = data['badgeColorValue'] as int? ?? 0xFF4CAF50;
+    final colorValue = (data['badgeColorValue'] as num?)?.toInt() ?? 0xFF4CAF50;
     final color = Color(colorValue);
     final icon = _badgeIconMap[badgeName] ?? Icons.emoji_events_rounded;
 
@@ -732,15 +724,19 @@ class _HomeScreenState extends State<HomeScreen>
                             commentController.clear();
                             final uid = FirebaseAuth.instance.currentUser?.uid;
                             if (uid == null) return;
-                            final uDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-                            final uName = (uDoc.data()?['nickname'] as String?) ?? '名無し';
-                            await FirebaseFirestore.instance.collection('posts').doc(postId).collection('comments').add({
-                              'userId': uid,
-                              'userNickname': uName,
-                              'text': txt,
-                              'createdAt': FieldValue.serverTimestamp(),
-                            });
-                            await FirebaseFirestore.instance.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(1)});
+                            try {
+                              final uDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+                              final uName = (uDoc.data()?['nickname'] as String?) ?? '名無し';
+                              await FirebaseFirestore.instance.collection('posts').doc(postId).collection('comments').add({
+                                'userId': uid,
+                                'userNickname': uName,
+                                'text': txt,
+                                'createdAt': FieldValue.serverTimestamp(),
+                              });
+                              await FirebaseFirestore.instance.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(1)});
+                            } catch (_) {
+                              // Silently handle - comment will not appear but app won't crash
+                            }
                           },
                           child: Container(
                             width: 36, height: 36,
@@ -967,6 +963,9 @@ class _HomeScreenState extends State<HomeScreen>
           .limit(30)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
+        }
         if (!snapshot.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
@@ -992,7 +991,7 @@ class _HomeScreenState extends State<HomeScreen>
           padding: const EdgeInsets.all(16),
           itemCount: docs.length,
           itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
+            final data = docs[index].data() as Map<String, dynamic>? ?? {};
             final type = data['type'] ?? 'info';
             final title = data['title'] ?? '';
             final body = data['body'] ?? '';

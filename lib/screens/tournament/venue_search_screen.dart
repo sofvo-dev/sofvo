@@ -817,7 +817,7 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
   }
 
   Widget _equipmentRow(int index, Map<String, dynamic> eq) {
-    final fee = eq['fee'] as int;
+    final fee = (eq['fee'] as num?)?.toInt() ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [

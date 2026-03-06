@@ -315,9 +315,9 @@ class _ChatListScreenState extends State<ChatListScreen>
                                   .doc(_currentUser!.uid)
                                   .collection('following')
                                   .doc(doc.id)
-                                  .update({'nickname': resolved});
+                                  .update({'nickname': resolved}).catchError((_) {});
                             }
-                          });
+                          }).catchError((_) {});
                         }
                       }
                       return ListView.separated(
