@@ -81,13 +81,15 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
               final amount = int.tryParse(amountCtrl.text.trim()) ?? 0;
               if (name.isEmpty || amount <= 0) return;
 
-              final data = {'name': name, 'amount': amount, 'updatedAt': FieldValue.serverTimestamp()};
-              if (isEditing) {
-                await _expensesRef.doc(docId).update(data);
-              } else {
-                data['createdAt'] = FieldValue.serverTimestamp();
-                await _expensesRef.add(data);
-              }
+              try {
+                final data = {'name': name, 'amount': amount, 'updatedAt': FieldValue.serverTimestamp()};
+                if (isEditing) {
+                  await _expensesRef.doc(docId).update(data);
+                } else {
+                  data['createdAt'] = FieldValue.serverTimestamp();
+                  await _expensesRef.add(data);
+                }
+              } catch (_) {}
               if (ctx.mounted) Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(
@@ -115,7 +117,7 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary))),
           ElevatedButton(
             onPressed: () async {
-              await _expensesRef.doc(docId).delete();
+              try { await _expensesRef.doc(docId).delete(); } catch (_) {}
               if (ctx.mounted) Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error,

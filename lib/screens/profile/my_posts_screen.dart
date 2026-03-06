@@ -62,8 +62,8 @@ class MyPostsScreen extends StatelessWidget {
               final imageBase64 = data['imageBase64'] is List
                   ? List<String>.from(data['imageBase64'])
                   : <String>[];
-              final likesCount = (data['likesCount'] ?? 0) as int;
-              final commentsCount = (data['commentsCount'] ?? 0) as int;
+              final likesCount = (data['likesCount'] as num?)?.toInt() ?? 0;
+              final commentsCount = (data['commentsCount'] as num?)?.toInt() ?? 0;
 
               return Container(
                 padding: const EdgeInsets.all(16),

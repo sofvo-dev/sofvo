@@ -382,15 +382,14 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
                             final name = (userDoc.data()?['nickname'] as String?) ?? '';
                             if (name.isNotEmpty && mounted) {
                               setState(() => _nameCache[doc.id] = name);
-                              // Also update the following doc for future reads
                               FirebaseFirestore.instance
                                   .collection('users')
                                   .doc(_currentUser!.uid)
                                   .collection('following')
                                   .doc(doc.id)
-                                  .update({'nickname': name});
+                                  .update({'nickname': name}).catchError((_) {});
                             }
-                          });
+                          }).catchError((_) {});
                         }
                       }
 

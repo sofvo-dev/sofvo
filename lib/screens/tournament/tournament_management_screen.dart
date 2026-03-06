@@ -53,6 +53,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         stream: FirebaseFirestore.instance.collection('tournaments')
             .where('organizerId', isEqualTo: _currentUser!.uid).snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
+          }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }

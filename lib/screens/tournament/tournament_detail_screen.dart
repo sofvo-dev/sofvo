@@ -96,7 +96,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
     _loadMyTeams().then((_) {
       if (mounted && widget.autoCheckIn) _performSelfCheckIn();
-    });
+    }).catchError((_) {});
   }
 
   @override
@@ -414,8 +414,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         if (snap.hasData && snap.data!.exists) {
           live = snap.data!.data() as Map<String, dynamic>? ?? {};
         }
-        final liveCurrentTeams = live['currentTeams'] as int? ?? currentTeams;
-        final liveMaxTeams = live['maxTeams'] as int? ?? maxTeams;
+        final liveCurrentTeams = (live['currentTeams'] as num?)?.toInt() ?? currentTeams;
+        final liveMaxTeams = (live['maxTeams'] as num?)?.toInt() ?? maxTeams;
         final liveProgress = liveMaxTeams > 0 ? liveCurrentTeams / liveMaxTeams : 0.0;
         final liveStatus = live['status'] ?? t['status'] ?? '';
         final liveRules = live['rules'] as Map<String, dynamic>? ?? rules;
@@ -663,7 +663,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       _buildRuleTableRow('デュース', (liveFinal['deuce'] ?? false) ? 'あり' : 'なし'),
                       if (liveFinal['format'] == '順位別複数') ...[
                         _buildRuleTableRow('区分数', '${liveFinal['tierCount'] ?? 3}区分'),
-                        _buildTierInfoRow(liveFinal['tierCount'] as int? ?? 3, liveMaxTeams),
+                        _buildTierInfoRow((liveFinal['tierCount'] as num?)?.toInt() ?? 3, liveMaxTeams),
                       ],
                     ],
                   ),
@@ -1027,9 +1027,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       final bIsMyLeague = _isMyBracket(b.data() as Map<String, dynamic>);
                       if (aIsMyLeague && !bIsMyLeague) return -1;
                       if (!aIsMyLeague && bIsMyLeague) return 1;
-                      final aNum = (a.data() as Map<String, dynamic>)['bracketNumber'] ?? 0;
-                      final bNum = (b.data() as Map<String, dynamic>)['bracketNumber'] ?? 0;
-                      return (aNum as int).compareTo(bNum as int);
+                      final aNum = ((a.data() as Map<String, dynamic>)['bracketNumber'] as num?) ?? 0;
+                      final bNum = ((b.data() as Map<String, dynamic>)['bracketNumber'] as num?) ?? 0;
+                      return aNum.compareTo(bNum);
                     });
                     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const SizedBox(height: 16),
@@ -2827,15 +2827,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           _myCourtIds = myCourts;
 
           final sortedCourts = courtGroups.entries.toList()..sort((a, b) {
-            final aNum = (a.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
-            final bNum = (b.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
-            return (aNum as int).compareTo(bNum as int);
+            final aNum = ((a.value.first.data() as Map<String, dynamic>)['courtNumber'] as num?) ?? 0;
+            final bNum = ((b.value.first.data() as Map<String, dynamic>)['courtNumber'] as num?) ?? 0;
+            return aNum.compareTo(bNum);
           });
 
           // コートチップ用データ
           final courtChipData = sortedCourts.map((e) {
-            final num = (e.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
-            return MapEntry(e.key, num as int);
+            final cn = ((e.value.first.data() as Map<String, dynamic>)['courtNumber'] as num?) ?? 0;
+            return MapEntry(e.key, cn.toInt());
           }).toList();
 
           final filter = _selectedCourtFilter.containsKey(roundNum) ? _selectedCourtFilter[roundNum] : 'MY';
@@ -3124,14 +3124,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             final aPri = _roundTemporal[aM['round'] as String? ?? ''] ?? 99;
             final bPri = _roundTemporal[bM['round'] as String? ?? ''] ?? 99;
             if (aPri != bPri) return aPri.compareTo(bPri);
-            return ((aM['matchNumber'] as int?) ?? 0).compareTo((bM['matchNumber'] as int?) ?? 0);
+            return ((aM['matchNumber'] as num?) ?? 0).compareTo((bM['matchNumber'] as num?) ?? 0);
           });
           final courtMatchCount = <String, int>{};
           final courtMatchOrder = <int, int>{}; // matchNumber -> コート内順番
           for (var mDoc in sortedForCourt) {
             final m = mDoc.data() as Map<String, dynamic>;
             final courtId = m['courtId'] as String? ?? 'no_court';
-            final matchNum = m['matchNumber'] as int? ?? 0;
+            final matchNum = (m['matchNumber'] as num?)?.toInt() ?? 0;
             courtMatchCount[courtId] = (courtMatchCount[courtId] ?? 0) + 1;
             courtMatchOrder[matchNum] = courtMatchCount[courtId]!;
           }
@@ -3190,9 +3190,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final m = mDoc.data() as Map<String, dynamic>;
                   final status = m['status'] ?? 'pending';
                   final result = m['result'] as Map<String, dynamic>? ?? {};
-                  final courtNum = m['courtNumber'] as int?;
+                  final courtNum = (m['courtNumber'] as num?)?.toInt();
                   final courtLetter = courtNum != null ? String.fromCharCode(64 + courtNum) : '';
-                  final matchNum = m['matchNumber'] as int? ?? 0;
+                  final matchNum = (m['matchNumber'] as num?)?.toInt() ?? 0;
                   final matchOrder = courtMatchOrder[matchNum] ?? (idx + 1);
 
                   final isReferee = _myTeamIds.contains(m['refereeTeamId'] ?? '') || _myTeamIds.contains(m['subRefereeTeamId'] ?? '');
@@ -3754,7 +3754,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final teams = (bracket['teams'] as List).cast<Map<String, dynamic>>();
                   final bracketName = bracket['bracketName'] ?? '';
                   final rankRange = bracket['rankRange'] ?? '';
-                  final teamCount = bracket['teamCount'] as int;
+                  final teamCount = (bracket['teamCount'] as num?)?.toInt() ?? 0;
 
                   String formatLabel;
                   if (teamCount >= 8) {
@@ -6608,7 +6608,7 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       final rules = data['rules'] as Map<String, dynamic>? ?? {};
       final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
       setState(() {
-        _tierCount = finalRules['tierCount'] as int? ?? 3;
+        _tierCount = (finalRules['tierCount'] as num?)?.toInt() ?? 3;
         _finalFormat = finalRules['format'] as String? ?? '順位別複数';
         _finalEnabled = finalRules['enabled'] as bool? ?? false;
       });
