@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
   User,
 } from "firebase/auth";
@@ -39,6 +40,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, nickname: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -100,6 +102,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithApple = async () => {
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    const cred = await signInWithPopup(auth, provider);
+    const snap = await getDoc(doc(db, "users", cred.user.uid));
+    if (!snap.exists()) {
+      await setDoc(doc(db, "users", cred.user.uid), {
+        nickname: cred.user.displayName || "ユーザー",
+        email: cred.user.email,
+        avatarUrl: cred.user.photoURL || "",
+        totalPoints: 0,
+        followersCount: 0,
+        followingCount: 0,
+        profileCompleted: false,
+        createdAt: new Date(),
+      });
+    }
+  };
+
   const signOut = async () => {
     await firebaseSignOut(auth);
     setProfile(null);
@@ -107,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signIn, signUp, signInWithGoogle, signOut }}
+      value={{ user, profile, loading, signIn, signUp, signInWithGoogle, signInWithApple, signOut }}
     >
       {children}
     </AuthContext.Provider>
