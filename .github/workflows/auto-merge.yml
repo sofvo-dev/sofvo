@@ -113,6 +113,8 @@ jobs:
           cp website/contact.html build/web/
           cp website/404.html build/web/
           cp website/invite.html build/web/
+          mkdir -p build/web/invite
+          cp website/invite.html build/web/invite/index.html
 
       - name: Flutter - Deploy to Firebase Hosting
         if: steps.detect.outputs.flutter == 'true'
