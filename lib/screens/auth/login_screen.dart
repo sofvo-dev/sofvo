@@ -75,11 +75,18 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      debugPrint('Google Sign-In error: $e');
+      final errorStr = e.toString();
+      if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
+        return; // ユーザーがキャンセル
+      }
+      // デバッグ用：実際のエラー内容を表示
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Googleログインに失敗しました'),
+          content: Text('Google: $errorStr', maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 10),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -95,11 +102,18 @@ class _LoginScreenState extends State<LoginScreen> {
       await AuthService().signInWithApple();
     } catch (e) {
       if (!mounted) return;
+      debugPrint('Apple Sign-In error: $e');
+      final errorStr = e.toString();
+      if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
+        return; // ユーザーがキャンセル
+      }
+      // デバッグ用：実際のエラー内容を表示
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Appleログインに失敗しました'),
+          content: Text('Apple: $errorStr', maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 10),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),

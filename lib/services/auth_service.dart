@@ -31,13 +31,16 @@ class AuthService {
     );
   }
 
-  // Googleログイン（Web: ポップアップ / モバイル: GoogleSignIn）
+  // Googleログイン（Web: リダイレクト / モバイル: GoogleSignIn）
   Future<UserCredential?> signInWithGoogle() async {
     if (kIsWeb) {
       final googleProvider = GoogleAuthProvider();
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
-      return await _auth.signInWithPopup(googleProvider);
+      // モバイルブラウザではポップアップがブロックされるためリダイレクト方式を使用
+      // signInWithRedirectはページ遷移するため、戻ってきた後はauthStateChangesで検知される
+      await _auth.signInWithRedirect(googleProvider);
+      return null;
     } else {
       final googleSignIn = GoogleSignIn();
       final account = await googleSignIn.signIn();
@@ -52,13 +55,15 @@ class AuthService {
     }
   }
 
-  // Appleログイン（Web: ポップアップ / モバイル: sign_in_with_apple）
+  // Appleログイン（Web: リダイレクト / モバイル: sign_in_with_apple）
   Future<UserCredential?> signInWithApple() async {
     if (kIsWeb) {
       final provider = OAuthProvider('apple.com');
       provider.addScope('email');
       provider.addScope('name');
-      return await _auth.signInWithPopup(provider);
+      // モバイルブラウザではポップアップがブロックされるためリダイレクト方式を使用
+      await _auth.signInWithRedirect(provider);
+      return null;
     } else {
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [
