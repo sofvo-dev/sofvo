@@ -76,24 +76,17 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       debugPrint('Google Sign-In error: $e');
-      String message = 'Googleログインに失敗しました';
       final errorStr = e.toString();
       if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
         return; // ユーザーがキャンセル
-      } else if (errorStr.contains('network-request-failed')) {
-        message = 'ネットワークエラーです。接続を確認してください';
-      } else if (errorStr.contains('unauthorized-domain')) {
-        message = 'このドメインはGoogle認証に未対応です';
-      } else if (errorStr.contains('operation-not-allowed')) {
-        message = 'Googleログインが有効化されていません';
-      } else if (errorStr.contains('account-exists-with-different-credential')) {
-        message = 'このメールアドレスは別の方法で登録済みです';
       }
+      // デバッグ用：実際のエラー内容を表示
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text('Google: $errorStr', maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 10),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -110,20 +103,17 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       debugPrint('Apple Sign-In error: $e');
-      String message = 'Appleログインに失敗しました';
       final errorStr = e.toString();
       if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
         return; // ユーザーがキャンセル
-      } else if (errorStr.contains('network-request-failed')) {
-        message = 'ネットワークエラーです。接続を確認してください';
-      } else if (errorStr.contains('operation-not-allowed')) {
-        message = 'Appleログインが有効化されていません';
       }
+      // デバッグ用：実際のエラー内容を表示
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text('Apple: $errorStr', maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 10),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
