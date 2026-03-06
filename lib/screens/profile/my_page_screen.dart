@@ -375,10 +375,8 @@ class MyPageScreen extends StatelessWidget {
                               child: ElevatedButton.icon(
                                 onPressed: () {
                                   final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=${user.uid}';
-                                  SharePlus.instance.share(
-                                    ShareParams(
-                                      text: 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・チーム募集・チャットが全部できるよ。\n$referralUrl',
-                                    ),
+                                  Share.share(
+                                    'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・チーム募集・チャットが全部できるよ。\n$referralUrl',
                                   );
                                 },
                                 icon: const Icon(Icons.share, size: 18),
