@@ -75,9 +75,23 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      debugPrint('Google Sign-In error: $e');
+      String message = 'Googleログインに失敗しました';
+      final errorStr = e.toString();
+      if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
+        return; // ユーザーがキャンセル
+      } else if (errorStr.contains('network-request-failed')) {
+        message = 'ネットワークエラーです。接続を確認してください';
+      } else if (errorStr.contains('unauthorized-domain')) {
+        message = 'このドメインはGoogle認証に未対応です';
+      } else if (errorStr.contains('operation-not-allowed')) {
+        message = 'Googleログインが有効化されていません';
+      } else if (errorStr.contains('account-exists-with-different-credential')) {
+        message = 'このメールアドレスは別の方法で登録済みです';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Googleログインに失敗しました'),
+          content: Text(message),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -95,9 +109,19 @@ class _LoginScreenState extends State<LoginScreen> {
       await AuthService().signInWithApple();
     } catch (e) {
       if (!mounted) return;
+      debugPrint('Apple Sign-In error: $e');
+      String message = 'Appleログインに失敗しました';
+      final errorStr = e.toString();
+      if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
+        return; // ユーザーがキャンセル
+      } else if (errorStr.contains('network-request-failed')) {
+        message = 'ネットワークエラーです。接続を確認してください';
+      } else if (errorStr.contains('operation-not-allowed')) {
+        message = 'Appleログインが有効化されていません';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Appleログインに失敗しました'),
+          content: Text(message),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
           shape:
