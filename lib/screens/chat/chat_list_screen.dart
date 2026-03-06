@@ -32,9 +32,7 @@ class _ChatListScreenState extends State<ChatListScreen>
       vsync: this,
       animationDuration: const Duration(milliseconds: 200),
     );
-    _loadBlockedUsers();
-    _loadPinnedChats();
-    _loadHiddenChats();
+    _loadInitialData();
   }
 
   @override
@@ -44,30 +42,19 @@ class _ChatListScreenState extends State<ChatListScreen>
     super.dispose();
   }
 
-  Future<void> _loadBlockedUsers() async {
+  Future<void> _loadInitialData() async {
     if (_currentUser == null) return;
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUser!.uid)
-        .collection('blockedUsers')
-        .get();
+    final userRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+    final results = await Future.wait([
+      userRef.collection('blockedUsers').get(),
+      userRef.collection('pinnedChats').get(),
+      userRef.collection('hiddenChats').get(),
+    ]);
     if (mounted) {
       setState(() {
-        _blockedUserIds = snap.docs.map((d) => d.id).toSet();
-      });
-    }
-  }
-
-  Future<void> _loadPinnedChats() async {
-    if (_currentUser == null) return;
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUser!.uid)
-        .collection('pinnedChats')
-        .get();
-    if (mounted) {
-      setState(() {
-        _pinnedChatIds = snap.docs.map((d) => d.id).toSet();
+        _blockedUserIds = results[0].docs.map((d) => d.id).toSet();
+        _pinnedChatIds = results[1].docs.map((d) => d.id).toSet();
+        _hiddenChatIds = results[2].docs.map((d) => d.id).toSet();
       });
     }
   }
@@ -85,20 +72,6 @@ class _ChatListScreenState extends State<ChatListScreen>
     } else {
       await ref.set({'pinnedAt': FieldValue.serverTimestamp()});
       if (mounted) setState(() => _pinnedChatIds.add(chatId));
-    }
-  }
-
-  Future<void> _loadHiddenChats() async {
-    if (_currentUser == null) return;
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUser!.uid)
-        .collection('hiddenChats')
-        .get();
-    if (mounted) {
-      setState(() {
-        _hiddenChatIds = snap.docs.map((d) => d.id).toSet();
-      });
     }
   }
 
