@@ -345,6 +345,44 @@ class _HomeScreenState extends State<HomeScreen>
     '投稿10件': Icons.article_rounded,
   };
 
+  /// ネットワーク画像はCachedNetworkImageでプレースホルダー＋フェードイン表示
+  Widget _buildFeedImage(List<String> urls, List<ImageProvider> base64Providers, int index, {double? width, double? height}) {
+    if (index < urls.length) {
+      return CachedNetworkImage(
+        imageUrl: urls[index],
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        placeholder: (_, __) => Container(
+          width: width,
+          height: height,
+          color: Colors.grey[200],
+          child: const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))),
+        ),
+        errorWidget: (_, __, ___) => Container(
+          width: width,
+          height: height,
+          color: Colors.grey[200],
+          child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+        ),
+        fadeInDuration: const Duration(milliseconds: 200),
+        memCacheWidth: width != null && width != double.infinity ? (width * 2).toInt() : 400,
+        maxWidthDiskCache: 400,
+        maxHeightDiskCache: 400,
+      );
+    }
+    final b64Index = index - urls.length;
+    return Image(image: base64Providers[b64Index], width: width, height: height, fit: BoxFit.cover);
+  }
+
+  /// フルスクリーン表示用にImageProvider一覧を構築
+  List<ImageProvider> _buildAllProviders(List<String> urls, List<ImageProvider> base64Providers) {
+    return [
+      ...urls.map((u) => CachedNetworkImageProvider(u)),
+      ...base64Providers,
+    ];
+  }
+
   Widget _buildBadgeCard(Map<String, dynamic> data) {
     final badgeName = data['badgeName'] as String? ?? '';
     final colorValue = (data['badgeColorValue'] as num?)?.toInt() ?? 0xFF4CAF50;
@@ -415,15 +453,15 @@ class _HomeScreenState extends State<HomeScreen>
     final createdAt = data['createdAt'] as Timestamp?;
     final timeText = _formatTime(createdAt);
     final hasBadge = data['badgeName'] != null;
-    final List<ImageProvider> imageProviders = [];
-    for (final url in images) {
-      if (url.isNotEmpty) imageProviders.add(CachedNetworkImageProvider(url));
-    }
+    // 画像URL一覧（ネットワーク画像 + base64画像をImageProviderとして保持）
+    final List<String> imageUrls = images.where((u) => u.isNotEmpty).toList();
+    final List<ImageProvider> base64Providers = [];
     for (final b64 in imageBase64) {
       if (b64.isNotEmpty) {
-        try { imageProviders.add(MemoryImage(base64Decode(b64))); } catch (_) {}
+        try { base64Providers.add(MemoryImage(base64Decode(b64))); } catch (_) {}
       }
     }
+    final int totalImages = imageUrls.length + base64Providers.length;
 
     return Container(
       color: Colors.white,
@@ -480,27 +518,27 @@ class _HomeScreenState extends State<HomeScreen>
                   const SizedBox(height: 10),
                   _buildBadgeCard(data),
                 ],
-                if (imageProviders.isNotEmpty) ...[
+                if (totalImages > 0) ...[
                   const SizedBox(height: 10),
-                  imageProviders.length == 1
+                  totalImages == 1
                       ? GestureDetector(
-                          onTap: () => _showFullImage(context, imageProviders, 0),
+                          onTap: () => _showFullImage(context, _buildAllProviders(imageUrls, base64Providers), 0),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image(image: imageProviders[0], width: double.infinity, height: 200, fit: BoxFit.cover),
+                            child: _buildFeedImage(imageUrls, base64Providers, 0, width: double.infinity, height: 200),
                           ),
                         )
                       : SizedBox(
                           height: 160,
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
-                            itemCount: imageProviders.length,
+                            itemCount: totalImages,
                             separatorBuilder: (_, __) => const SizedBox(width: 8),
                             itemBuilder: (_, i) => GestureDetector(
-                              onTap: () => _showFullImage(context, imageProviders, i),
+                              onTap: () => _showFullImage(context, _buildAllProviders(imageUrls, base64Providers), i),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
-                                child: Image(image: imageProviders[i], width: 160, height: 160, fit: BoxFit.cover),
+                                child: _buildFeedImage(imageUrls, base64Providers, i, width: 160, height: 160),
                               ),
                             ),
                           ),
