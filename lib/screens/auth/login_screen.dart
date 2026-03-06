@@ -124,13 +124,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 80),
 
                   // ── アプリ名 ──
-                  Text(
-                    'Sofvo',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.primaryColor,
-                      letterSpacing: 3,
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Sof',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 40,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.primaryColor,
+                            letterSpacing: 3,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'vo',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 40,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.accentColor,
+                            letterSpacing: 3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),
