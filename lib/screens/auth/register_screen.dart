@@ -18,6 +18,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  Future<void> _registerWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await AuthService().signInWithGoogle();
+      if (result == null && mounted) {
+        // ユーザーがキャンセルした場合は何もしない
+      }
+      if (mounted && result != null) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      debugPrint('Google Sign-In error: $e');
+      final errorStr = e.toString();
+      if (errorStr.contains('popup-closed-by-user') ||
+          errorStr.contains('cancelled')) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google: $errorStr',
+              maxLines: 5, overflow: TextOverflow.ellipsis),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _registerWithApple() async {
+    setState(() => _isLoading = true);
+    try {
+      await AuthService().signInWithApple();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      debugPrint('Apple Sign-In error: $e');
+      final errorStr = e.toString();
+      if (errorStr.contains('popup-closed-by-user') ||
+          errorStr.contains('cancelled')) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Apple: $errorStr',
+              maxLines: 5, overflow: TextOverflow.ellipsis),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -205,6 +264,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         )
                       : const Text('アカウントを作成'),
+                ),
+                const SizedBox(height: 28),
+
+                // ── 区切り線 ──
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'または',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textHint,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                  ],
+                ),
+                const SizedBox(height: 28),
+
+                // ── Google登録 ──
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _registerWithGoogle,
+                  icon: Image.network(
+                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                    width: 20,
+                    height: 20,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.g_mobiledata, size: 24),
+                  ),
+                  label: const Text('Googleで登録'),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Apple登録 ──
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _registerWithApple,
+                  icon: const Icon(Icons.apple, size: 22),
+                  label: const Text('Appleで登録'),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    side: BorderSide.none,
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 20),
 
