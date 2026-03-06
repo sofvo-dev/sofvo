@@ -137,12 +137,30 @@ class _HomeScreenState extends State<HomeScreen>
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(children: [
-                  Text('Sofvo',
-                      style: GoogleFonts.montserrat(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 24,
-                          letterSpacing: 2,
-                          color: AppTheme.textPrimary)),
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Sof',
+                          style: GoogleFonts.montserrat(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 24,
+                            letterSpacing: 2,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'vo',
+                          style: GoogleFonts.montserrat(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 24,
+                            letterSpacing: 2,
+                            color: AppTheme.accentColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const Spacer(),
                   StreamBuilder<int>(
                     stream: NotificationService.unreadCountStream(
