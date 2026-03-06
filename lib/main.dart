@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'config/app_theme.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
@@ -94,6 +95,7 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   bool _navigatedToTournament = false;
+  bool _processedReferral = false;
 
   /// 招待リンクの大会へ自動遷移
   Future<void> _navigateToInvitedTournament() async {
@@ -138,6 +140,105 @@ class _AuthGateState extends State<AuthGate> {
       });
     } catch (e) {
       debugPrint('セルフチェックイン遷移に失敗: $e');
+    }
+  }
+
+  /// 既存ユーザーが紹介リンクを開いた場合の相互フォロー処理
+  Future<void> _handlePendingReferral(String myUid) async {
+    if (_processedReferral || pendingReferrerUserId == null) return;
+    if (pendingReferrerUserId == myUid) {
+      pendingReferrerUserId = null;
+      return;
+    }
+    _processedReferral = true;
+    final referrerUid = pendingReferrerUserId!;
+    pendingReferrerUserId = null;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final myRef = firestore.collection('users').doc(myUid);
+      final referrerRef = firestore.collection('users').doc(referrerUid);
+
+      // 紹介者が存在するか確認
+      final referrerDoc = await referrerRef.get();
+      if (!referrerDoc.exists) return;
+      final referrerData = referrerDoc.data() ?? {};
+      final referrerName = (referrerData['nickname'] ?? '名前なし').toString();
+
+      // 既にフォロー済みかチェック
+      final existingFollow = await myRef.collection('following').doc(referrerUid).get();
+      if (existingFollow.exists) {
+        // 既にフォロー済み → スナックバーで通知
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text('$referrerNameさんは既にフォロー済みです'),
+              backgroundColor: const Color(0xFF1565C0),
+            ),
+          );
+        });
+        return;
+      }
+
+      // 自分の情報を取得
+      final myDoc = await myRef.get();
+      final myData = myDoc.data() ?? {};
+      final myNickname = (myData['nickname'] ?? '名前なし').toString();
+
+      // 新規ユーザー → 紹介者 をフォロー
+      await myRef.collection('following').doc(referrerUid).set({
+        'nickname': referrerName,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await referrerRef.collection('followers').doc(myUid).set({
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 紹介者 → 新規ユーザー をフォロー（既にフォロー済みでなければ）
+      final reverseFollow = await referrerRef.collection('following').doc(myUid).get();
+      if (!reverseFollow.exists) {
+        await referrerRef.collection('following').doc(myUid).set({
+          'nickname': myNickname,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await myRef.collection('followers').doc(referrerUid).set({
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await referrerRef.update({
+          'followingCount': FieldValue.increment(1),
+        });
+        await myRef.update({
+          'followersCount': FieldValue.increment(1),
+        });
+      }
+
+      // カウンター更新（自分→紹介者のフォロー分）
+      await myRef.update({
+        'followingCount': FieldValue.increment(1),
+      });
+      await referrerRef.update({
+        'followersCount': FieldValue.increment(1),
+      });
+
+      // 紹介者に通知
+      NotificationService.sendFollowNotification(
+        targetUserId: referrerUid,
+        senderId: myUid,
+        senderName: myNickname,
+        senderAvatar: myData['avatarUrl'] ?? '',
+      );
+
+      // スナックバーで通知
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text('$referrerNameさんと友達になりました！'),
+            backgroundColor: const Color(0xFF2E7D32),
+          ),
+        );
+      });
+    } catch (e) {
+      debugPrint('紹介リンクの相互フォロー処理に失敗: $e');
     }
   }
 
@@ -190,6 +291,10 @@ class _AuthGateState extends State<AuthGate> {
             // セルフチェックインリンク
             if (pendingCheckInTournamentId != null) {
               _handlePendingCheckIn();
+            }
+            // 紹介リンク（既存ユーザー向け）
+            if (pendingReferrerUserId != null) {
+              _handlePendingReferral(snapshot.data!.uid);
             }
 
             return const MainTabScreen();
