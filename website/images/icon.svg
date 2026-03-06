@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <clipPath id="roundedRect">
+      <rect width="120" height="120" rx="24" ry="24"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#roundedRect)">
+    <!-- Background -->
+    <rect width="120" height="120" fill="#1B3A5C" rx="24" ry="24"/>
+    <!-- S Letter -->
+    <text x="60" y="76" text-anchor="middle" font-family="'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif" font-size="64" font-weight="900" fill="#FFFFFF">S</text>
+    <!-- Volleyball Net -->
+    <g transform="translate(8, 82)">
+      <!-- Horizontal wavy lines -->
+      <path d="M0,8 Q26,0 52,8 Q78,16 104,8" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none"/>
+      <path d="M0,20 Q26,12 52,20 Q78,28 104,20" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none"/>
+      <!-- Vertical lines -->
+      <line x1="13" y1="0" x2="13" y2="36" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+      <line x1="33" y1="0" x2="33" y2="36" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+      <line x1="52" y1="0" x2="52" y2="36" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+      <line x1="71" y1="0" x2="71" y2="36" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+      <line x1="91" y1="0" x2="91" y2="36" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+    </g>
+  </g>
+</svg>
