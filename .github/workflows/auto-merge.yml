@@ -112,6 +112,7 @@ jobs:
           cp website/privacy.html build/web/
           cp website/contact.html build/web/
           cp website/404.html build/web/
+          cp website/invite.html build/web/
 
       - name: Flutter - Deploy to Firebase Hosting
         if: steps.detect.outputs.flutter == 'true'
