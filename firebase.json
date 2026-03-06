@@ -81,6 +81,10 @@
     ],
     "rewrites": [
       {
+        "source": "/invite",
+        "destination": "/invite.html"
+      },
+      {
         "source": "/app/**",
         "destination": "/index.html"
       }

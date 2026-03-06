@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../main.dart' show pendingReferrerUserId;
+import '../../services/notification_service.dart';
 import '../home/main_tab_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -128,6 +130,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // 友達紹介リンクからの登録 → 自動相互フォロー
+      if (pendingReferrerUserId != null && pendingReferrerUserId != user.uid) {
+        await _processReferral(user.uid, _nicknameController.text.trim());
+      }
+
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => MainTabScreen()),
@@ -149,6 +156,62 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 紹介リンク経由の自動相互フォロー
+  Future<void> _processReferral(String myUid, String myNickname) async {
+    final referrerUid = pendingReferrerUserId!;
+    pendingReferrerUserId = null; // 一度だけ処理
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final myRef = firestore.collection('users').doc(myUid);
+      final referrerRef = firestore.collection('users').doc(referrerUid);
+
+      // 紹介者が存在するか確認
+      final referrerDoc = await referrerRef.get();
+      if (!referrerDoc.exists) return;
+      final referrerData = referrerDoc.data() ?? {};
+      final referrerName = (referrerData['nickname'] ?? '名前なし').toString();
+
+      // 新規ユーザー → 紹介者 をフォロー
+      await myRef.collection('following').doc(referrerUid).set({
+        'nickname': referrerName,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await referrerRef.collection('followers').doc(myUid).set({
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 紹介者 → 新規ユーザー をフォロー
+      await referrerRef.collection('following').doc(myUid).set({
+        'nickname': myNickname,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await myRef.collection('followers').doc(referrerUid).set({
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // カウンター更新
+      await myRef.update({
+        'followingCount': FieldValue.increment(1),
+        'followersCount': FieldValue.increment(1),
+      });
+      await referrerRef.update({
+        'followingCount': FieldValue.increment(1),
+        'followersCount': FieldValue.increment(1),
+      });
+
+      // 紹介者に通知を送る
+      NotificationService.sendFollowNotification(
+        targetUserId: referrerUid,
+        senderId: myUid,
+        senderName: myNickname,
+        senderAvatar: '',
+      );
+    } catch (e) {
+      debugPrint('紹介リンクの相互フォロー処理に失敗: $e');
     }
   }
 
