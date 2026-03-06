@@ -23,6 +23,9 @@ String? pendingTournamentId;
 /// セルフチェックイン用の大会ID（?checkin=xxx）
 String? pendingCheckInTournamentId;
 
+/// 友達紹介リンクで渡された紹介者UID（?ref=xxx）
+String? pendingReferrerUserId;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -35,6 +38,7 @@ void main() async {
     final uri = Uri.base;
     pendingTournamentId = uri.queryParameters['t'];
     pendingCheckInTournamentId = uri.queryParameters['checkin'];
+    pendingReferrerUserId = uri.queryParameters['ref'];
 
     // /tournament/:id パスにも対応
     if (pendingTournamentId == null && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'tournament') {

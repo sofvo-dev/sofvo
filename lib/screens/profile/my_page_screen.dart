@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -334,6 +335,63 @@ class MyPageScreen extends StatelessWidget {
                                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VenueSearchScreen())),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ━━━ 友達を紹介する ━━━
+                    _buildCardSection(
+                      context: context,
+                      title: '友達を紹介する',
+                      icon: Icons.card_giftcard_rounded,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.people_outline, color: AppTheme.accentColor, size: 20),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Text(
+                                      '紹介リンクを送ると、登録後に自動で友達になれます！',
+                                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=${user.uid}';
+                                  SharePlus.instance.share(
+                                    ShareParams(
+                                      text: 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・チーム募集・チャットが全部できるよ。\n$referralUrl',
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.share, size: 18),
+                                label: const Text('紹介リンクを送る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accentColor,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(double.infinity, 48),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
