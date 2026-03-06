@@ -376,7 +376,7 @@ class MyPageScreen extends StatelessWidget {
                                 onPressed: () {
                                   final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=${user.uid}';
                                   Share.share(
-                                    'ソフトバレー仲間を募集中！\nSofvoなら大会のエントリーもチームの募集もチャットもこれ一つでOK👌\n無料で使えるから試してみて👇\n$referralUrl',
+                                    'ソフトバレーやってる人必見👀\n大会運営・エントリー・チャットが全部できるアプリ見つけた！\nめっちゃ便利だから使ってみて🏐\n$referralUrl',
                                   );
                                 },
                                 icon: const Icon(Icons.share, size: 18),
