@@ -40,6 +40,7 @@ deploy_web() {
   cp website/404.html build/web/
   cp website/invite.html build/web/
   cp website/design.html build/web/
+  cp -r website/images build/web/
 
   print_step "Firebase (Hosting + Firestore ルール＆インデックス) にデプロイ中..."
   firebase deploy --only hosting,firestore
