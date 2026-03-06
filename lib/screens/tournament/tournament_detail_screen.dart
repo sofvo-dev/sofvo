@@ -4237,13 +4237,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         // 投稿一覧
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: _isBoardTeam
+            stream: _isBoardTeam && _myEntryTeamId.isNotEmpty
                 ? _firestore.collection('tournaments').doc(_tournamentId)
                     .collection('team_board').doc(_myEntryTeamId).collection('posts')
                     .orderBy('createdAt', descending: true).snapshots()
                 : _firestore.collection('tournaments').doc(_tournamentId)
                     .collection('timeline').orderBy('createdAt', descending: true).snapshots(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
               if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final rawPosts = snapshot.data?.docs ?? [];
               final posts = List<QueryDocumentSnapshot>.from(rawPosts);
