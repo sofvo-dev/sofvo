@@ -5,16 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sofvo - ソフトバレーボール マッチングアプリ</title>
   <meta name="description" content="Sofvoはソフトバレーボールの大会運営・チームマッチング・コミュニティをひとつにまとめたアプリです。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #1565C0;
-      --primary-dark: #0D47A1;
-      --primary-light: #42A5F5;
-      --accent: #FF6D00;
-      --bg: #F5F7FA;
-      --text: #1A1A2E;
-      --text-secondary: #6B7280;
-      --white: #FFFFFF;
+      --primary: #1B3A5C;
+      --primary-dark: #0F2440;
+      --primary-light: #2E5C8A;
+      --accent: #C4A962;
+      --accent-light: #D4C08A;
+      --bg: #F7F7F7;
+      --surface: #FFFFFF;
+      --text: #1A1A1A;
+      --text-secondary: #6B6B6B;
+      --text-hint: #B0B0B0;
       --success: #2E7D32;
       --radius: 16px;
     }
@@ -22,10 +27,11 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif;
       color: var(--text);
-      background: var(--white);
+      background: var(--surface);
       line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── ヘッダー ── */
@@ -34,7 +40,7 @@
       top: 0;
       width: 100%;
       background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
       border-bottom: 1px solid rgba(0,0,0,0.06);
       z-index: 100;
     }
@@ -68,7 +74,7 @@
     .hero {
       padding: 140px 24px 80px;
       background: linear-gradient(135deg, var(--primary-dark), var(--primary), var(--primary-light));
-      color: var(--white);
+      color: #fff;
       text-align: center;
     }
     .hero h1 {
@@ -93,8 +99,8 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      background: rgba(255,255,255,0.18);
-      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
       border-radius: 24px;
       padding: 8px 18px;
       font-size: 14px;
@@ -119,7 +125,7 @@
     .accent-line {
       width: 48px;
       height: 4px;
-      background: var(--primary);
+      background: var(--accent);
       border-radius: 2px;
       margin: 0 auto 24px;
     }
@@ -131,7 +137,7 @@
       gap: 24px;
     }
     .feature-card {
-      background: var(--white);
+      background: var(--surface);
       border-radius: var(--radius);
       padding: 32px 28px;
       border: 1px solid rgba(0,0,0,0.06);
@@ -188,7 +194,7 @@
     }
     .flow-step {
       text-align: center;
-      background: var(--white);
+      background: var(--surface);
       border-radius: var(--radius);
       padding: 32px 20px;
       position: relative;
@@ -198,7 +204,7 @@
       height: 44px;
       border-radius: 50%;
       background: var(--primary);
-      color: var(--white);
+      color: #fff;
       font-size: 20px;
       font-weight: 800;
       display: flex;
@@ -212,7 +218,7 @@
     /* ── 数字セクション ── */
     .stats-section {
       background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-      color: var(--white);
+      color: #fff;
     }
     .stats-grid {
       display: grid;
@@ -244,7 +250,7 @@
     .faq-item summary::after {
       content: '+';
       font-size: 24px;
-      color: var(--primary);
+      color: var(--accent);
       transition: transform 0.2s;
     }
     .faq-item[open] summary::after {
@@ -274,22 +280,23 @@
     .cta-btn {
       display: inline-block;
       background: var(--primary);
-      color: var(--white);
+      color: #fff;
       padding: 16px 40px;
       border-radius: 30px;
       text-decoration: none;
       font-weight: 700;
       font-size: 16px;
-      transition: background 0.2s, transform 0.2s;
+      transition: all 0.2s;
     }
     .cta-btn:hover {
       background: var(--primary-dark);
       transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(27,58,92,0.3);
     }
 
     /* ── フッター ── */
     footer {
-      background: var(--text);
+      background: var(--primary-dark);
       color: rgba(255,255,255,0.6);
       padding: 48px 24px 32px;
     }
@@ -301,7 +308,7 @@
       gap: 32px;
     }
     .footer-col h4 {
-      color: var(--white);
+      color: #fff;
       font-size: 14px;
       margin-bottom: 16px;
     }
@@ -313,7 +320,7 @@
       padding: 4px 0;
       transition: color 0.2s;
     }
-    .footer-col a:hover { color: var(--white); }
+    .footer-col a:hover { color: #fff; }
     .footer-bottom {
       max-width: 1100px;
       margin: 32px auto 0;
@@ -367,9 +374,8 @@
       <p class="section-subtitle">ソフトバレーに必要な全てが揃っています</p>
 
       <div class="features-grid">
-        <!-- 大会管理 -->
         <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(21,101,192,0.1);">&#127941;</div>
+          <div class="feature-icon" style="background: rgba(27,58,92,0.1);">&#127941;</div>
           <h3>大会の作成・運営</h3>
           <p>数タップで大会を作成。エントリー管理からトーナメント表まで自動生成。</p>
           <ul>
@@ -380,9 +386,8 @@
           </ul>
         </div>
 
-        <!-- チームマッチング -->
         <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(255,109,0,0.1);">&#129309;</div>
+          <div class="feature-icon" style="background: rgba(196,169,98,0.15);">&#129309;</div>
           <h3>メンバー募集・マッチング</h3>
           <p>「メンバーが足りない」を解消。エリア・レベルで自動マッチング。</p>
           <ul>
@@ -392,7 +397,6 @@
           </ul>
         </div>
 
-        <!-- チャット -->
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(46,125,50,0.1);">&#128172;</div>
           <h3>チャット</h3>
@@ -405,7 +409,6 @@
           </ul>
         </div>
 
-        <!-- コミュニティ -->
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(156,39,176,0.1);">&#128227;</div>
           <h3>コミュニティ・SNS</h3>
@@ -418,7 +421,6 @@
           </ul>
         </div>
 
-        <!-- ガジェット -->
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(0,188,212,0.1);">&#127992;</div>
           <h3>マイガジェット</h3>
@@ -430,9 +432,8 @@
           </ul>
         </div>
 
-        <!-- バッジ・ランキング -->
         <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(255,193,7,0.1);">&#127942;</div>
+          <div class="feature-icon" style="background: rgba(196,169,98,0.1);">&#127942;</div>
           <h3>バッジ・ランキング</h3>
           <p>大会参加や優勝でバッジを獲得。全国ランキングに挑戦。</p>
           <ul>
@@ -532,7 +533,6 @@
   <section class="cta-section">
     <h2>ソフトバレーを、もっと楽しく。</h2>
     <p>Sofvoで大会運営もチーム探しもスマートに。</p>
-    <!-- <a href="#" class="cta-btn">App Storeでダウンロード</a> -->
     <p style="color: var(--text-secondary); font-size: 14px;">アプリは近日リリース予定です</p>
   </section>
 
