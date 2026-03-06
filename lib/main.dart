@@ -11,6 +11,7 @@ import 'config/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/register_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
 import 'screens/tournament/tournament_detail_screen.dart';
@@ -259,6 +260,10 @@ class _AuthGateState extends State<AuthGate> {
         if (!snapshot.hasData) {
           // 未ログイン時はpendingTournamentIdを保持したままログイン画面へ
           _navigatedToTournament = false;
+          // 紹介リンクからのアクセスは新規登録画面を表示
+          if (pendingReferrerUserId != null) {
+            return const RegisterScreen();
+          }
           return const LoginScreen();
         }
         return FutureBuilder<DocumentSnapshot>(
