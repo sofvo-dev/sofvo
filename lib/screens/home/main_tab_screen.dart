@@ -26,86 +26,101 @@ class _MainTabScreenState extends State<MainTabScreen> {
     const MyPageScreen(),
   ];
 
-  Widget _buildBadgeIcon(IconData icon, Color color, int count) {
-    return Badge(
-      isLabelVisible: count > 0,
-      label: Text('$count', style: const TextStyle(fontSize: 10, color: Colors.white)),
-      backgroundColor: AppTheme.error,
-      child: Icon(icon, color: color),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: StreamBuilder<QuerySnapshot>(
-        stream: uid.isNotEmpty
-            ? FirebaseFirestore.instance
-                .collection('chats')
-                .where('members', arrayContains: uid)
-                .snapshots()
-            : null,
-        builder: (context, chatSnap) {
-          int unreadCount = 0;
-          if (chatSnap.hasData) {
-            for (final doc in chatSnap.data!.docs) {
-              final data = doc.data() as Map<String, dynamic>;
-              final lastMessage = (data['lastMessage'] as String?) ?? '';
-              if (lastMessage.isEmpty) continue;
-              final lastRead = (data['lastRead'] as Map<String, dynamic>?)?[uid];
-              final lastMsg = data['lastMessageAt'];
-              if (lastMsg is Timestamp) {
-                if (lastRead == null || (lastRead is Timestamp && lastMsg.toDate().isAfter(lastRead.toDate()))) {
-                  unreadCount++;
-                }
+      bottomNavigationBar: _BottomNav(
+        currentIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() => _currentIndex = index);
+        },
+      ),
+    );
+  }
+}
+
+/// 分離されたナビゲーションバー — チャットバッジの更新で他のタブがリビルドされない
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({required this.currentIndex, required this.onDestinationSelected});
+  final int currentIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: uid.isNotEmpty
+          ? FirebaseFirestore.instance
+              .collection('chats')
+              .where('members', arrayContains: uid)
+              .snapshots()
+          : null,
+      builder: (context, chatSnap) {
+        int unreadCount = 0;
+        if (chatSnap.hasData) {
+          for (final doc in chatSnap.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final lastMessage = (data['lastMessage'] as String?) ?? '';
+            if (lastMessage.isEmpty) continue;
+            final lastRead = (data['lastRead'] as Map<String, dynamic>?)?[uid];
+            final lastMsg = data['lastMessageAt'];
+            if (lastMsg is Timestamp) {
+              if (lastRead == null || (lastRead is Timestamp && lastMsg.toDate().isAfter(lastRead.toDate()))) {
+                unreadCount++;
               }
             }
           }
+        }
 
-          return NavigationBar(
-            selectedIndex: _currentIndex,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            onDestinationSelected: (index) {
-              setState(() => _currentIndex = index);
-            },
-            backgroundColor: Colors.white,
-            indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-            destinations: [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined, color: AppTheme.textSecondary),
-                selectedIcon: Icon(Icons.home, color: AppTheme.primaryColor),
-                label: 'ホーム',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.search_outlined, color: AppTheme.textSecondary),
-                selectedIcon: Icon(Icons.search, color: AppTheme.primaryColor),
-                label: 'さがす',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.calendar_today_outlined, color: AppTheme.textSecondary),
-                selectedIcon: Icon(Icons.calendar_today, color: AppTheme.primaryColor),
-                label: 'マイ大会',
-              ),
-              NavigationDestination(
-                icon: _buildBadgeIcon(Icons.chat_bubble_outline, AppTheme.textSecondary, unreadCount),
-                selectedIcon: _buildBadgeIcon(Icons.chat_bubble, AppTheme.primaryColor, unreadCount),
-                label: 'チャット',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline, color: AppTheme.textSecondary),
-                selectedIcon: Icon(Icons.person, color: AppTheme.primaryColor),
-                label: 'マイページ',
-              ),
-            ],
-          );
-        },
-      ),
+        return NavigationBar(
+          selectedIndex: currentIndex,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          onDestinationSelected: onDestinationSelected,
+          backgroundColor: Colors.white,
+          indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+          destinations: [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.home, color: AppTheme.primaryColor),
+              label: 'ホーム',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.search_outlined, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.search, color: AppTheme.primaryColor),
+              label: 'さがす',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.calendar_today_outlined, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.calendar_today, color: AppTheme.primaryColor),
+              label: 'マイ大会',
+            ),
+            NavigationDestination(
+              icon: _badge(Icons.chat_bubble_outline, AppTheme.textSecondary, unreadCount),
+              selectedIcon: _badge(Icons.chat_bubble, AppTheme.primaryColor, unreadCount),
+              label: 'チャット',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.person, color: AppTheme.primaryColor),
+              label: 'マイページ',
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _badge(IconData icon, Color color, int count) {
+    return Badge(
+      isLabelVisible: count > 0,
+      label: Text('$count', style: const TextStyle(fontSize: 10, color: Colors.white)),
+      backgroundColor: AppTheme.error,
+      child: Icon(icon, color: color),
     );
   }
 }
