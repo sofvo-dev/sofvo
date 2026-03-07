@@ -21,6 +21,7 @@ import 'tournament_history_screen.dart';
 import 'ranking_screen.dart';
 import 'point_history_screen.dart';
 import 'user_profile_screen.dart';
+import '../../services/point_service.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key});
@@ -236,31 +237,56 @@ class MyPageScreen extends StatelessWidget {
                 ),
               ),
 
-              // ━━━ ポイント履歴ボタン ━━━
+              // ━━━ ポイント関連ボタン ━━━
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const PointHistoryScreen())),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentColor.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(context,
+                              MaterialPageRoute(builder: (_) => const PointHistoryScreen())),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.history, size: 16, color: AppTheme.accentColor),
+                                const SizedBox(width: 6),
+                                Text('ポイント履歴',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
+                                const SizedBox(width: 4),
+                                Icon(Icons.chevron_right, size: 16, color: AppTheme.accentColor),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.history, size: 16, color: AppTheme.accentColor),
-                          const SizedBox(width: 6),
-                          Text('ポイント履歴を見る',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
-                          const SizedBox(width: 4),
-                          Icon(Icons.chevron_right, size: 16, color: AppTheme.accentColor),
-                        ],
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => PointService.showPointSystemInfo(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 16, color: AppTheme.primaryColor),
+                              const SizedBox(width: 6),
+                              Text('ポイントの仕組み',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
