@@ -13,6 +13,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'score_input_screen.dart';
+import 'post_event_action_screen.dart';
 import 'checkin_screen.dart';
 import 'mvp_voting_screen.dart';
 import 'tournament_finance_screen.dart';
@@ -2699,9 +2700,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               if (ctx.mounted) Navigator.pop(ctx);
               // 全参加者に結果通知 + タイムライン自動投稿
               final t = widget.tournament;
+              final tournamentName = t['name'] as String? ?? t['title'] as String? ?? '';
               NotificationService.sendTournamentEndNotification(
                 tournamentId: _tournamentId,
-                tournamentName: t['name'] as String? ?? t['title'] as String? ?? '',
+                tournamentName: tournamentName,
                 tournamentDate: t['date'] as String? ?? '',
                 organizerId: t['organizerId'] as String? ?? '',
                 organizerName: t['organizerName'] as String? ?? '',
@@ -2709,6 +2711,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('大会を終了しました。参加者に通知を送信しました'), backgroundColor: AppTheme.success),
+                );
+                // ふりかえりアクション画面を表示
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PostEventActionScreen(
+                      tournamentId: _tournamentId,
+                      tournamentName: tournamentName,
+                    ),
+                  ),
                 );
               }
             },
