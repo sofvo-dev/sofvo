@@ -701,8 +701,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       _buildRuleTableRow('セット形式', _setFormatDisplayLabel(liveFinal['sets'] ?? 3)),
                       _buildRuleTableRow('デュース', (liveFinal['deuce'] ?? false) ? 'あり' : 'なし'),
                       if (liveFinal['format'] == '順位別複数') ...[
-                        _buildRuleTableRow('区分数', '${liveFinal['tierCount'] ?? 3}区分'),
-                        _buildTierInfoRow((liveFinal['tierCount'] as num?)?.toInt() ?? 3, liveMaxTeams),
+                        _buildRuleTableRow('区分数', (liveFinal['tierCount'] ?? 3) == 1 ? '区分なし' : '${liveFinal['tierCount'] ?? 3}区分'),
+                        if ((liveFinal['tierCount'] ?? 3) != 1)
+                          _buildTierInfoRow((liveFinal['tierCount'] as num?)?.toInt() ?? 3, liveMaxTeams),
                       ],
                     ],
                   ),
