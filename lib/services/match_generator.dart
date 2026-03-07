@@ -997,7 +997,9 @@ class MatchGenerator {
 
       if (league.length >= 8) {
         await _generate8TeamSE(bracketRef, league, leagueCourts, leagueTeams);
-      } else if (league.length >= 4) {
+      } else if (league.length >= 5) {
+        await _generate5to7TeamSE(bracketRef, league, leagueCourts, leagueTeams);
+      } else if (league.length == 4) {
         await _generate4TeamSE(bracketRef, league, leagueCourts, leagueTeams);
       } else if (league.length == 3) {
         // 3チーム: 1位シード付きトーナメント
@@ -1191,7 +1193,216 @@ class MatchGenerator {
     }
   }
 
-  /// 4チームSE（準決勝→決勝+3位決定戦）
+  /// 5〜7チームSE全順位決定トーナメント（BYE付き8チームブラケット）
+  /// 8チームブラケットの空きスロットにBYEを入れ、上位シードを自動進出させる
+  /// QF → SF(勝者) + 5位決定戦(敗者) → 決勝 + 3位決定戦
+  Future<void> _generate5to7TeamSE(
+    DocumentReference bracketRef,
+    List<MapEntry<String, Map<String, dynamic>>> teams,
+    List<int> leagueCourts,
+    List<Map<String, String>> leagueTeams,
+  ) async {
+    final n = teams.length; // 5, 6, or 7
+    final mainRefCount = <String, int>{};
+    final subRefCount = <String, int>{};
+    for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
+
+    Map<String, String> _pickRefs(Set<String> busyIds) {
+      final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
+      available.sort((a, b) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b['teamId']]!));
+      final mainRef = available.isNotEmpty ? available.first : null;
+      if (mainRef != null) mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
+      String subRefId = '', subRefName = '';
+      if (available.length >= 2) {
+        final subCandidates = available.where((t) => t['teamId'] != mainRef?['teamId']).toList();
+        subCandidates.sort((a, b) => (subRefCount[a['teamId']]!).compareTo(subRefCount[b['teamId']]!));
+        if (subCandidates.isNotEmpty) {
+          subRefId = subCandidates.first['teamId']!;
+          subRefName = subCandidates.first['teamName']!;
+          subRefCount[subRefId] = (subRefCount[subRefId] ?? 0) + 1;
+        }
+      }
+      return {
+        'refereeTeamId': mainRef?['teamId'] ?? '', 'refereeTeamName': mainRef?['teamName'] ?? '',
+        'subRefereeTeamId': subRefId, 'subRefereeTeamName': subRefName,
+      };
+    }
+
+    int matchIdx = 0;
+    final courtCount = leagueCourts.length;
+
+    // 8チームブラケットのQFペア（シード配置）
+    // [0,7]=1v8, [3,4]=4v5, [1,6]=2v7, [2,5]=3v6
+    // チーム不在のスロット = BYE（上位シードが自動進出）
+    final qfSeeds = [
+      [0, 7], // QF1: 1位 vs 8位 → n<8なら1位BYE
+      [3, 4], // QF2: 4位 vs 5位
+      [1, 6], // QF3: 2位 vs 7位 → n<7なら2位BYE
+      [2, 5], // QF4: 3位 vs 6位 → n<6なら3位BYE
+    ];
+
+    // BYE判定: 対戦相手がいないペア → 上位シードが自動進出
+    // 実際の試合が必要なペアのみ生成
+    final qfResults = <int, Map<String, String>>{}; // qfIndex → {winnerId, winnerName, loserId, loserName}
+
+    for (int qi = 0; qi < 4; qi++) {
+      final aIdx = qfSeeds[qi][0];
+      final bIdx = qfSeeds[qi][1];
+
+      if (bIdx >= n) {
+        // BYE: 上位シードが自動進出
+        qfResults[qi] = {
+          'winnerId': teams[aIdx].key,
+          'winnerName': teams[aIdx].value['teamName'] as String,
+          'loserId': '', 'loserName': '',
+        };
+      } else {
+        // 実際の試合を生成
+        final busyIds = <String>{teams[aIdx].key, teams[bIdx].key};
+        final refs = _pickRefs(busyIds);
+        final courtNum = leagueCourts[matchIdx % courtCount];
+        matchIdx++;
+
+        await bracketRef.collection('matches').add({
+          'round': 'qf', 'matchNumber': matchIdx,
+          'teamAId': teams[aIdx].key, 'teamAName': teams[aIdx].value['teamName'],
+          'teamBId': teams[bIdx].key, 'teamBName': teams[bIdx].value['teamName'],
+          ...refs,
+          'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+          'status': 'pending', 'sets': [], 'result': {},
+          'qfIndex': qi, // QFスロット番号（BYE進出のSF自動更新用）
+        });
+      }
+    }
+
+    // SF勝者側: QF1勝者 vs QF2勝者、QF3勝者 vs QF4勝者
+    final sfPairs = [[0, 1], [2, 3]]; // qfResultのインデックス
+    for (int si = 0; si < sfPairs.length; si++) {
+      final qiA = sfPairs[si][0];
+      final qiB = sfPairs[si][1];
+
+      // BYEチームはSFに直接配置
+      final aIsBye = qfResults.containsKey(qiA);
+      final bIsBye = qfResults.containsKey(qiB);
+
+      final courtNum = leagueCourts[matchIdx % courtCount];
+      matchIdx++;
+
+      String teamAId = '', teamAName = '', teamBId = '', teamBName = '';
+      String status = 'waiting';
+      Map<String, String> refs = {'refereeTeamId': '', 'refereeTeamName': '', 'subRefereeTeamId': '', 'subRefereeTeamName': ''};
+
+      if (aIsBye && bIsBye) {
+        // 両方BYE → 両チーム確定
+        teamAId = qfResults[qiA]!['winnerId']!;
+        teamAName = qfResults[qiA]!['winnerName']!;
+        teamBId = qfResults[qiB]!['winnerId']!;
+        teamBName = qfResults[qiB]!['winnerName']!;
+        status = 'pending';
+        refs = _pickRefs({teamAId, teamBId});
+      } else if (aIsBye) {
+        teamAId = qfResults[qiA]!['winnerId']!;
+        teamAName = qfResults[qiA]!['winnerName']!;
+        teamBName = 'QF${qiB + 1}勝者';
+        status = 'waiting';
+      } else if (bIsBye) {
+        teamAName = 'QF${qiA + 1}勝者';
+        teamBId = qfResults[qiB]!['winnerId']!;
+        teamBName = qfResults[qiB]!['winnerName']!;
+        status = 'waiting';
+      } else {
+        teamAName = 'QF${qiA + 1}勝者';
+        teamBName = 'QF${qiB + 1}勝者';
+        status = 'waiting';
+      }
+
+      await bracketRef.collection('matches').add({
+        'round': 'sf_winner', 'matchNumber': matchIdx,
+        'teamAId': teamAId, 'teamAName': teamAName,
+        'teamBId': teamBId, 'teamBName': teamBName,
+        ...refs,
+        'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+        'status': status, 'sets': [], 'result': {},
+        'sfIndex': si, // SF番号
+      });
+    }
+
+    // 敗者側: QFの敗者同士で下位順位を決定
+    // BYEの敗者はいないので、実際に試合があったQFの敗者のみ
+    final qfMatchIndices = <int>[]; // 実試合があるQFインデックス
+    for (int qi = 0; qi < 4; qi++) {
+      if (!qfResults.containsKey(qi)) qfMatchIndices.add(qi);
+    }
+
+    // 敗者の試合数に応じて生成
+    if (qfMatchIndices.length >= 2) {
+      // 2試合以上の敗者 → 敗者戦を生成
+      // 6チーム: QF2敗者 vs QF4敗者 → 5位決定戦
+      // 7チーム: QF2敗者 vs QF3敗者 + QF4敗者 → 複数試合
+      if (qfMatchIndices.length == 2) {
+        // 5位決定戦（6チーム: 2試合の敗者）
+        final courtNum = leagueCourts[matchIdx % courtCount];
+        matchIdx++;
+        await bracketRef.collection('matches').add({
+          'round': 'final_5th', 'matchNumber': matchIdx,
+          'teamAId': '', 'teamAName': 'QF${qfMatchIndices[0] + 1}敗者',
+          'teamBId': '', 'teamBName': 'QF${qfMatchIndices[1] + 1}敗者',
+          'refereeTeamId': '', 'refereeTeamName': '',
+          'subRefereeTeamId': '', 'subRefereeTeamName': '',
+          'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+          'status': 'waiting', 'sets': [], 'result': {},
+        });
+      } else if (qfMatchIndices.length == 3) {
+        // 7チーム: 3試合の敗者 → sf_loser(2試合) + 7位決定戦
+        // sf_loser1: QF2敗者 vs QF4敗者
+        final courtNum1 = leagueCourts[matchIdx % courtCount];
+        matchIdx++;
+        await bracketRef.collection('matches').add({
+          'round': 'sf_loser', 'matchNumber': matchIdx,
+          'teamAId': '', 'teamAName': 'QF${qfMatchIndices[0] + 1}敗者',
+          'teamBId': '', 'teamBName': 'QF${qfMatchIndices[2] + 1}敗者',
+          'refereeTeamId': '', 'refereeTeamName': '',
+          'subRefereeTeamId': '', 'subRefereeTeamName': '',
+          'courtNumber': courtNum1, 'courtId': 'court_$courtNum1',
+          'status': 'waiting', 'sets': [], 'result': {},
+        });
+        // 5位決定戦: QF3敗者 vs sf_loser勝者
+        final courtNum2 = leagueCourts[matchIdx % courtCount];
+        matchIdx++;
+        await bracketRef.collection('matches').add({
+          'round': 'final_5th', 'matchNumber': matchIdx,
+          'teamAId': '', 'teamAName': 'QF${qfMatchIndices[1] + 1}敗者',
+          'teamBId': '', 'teamBName': '敗者戦 勝者',
+          'refereeTeamId': '', 'refereeTeamName': '',
+          'subRefereeTeamId': '', 'subRefereeTeamName': '',
+          'courtNumber': courtNum2, 'courtId': 'court_$courtNum2',
+          'status': 'waiting', 'sets': [], 'result': {},
+        });
+        // 7位決定戦: sf_loser敗者 = 7位（自動確定、試合不要）
+      }
+    }
+    // 5チームの場合: QF敗者は1チームのみ → 自動的に最下位（試合不要）
+
+    // 3位決定戦 + 決勝
+    for (final entry in [
+      {'round': 'final_3rd', 'a': 'SF1敗者', 'b': 'SF2敗者', 'label': '3位決定戦'},
+      {'round': 'final_1st', 'a': 'SF1勝者', 'b': 'SF2勝者', 'label': '決勝（1-2位）'},
+    ]) {
+      final courtNum = leagueCourts[matchIdx % leagueCourts.length];
+      matchIdx++;
+      await bracketRef.collection('matches').add({
+        'round': entry['round'], 'matchNumber': matchIdx,
+        'teamAId': '', 'teamAName': entry['a'],
+        'teamBId': '', 'teamBName': entry['b'],
+        'label': entry['label'],
+        'refereeTeamId': '', 'refereeTeamName': '',
+        'subRefereeTeamId': '', 'subRefereeTeamName': '',
+        'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+        'status': 'waiting', 'sets': [], 'result': {},
+      });
+    }
+  }
+
   Future<void> _generate4TeamSE(
     DocumentReference bracketRef,
     List<MapEntry<String, Map<String, dynamic>>> teams,
@@ -1282,6 +1493,7 @@ class MatchGenerator {
   }
 
   /// Generate single elimination bracket for all teams
+  /// 全チーム1ブラケットでSEトーナメントを生成（チーム数に応じた適切な構造を使用）
   Future<void> _generateSingleBracket(
     String tournamentId,
     List<MapEntry<String, Map<String, dynamic>>> sorted,
@@ -1300,61 +1512,24 @@ class MatchGenerator {
     });
 
     final leagueTeams = sorted.map((e) => {'teamId': e.key, 'teamName': e.value['teamName'] as String}).toList();
-    final mainRefCount = <String, int>{};
-    final subRefCount = <String, int>{};
-    for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
 
-    // 全ペアを先に構築
-    final pairs = <List<MapEntry<String, Map<String, dynamic>>>>[];
-    for (int i = 0; i < sorted.length ~/ 2; i++) {
-      pairs.add([sorted[i], sorted[sorted.length - 1 - i]]);
-    }
-
-    final courtCount = allCourts.length;
-    final slotReferees = <int, Set<String>>{};
-    for (int i = 0; i < pairs.length; i++) {
-      final a = pairs[i][0];
-      final b = pairs[i][1];
-
-      // 同時進行する試合の全出場チーム＋既に割り当てられた審判を収集
-      final concurrentSlot = i ~/ courtCount;
-      final busyIds = <String>{a.key, b.key};
-      for (int j = 0; j < pairs.length; j++) {
-        if (j != i && (j ~/ courtCount) == concurrentSlot) {
-          busyIds.add(pairs[j][0].key);
-          busyIds.add(pairs[j][1].key);
-        }
-      }
-      busyIds.addAll(slotReferees[concurrentSlot] ?? {});
-
-      final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
-      available.sort((x, y) => (mainRefCount[x['teamId']]!).compareTo(mainRefCount[y['teamId']]!));
-      final mainRef = available.isNotEmpty ? available.first : null;
-      if (mainRef != null) {
-        mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
-        slotReferees.putIfAbsent(concurrentSlot, () => {}).add(mainRef['teamId']!);
-      }
-
-      String subRefId = '', subRefName = '';
-      if (sorted.length >= 4 && available.length >= 2) {
-        final subCandidates = available.where((t) => t['teamId'] != mainRef?['teamId']).toList();
-        subCandidates.sort((x, y) => (subRefCount[x['teamId']]!).compareTo(subRefCount[y['teamId']]!));
-        if (subCandidates.isNotEmpty) {
-          subRefId = subCandidates.first['teamId']!;
-          subRefName = subCandidates.first['teamName']!;
-          subRefCount[subRefId] = (subRefCount[subRefId] ?? 0) + 1;
-          slotReferees.putIfAbsent(concurrentSlot, () => {}).add(subRefId);
-        }
-      }
-
-      final courtNum = allCourts[i % courtCount];
+    // チーム数に応じた適切なSE構造を使用
+    if (sorted.length >= 8) {
+      await _generate8TeamSE(bracketRef, sorted, allCourts, leagueTeams);
+    } else if (sorted.length >= 5) {
+      await _generate5to7TeamSE(bracketRef, sorted, allCourts, leagueTeams);
+    } else if (sorted.length == 4) {
+      await _generate4TeamSE(bracketRef, sorted, allCourts, leagueTeams);
+    } else if (sorted.length == 3) {
+      await _generate3TeamSE(bracketRef, sorted, allCourts, leagueTeams);
+    } else if (sorted.length == 2) {
       await bracketRef.collection('matches').add({
-        'round': 'round1', 'matchNumber': i + 1,
-        'teamAId': a.key, 'teamAName': a.value['teamName'],
-        'teamBId': b.key, 'teamBName': b.value['teamName'],
-        'refereeTeamId': mainRef?['teamId'] ?? '', 'refereeTeamName': mainRef?['teamName'] ?? '',
-        'subRefereeTeamId': subRefId, 'subRefereeTeamName': subRefName,
-        'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+        'round': 'final', 'matchNumber': 1,
+        'teamAId': sorted[0].key, 'teamAName': sorted[0].value['teamName'],
+        'teamBId': sorted[1].key, 'teamBName': sorted[1].value['teamName'],
+        'refereeTeamId': '', 'refereeTeamName': '',
+        'subRefereeTeamId': '', 'subRefereeTeamName': '',
+        'courtNumber': allCourts.first, 'courtId': 'court_${allCourts.first}',
         'status': 'pending', 'sets': [], 'result': {},
       });
     }
@@ -1401,11 +1576,13 @@ class MatchGenerator {
     bool _isCompleted(QueryDocumentSnapshot doc) =>
         (doc.data() as Map<String, dynamic>)['status'] == 'completed';
 
-    // 8-team: QF → SF winner + SF loser
+    // QF → SF winner + SF loser (8-team and 5-7 team with BYEs)
     if (byRound.containsKey('qf')) {
       final qf = byRound['qf']!;
       final allDone = qf.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
+
       if (allDone && qf.length >= 4) {
+        // 8-team: 4 QF matches → SF
         final q1 = qf[0].data() as Map<String, dynamic>;
         final q2 = qf[1].data() as Map<String, dynamic>;
         final q3 = qf[2].data() as Map<String, dynamic>;
@@ -1446,6 +1623,73 @@ class MatchGenerator {
             });
           }
         }
+      } else if (allDone && qf.isNotEmpty) {
+        // 5-7 team: fewer than 4 QF matches (BYE付き)
+        // qfIndex フィールドでQFスロット番号を取得
+        final qfBySlot = <int, Map<String, dynamic>>{};
+        for (var doc in qf) {
+          final data = doc.data() as Map<String, dynamic>;
+          final qi = data['qfIndex'] as int? ?? -1;
+          if (qi >= 0) qfBySlot[qi] = data;
+        }
+
+        // SF勝者側を更新: SF[0]={QF0勝者 vs QF1勝者}, SF[1]={QF2勝者 vs QF3勝者}
+        final sfW = byRound['sf_winner'] ?? [];
+        for (int si = 0; si < sfW.length && si < 2; si++) {
+          if (_isCompleted(sfW[si])) continue;
+          final sfData = sfW[si].data() as Map<String, dynamic>;
+          final qiA = si * 2;     // SF0→QF0,QF1  SF1→QF2,QF3
+          final qiB = si * 2 + 1;
+
+          final updates = <String, dynamic>{};
+          // teamA側: QFスロットAの勝者（BYEなら既にSFに配置済み）
+          if (qfBySlot.containsKey(qiA)) {
+            updates['teamAId'] = _winnerId(qfBySlot[qiA]!);
+            updates['teamAName'] = _winnerName(qfBySlot[qiA]!);
+          }
+          // teamB側: QFスロットBの勝者
+          if (qfBySlot.containsKey(qiB)) {
+            updates['teamBId'] = _winnerId(qfBySlot[qiB]!);
+            updates['teamBName'] = _winnerName(qfBySlot[qiB]!);
+          }
+
+          // 両チーム確定したらpendingに
+          final newAId = updates['teamAId'] ?? sfData['teamAId'] ?? '';
+          final newBId = updates['teamBId'] ?? sfData['teamBId'] ?? '';
+          if ((newAId as String).isNotEmpty && (newBId as String).isNotEmpty) {
+            updates['status'] = 'pending';
+          }
+          if (updates.isNotEmpty) await sfW[si].reference.update(updates);
+        }
+
+        // 敗者側: QF敗者を5位決定戦やsf_loserに配置
+        final qfLosers = <Map<String, String>>[];
+        for (var doc in qf) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['status'] == 'completed') {
+            qfLosers.add({'id': _loserId(data), 'name': _loserName(data)});
+          }
+        }
+
+        // 5位決定戦（2敗者の場合）
+        final f5th = byRound['final_5th']?.firstOrNull;
+        if (f5th != null && !_isCompleted(f5th) && qfLosers.length >= 2) {
+          await f5th.reference.update({
+            'teamAId': qfLosers[0]['id'], 'teamAName': qfLosers[0]['name'],
+            'teamBId': qfLosers[1]['id'], 'teamBName': qfLosers[1]['name'],
+            'status': 'pending',
+          });
+        }
+
+        // sf_loser（7チームの3敗者: 最初の2チームで対戦）
+        final sfL = byRound['sf_loser'] ?? [];
+        if (sfL.isNotEmpty && !_isCompleted(sfL[0]) && qfLosers.length >= 2) {
+          await sfL[0].reference.update({
+            'teamAId': qfLosers[0]['id'], 'teamAName': qfLosers[0]['name'],
+            'teamBId': qfLosers[qfLosers.length - 1]['id'], 'teamBName': qfLosers[qfLosers.length - 1]['name'],
+            'status': 'pending',
+          });
+        }
       }
     }
 
@@ -1481,6 +1725,7 @@ class MatchGenerator {
       final sfL = byRound['sf_loser']!;
       final allDone = sfL.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
       if (allDone && sfL.length >= 2) {
+        // 8チーム: 2試合の敗者側
         final sl1 = sfL[0].data() as Map<String, dynamic>;
         final sl2 = sfL[1].data() as Map<String, dynamic>;
 
@@ -1500,6 +1745,31 @@ class MatchGenerator {
             'status': 'pending',
           });
         }
+      } else if (allDone && sfL.length == 1) {
+        // 7チーム: 1試合の敗者側 → 勝者が5位決定戦へ（第3の敗者と対戦）
+        final sl1 = sfL[0].data() as Map<String, dynamic>;
+        final f5th = byRound['final_5th']?.firstOrNull;
+        if (f5th != null && !_isCompleted(f5th)) {
+          // 5位決定戦のteamBにsf_loser勝者を配置
+          final f5thData = f5th.data() as Map<String, dynamic>;
+          final updates = <String, dynamic>{};
+          // teamAが既にQF敗者で埋まっている場合、teamBに入れる
+          if ((f5thData['teamAId'] as String? ?? '').isNotEmpty) {
+            updates['teamBId'] = _winnerId(sl1);
+            updates['teamBName'] = _winnerName(sl1);
+          } else {
+            updates['teamAId'] = _winnerId(sl1);
+            updates['teamAName'] = _winnerName(sl1);
+          }
+          // 両チーム揃ったらpending
+          final newAId = updates['teamAId'] ?? f5thData['teamAId'] ?? '';
+          final newBId = updates['teamBId'] ?? f5thData['teamBId'] ?? '';
+          if ((newAId as String).isNotEmpty && (newBId as String).isNotEmpty) {
+            updates['status'] = 'pending';
+          }
+          await f5th.reference.update(updates);
+        }
+        // sf_loser敗者 = 7位（自動確定）
       }
     }
 
