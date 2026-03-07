@@ -1162,27 +1162,24 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   // ━━━ 削除 ━━━
-  void _showDeleteDialog(String title) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('大会を削除', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      content: Text('「$title」を削除しますか？\nこの操作は取り消せません。'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary))),
-        ElevatedButton(
-          onPressed: () async {
-            await _firestore.collection('tournaments').doc(_tournamentId).delete();
-            if (ctx.mounted) Navigator.pop(ctx);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('「$title」を削除しました'), backgroundColor: AppTheme.error));
-              Navigator.pop(context);
-            }
-          },
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
-          child: const Text('削除する'),
-        ),
-      ],
-    ));
+  void _showDeleteDialog(String title) async {
+    final confirmed = await _showTypedConfirmDialog(
+      title: '大会を削除',
+      description: '「$title」を削除します。\n全てのデータが完全に削除されます。\nこの操作は取り消せません。',
+      confirmWord: '削除',
+    );
+    if (!confirmed) return;
+    try {
+      await _firestore.collection('tournaments').doc(_tournamentId).delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('「$title」を削除しました'), backgroundColor: AppTheme.error));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
+      }
+    }
   }
 
   // ━━━ テンプレートに保存 ━━━
@@ -1395,20 +1392,36 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15));
               }).toList()),
               const SizedBox(height: 24),
-              SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                onPressed: () async {
-                  final result = await Navigator.push<Map<String, dynamic>>(context,
-                    MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), entryFee: int.tryParse(feeCtrl.text))));
-                  if (result != null) setPageState(() { tournamentRules = result; });
-                },
-                icon: Icon(tournamentRules != null ? Icons.check_circle : Icons.tune, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
-                label: Text(tournamentRules != null ? 'ルール設定済み' : 'ルールを設定する',
-                    style: TextStyle(fontWeight: FontWeight.w600, color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor)),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              )),
+              Builder(builder: (_) {
+                final status = data['status'] ?? '準備中';
+                final isLocked = status == '開催中' || status == '決勝中' || status == '順位決定中' || status.contains('完了');
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                    onPressed: isLocked ? null : () async {
+                      final result = await Navigator.push<Map<String, dynamic>>(context,
+                        MaterialPageRoute(builder: (_) => TournamentRulesScreen(initialRules: tournamentRules, courtCount: int.tryParse(courtsCtrl.text), maxTeams: int.tryParse(maxTeamsCtrl.text), entryFee: int.tryParse(feeCtrl.text))));
+                      if (result != null) setPageState(() { tournamentRules = result; });
+                    },
+                    icon: Icon(
+                      isLocked ? Icons.lock : (tournamentRules != null ? Icons.check_circle : Icons.tune),
+                      color: isLocked ? AppTheme.textSecondary : (tournamentRules != null ? AppTheme.success : AppTheme.primaryColor),
+                    ),
+                    label: Text(
+                      isLocked ? 'ルール変更不可（大会進行中）' : (tournamentRules != null ? 'ルール設定済み' : 'ルールを設定する'),
+                      style: TextStyle(fontWeight: FontWeight.w600, color: isLocked ? AppTheme.textSecondary : (tournamentRules != null ? AppTheme.success : AppTheme.primaryColor)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: isLocked ? Colors.grey[300]! : (tournamentRules != null ? AppTheme.success : AppTheme.primaryColor)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  )),
+                  if (isLocked)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Text('大会進行中はルールを変更できません', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    ),
+                ]);
+              }),
               const SizedBox(height: 24),
               SizedBox(width: double.infinity, child: ElevatedButton(
                 onPressed: titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty && locationCtrl.text.trim().isNotEmpty
@@ -3567,23 +3580,211 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Future<void> _resetRounds() async {
-    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('対戦表をリセット'),
-      content: const Text('全ての対戦表・スコア・順位表を削除します。\nこの操作は取り消せません。'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
-        ElevatedButton(onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
-            child: const Text('リセット')),
-      ],
-    ));
-    if (confirm != true) return;
+  /// 確認テキスト入力付きダイアログ（誤操作防止）
+  Future<bool> _showTypedConfirmDialog({
+    required String title,
+    required String description,
+    required String confirmWord,
+  }) async {
+    final result = await showDialog<bool>(context: context, builder: (ctx) {
+      final controller = TextEditingController();
+      return StatefulBuilder(builder: (ctx, setState) {
+        final match = controller.text == confirmWord;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            const Icon(Icons.warning_amber_rounded, color: AppTheme.error, size: 24),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 17))),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(description, style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 16),
+            Text('確認のため「$confirmWord」と入力してください', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: confirmWord,
+                hintStyle: TextStyle(color: Colors.grey[300]),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+            ElevatedButton(
+              onPressed: match ? () => Navigator.pop(ctx, true) : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error,
+                disabledBackgroundColor: Colors.grey[300],
+              ),
+              child: const Text('リセット'),
+            ),
+          ],
+        );
+      });
+    });
+    return result == true;
+  }
+
+  /// リセットメニューを表示
+  void _showResetMenu() async {
+    // 現在のデータ状態を取得
+    final roundsSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('rounds').get();
+    final bracketsSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('brackets').get();
+    final roundNumbers = roundsSnap.docs.map((d) => (d.data())['roundNumber'] ?? 1).toSet();
+    final hasRound1 = roundNumbers.contains(1);
+    final hasRound2 = roundNumbers.contains(2);
+    final hasBrackets = bracketsSnap.docs.isNotEmpty;
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.refresh, color: AppTheme.error, size: 22),
+              SizedBox(width: 8),
+              Text('リセット', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 4),
+            Text('リセットする範囲を選択してください', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const Divider(height: 24),
+            if (hasRound1)
+              _resetOptionTile(ctx, Icons.looks_one_outlined, '予選1をリセット', '予選1の対戦表・スコア・順位表を削除', () {
+                Navigator.pop(ctx);
+                _resetRound(1, rollbackStatus: '開催中');
+              }),
+            if (hasRound2)
+              _resetOptionTile(ctx, Icons.looks_two_outlined, '予選2をリセット', '予選2の対戦表・スコア・順位表を削除', () {
+                Navigator.pop(ctx);
+                _resetRound(2, rollbackStatus: '予選1完了');
+              }),
+            if (hasBrackets)
+              _resetOptionTile(ctx, Icons.emoji_events_outlined, '順位決定戦をリセット', '順位決定戦の対戦表・スコアを削除', () {
+                Navigator.pop(ctx);
+                _resetBrackets();
+              }),
+            const Divider(height: 16),
+            _resetOptionTile(ctx, Icons.delete_forever, '全てリセット', '全ての対戦表・スコア・順位表を削除', () {
+              Navigator.pop(ctx);
+              _resetAll();
+            }, isDestructive: true),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _resetOptionTile(BuildContext ctx, IconData icon, String title, String subtitle, VoidCallback onTap, {bool isDestructive = false}) {
+    final c = isDestructive ? AppTheme.error : AppTheme.textPrimary;
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(color: (isDestructive ? AppTheme.error : AppTheme.info).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, size: 20, color: isDestructive ? AppTheme.error : AppTheme.info),
+      ),
+      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+      onTap: onTap,
+    );
+  }
+
+  /// 予選ラウンド単体リセット
+  Future<void> _resetRound(int roundNumber, {required String rollbackStatus}) async {
+    final confirmed = await _showTypedConfirmDialog(
+      title: '予選${roundNumber}をリセット',
+      description: '予選${roundNumber}の対戦表・スコア・順位表を削除します。\nこの操作は取り消せません。',
+      confirmWord: 'リセット',
+    );
+    if (!confirmed) return;
     try {
       showDialog(context: context, barrierDismissible: false,
           builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
-      // Delete rounds
+      final roundRef = _firestore.collection('tournaments').doc(_tournamentId).collection('rounds').doc('round_$roundNumber');
+      final roundDoc = await roundRef.get();
+      if (roundDoc.exists) {
+        final matches = await roundRef.collection('matches').get();
+        for (var m in matches.docs) { await m.reference.delete(); }
+        final standings = await roundRef.collection('standings').get();
+        for (var s in standings.docs) {
+          final teams = await s.reference.collection('teams').get();
+          for (var t in teams.docs) { await t.reference.delete(); }
+          await s.reference.delete();
+        }
+        await roundRef.delete();
+      }
+      // round2リセット時はbracketsも削除
+      if (roundNumber == 2) {
+        final brackets = await _firestore.collection('tournaments').doc(_tournamentId).collection('brackets').get();
+        for (var b in brackets.docs) {
+          final matches = await b.reference.collection('matches').get();
+          for (var m in matches.docs) { await m.reference.delete(); }
+          await b.reference.delete();
+        }
+      }
+      await _firestore.collection('tournaments').doc(_tournamentId).update({'status': rollbackStatus});
+      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('予選${roundNumber}をリセットしました'), backgroundColor: AppTheme.success)); }
+    } catch (e) {
+      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error)); }
+    }
+  }
+
+  /// 順位決定戦リセット
+  Future<void> _resetBrackets() async {
+    final confirmed = await _showTypedConfirmDialog(
+      title: '順位決定戦をリセット',
+      description: '順位決定戦の対戦表・スコアを削除します。\nこの操作は取り消せません。',
+      confirmWord: 'リセット',
+    );
+    if (!confirmed) return;
+    try {
+      showDialog(context: context, barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
+      final brackets = await _firestore.collection('tournaments').doc(_tournamentId).collection('brackets').get();
+      for (var b in brackets.docs) {
+        final matches = await b.reference.collection('matches').get();
+        for (var m in matches.docs) { await m.reference.delete(); }
+        await b.reference.delete();
+      }
+      // 予選2がある場合は「予選2完了」、そうでなければ「予選1完了」に戻す
+      final roundsSnap = await _firestore.collection('tournaments').doc(_tournamentId).collection('rounds').get();
+      final roundNumbers = roundsSnap.docs.map((d) => (d.data())['roundNumber'] ?? 1).toSet();
+      final newStatus = roundNumbers.contains(2) ? '予選2完了' : '予選1完了';
+      await _firestore.collection('tournaments').doc(_tournamentId).update({'status': newStatus});
+      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('順位決定戦をリセットしました'), backgroundColor: AppTheme.success)); }
+    } catch (e) {
+      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error)); }
+    }
+  }
+
+  /// 全リセット
+  Future<void> _resetAll() async {
+    final confirmed = await _showTypedConfirmDialog(
+      title: '全てリセット',
+      description: '全ての対戦表・スコア・順位表を削除します。\nこの操作は取り消せません。',
+      confirmWord: '全てリセット',
+    );
+    if (!confirmed) return;
+    try {
+      showDialog(context: context, barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)));
       final rounds = await _firestore.collection('tournaments').doc(_tournamentId).collection('rounds').get();
       for (var round in rounds.docs) {
         final matches = await round.reference.collection('matches').get();
@@ -3596,7 +3797,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         }
         await round.reference.delete();
       }
-      // Delete brackets
       final brackets = await _firestore.collection('tournaments').doc(_tournamentId).collection('brackets').get();
       for (var b in brackets.docs) {
         final matches = await b.reference.collection('matches').get();
@@ -3605,7 +3805,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       }
       await _firestore.collection('tournaments').doc(_tournamentId).update({'status': '募集中'});
       if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('対戦表をリセットしました'), backgroundColor: AppTheme.success)); }
+          const SnackBar(content: Text('全てリセットしました'), backgroundColor: AppTheme.success)); }
     } catch (e) {
       if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error)); }
@@ -5837,7 +6037,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         onAnnouncement: _showAnnouncementDialog,
         onGenerateRound2: () => _generateMatches(2),
         onGenerateFinals: _generateFinals,
-        onReset: _resetRounds,
+        onReset: _showResetMenu,
         onEndTournament: _showEndTournamentDialog,
         onSaveTemplate: () => _saveAsTemplate(tournData),
         onDelete: () => _showDeleteDialog(tournData['title'] ?? ''),
