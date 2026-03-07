@@ -749,15 +749,30 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             _buildCard(
               title: '大会の流れ',
               titleIcon: Icons.timeline,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _buildFlowStep(1, 'エントリー受付', liveStatus == '募集中', liveCurrentTeams > 0),
-                _buildFlowStep(2, 'エントリー締切', liveStatus == 'エントリー締切', liveStatus == 'エントリー締切' || liveStatus == '開催中' || liveStatus == '終了'),
-                _buildFlowStep(3, '予選リーグ', liveStatus == '開催中', false),
-                if ((livePrelim['rounds'] ?? 1) > 1)
-                  _buildFlowStep(4, '予選2', false, false),
-                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 5 : 4, '順位決定戦', liveStatus == '順位決定中', false),
-                _buildFlowStep((livePrelim['rounds'] ?? 1) > 1 ? 6 : 5, '結果発表・表彰', liveStatus == '終了', false, isLast: true),
-              ]),
+              child: Builder(builder: (_) {
+                final hasTwoRounds = (livePrelim['rounds'] ?? 1) > 1;
+                final isRunning = liveStatus == '開催中';
+                final isR1Done = liveStatus == '予選1完了';
+                final isR2Done = liveStatus == '予選2完了';
+                final isFinals = liveStatus == '順位決定中' || liveStatus == '決勝中';
+                final isEnded = liveStatus == '終了';
+                // 予選以降のステータスか
+                final pastEntry = isRunning || isR1Done || isR2Done || isFinals || isEnded;
+                // 予選1が完了しているか
+                final r1Completed = isR1Done || isR2Done || isFinals || isEnded;
+                // 予選2が完了しているか
+                final r2Completed = isR2Done || isFinals || isEnded;
+
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _buildFlowStep(1, 'エントリー受付', liveStatus == '募集中', liveCurrentTeams > 0),
+                  _buildFlowStep(2, 'エントリー締切', liveStatus == 'エントリー締切', pastEntry),
+                  _buildFlowStep(3, '予選リーグ', isRunning && !r1Completed, r1Completed),
+                  if (hasTwoRounds)
+                    _buildFlowStep(4, '予選2', isR1Done || (isRunning && r1Completed && !r2Completed), r2Completed),
+                  _buildFlowStep(hasTwoRounds ? 5 : 4, '順位決定戦', isFinals, isEnded),
+                  _buildFlowStep(hasTwoRounds ? 6 : 5, '結果発表・表彰', isEnded, false, isLast: true),
+                ]);
+              }),
             ),
 
             // ━━━ 結果（終了時のみ） ━━━
