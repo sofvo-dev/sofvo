@@ -13,6 +13,7 @@ class CreatePostScreen extends StatefulWidget {
   final int? badgeColorValue;
   final String? tournamentId;
   final String? tournamentName;
+  final String? initialText;
 
   const CreatePostScreen({
     super.key,
@@ -21,6 +22,7 @@ class CreatePostScreen extends StatefulWidget {
     this.badgeColorValue,
     this.tournamentId,
     this.tournamentName,
+    this.initialText,
   });
 
   @override
@@ -43,7 +45,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   void initState() {
     super.initState();
     _loadUserProfile();
-    if (_hasBadge) {
+    if (widget.initialText != null) {
+      _textController.text = widget.initialText!;
+    } else if (_hasBadge) {
       _textController.text = '「${widget.badgeName}」バッジを獲得しました！';
     }
   }

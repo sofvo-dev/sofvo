@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../tournament/tournament_detail_screen.dart';
+import '../tournament/post_event_action_screen.dart';
 import '../profile/user_profile_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -113,9 +114,60 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final tournamentId = data['tournamentId'] as String?;
     final senderId = data['senderId'] as String?;
 
+    // 大会終了通知 → ふりかえりアクション画面
+    if (type == 'tournament_end' &&
+        tournamentId != null &&
+        tournamentId.isNotEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('tournaments')
+            .doc(tournamentId)
+            .get();
+        if (!doc.exists || !mounted) return;
+        final tData = doc.data() ?? {};
+        final tournamentName = (tData['title'] ?? tData['name'] ?? '') as String;
+
+        // 参加者の順位を取得
+        String? myResult;
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          final entries = await FirebaseFirestore.instance
+              .collection('tournaments').doc(tournamentId)
+              .collection('entries').get();
+          for (final entry in entries.docs) {
+            final memberUids = entry.data()['memberUids'] as List?;
+            if (memberUids != null && memberUids.contains(uid)) {
+              final rank = entry.data()['finalRank'];
+              if (rank is int) {
+                if (rank == 1) myResult = '優勝';
+                else if (rank == 2) myResult = '準優勝';
+                else if (rank == 3) myResult = '3位';
+                else myResult = '$rank位';
+              }
+              break;
+            }
+          }
+        }
+
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PostEventActionScreen(
+              tournamentId: tournamentId,
+              tournamentName: tournamentName,
+              result: myResult,
+            ),
+          ),
+        );
+      } catch (e) {
+        debugPrint('ふりかえり画面遷移に失敗: $e');
+      }
+      return;
+    }
+
     // 大会関連通知 → 大会詳細へ遷移
     if ((type == 'tournament_announcement' ||
-            type == 'tournament_end' ||
             type == 'waitlist_available' ||
             type == 'points_earned') &&
         tournamentId != null &&
