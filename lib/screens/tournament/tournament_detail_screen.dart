@@ -1661,13 +1661,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       final captain = (t['captainName'] as String? ?? '').isNotEmpty
           ? t['captainName'] as String
           : (t['members'] as Map<String, String>).values.firstOrNull ?? '';
+      final isMyTeam = i == myTeamIndex;
       batch.set(entryRef, {
         'teamId': entryRef.id,
         'teamName': t['teamName'],
         'leaderName': captain,
         'memberCount': t['memberCount'],
         'memberNames': t['members'],
-        'enteredBy': i == myTeamIndex ? uid : '',
+        'enteredBy': isMyTeam ? uid : '',
+        if (isMyTeam && uid.isNotEmpty) 'leaderUid': uid,
+        if (isMyTeam && uid.isNotEmpty) 'memberUids': [uid],
         'createdAt': FieldValue.serverTimestamp(),
       });
       count++;

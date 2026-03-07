@@ -82,8 +82,10 @@ class PointService {
     for (final doc in entries.docs) {
       final data = doc.data();
       final teamId = data['teamId'] as String? ?? doc.id;
-      final memberUids = data['memberUids'];
       final uids = <String>{};
+
+      // memberUids から取得（通常エントリー）
+      final memberUids = data['memberUids'];
       if (memberUids is List) {
         for (final uid in memberUids) {
           if (uid is String && uid.isNotEmpty) {
@@ -92,6 +94,15 @@ class PointService {
           }
         }
       }
+
+      // leaderUid から取得（CSV登録でも設定される場合がある）
+      final leaderUid = data['leaderUid'] as String?;
+      if (leaderUid != null && leaderUid.isNotEmpty) {
+        uids.add(leaderUid);
+        userTeamMap[leaderUid] = teamId;
+      }
+
+      // enteredBy から取得
       final enteredBy = data['enteredBy'] as String?;
       if (enteredBy != null && enteredBy.isNotEmpty) {
         uids.add(enteredBy);
@@ -99,8 +110,6 @@ class PointService {
       }
       teamUserMap[teamId] = uids;
     }
-
-    if (userTeamMap.isEmpty) return;
 
     // ━━━ 順位情報取得 ━━━
     final teamRanks = <String, int>{};
