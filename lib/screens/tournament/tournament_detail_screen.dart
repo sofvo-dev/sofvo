@@ -2733,8 +2733,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildCourtChipsForRound(int roundNum, List<MapEntry<String, int>> sortedCourts, Set<String> myCourts) {
-    // 3コート以下ならチップバー不要
-    if (sortedCourts.length <= 3) return const SizedBox();
+    // 1コート以下ならチップバー不要
+    if (sortedCourts.length <= 1) return const SizedBox();
 
     final filter = _selectedCourtFilter.containsKey(roundNum) ? _selectedCourtFilter[roundNum] : 'MY';
     return Padding(
