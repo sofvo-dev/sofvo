@@ -348,6 +348,10 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
     final closeTime = (data['closeTime'] ?? '').toString();
     final fee = (data['fee'] ?? '').toString();
     final eatArea = (data['eatArea'] ?? '').toString();
+    final floorType = (data['floorType'] ?? '').toString();
+    final poleType = (data['poleType'] ?? '').toString();
+    final poleAdjustable = (data['poleAdjustable'] ?? '').toString();
+    final notes = (data['notes'] ?? '').toString();
     final equipments = data['equipments'] is List ? List<Map<String, dynamic>>.from(data['equipments']) : <Map<String, dynamic>>[];
     final rating = (data['rating'] ?? 0).toDouble();
     final reviewCount = data['reviewCount'] ?? 0;
@@ -413,7 +417,26 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                     if (hasChangeRoom) _detailChip(Icons.checkroom, '更衣室あり'),
                     if (hasShower) _detailChip(Icons.shower, 'シャワーあり'),
                     if (hasGallery) _detailChip(Icons.visibility, '観覧席あり'),
+                    if (floorType.isNotEmpty) _detailChip(Icons.grid_on, '床: $floorType'),
+                    if (poleType.isNotEmpty) _detailChip(Icons.vertical_align_top, 'ポール: $poleType'),
+                    if (poleAdjustable.isNotEmpty) _detailChip(Icons.swap_vert, '高さ調節: $poleAdjustable'),
                   ]),
+
+                  // 備考
+                  if (notes.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text('備考', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(notes, style: const TextStyle(fontSize: 14, height: 1.5)),
+                    ),
+                  ],
 
                   // 貸出備品
                   if (equipments.isNotEmpty) ...[
@@ -526,6 +549,10 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
   final _closeTimeCtrl = TextEditingController(text: '22:00');
   final _feeCtrl = TextEditingController();
   final _eatAreaCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  String _floorType = '';
+  String _poleType = '';
+  String _poleAdjustable = '';
   bool _hasToilet = false;
   bool _hasChangeRoom = false;
   bool _hasShower = false;
@@ -555,6 +582,10 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
       _closeTimeCtrl.text = (v['closeTime'] as String?) ?? '22:00';
       _feeCtrl.text = (v['fee'] as String?) ?? '';
       _eatAreaCtrl.text = (v['eatArea'] as String?) ?? '';
+      _notesCtrl.text = (v['notes'] as String?) ?? '';
+      _floorType = (v['floorType'] as String?) ?? '';
+      _poleType = (v['poleType'] as String?) ?? '';
+      _poleAdjustable = (v['poleAdjustable'] as String?) ?? '';
       _hasToilet = v['hasToilet'] ?? false;
       _hasChangeRoom = v['hasChangeRoom'] ?? false;
       _hasShower = v['hasShower'] ?? false;
@@ -637,6 +668,28 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
           const SizedBox(height: 8),
           _label('飲食可能エリア'),
           _field(_eatAreaCtrl, '例: 2階控室のみ可、フロア内は水分補給のみ'),
+          const SizedBox(height: 12),
+          _label('床の種類'),
+          _dropdownField(
+            value: _floorType,
+            items: const ['', '板張り', 'ゴム', 'その他'],
+            labels: const ['未選択', '板張り', 'ゴム', 'その他'],
+            onChanged: (v) => setState(() => _floorType = v ?? ''),
+          ),
+          _label('ネットポールの種類'),
+          _dropdownField(
+            value: _poleType,
+            items: const ['', '床差し込み式', '置き型', '不明'],
+            labels: const ['未選択', '床差し込み式', '置き型', '不明'],
+            onChanged: (v) => setState(() => _poleType = v ?? ''),
+          ),
+          _label('ポール高さ調節'),
+          _dropdownField(
+            value: _poleAdjustable,
+            items: const ['', '可', '不可', '不明'],
+            labels: const ['未選択', '可', '不可', '不明'],
+            onChanged: (v) => setState(() => _poleAdjustable = v ?? ''),
+          ),
 
           const SizedBox(height: 20),
           _section('利用情報', Icons.access_time),
@@ -690,6 +743,16 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
             ),
           ]),
 
+          const SizedBox(height: 20),
+          _section('備考', Icons.note_alt_outlined),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _notesCtrl,
+            maxLines: 3,
+            onChanged: (_) => setState(() {}),
+            decoration: _inputDeco('例: ネットは持ち込み必要、照明がやや暗め 等'),
+          ),
+
           const SizedBox(height: 32),
           SizedBox(width: double.infinity, child: ElevatedButton(
             onPressed: canSave && !_saving ? _saveVenue : null,
@@ -727,6 +790,10 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
         'hasGallery': _hasGallery,
         'hasAC': _hasAC,
         'eatArea': _eatAreaCtrl.text.trim(),
+        'floorType': _floorType,
+        'poleType': _poleType,
+        'poleAdjustable': _poleAdjustable,
+        'notes': _notesCtrl.text.trim(),
         'openTime': _openTimeCtrl.text.trim(),
         'closeTime': _closeTimeCtrl.text.trim(),
         'fee': _feeCtrl.text.trim(),
@@ -803,6 +870,31 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
       filled: true, fillColor: AppTheme.backgroundColor,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    );
+  }
+
+  Widget _dropdownField({
+    required String value,
+    required List<String> items,
+    required List<String> labels,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+          items: List.generate(items.length, (i) =>
+            DropdownMenuItem(value: items[i], child: Text(labels[i]))),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 
