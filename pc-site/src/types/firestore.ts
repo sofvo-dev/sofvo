@@ -307,6 +307,10 @@ export interface Venue {
   address: string;
   courts?: number;
   rating?: number;
+  floorType?: string;       // 板張り / ゴム / その他
+  poleType?: string;        // 床差し込み式 / 置き型 / 不明
+  poleAdjustable?: string;  // 可 / 不可 / 不明
+  notes?: string;           // 備考（自由記述）
   createdBy?: string;
   createdAt?: unknown;
 }

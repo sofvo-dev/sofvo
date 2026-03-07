@@ -51,6 +51,10 @@ export default function VenuesPage() {
   const [formOpenTime, setFormOpenTime] = useState("8:00");
   const [formCloseTime, setFormCloseTime] = useState("22:00");
   const [formFee, setFormFee] = useState("");
+  const [formFloorType, setFormFloorType] = useState("");
+  const [formPoleType, setFormPoleType] = useState("");
+  const [formPoleAdjustable, setFormPoleAdjustable] = useState("");
+  const [formNotes, setFormNotes] = useState("");
   const [formEquipments, setFormEquipments] = useState<{ name: string; qty: number; fee: number }[]>([]);
   const [eqName, setEqName] = useState("");
   const [eqQty, setEqQty] = useState("");
@@ -95,6 +99,7 @@ export default function VenuesPage() {
     setFormName(""); setFormAddress(""); setFormPhone(""); setFormStation("");
     setFormCourts(""); setFormParking(""); setFormHasToilet(false); setFormHasChangeRoom(false);
     setFormHasShower(false); setFormHasGallery(false); setFormHasAC(false); setFormEatArea("");
+    setFormFloorType(""); setFormPoleType(""); setFormPoleAdjustable(""); setFormNotes("");
     setFormOpenTime("8:00"); setFormCloseTime("22:00"); setFormFee(""); setFormEquipments([]);
     setEditingVenue(null); setShowForm(false);
   };
@@ -106,6 +111,8 @@ export default function VenuesPage() {
     setFormHasToilet(venue.hasToilet ?? false); setFormHasChangeRoom(venue.hasChangeRoom ?? false);
     setFormHasShower(venue.hasShower ?? false); setFormHasGallery(venue.hasGallery ?? false);
     setFormHasAC(venue.hasAC ?? false); setFormEatArea(venue.eatArea || "");
+    setFormFloorType(venue.floorType || ""); setFormPoleType(venue.poleType || "");
+    setFormPoleAdjustable(venue.poleAdjustable || ""); setFormNotes(venue.notes || "");
     setFormOpenTime(venue.openTime || "8:00"); setFormCloseTime(venue.closeTime || "22:00");
     setFormFee(venue.fee || ""); setFormEquipments(venue.equipments ? [...venue.equipments] : []);
     setEditingVenue(venue); setShowForm(true); setDetailVenue(null);
@@ -122,6 +129,8 @@ export default function VenuesPage() {
         parking: formParking ? parseInt(formParking) : 0,
         hasToilet: formHasToilet, hasChangeRoom: formHasChangeRoom, hasShower: formHasShower,
         hasGallery: formHasGallery, hasAC: formHasAC, eatArea: formEatArea.trim(),
+        floorType: formFloorType, poleType: formPoleType, poleAdjustable: formPoleAdjustable,
+        notes: formNotes.trim(),
         openTime: formOpenTime.trim(), closeTime: formCloseTime.trim(), fee: formFee.trim(),
         equipments: formEquipments, updatedAt: serverTimestamp(), lastEditedBy: user.uid,
       };
@@ -158,6 +167,9 @@ export default function VenuesPage() {
     if (v.hasChangeRoom) items.push("更衣室");
     if (v.hasShower) items.push("シャワー");
     if (v.hasGallery) items.push("観覧席");
+    if (v.floorType) items.push(`床: ${v.floorType}`);
+    if (v.poleType) items.push(`ポール: ${v.poleType}`);
+    if (v.poleAdjustable) items.push(`高さ調節: ${v.poleAdjustable}`);
     return items;
   };
 
@@ -238,7 +250,24 @@ export default function VenuesPage() {
                 {detailVenue.eatArea && (
                   <DetailRow label="飲食エリア" value={detailVenue.eatArea} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513m0 0V19.5a2.25 2.25 0 01-2.25 2.25H8.25A2.25 2.25 0 016 19.5v-6.379" /></svg>} />
                 )}
+                {detailVenue.floorType && (
+                  <DetailRow label="床の種類" value={detailVenue.floorType} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>} />
+                )}
+                {detailVenue.poleType && (
+                  <DetailRow label="ネットポール" value={detailVenue.poleType} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m0 0l-6-6m6 6l6-6" /></svg>} />
+                )}
+                {detailVenue.poleAdjustable && (
+                  <DetailRow label="ポール高さ調節" value={detailVenue.poleAdjustable} icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5-4.5L16.5 16.5m0 0L12 12m4.5 4.5V7.5" /></svg>} />
+                )}
               </div>
+
+              {/* 備考 */}
+              {detailVenue.notes && (
+                <div>
+                  <h3 className="text-sm font-bold text-foreground mb-2">備考</h3>
+                  <p className="text-sm text-foreground whitespace-pre-wrap bg-gray-50 rounded-xl p-3">{detailVenue.notes}</p>
+                </div>
+              )}
 
               {/* Facilities */}
               {facilityList(detailVenue).length > 0 && (
@@ -335,6 +364,32 @@ export default function VenuesPage() {
                     <input type="text" value={formEatArea} onChange={(e) => setFormEatArea(e.target.value)} placeholder="例: 2階控室のみ可" className="form-input" />
                   </FormField>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                  <FormField label="床の種類">
+                    <select value={formFloorType} onChange={(e) => setFormFloorType(e.target.value)} className="form-input">
+                      <option value="">未選択</option>
+                      <option value="板張り">板張り</option>
+                      <option value="ゴム">ゴム</option>
+                      <option value="その他">その他</option>
+                    </select>
+                  </FormField>
+                  <FormField label="ネットポールの種類">
+                    <select value={formPoleType} onChange={(e) => setFormPoleType(e.target.value)} className="form-input">
+                      <option value="">未選択</option>
+                      <option value="床差し込み式">床差し込み式</option>
+                      <option value="置き型">置き型</option>
+                      <option value="不明">不明</option>
+                    </select>
+                  </FormField>
+                  <FormField label="ポール高さ調節">
+                    <select value={formPoleAdjustable} onChange={(e) => setFormPoleAdjustable(e.target.value)} className="form-input">
+                      <option value="">未選択</option>
+                      <option value="可">可</option>
+                      <option value="不可">不可</option>
+                      <option value="不明">不明</option>
+                    </select>
+                  </FormField>
+                </div>
               </FormSection>
 
               {/* Usage Info */}
@@ -373,6 +428,13 @@ export default function VenuesPage() {
                   <FormField label="料金"><input type="number" value={eqFee} onChange={(e) => setEqFee(e.target.value)} placeholder="0" min={0} className="form-input w-24" /></FormField>
                   <button type="button" onClick={addEquipment} className="px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors flex-shrink-0">追加</button>
                 </div>
+              </FormSection>
+
+              {/* Notes */}
+              <FormSection title="備考">
+                <textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)}
+                  placeholder="例: ネットは持ち込み必要、照明がやや暗め、受付は正面入口の事務室 等"
+                  rows={3} className="form-input w-full resize-y" />
               </FormSection>
 
               {/* Submit */}
