@@ -5,7 +5,8 @@ import '../../config/app_theme.dart';
 import '../home/create_post_screen.dart';
 import 'venue_search_screen.dart';
 import '../gadget/gadget_register_screen.dart';
-import '../follow/follow_search_screen.dart';
+import '../profile/user_profile_screen.dart';
+import '../../services/notification_service.dart';
 
 /// 大会終了後のアクション促進画面
 /// Step1: ふりかえり投稿（テンプレート選択）
@@ -73,6 +74,46 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
     if (result == true && mounted) {
       setState(() => _posted = true);
     }
+  }
+
+  /// 大会の会場を直接編集画面で開く
+  Future<void> _openVenueEdit() async {
+    final tournDoc = await FirebaseFirestore.instance
+        .collection('tournaments').doc(widget.tournamentId).get();
+    if (!tournDoc.exists || !mounted) return;
+    final data = tournDoc.data()!;
+    final venueId = data['venueId'] as String? ?? '';
+
+    if (venueId.isEmpty) {
+      // venueIdが無い場合は検索画面にフォールバック
+      await Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
+      return;
+    }
+
+    final venueDoc = await FirebaseFirestore.instance
+        .collection('venues').doc(venueId).get();
+    if (!mounted) return;
+
+    if (venueDoc.exists) {
+      await Navigator.push(context,
+          MaterialPageRoute(builder: (_) => VenueRegisterScreen(
+            existingVenue: venueDoc.data(),
+            venueId: venueId,
+          )));
+    } else {
+      await Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const VenueSearchScreen()));
+    }
+  }
+
+  /// 大会参加者一覧をフォロー可能なリストで表示
+  Future<void> _openParticipantsList() async {
+    await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => _TournamentParticipantsScreen(
+          tournamentId: widget.tournamentId,
+          tournamentName: widget.tournamentName,
+        )));
   }
 
   @override
@@ -257,12 +298,7 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
                       icon: Icons.apartment,
                       title: '会場の情報を登録',
                       subtitle: '床・ポール・設備の記録',
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const VenueSearchScreen()),
-                        );
-                      },
+                      onTap: () => _openVenueEdit(),
                     ),
                     _followUpAction(
                       icon: Icons.sports_handball,
@@ -279,12 +315,7 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
                       icon: Icons.people,
                       title: '参加者をフォロー',
                       subtitle: '今日の対戦相手とつながる',
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const FollowSearchScreen()),
-                        );
-                      },
+                      onTap: () => _openParticipantsList(),
                     ),
                   ],
                 ),
@@ -360,6 +391,192 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 大会参加者一覧（フォロー可能）
+class _TournamentParticipantsScreen extends StatefulWidget {
+  final String tournamentId;
+  final String tournamentName;
+
+  const _TournamentParticipantsScreen({
+    required this.tournamentId,
+    required this.tournamentName,
+  });
+
+  @override
+  State<_TournamentParticipantsScreen> createState() => _TournamentParticipantsScreenState();
+}
+
+class _TournamentParticipantsScreenState extends State<_TournamentParticipantsScreen> {
+  final _firestore = FirebaseFirestore.instance;
+  final _currentUser = FirebaseAuth.instance.currentUser;
+  final Set<String> _followingIds = {};
+  List<Map<String, dynamic>> _participants = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final uid = _currentUser?.uid;
+    if (uid == null) return;
+
+    // フォロー中のユーザーIDを取得
+    final followingSnap = await _firestore
+        .collection('users').doc(uid).collection('following').get();
+    _followingIds.addAll(followingSnap.docs.map((d) => d.id));
+
+    // 大会のエントリーからメンバーを収集
+    final entriesSnap = await _firestore
+        .collection('tournaments').doc(widget.tournamentId)
+        .collection('entries').get();
+
+    final participants = <Map<String, dynamic>>[];
+    final seenUids = <String>{};
+
+    for (final entry in entriesSnap.docs) {
+      final data = entry.data();
+      final teamName = data['teamName'] as String? ?? '';
+      final memberNames = (data['memberNames'] as Map<String, dynamic>?) ?? {};
+
+      for (final member in memberNames.entries) {
+        final memberId = member.key;
+        if (memberId == uid || seenUids.contains(memberId)) continue;
+        seenUids.add(memberId);
+        participants.add({
+          'uid': memberId,
+          'name': member.value?.toString() ?? '',
+          'teamName': teamName,
+        });
+      }
+    }
+
+    // ユーザー情報（アバター等）を取得
+    for (int i = 0; i < participants.length; i++) {
+      final userDoc = await _firestore.collection('users').doc(participants[i]['uid']).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data()!;
+        participants[i]['avatarUrl'] = userData['avatarUrl'] ?? '';
+        participants[i]['name'] = userData['nickname'] ?? userData['displayName'] ?? participants[i]['name'];
+      }
+    }
+
+    if (mounted) setState(() { _participants = participants; _loading = false; });
+  }
+
+  Future<void> _toggleFollow(String targetUid) async {
+    final uid = _currentUser?.uid;
+    if (uid == null) return;
+
+    final isFollowing = _followingIds.contains(targetUid);
+    final myRef = _firestore.collection('users').doc(uid).collection('following').doc(targetUid);
+    final theirRef = _firestore.collection('users').doc(targetUid).collection('followers').doc(uid);
+
+    if (isFollowing) {
+      await myRef.delete();
+      await theirRef.delete();
+      setState(() => _followingIds.remove(targetUid));
+    } else {
+      await myRef.set({'createdAt': FieldValue.serverTimestamp()});
+      await theirRef.set({'createdAt': FieldValue.serverTimestamp()});
+      setState(() => _followingIds.add(targetUid));
+      // フォロー通知
+      final myDoc = await _firestore.collection('users').doc(uid).get();
+      final myName = myDoc.data()?['nickname'] ?? myDoc.data()?['displayName'] ?? '';
+      NotificationService.sendFollowNotification(
+        targetUserId: targetUid,
+        followerName: myName,
+        followerUid: uid,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('参加者をフォロー', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _participants.isEmpty
+              ? Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.people_outline, size: 64, color: AppTheme.textHint),
+                    const SizedBox(height: 16),
+                    const Text('他の参加者がいません', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
+                  ]),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Text('${widget.tournamentName}の参加者',
+                        style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text('${_participants.length}人', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 12),
+                    ..._participants.map((p) => _participantTile(p)),
+                  ],
+                ),
+    );
+  }
+
+  Widget _participantTile(Map<String, dynamic> p) {
+    final uid = p['uid'] as String;
+    final name = p['name'] as String? ?? '';
+    final teamName = p['teamName'] as String? ?? '';
+    final avatarUrl = p['avatarUrl'] as String? ?? '';
+    final isFollowing = _followingIds.contains(uid);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      leading: CircleAvatar(
+        radius: 22,
+        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+        backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+        child: avatarUrl.isEmpty
+            ? Text(name.isNotEmpty ? name[0] : '?',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))
+            : null,
+      ),
+      title: Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      subtitle: Text(teamName, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      trailing: SizedBox(
+        width: 100,
+        height: 34,
+        child: isFollowing
+            ? OutlinedButton(
+                onPressed: () => _toggleFollow(uid),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  side: BorderSide(color: Colors.grey[300]!),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('フォロー中', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              )
+            : ElevatedButton(
+                onPressed: () => _toggleFollow(uid),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('フォロー', style: TextStyle(fontSize: 12)),
+              ),
+      ),
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => UserProfileScreen(userId: uid))),
     );
   }
 }
