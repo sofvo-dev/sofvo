@@ -3771,146 +3771,289 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   Future<bool?> _showFinalsPreviewModal(Map<String, dynamic> preview) {
     final brackets = (preview['brackets'] as List).cast<Map<String, dynamic>>();
 
+    // 同順位チームが存在するか検出
+    bool hasTiedTeams = false;
+    for (final bracket in brackets) {
+      final teams = (bracket['teams'] as List).cast<Map<String, dynamic>>();
+      if (teams.any((t) => t['isTied'] == true)) {
+        hasTiedTeams = true;
+        break;
+      }
+    }
+
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(ctx).size.height * 0.85,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(children: [
-            // ヘッダー
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
-              ),
-              child: Column(children: [
-                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Icon(Icons.emoji_events, color: Colors.amber[700], size: 24),
-                  const SizedBox(width: 8),
-                  const Expanded(child: Text('順位決定戦プレビュー',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+        return StatefulBuilder(builder: (ctx, setModalState) {
+          // 同順位チームの移動処理
+          void moveTeam(int fromBracketIdx, int teamIdx, int toBracketIdx) {
+            final fromTeams = (brackets[fromBracketIdx]['teams'] as List).cast<Map<String, dynamic>>();
+            final toTeams = (brackets[toBracketIdx]['teams'] as List).cast<Map<String, dynamic>>();
+            final team = fromTeams.removeAt(teamIdx);
+            // 上のリーグに移動 → 末尾に追加、下のリーグに移動 → 先頭に追加
+            if (toBracketIdx < fromBracketIdx) {
+              toTeams.add(team);
+            } else {
+              toTeams.insert(0, team);
+            }
+            brackets[fromBracketIdx]['teamCount'] = fromTeams.length;
+            brackets[toBracketIdx]['teamCount'] = toTeams.length;
+            setModalState(() {});
+          }
+
+          // 抽選：同順位チームをシャッフルして均等に再配置
+          void shuffleTiedTeams() {
+            // 全ブラケットから同順位チームを収集
+            final tiedTeams = <Map<String, dynamic>>[];
+            final tiedBracketIndices = <int>{};
+            for (int b = 0; b < brackets.length; b++) {
+              final teams = (brackets[b]['teams'] as List).cast<Map<String, dynamic>>();
+              final tied = teams.where((t) => t['isTied'] == true).toList();
+              if (tied.isNotEmpty) {
+                tiedTeams.addAll(tied);
+                tiedBracketIndices.add(b);
+                teams.removeWhere((t) => t['isTied'] == true);
+              }
+            }
+            if (tiedTeams.isEmpty) return;
+            // シャッフル
+            tiedTeams.shuffle();
+            // 均等に再配置（関連するブラケットに均等分配）
+            final targetBrackets = tiedBracketIndices.toList()..sort();
+            int ti = 0;
+            for (final team in tiedTeams) {
+              final bIdx = targetBrackets[ti % targetBrackets.length];
+              (brackets[bIdx]['teams'] as List).add(team);
+              ti++;
+            }
+            for (final bIdx in targetBrackets) {
+              brackets[bIdx]['teamCount'] = (brackets[bIdx]['teams'] as List).length;
+            }
+            setModalState(() {});
+          }
+
+          return Container(
+            height: MediaQuery.of(ctx).size.height * 0.85,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(children: [
+              // ヘッダー
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
+                ),
+                child: Column(children: [
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Icon(Icons.emoji_events, color: Colors.amber[700], size: 24),
+                    const SizedBox(width: 8),
+                    const Expanded(child: Text('順位決定戦プレビュー',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('予選の総合順位をもとにリーグ分けされています。内容を確認してください。',
+                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                 ]),
-                const SizedBox(height: 4),
-                Text('予選の総合順位をもとにリーグ分けされています。内容を確認してください。',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-              ]),
-            ),
-            // リーグ別プレビュー
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: brackets.length,
-                itemBuilder: (ctx, idx) {
-                  final bracket = brackets[idx];
-                  final teams = (bracket['teams'] as List).cast<Map<String, dynamic>>();
-                  final bracketName = bracket['bracketName'] ?? '';
-                  final rankRange = bracket['rankRange'] ?? '';
-                  final teamCount = (bracket['teamCount'] as num?)?.toInt() ?? 0;
-
-                  String formatLabel;
-                  if (teamCount >= 8) {
-                    formatLabel = 'トーナメント（全順位決定）';
-                  } else if (teamCount >= 4) {
-                    formatLabel = 'トーナメント（準決勝→決勝）';
-                  } else if (teamCount == 3) {
-                    formatLabel = '総当たり';
-                  } else {
-                    formatLabel = '決勝戦';
-                  }
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      // リーグヘッダー
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.08),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        ),
-                        child: Row(children: [
-                          Icon(Icons.emoji_events, size: 18, color: Colors.amber[700]),
-                          const SizedBox(width: 8),
-                          Text(bracketName, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.amber[800])),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                            child: Text(rankRange, style: TextStyle(fontSize: 12, color: Colors.amber[800])),
-                          ),
-                          const Spacer(),
-                          Text(formatLabel, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                        ]),
-                      ),
-                      // チーム一覧（順位付き）
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: teams.asMap().entries.map((e) {
-                            final rank = e.key + 1;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 3),
-                              child: Row(children: [
-                                SizedBox(width: 28, child: Text('$rank.', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-                                Expanded(child: Text(e.value['teamName'] ?? '', style: const TextStyle(fontSize: 14))),
-                              ]),
-                            );
-                          }).toList(),
-                        ),
-                      ),
+              ),
+              // 同順位警告バナー
+              if (hasTiedTeams)
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange[800]),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text('同順位のチームがリーグ境界にいます',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.orange[900]))),
                     ]),
-                  );
-                },
+                    const SizedBox(height: 6),
+                    Text('オレンジ色のチームは同スコアです。タップで移動先を選択するか、抽選ボタンで自動振り分けできます。',
+                        style: TextStyle(fontSize: 12, color: Colors.orange[800])),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: shuffleTiedTeams,
+                        icon: const Icon(Icons.shuffle, size: 16),
+                        label: const Text('同順位チームを抽選で振り分け'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange[800],
+                          side: BorderSide(color: Colors.orange.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              // リーグ別プレビュー
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: brackets.length,
+                  itemBuilder: (ctx, idx) {
+                    final bracket = brackets[idx];
+                    final teams = (bracket['teams'] as List).cast<Map<String, dynamic>>();
+                    final bracketName = bracket['bracketName'] ?? '';
+                    final rankRange = bracket['rankRange'] ?? '';
+                    final teamCount = (bracket['teamCount'] as num?)?.toInt() ?? teams.length;
+
+                    String formatLabel;
+                    if (teamCount >= 8) {
+                      formatLabel = 'トーナメント（全順位決定）';
+                    } else if (teamCount >= 4) {
+                      formatLabel = 'トーナメント（準決勝→決勝）';
+                    } else if (teamCount == 3) {
+                      formatLabel = '総当たり';
+                    } else if (teamCount == 2) {
+                      formatLabel = '決勝戦';
+                    } else {
+                      formatLabel = '';
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        // リーグヘッダー
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.08),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          ),
+                          child: Row(children: [
+                            Icon(Icons.emoji_events, size: 18, color: Colors.amber[700]),
+                            const SizedBox(width: 8),
+                            Text(bracketName, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                              child: Text('${teams.length}チーム', style: TextStyle(fontSize: 12, color: Colors.amber[800])),
+                            ),
+                            const Spacer(),
+                            Text(formatLabel, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          ]),
+                        ),
+                        // チーム一覧
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            children: teams.asMap().entries.map((e) {
+                              final teamIdx = e.key;
+                              final team = e.value;
+                              final isTied = team['isTied'] == true;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: InkWell(
+                                  onTap: isTied ? () {
+                                    // 移動先リーグの選択ダイアログ
+                                    final otherBrackets = <int>[];
+                                    for (int b = 0; b < brackets.length; b++) {
+                                      if (b != idx) otherBrackets.add(b);
+                                    }
+                                    if (otherBrackets.isEmpty) return;
+                                    showDialog(
+                                      context: ctx,
+                                      builder: (dCtx) => SimpleDialog(
+                                        title: Text('${team['teamName']} の移動先', style: const TextStyle(fontSize: 16)),
+                                        children: otherBrackets.map((bIdx) {
+                                          return SimpleDialogOption(
+                                            onPressed: () {
+                                              Navigator.pop(dCtx);
+                                              moveTeam(idx, teamIdx, bIdx);
+                                            },
+                                            child: Row(children: [
+                                              Icon(bIdx < idx ? Icons.arrow_upward : Icons.arrow_downward,
+                                                  size: 16, color: bIdx < idx ? AppTheme.success : AppTheme.info),
+                                              const SizedBox(width: 8),
+                                              Text(brackets[bIdx]['bracketName'] ?? ''),
+                                            ]),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    );
+                                  } : null,
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                    decoration: isTied ? BoxDecoration(
+                                      color: Colors.orange.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                                    ) : null,
+                                    child: Row(children: [
+                                      SizedBox(width: 28, child: Text('${teamIdx + 1}.', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
+                                      Expanded(child: Text(team['teamName'] ?? '', style: TextStyle(fontSize: 14,
+                                          color: isTied ? Colors.orange[900] : null,
+                                          fontWeight: isTied ? FontWeight.w600 : FontWeight.normal))),
+                                      if (isTied)
+                                        Icon(Icons.swap_vert, size: 16, color: Colors.orange[400]),
+                                    ]),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ]),
+                    );
+                  },
+                ),
               ),
-            ),
-            // フッターボタン
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
+              // フッターボタン
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
+                ),
+                child: Row(children: [
+                  Expanded(child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('キャンセル'),
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('この内容で反映', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber[700], foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  )),
+                ]),
               ),
-              child: Row(children: [
-                Expanded(child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('キャンセル'),
-                )),
-                const SizedBox(width: 12),
-                Expanded(flex: 2, child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  icon: const Icon(Icons.check, size: 18),
-                  label: const Text('この内容で反映', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber[700], foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                )),
-              ]),
-            ),
-          ]),
-        );
+            ]),
+          );
+        });
       },
     );
   }
@@ -7119,24 +7262,21 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       }
     }
 
-    // 区分境界を計算（同順位チームを分断しないよう調整）
+    // 区分境界を計算（均等分割、同順位チームには注記表示）
     final tierBoundaries = <int, String>{};
+    final tiedBoundaries = <int>{};  // 同順位チームがまたぐ境界
     if (_finalEnabled && _finalFormat == '順位別複数' && _tierCount >= 2) {
       final leagueCount = _tierCount.clamp(1, allTeams.length);
       final teamsPerTier = (allTeams.length / leagueCount).ceil();
       final leagueNames = _getLeagueNames(leagueCount);
       for (int t = 0; t < leagueCount; t++) {
-        var boundary = t * teamsPerTier;
-        if (boundary >= allTeams.length) break;
-        // 同順位チームを分断しないよう境界を後ろにずらす
-        if (t > 0) {
-          while (boundary < allTeams.length && boundary > 0 && ranks[boundary] == ranks[boundary - 1]) {
-            boundary++;
-          }
-          if (boundary >= allTeams.length) break;
-        }
-        if (t < leagueNames.length) {
+        final boundary = t * teamsPerTier;
+        if (boundary < allTeams.length && t < leagueNames.length) {
           tierBoundaries[boundary] = leagueNames[t];
+          // 境界で同順位が分断されているか
+          if (t > 0 && boundary > 0 && boundary < allTeams.length && ranks[boundary] == ranks[boundary - 1]) {
+            tiedBoundaries.add(boundary);
+          }
         }
       }
     }
@@ -7183,19 +7323,29 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
             final rank = ranks[i];
             final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
             final tierLabel = tierBoundaries[i];
+            final isTiedBoundary = tiedBoundaries.contains(i);
             return [
               // 区分ラベル + 境界線
               if (tierLabel != null) ...[
                 if (i > 0)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Container(height: 2, color: Colors.red.withValues(alpha: 0.3)),
+                    child: Container(height: 2, color: isTiedBoundary ? Colors.orange.withValues(alpha: 0.5) : Colors.red.withValues(alpha: 0.3)),
                   ),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
-                  child: Text(tierLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  color: isTiedBoundary ? Colors.orange.withValues(alpha: 0.08) : AppTheme.primaryColor.withValues(alpha: 0.06),
+                  child: Row(children: [
+                    Text(tierLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+                        color: isTiedBoundary ? Colors.orange[800]! : AppTheme.primaryColor)),
+                    if (isTiedBoundary) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.warning_amber_rounded, size: 12, color: Colors.orange[700]),
+                      const SizedBox(width: 2),
+                      Text('同順位あり', style: TextStyle(fontSize: 10, color: Colors.orange[700])),
+                    ],
+                  ]),
                 ),
               ] else if (i > 0)
                 Divider(height: 1, color: Colors.grey[200]),
