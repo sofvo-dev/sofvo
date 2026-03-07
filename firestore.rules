@@ -63,6 +63,17 @@ service cloud.firestore {
       match /gadgetCategories/{categoryId} {
         allow read, write: if isOwner(userId);
       }
+
+      // ポイント履歴
+      match /pointHistory/{historyId} {
+        allow read: if isOwner(userId);
+        allow write: if isAuthenticated();
+      }
+
+      // 非表示投稿
+      match /hiddenPosts/{postId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // ━━━ 投稿 ━━━

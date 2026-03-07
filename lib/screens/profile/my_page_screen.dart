@@ -19,6 +19,7 @@ import 'settings_screen.dart';
 import '../gadget/gadget_list_screen.dart';
 import 'tournament_history_screen.dart';
 import 'ranking_screen.dart';
+import 'point_history_screen.dart';
 import 'user_profile_screen.dart';
 
 class MyPageScreen extends StatelessWidget {
@@ -230,6 +231,35 @@ class MyPageScreen extends StatelessWidget {
                         Container(width: 1, height: 60, color: Colors.grey[200]),
                         Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
                       ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ━━━ ポイント履歴ボタン ━━━
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const PointHistoryScreen())),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.history, size: 16, color: AppTheme.accentColor),
+                          const SizedBox(width: 6),
+                          Text('ポイント履歴を見る',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
+                          const SizedBox(width: 4),
+                          Icon(Icons.chevron_right, size: 16, color: AppTheme.accentColor),
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -1467,3 +1467,289 @@ exports.scheduledSyncPrizes = functions.pubsub
       console.error("Scheduled prize sync error:", e.message);
     }
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// トーナメントポイント自動付与
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 順位係数
+function rankMultiplier(rank) {
+  switch (rank) {
+    case 1: return 3.0;
+    case 2: return 2.0;
+    case 3: return 1.5;
+    case 4: return 1.2;
+    default: return 1.0;
+  }
+}
+
+function calcRankPoints(teamCount, rank) {
+  return Math.round(teamCount * rankMultiplier(rank));
+}
+
+function calcMvpBonus(teamCount) {
+  return Math.round(teamCount * 0.5);
+}
+
+function calcOrganizerBonus(teamCount) {
+  return Math.round(teamCount * 0.3);
+}
+
+function calcStreakBonus(streak) {
+  if (streak >= 4) return 15;
+  if (streak >= 3) return 10;
+  if (streak >= 2) return 5;
+  return 0;
+}
+
+/**
+ * 大会のステータスが「終了」に変わったらポイントを自動付与
+ */
+exports.onTournamentStatusChange = functions.firestore
+  .document("tournaments/{tournamentId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    // ステータスが「終了」に変わった場合のみ実行
+    if (before.status === "終了" || after.status !== "終了") return null;
+    // 二重付与防止
+    if (after.pointsAwarded === true) return null;
+
+    const db = admin.firestore();
+    const tournamentId = context.params.tournamentId;
+    const teamCount = after.currentTeams || 0;
+    if (teamCount === 0) return null;
+
+    const organizerId = after.organizerId || "";
+    const tournamentName = after.title || after.name || "";
+    const tournamentDate = after.date || "";
+
+    console.log(`[Points] Awarding points for tournament: ${tournamentName} (${tournamentId}), teams: ${teamCount}`);
+
+    // エントリーデータ取得
+    const entriesSnap = await db.collection("tournaments").doc(tournamentId).collection("entries").get();
+    const userTeamMap = {};  // uid -> teamId
+    const teamUserMap = {};  // teamId -> [uids]
+
+    for (const doc of entriesSnap.docs) {
+      const data = doc.data();
+      const teamId = data.teamId || doc.id;
+      if (!teamUserMap[teamId]) teamUserMap[teamId] = [];
+
+      if (data.memberUids && Array.isArray(data.memberUids)) {
+        for (const uid of data.memberUids) {
+          if (uid) {
+            userTeamMap[uid] = teamId;
+            teamUserMap[teamId].push(uid);
+          }
+        }
+      }
+      if (data.enteredBy) {
+        userTeamMap[data.enteredBy] = teamId;
+        if (!teamUserMap[teamId].includes(data.enteredBy)) {
+          teamUserMap[teamId].push(data.enteredBy);
+        }
+      }
+    }
+
+    const allUserIds = Object.keys(userTeamMap);
+    if (allUserIds.length === 0) {
+      console.log("[Points] No participants found, skipping");
+      return null;
+    }
+
+    // ━━━ 順位取得（ブラケットから） ━━━
+    const teamRanks = {};
+    const bracketsSnap = await db.collection("tournaments").doc(tournamentId).collection("brackets").get();
+
+    for (const bDoc of bracketsSnap.docs) {
+      const matchesSnap = await bDoc.ref.collection("matches")
+        .where("status", "==", "completed").get();
+
+      for (const mDoc of matchesSnap.docs) {
+        const mData = mDoc.data();
+        const result = mData.result || {};
+
+        if (mData.round === "final" && result.winner) {
+          teamRanks[result.winner] = 1;
+          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
+          if (loserId) teamRanks[loserId] = 2;
+        }
+
+        if (mData.round === "third_place" && result.winner) {
+          teamRanks[result.winner] = 3;
+          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
+          if (loserId) teamRanks[loserId] = 4;
+        }
+      }
+    }
+
+    // ━━━ MVP取得 ━━━
+    const mvpSnap = await db.collection("tournaments").doc(tournamentId).collection("mvpVotes").get();
+    const voteCounts = {};
+    for (const doc of mvpSnap.docs) {
+      const votedFor = doc.data().votedFor;
+      if (votedFor) voteCounts[votedFor] = (voteCounts[votedFor] || 0) + 1;
+    }
+    let mvpUserId = null;
+    let maxVotes = 0;
+    for (const [uid, count] of Object.entries(voteCounts)) {
+      if (count > maxVotes) { maxVotes = count; mvpUserId = uid; }
+    }
+
+    // ━━━ ポイント付与 ━━━
+    const batch = db.batch();
+    const now = new Date();
+    const season = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; // 4月始まり
+
+    const userPointData = {};
+
+    for (const uid of allUserIds) {
+      const teamId = userTeamMap[uid];
+      const rank = teamRanks[teamId] || 99;
+      const rankPoints = calcRankPoints(teamCount, rank);
+      const isMvp = uid === mvpUserId;
+      const mvpBonus = isMvp ? calcMvpBonus(teamCount) : 0;
+      const totalEarned = rankPoints + mvpBonus;
+
+      const userRef = db.collection("users").doc(uid);
+      batch.update(userRef, {
+        totalPoints: admin.firestore.FieldValue.increment(totalEarned),
+        seasonPoints: admin.firestore.FieldValue.increment(totalEarned),
+        "stats.tournamentsPlayed": admin.firestore.FieldValue.increment(1),
+        ...(rank === 1 ? { "stats.championships": admin.firestore.FieldValue.increment(1) } : {}),
+        ...(isMvp ? { "stats.mvpCount": admin.firestore.FieldValue.increment(1) } : {}),
+      });
+
+      // ポイント履歴
+      const historyRef = userRef.collection("pointHistory").doc(tournamentId);
+      batch.set(historyRef, {
+        tournamentId,
+        tournamentName,
+        date: tournamentDate,
+        teamCount,
+        rank: rank <= 4 ? rank : null,
+        rankPoints,
+        mvpBonus,
+        streakBonus: 0,
+        organizerBonus: 0,
+        totalEarned,
+        isMvp,
+        season,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      userPointData[uid] = { totalEarned, rank: rank <= 4 ? rank : null, isMvp };
+
+      // 通知
+      const rankNames = { 1: "優勝", 2: "準優勝", 3: "3位", 4: "4位" };
+      const parts = [];
+      if (rank <= 4) parts.push(rankNames[rank]);
+      if (isMvp) parts.push("MVP");
+      const detail = parts.length > 0 ? `（${parts.join("・")}）` : "";
+
+      const notifRef = userRef.collection("notifications").doc();
+      batch.set(notifRef, {
+        type: "points_earned",
+        senderId: "system",
+        senderName: "ポイント獲得",
+        message: `「${tournamentName}」で +${totalEarned}pt 獲得！${detail}`,
+        tournamentId,
+        points: totalEarned,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // ━━━ 主催者ボーナス ━━━
+    if (organizerId) {
+      const orgBonus = calcOrganizerBonus(teamCount);
+      const userRef = db.collection("users").doc(organizerId);
+      batch.update(userRef, {
+        totalPoints: admin.firestore.FieldValue.increment(orgBonus),
+        seasonPoints: admin.firestore.FieldValue.increment(orgBonus),
+        "stats.tournamentsHosted": admin.firestore.FieldValue.increment(1),
+      });
+
+      const historyRef = userRef.collection("pointHistory").doc(tournamentId);
+      if (userPointData[organizerId]) {
+        // 参加者かつ主催者 → 履歴を更新
+        batch.update(historyRef, {
+          organizerBonus: orgBonus,
+          totalEarned: admin.firestore.FieldValue.increment(orgBonus),
+        });
+      } else {
+        // 主催者のみ（参加していない）
+        batch.set(historyRef, {
+          tournamentId,
+          tournamentName,
+          date: tournamentDate,
+          teamCount,
+          rank: null,
+          rankPoints: 0,
+          mvpBonus: 0,
+          streakBonus: 0,
+          organizerBonus: orgBonus,
+          totalEarned: orgBonus,
+          isMvp: false,
+          isOrganizer: true,
+          season,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      // 主催者通知
+      const notifRef = userRef.collection("notifications").doc();
+      batch.set(notifRef, {
+        type: "points_earned",
+        senderId: "system",
+        senderName: "ポイント獲得",
+        message: `「${tournamentName}」の主催ボーナス +${orgBonus}pt 獲得！`,
+        tournamentId,
+        points: orgBonus,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 二重付与防止フラグ
+    batch.update(change.after.ref, { pointsAwarded: true });
+
+    await batch.commit();
+    console.log(`[Points] Awarded points to ${allUserIds.length} users for tournament ${tournamentId}`);
+
+    // ━━━ ストリークボーナス（バッチ外で個別実行） ━━━
+    for (const uid of allUserIds) {
+      try {
+        const histSnap = await db.collection("users").doc(uid)
+          .collection("pointHistory")
+          .orderBy("createdAt", "desc")
+          .limit(5)
+          .get();
+
+        const streak = histSnap.docs.length;
+        const streakBonus = calcStreakBonus(streak);
+
+        if (streakBonus > 0) {
+          await db.collection("users").doc(uid).update({
+            totalPoints: admin.firestore.FieldValue.increment(streakBonus),
+            seasonPoints: admin.firestore.FieldValue.increment(streakBonus),
+            streak,
+          });
+          await db.collection("users").doc(uid)
+            .collection("pointHistory").doc(tournamentId)
+            .update({
+              streakBonus,
+              totalEarned: admin.firestore.FieldValue.increment(streakBonus),
+            });
+        } else {
+          await db.collection("users").doc(uid).update({ streak });
+        }
+      } catch (e) {
+        console.error(`[Points] Streak update error for ${uid}:`, e.message);
+      }
+    }
+
+    return null;
+  });

@@ -106,6 +106,28 @@ class TournamentHistoryScreen extends StatelessWidget {
 
     // 日付でソート
     result.sort((a, b) => (b['date'] ?? '').compareTo(a['date'] ?? ''));
+
+    // ポイント履歴を取得して各大会に紐付け
+    try {
+      final pointHistory = await firestore
+          .collection('users').doc(uid)
+          .collection('pointHistory')
+          .get();
+      final pointMap = <String, int>{};
+      for (final doc in pointHistory.docs) {
+        final data = doc.data();
+        final totalEarned = data['totalEarned'];
+        if (totalEarned is int) pointMap[doc.id] = totalEarned;
+        if (totalEarned is double) pointMap[doc.id] = totalEarned.toInt();
+      }
+      for (final t in result) {
+        final tid = t['id'] as String?;
+        if (tid != null && pointMap.containsKey(tid)) {
+          t['_earnedPoints'] = pointMap[tid];
+        }
+      }
+    } catch (_) {}
+
     return result;
   }
 
@@ -116,6 +138,8 @@ class TournamentHistoryScreen extends StatelessWidget {
     final status = (t['status'] ?? '') as String;
     final role = (t['role'] ?? '') as String;
     final type = (t['type'] ?? '') as String;
+
+    final earnedPoints = t['_earnedPoints'] as int?;
 
     return GestureDetector(
       onTap: () => Navigator.push(context,
@@ -138,6 +162,24 @@ class TournamentHistoryScreen extends StatelessWidget {
                   const SizedBox(width: 6),
                   _buildTag(type, AppTheme.warning),
                 ],
+                const Spacer(),
+                if (earnedPoints != null && earnedPoints > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.star_rounded, size: 14, color: AppTheme.accentColor),
+                        const SizedBox(width: 2),
+                        Text('+$earnedPoints pt',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+                      ],
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 10),
