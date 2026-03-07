@@ -295,6 +295,9 @@ class PointService {
   }
 
   /// ストリークボーナスの計算と付与
+  /// 期間ベース: 前回参加から30日以内なら連続、30日空いたらリセット
+  static const _streakWindowDays = 30;
+
   static Future<void> _updateStreakBonuses({
     required String tournamentId,
     required String tournamentName,
@@ -305,28 +308,38 @@ class PointService {
   }) async {
     for (final uid in userIds) {
       try {
-        // 過去のポイント履歴を日付順に取得（直近5件）
+        // 今回含む直近の履歴を日付降順で取得
         final history = await _firestore
             .collection('users').doc(uid)
             .collection('pointHistory')
             .orderBy('createdAt', descending: true)
-            .limit(5)
+            .limit(20)
             .get();
 
-        // 連続参加カウント（今回含む）
-        int streak = history.docs.length;
+        // 連続参加カウント（期間ベース）
+        int streak = 1; // 今回の参加で最低1
+        final docs = history.docs;
+        for (int i = 0; i < docs.length - 1; i++) {
+          final current = docs[i].data()['createdAt'] as Timestamp?;
+          final prev = docs[i + 1].data()['createdAt'] as Timestamp?;
+          if (current == null || prev == null) break;
+          final diffDays = current.toDate().difference(prev.toDate()).inDays;
+          if (diffDays <= _streakWindowDays) {
+            streak++;
+          } else {
+            break;
+          }
+        }
 
         // ストリークボーナス計算
         final streakBonus = calculateStreakBonus(streak);
         if (streakBonus > 0) {
-          // ユーザーのポイントを更新
           await _firestore.collection('users').doc(uid).update({
             'totalPoints': FieldValue.increment(streakBonus),
             'seasonPoints': FieldValue.increment(streakBonus),
             'streak': streak,
           });
 
-          // ポイント履歴も更新
           await _firestore
               .collection('users').doc(uid)
               .collection('pointHistory').doc(tournamentId)
@@ -467,7 +480,7 @@ class PointService {
                 icon: Icons.local_fire_department,
                 color: Colors.deepOrange,
                 title: '連続参加ボーナス',
-                description: '連続して大会に参加するとボーナス！',
+                description: '前回参加から30日以内に次の大会に参加するとストリーク継続！\n30日以上空くとリセットされます',
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[50],

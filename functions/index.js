@@ -1720,15 +1720,33 @@ exports.onTournamentStatusChange = functions.firestore
     console.log(`[Points] Awarded points to ${allUserIds.length} users for tournament ${tournamentId}`);
 
     // ━━━ ストリークボーナス（バッチ外で個別実行） ━━━
+    // 期間ベース: 前回参加から30日以内なら連続、30日空いたらリセット
+    const STREAK_WINDOW_DAYS = 30;
     for (const uid of allUserIds) {
       try {
+        // 今回含む直近の履歴を日付降順で取得
         const histSnap = await db.collection("users").doc(uid)
           .collection("pointHistory")
           .orderBy("createdAt", "desc")
-          .limit(5)
+          .limit(20)
           .get();
 
-        const streak = histSnap.docs.length;
+        // 連続参加カウント（期間ベース）
+        let streak = 1; // 今回の参加で最低1
+        const docs = histSnap.docs;
+        for (let i = 0; i < docs.length - 1; i++) {
+          const current = docs[i].data().createdAt;
+          const prev = docs[i + 1].data().createdAt;
+          if (!current || !prev) break;
+          const diffMs = current.toMillis() - prev.toMillis();
+          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+          if (diffDays <= STREAK_WINDOW_DAYS) {
+            streak++;
+          } else {
+            break;
+          }
+        }
+
         const streakBonus = calcStreakBonus(streak);
 
         if (streakBonus > 0) {
