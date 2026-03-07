@@ -506,143 +506,185 @@ class _HomeScreenState extends State<HomeScreen>
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A237E), Color(0xFF283593)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [Color(0xFF0D1B2A), Color(0xFF1B2838)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A237E).withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ヘッダー: 主催者情報
-                Row(
-                  children: [
-                    avatarUrl.isNotEmpty
-                        ? CircleAvatar(radius: 16, backgroundImage: CachedNetworkImageProvider(avatarUrl),
-                            backgroundColor: Colors.white24)
-                        : CircleAvatar(radius: 16, backgroundColor: Colors.white24,
-                            child: Text(nickname.isNotEmpty ? nickname[0] : '?',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('$nickname · $timeText',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
-                      ),
-                      child: const Text('大会結果', style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // トロフィーと大会名
-                Row(
-                  children: [
-                    const Icon(Icons.emoji_events, color: Colors.amber, size: 28),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        tournamentName.isNotEmpty ? '「$tournamentName」終了！' : '大会終了！',
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.3),
-                      ),
-                    ),
-                  ],
-                ),
-                if (winnerName.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  // 優勝チーム名（目立つデザイン）
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          children: [
+            // ヘッダー: 主催者情報
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Row(
+                children: [
+                  avatarUrl.isNotEmpty
+                      ? CircleAvatar(radius: 14, backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                          backgroundColor: Colors.white12)
+                      : CircleAvatar(radius: 14, backgroundColor: Colors.white12,
+                          child: Text(nickname.isNotEmpty ? nickname[0] : '?',
+                              style: const TextStyle(color: Colors.white60, fontWeight: FontWeight.bold, fontSize: 11))),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('$nickname · $timeText',
+                        style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                  ),
                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.amber.withValues(alpha: 0.25), Colors.amber.withValues(alpha: 0.10)],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Column(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('優勝', style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 2)),
-                        const SizedBox(height: 4),
-                        Text(winnerName,
-                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
-                          textAlign: TextAlign.center,
-                        ),
+                        Icon(Icons.emoji_events, size: 12, color: const Color(0xFFFFD700).withValues(alpha: 0.8)),
+                        const SizedBox(width: 3),
+                        Text('結果', style: TextStyle(color: const Color(0xFFFFD700).withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
                 ],
-                const SizedBox(height: 14),
-                const Text('ご参加ありがとうございました！',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-                const SizedBox(height: 14),
-                // 大会結果を見るボタン
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final doc = await FirebaseFirestore.instance
-                          .collection('tournaments').doc(tournamentId).get();
-                      if (!doc.exists || !mounted) return;
-                      final tData = doc.data()!;
-                      tData['id'] = doc.id;
-                      Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => TournamentDetailScreen(tournament: tData, initialTab: 'matches'),
-                      ));
-                    },
-                    icon: const Icon(Icons.emoji_events, size: 16),
-                    label: const Text('大会結果を見る'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: const Color(0xFF1A237E),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // 大会名
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                tournamentName.isNotEmpty ? '「$tournamentName」' : '大会',
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('大会終了',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11, letterSpacing: 4, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 18),
+            // 優勝チーム - メインビジュアル
+            if (winnerName.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                    width: 1,
                   ),
                 ),
-              ],
-            ),
-          ),
-          // いいね・コメントバー
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-            child: Row(
-              children: [
-                _buildLikeButton(postId, likesCount),
-                const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => _showCommentSheet(postId, nickname),
-                  child: Row(children: [
-                    const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.white54),
-                    const SizedBox(width: 4),
-                    Text('$commentsCount', style: const TextStyle(fontSize: 13, color: Colors.white54)),
-                  ]),
+                child: Column(
+                  children: [
+                    // 王冠アイコン
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [const Color(0xFFFFD700).withValues(alpha: 0.2), const Color(0xFFFFA000).withValues(alpha: 0.1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD700), size: 24),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('WINNER',
+                      style: TextStyle(
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.6),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(winnerName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                if (isMyPost) _buildPostMenu(postId, isMyPost),
-              ],
+              ),
+            ],
+            const SizedBox(height: 16),
+            // 大会結果を見るボタン
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () async {
+                    final doc = await FirebaseFirestore.instance
+                        .collection('tournaments').doc(tournamentId).get();
+                    if (!doc.exists || !mounted) return;
+                    final tData = doc.data()!;
+                    tData['id'] = doc.id;
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => TournamentDetailScreen(tournament: tData, initialTab: 'standings'),
+                    ));
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.06),
+                    foregroundColor: Colors.white70,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('大会結果を見る', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.7))),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            // いいね・コメントバー
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+              child: Row(
+                children: [
+                  _buildLikeButton(postId, likesCount),
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () => _showCommentSheet(postId, nickname),
+                    child: Row(children: [
+                      const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.white38),
+                      const SizedBox(width: 4),
+                      Text('$commentsCount', style: const TextStyle(fontSize: 13, color: Colors.white38)),
+                    ]),
+                  ),
+                  const Spacer(),
+                  if (isMyPost) _buildPostMenu(postId, isMyPost),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
