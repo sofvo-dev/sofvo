@@ -54,6 +54,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート) default: MY
   final Map<int, bool> _collapsedRounds = {}; // roundNum -> 折りたたみ状態
   final Map<String, bool> _collapsedBrackets = {}; // bracketId -> 折りたたみ状態
+  Map<String, String> _entryNameCache = {}; // teamId -> teamName
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
 
@@ -122,9 +123,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       return false;
     });
     final teamIds = myDocs.map((d) => d['teamId'] as String? ?? '').where((id) => id.isNotEmpty).toList();
+    // エントリー名キャッシュを構築（チームID→チーム名）
+    final nameCache = <String, String>{};
+    for (final d in allEntries.docs) {
+      final data = d.data();
+      final teamId = data['teamId'] as String? ?? d.id;
+      final teamName = data['teamName'] as String? ?? '';
+      if (teamId.isNotEmpty && teamName.isNotEmpty) {
+        nameCache[teamId] = teamName;
+        if (d.id != teamId) nameCache[d.id] = teamName;
+      }
+    }
     if (mounted) setState(() {
       _myTeamIds = teamIds;
       _myEntryTeamId = teamIds.isNotEmpty ? teamIds.first : "";
+      _entryNameCache = nameCache;
     });
   }
   /// セルフチェックイン（参加者がQRスキャンまたはボタンで自分のチームをチェックイン）
@@ -815,8 +828,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             final fm = finalMatch.data() as Map<String, dynamic>;
                             final result = fm['result'] as Map<String, dynamic>? ?? {};
                             final winnerId = result['winner'] ?? '';
-                            final champion = winnerId == fm['teamAId'] ? fm['teamAName'] : fm['teamBName'];
-                            final runnerUp = winnerId == fm['teamAId'] ? fm['teamBName'] : fm['teamAName'];
+                            var champion = winnerId == fm['teamAId'] ? fm['teamAName'] : fm['teamBName'];
+                            var runnerUp = winnerId == fm['teamAId'] ? fm['teamBName'] : fm['teamAName'];
+                            // チーム名がIDの場合、entriesから解決
+                            final idPattern = RegExp(r'^[a-zA-Z0-9]{15,}$');
+                            if (champion is String && idPattern.hasMatch(champion)) {
+                              champion = _entryNameCache[champion] ?? champion;
+                            }
+                            if (runnerUp is String && idPattern.hasMatch(runnerUp)) {
+                              runnerUp = _entryNameCache[runnerUp] ?? runnerUp;
+                            }
 
                             return Column(children: [
                               _buildResultRow(Icons.military_tech, '優勝', champion ?? '', Colors.amber),
@@ -2743,14 +2764,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             onPressed: () async {
               await _firestore.collection('tournaments').doc(_tournamentId).update({'status': '終了'});
               if (ctx.mounted) Navigator.pop(ctx);
-              // ポイント付与
-              PointService.awardTournamentPoints(
+              // ポイント付与（完了を待つ）
+              await PointService.awardTournamentPoints(
                 tournamentId: _tournamentId,
               );
               // 全参加者に結果通知 + タイムライン自動投稿
               final t = widget.tournament;
               final tournamentName = t['name'] as String? ?? t['title'] as String? ?? '';
-              NotificationService.sendTournamentEndNotification(
+              await NotificationService.sendTournamentEndNotification(
                 tournamentId: _tournamentId,
                 tournamentName: tournamentName,
                 tournamentDate: t['date'] as String? ?? '',
