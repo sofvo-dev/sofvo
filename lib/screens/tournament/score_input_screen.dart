@@ -664,7 +664,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.check_circle, color: Colors.greenAccent, size: 20),
           const SizedBox(width: 8),
-          Text('$label 完了', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+          Flexible(child: Text('$label 完了', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
         ]),
       );
     }
@@ -692,8 +692,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
         child: Row(children: [
           Icon(icon, color: Colors.white54, size: 20),
           const SizedBox(width: 12),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          const Spacer(),
+          Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14), overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 8),
           const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
         ]),
       ),
