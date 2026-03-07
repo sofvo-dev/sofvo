@@ -219,38 +219,21 @@ class MyPageScreen extends StatelessWidget {
                   offset: const Offset(0, -12),
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
                     ),
-                    child: Column(
+                    child: Row(
                       children: [
-                        // 上段: シーズンPt（大きく目立つ）
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.accentColor),
-                            const SizedBox(width: 6),
-                            Text('シーズンPt', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text('$seasonPoints', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
-                        const SizedBox(height: 2),
-                        Text('通算 $totalPoints pt', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                        const SizedBox(height: 12),
-                        Divider(height: 1, color: Colors.grey[200]),
-                        const SizedBox(height: 12),
-                        // 下段: 大会参加・優勝
-                        Row(
-                          children: [
-                            Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
-                            Container(width: 1, height: 40, color: Colors.grey[200]),
-                            Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
-                          ],
-                        ),
+                        Expanded(child: _buildDashboardStat(Icons.calendar_today_rounded, '$seasonPoints', 'シーズンPt', AppTheme.accentColor)),
+                        Container(width: 1, height: 36, color: Colors.grey[200]),
+                        Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.textSecondary)),
+                        Container(width: 1, height: 36, color: Colors.grey[200]),
+                        Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
+                        Container(width: 1, height: 36, color: Colors.grey[200]),
+                        Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
                       ],
                     ),
                   ),
@@ -524,11 +507,11 @@ class MyPageScreen extends StatelessWidget {
   Widget _buildDashboardStat(IconData icon, String value, String label, Color color) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 32),
-        const SizedBox(height: 6),
-        Text(value, style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: color, height: 1.1)),
-        const SizedBox(height: 5),
-        Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color, height: 1.1)),
+        const SizedBox(height: 3),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
       ],
     );
   }
