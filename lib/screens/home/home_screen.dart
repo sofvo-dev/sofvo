@@ -769,7 +769,7 @@ class _HomeScreenState extends State<HomeScreen>
                       final tData = doc.data()!;
                       tData['id'] = doc.id;
                       Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => TournamentDetailScreen(tournament: tData, initialTab: 'matches'),
+                        builder: (_) => TournamentDetailScreen(tournament: tData, initialTab: 'standings'),
                       ));
                     },
                     borderRadius: BorderRadius.circular(8),
