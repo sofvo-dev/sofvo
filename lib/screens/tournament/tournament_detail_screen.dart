@@ -521,6 +521,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     _buildPointTableRow(Icons.military_tech, '優勝', '${pointTable['優勝']}pt', Colors.amber),
                     _buildPointTableRow(Icons.star, '準優勝', '${pointTable['準優勝']}pt', AppTheme.primaryColor),
                     _buildPointTableRow(Icons.emoji_events_outlined, '3位', '${pointTable['3位']}pt', const Color(0xFFCD7F32)),
+                    _buildPointTableRow(Icons.looks_4_outlined, '4位', '${pointTable['4位']}pt', AppTheme.textSecondary),
                     _buildPointTableRow(Icons.sports_volleyball, '参加', '${pointTable['参加']}pt', AppTheme.textSecondary),
                     const Divider(height: 16),
                     _buildPointTableRow(Icons.how_to_vote, 'MVP', '+${pointTable['MVP']}pt', AppTheme.accentColor),
