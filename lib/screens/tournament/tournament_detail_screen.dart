@@ -3786,13 +3786,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
+        // null = 未選択, 'shuffle' = 抽選, 'manual' = 手動
+        String? tieResolutionMode;
         return StatefulBuilder(builder: (ctx, setModalState) {
-          // 同順位チームの移動処理
+
+          // 同順位チームの移動処理（手動モード用）
           void moveTeam(int fromBracketIdx, int teamIdx, int toBracketIdx) {
             final fromTeams = (brackets[fromBracketIdx]['teams'] as List).cast<Map<String, dynamic>>();
             final toTeams = (brackets[toBracketIdx]['teams'] as List).cast<Map<String, dynamic>>();
             final team = fromTeams.removeAt(teamIdx);
-            // 上のリーグに移動 → 末尾に追加、下のリーグに移動 → 先頭に追加
             if (toBracketIdx < fromBracketIdx) {
               toTeams.add(team);
             } else {
@@ -3805,7 +3807,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
           // 抽選：同順位チームをシャッフルして均等に再配置
           void shuffleTiedTeams() {
-            // 全ブラケットから同順位チームを収集
             final tiedTeams = <Map<String, dynamic>>[];
             final tiedBracketIndices = <int>{};
             for (int b = 0; b < brackets.length; b++) {
@@ -3818,9 +3819,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               }
             }
             if (tiedTeams.isEmpty) return;
-            // シャッフル
             tiedTeams.shuffle();
-            // 均等に再配置（関連するブラケットに均等分配）
             final targetBrackets = tiedBracketIndices.toList()..sort();
             int ti = 0;
             for (final team in tiedTeams) {
@@ -3864,7 +3863,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                 ]),
               ),
-              // 同順位警告バナー
+              // 同順位チーム振り分け選択
               if (hasTiedTeams)
                 Container(
                   margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -3882,23 +3881,50 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.orange[900]))),
                     ]),
                     const SizedBox(height: 6),
-                    Text('オレンジ色のチームは同スコアです。タップで移動先を選択するか、抽選ボタンで自動振り分けできます。',
+                    Text('オレンジ色のチームは同スコアです。振り分け方法を選んでください。',
                         style: TextStyle(fontSize: 12, color: Colors.orange[800])),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: shuffleTiedTeams,
-                        icon: const Icon(Icons.shuffle, size: 16),
-                        label: const Text('同順位チームを抽選で振り分け'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.orange[800],
-                          side: BorderSide(color: Colors.orange.withValues(alpha: 0.5)),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: _TieOptionButton(
+                        icon: Icons.shuffle,
+                        label: '抽選',
+                        description: 'ランダムに振り分け',
+                        selected: tieResolutionMode == 'shuffle',
+                        onTap: () {
+                          tieResolutionMode = 'shuffle';
+                          shuffleTiedTeams();
+                        },
+                      )),
+                      const SizedBox(width: 10),
+                      Expanded(child: _TieOptionButton(
+                        icon: Icons.touch_app,
+                        label: '手動',
+                        description: 'チームをタップして移動',
+                        selected: tieResolutionMode == 'manual',
+                        onTap: () {
+                          tieResolutionMode = 'manual';
+                          setModalState(() {});
+                        },
+                      )),
+                    ]),
+                    if (tieResolutionMode == 'shuffle')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: shuffleTiedTeams,
+                            icon: const Icon(Icons.refresh, size: 14),
+                            label: const Text('もう一度抽選する', style: TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.orange[800],
+                              side: BorderSide(color: Colors.orange.withValues(alpha: 0.4)),
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
                   ]),
                 ),
               // リーグ別プレビュー
@@ -3964,10 +3990,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                               final teamIdx = e.key;
                               final team = e.value;
                               final isTied = team['isTied'] == true;
+                              final canMove = isTied && tieResolutionMode == 'manual';
                               return Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 2),
                                 child: InkWell(
-                                  onTap: isTied ? () {
+                                  onTap: canMove ? () {
                                     // 移動先リーグの選択ダイアログ
                                     final otherBrackets = <int>[];
                                     for (int b = 0; b < brackets.length; b++) {
@@ -4001,14 +4028,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                                     decoration: isTied ? BoxDecoration(
                                       color: Colors.orange.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                                      border: Border.all(color: canMove ? Colors.orange.withValues(alpha: 0.5) : Colors.orange.withValues(alpha: 0.3)),
                                     ) : null,
                                     child: Row(children: [
                                       SizedBox(width: 28, child: Text('${teamIdx + 1}.', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
                                       Expanded(child: Text(team['teamName'] ?? '', style: TextStyle(fontSize: 14,
                                           color: isTied ? Colors.orange[900] : null,
                                           fontWeight: isTied ? FontWeight.w600 : FontWeight.normal))),
-                                      if (isTied)
+                                      if (canMove)
                                         Icon(Icons.swap_vert, size: 16, color: Colors.orange[400]),
                                     ]),
                                   ),
@@ -8134,6 +8161,43 @@ class _CsvImportMenuScreen extends StatelessWidget {
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
       trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
       onTap: () { Navigator.pop(context); onTap(); },
+    );
+  }
+}
+
+/// 同順位チーム振り分け方法の選択ボタン
+class _TieOptionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TieOptionButton({required this.icon, required this.label, required this.description, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? Colors.orange.withValues(alpha: 0.15) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? Colors.orange : Colors.grey.withValues(alpha: 0.3),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(children: [
+          Icon(icon, size: 24, color: selected ? Colors.orange[800] : Colors.grey[600]),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
+              color: selected ? Colors.orange[900] : AppTheme.textPrimary)),
+          const SizedBox(height: 2),
+          Text(description, style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+              textAlign: TextAlign.center),
+        ]),
+      ),
     );
   }
 }
