@@ -6796,10 +6796,11 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       final leagueCount = _tierCount.clamp(1, allTeams.length);
       final teamsPerTier = (allTeams.length / leagueCount).ceil();
       final leagueNames = _getLeagueNames(leagueCount);
-      for (int t = 1; t < leagueCount; t++) {
+      // 各区分の先頭インデックスにリーグ名を割り当て（0 = 最初の区分も含む）
+      for (int t = 0; t < leagueCount; t++) {
         final boundary = t * teamsPerTier;
-        if (boundary < allTeams.length) {
-          tierBoundaries[boundary] = t < leagueNames.length ? leagueNames[t] : '';
+        if (boundary < allTeams.length && t < leagueNames.length) {
+          tierBoundaries[boundary] = leagueNames[t];
         }
       }
     }
@@ -6862,15 +6863,22 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
             final t = e.value;
             final rank = ranks[i];
             final isMyTeam = widget.myTeamIds.contains(t['teamId'] ?? '');
-            final isTierBoundary = tierBoundaries.containsKey(i);
+            final tierLabel = tierBoundaries[i];
             return [
-              // 区分境界: 赤い線
-              if (isTierBoundary)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-                  child: Container(height: 2, color: Colors.red),
-                )
-              else if (i > 0)
+              // 区分ラベル + 境界線
+              if (tierLabel != null) ...[
+                if (i > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Container(height: 2, color: Colors.red.withValues(alpha: 0.3)),
+                  ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                  child: Text(tierLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                ),
+              ] else if (i > 0)
                 Divider(height: 1, color: Colors.grey[200]),
               Container(
                 color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
