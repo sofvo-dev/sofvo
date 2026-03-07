@@ -5454,21 +5454,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ),
               ]),
             ])
-          : Column(mainAxisSize: MainAxisSize.min, children: [
-              _buildNextStepButton(t),
-              SizedBox(
-                width: double.infinity,
+          : Row(children: [
+              Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () => _showOrganizerMenuSheet(t),
-                  icon: const Icon(Icons.admin_panel_settings, size: 20),
-                  label: const Text('大会主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.admin_panel_settings, size: 18),
+                  label: const Text('大会主催者メニュー', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
+              _buildNextStepButton(t),
             ]),
     );
   }
@@ -5514,20 +5513,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
                 if (!showRound2 && !showFinals) return const SizedBox();
 
-                final label = showRound2 ? '予選2 対戦表作成' : '順位決定戦 対戦表作成';
+                final label = showRound2 ? '予選2 対戦表作成' : '順位決定戦\n対戦表作成';
                 final icon = showRound2 ? Icons.replay : Icons.emoji_events;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: SizedBox(
-                    width: double.infinity,
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 10),
                     child: ElevatedButton.icon(
                       onPressed: () => showRound2 ? _generateMatches(2) : _generateFinals(),
-                      icon: Icon(icon, size: 20),
-                      label: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      icon: Icon(icon, size: 18),
+                      label: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.amber, foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
