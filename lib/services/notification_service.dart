@@ -103,14 +103,35 @@ class NotificationService {
       if (enteredBy != null && enteredBy.isNotEmpty) participantUids.add(enteredBy);
     }
 
+    // entriesからチームID→チーム名の変換マップを構築
+    final teamIdToName = <String, String>{};
+    for (final doc in entries.docs) {
+      final data = doc.data();
+      final teamId = data['teamId'] as String? ?? doc.id;
+      final teamName = data['teamName'] as String? ?? '';
+      if (teamId.isNotEmpty && teamName.isNotEmpty) {
+        teamIdToName[teamId] = teamName;
+      }
+      // doc IDでもマッピング（teamId != doc.idの場合に備えて）
+      if (doc.id != teamId && teamName.isNotEmpty) {
+        teamIdToName[doc.id] = teamName;
+      }
+    }
+
     // 優勝チーム情報を取得（bracketの決勝から）
     String winnerTeamName = '';
     try {
       final brackets = await _firestore
           .collection('tournaments').doc(tournamentId)
           .collection('brackets').get();
-      // 全ブラケットを検索（順位別トーナメントの場合、複数ブラケットがある）
-      for (final bracketDoc in brackets.docs) {
+      // bracketNumberが小さい順（上位リーグ優先）
+      final sortedBrackets = brackets.docs.toList()
+        ..sort((a, b) {
+          final aNum = (a.data()['bracketNumber'] as int?) ?? 99;
+          final bNum = (b.data()['bracketNumber'] as int?) ?? 99;
+          return aNum.compareTo(bNum);
+        });
+      for (final bracketDoc in sortedBrackets) {
         if (winnerTeamName.isNotEmpty) break;
         final matches = await bracketDoc.reference
             .collection('matches').where('status', isEqualTo: 'completed').get();
@@ -124,25 +145,18 @@ class NotificationService {
           final result = matchData['result'] as Map<String, dynamic>?;
           if (result != null && result['winner'] != null) {
             final winnerId = result['winner'] as String? ?? '';
-            // winnerIdからチーム名を解決
-            if (winnerId == matchData['teamAId']) {
+            // winnerIdからチーム名を解決（entriesマップ優先）
+            if (teamIdToName.containsKey(winnerId)) {
+              winnerTeamName = teamIdToName[winnerId]!;
+            } else if (winnerId == matchData['teamAId']) {
               winnerTeamName = matchData['teamAName'] as String? ?? '';
             } else if (winnerId == matchData['teamBId']) {
               winnerTeamName = matchData['teamBName'] as String? ?? '';
             }
-          }
-        }
-      }
-      // フォールバック: チーム名がIDの場合、entriesからチーム名を取得
-      if (winnerTeamName.isNotEmpty) {
-        final looksLikeId = RegExp(r'^[a-zA-Z0-9]{15,}$').hasMatch(winnerTeamName);
-        if (looksLikeId) {
-          final entryDoc = await _firestore
-              .collection('tournaments').doc(tournamentId)
-              .collection('entries').where('teamId', isEqualTo: winnerTeamName).limit(1).get();
-          if (entryDoc.docs.isNotEmpty) {
-            final entryName = entryDoc.docs.first.data()['teamName'] as String? ?? '';
-            if (entryName.isNotEmpty) winnerTeamName = entryName;
+            // チーム名がまだIDの場合、matchのteamName→entriesで再解決
+            if (winnerTeamName.isNotEmpty && teamIdToName.containsKey(winnerTeamName)) {
+              winnerTeamName = teamIdToName[winnerTeamName]!;
+            }
           }
         }
       }
