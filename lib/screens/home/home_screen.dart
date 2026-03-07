@@ -505,17 +505,13 @@ class _HomeScreenState extends State<HomeScreen>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0D1B2A), Color(0xFF1B2838)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 16,
-            offset: const Offset(0, 6),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -530,27 +526,27 @@ class _HomeScreenState extends State<HomeScreen>
                 children: [
                   avatarUrl.isNotEmpty
                       ? CircleAvatar(radius: 14, backgroundImage: CachedNetworkImageProvider(avatarUrl),
-                          backgroundColor: Colors.white12)
-                      : CircleAvatar(radius: 14, backgroundColor: Colors.white12,
+                          backgroundColor: Colors.grey.shade200)
+                      : CircleAvatar(radius: 14, backgroundColor: Colors.grey.shade200,
                           child: Text(nickname.isNotEmpty ? nickname[0] : '?',
-                              style: const TextStyle(color: Colors.white60, fontWeight: FontWeight.bold, fontSize: 11))),
+                              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 11))),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text('$nickname · $timeText',
-                        style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.12),
+                      color: const Color(0xFFDAA520).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.emoji_events, size: 12, color: const Color(0xFFFFD700).withValues(alpha: 0.8)),
+                        Icon(Icons.emoji_events, size: 12, color: const Color(0xFFDAA520).withValues(alpha: 0.8)),
                         const SizedBox(width: 3),
-                        Text('結果', style: TextStyle(color: const Color(0xFFFFD700).withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600)),
+                        Text('結果', style: TextStyle(color: const Color(0xFFDAA520).withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -563,13 +559,13 @@ class _HomeScreenState extends State<HomeScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 tournamentName.isNotEmpty ? '「$tournamentName」' : '大会',
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+                style: TextStyle(color: Colors.grey.shade800, fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.3),
                 textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 4),
             Text('大会終了',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11, letterSpacing: 4, fontWeight: FontWeight.w500),
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 11, letterSpacing: 4, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 18),
             // 優勝チーム - メインビジュアル
@@ -578,14 +574,10 @@ class _HomeScreenState extends State<HomeScreen>
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: const Color(0xFFFFFBF0),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                    color: const Color(0xFFDAA520).withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -597,18 +589,14 @@ class _HomeScreenState extends State<HomeScreen>
                       height: 44,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [const Color(0xFFFFD700).withValues(alpha: 0.2), const Color(0xFFFFA000).withValues(alpha: 0.1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: const Color(0xFFDAA520).withValues(alpha: 0.12),
                       ),
-                      child: const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD700), size: 24),
+                      child: const Icon(Icons.emoji_events_rounded, color: Color(0xFFDAA520), size: 24),
                     ),
                     const SizedBox(height: 10),
                     Text('WINNER',
                       style: TextStyle(
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.6),
+                        color: const Color(0xFFDAA520).withValues(alpha: 0.6),
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 4,
@@ -617,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(height: 8),
                     Text(winnerName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFFDAA520),
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
@@ -646,17 +634,17 @@ class _HomeScreenState extends State<HomeScreen>
                     ));
                   },
                   style: TextButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.06),
-                    foregroundColor: Colors.white70,
+                    backgroundColor: const Color(0xFF1A237E),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('大会結果を見る', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.7))),
-                      const SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                      Text('大会結果を見る', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                      SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.white70),
                     ],
                   ),
                 ),
@@ -673,9 +661,9 @@ class _HomeScreenState extends State<HomeScreen>
                   GestureDetector(
                     onTap: () => _showCommentSheet(postId, nickname),
                     child: Row(children: [
-                      const Icon(Icons.chat_bubble_outline, size: 20, color: Colors.white38),
+                      Icon(Icons.chat_bubble_outline, size: 20, color: Colors.grey.shade400),
                       const SizedBox(width: 4),
-                      Text('$commentsCount', style: const TextStyle(fontSize: 13, color: Colors.white38)),
+                      Text('$commentsCount', style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
                     ]),
                   ),
                   const Spacer(),
