@@ -1086,13 +1086,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       final bNum = ((b.data() as Map<String, dynamic>)['bracketNumber'] as num?) ?? 0;
                       return aNum.compareTo(bNum);
                     });
-                    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const SizedBox(height: 16),
-                      ...allBrackets.map((bDoc) {
-                        final bData = bDoc.data() as Map<String, dynamic>;
-                        return _buildBracketSection(bDoc.id, bData, isOrganizer);
-                      }),
-                    ]);
+
+                    // 全ブラケットの全試合完了状況をリアルタイム監視
+                    return _BracketsWithCompletion(
+                      tournamentId: _tournamentId,
+                      allBrackets: allBrackets,
+                      isOrganizer: isOrganizer,
+                      status: status,
+                      buildBracketSection: (id, data) => _buildBracketSection(id, data, isOrganizer),
+                      onEndTournament: _showEndTournamentDialog,
+                    );
                   },
                 ),
               ]),
@@ -8285,6 +8288,193 @@ class _OrganizerMenuScreen extends StatelessWidget {
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
       onTap: () { Navigator.pop(context); onTap(); },
+    );
+  }
+}
+
+// ━━━ ブラケット全試合完了検出＋大会終了ボタン ━━━
+class _BracketsWithCompletion extends StatelessWidget {
+  final String tournamentId;
+  final List<QueryDocumentSnapshot> allBrackets;
+  final bool isOrganizer;
+  final String status;
+  final Widget Function(String id, Map<String, dynamic> data) buildBracketSection;
+  final VoidCallback onEndTournament;
+
+  const _BracketsWithCompletion({
+    required this.tournamentId,
+    required this.allBrackets,
+    required this.isOrganizer,
+    required this.status,
+    required this.buildBracketSection,
+    required this.onEndTournament,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 全ブラケットのmatches completionを監視するために、各ブラケットのmatchesを監視
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 16),
+      ...allBrackets.map((bDoc) {
+        final bData = bDoc.data() as Map<String, dynamic>;
+        return buildBracketSection(bDoc.id, bData);
+      }),
+      // 主催者のみ: 全ブラケット全試合完了時に大会終了ボタンを表示
+      if (isOrganizer && (status == '順位決定中' || status == '決勝中'))
+        _AllBracketsCompletionCheck(
+          tournamentId: tournamentId,
+          bracketDocs: allBrackets,
+          onEndTournament: onEndTournament,
+        ),
+    ]);
+  }
+}
+
+class _AllBracketsCompletionCheck extends StatelessWidget {
+  final String tournamentId;
+  final List<QueryDocumentSnapshot> bracketDocs;
+  final VoidCallback onEndTournament;
+
+  const _AllBracketsCompletionCheck({
+    required this.tournamentId,
+    required this.bracketDocs,
+    required this.onEndTournament,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 再帰的に各ブラケットのmatchesを監視
+    return _BracketCompletionStream(
+      tournamentId: tournamentId,
+      bracketDocs: bracketDocs,
+      bracketIndex: 0,
+      allCompleted: true,
+      totalMatches: 0,
+      onEndTournament: onEndTournament,
+    );
+  }
+}
+
+class _BracketCompletionStream extends StatelessWidget {
+  final String tournamentId;
+  final List<QueryDocumentSnapshot> bracketDocs;
+  final int bracketIndex;
+  final bool allCompleted;
+  final int totalMatches;
+  final VoidCallback onEndTournament;
+
+  const _BracketCompletionStream({
+    required this.tournamentId,
+    required this.bracketDocs,
+    required this.bracketIndex,
+    required this.allCompleted,
+    required this.totalMatches,
+    required this.onEndTournament,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 全ブラケットチェック完了
+    if (bracketIndex >= bracketDocs.length) {
+      if (!allCompleted || totalMatches == 0) return const SizedBox();
+      // 全試合完了 → 順位確認＋大会終了ボタン表示
+      return _CompletionBanner(
+        totalMatches: totalMatches,
+        onEndTournament: onEndTournament,
+      );
+    }
+
+    // 現在のブラケットのmatchesを監視
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('tournaments').doc(tournamentId)
+          .collection('brackets').doc(bracketDocs[bracketIndex].id)
+          .collection('matches').snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox();
+        final matches = snap.data!.docs;
+        final bracketComplete = matches.isNotEmpty &&
+            matches.every((m) => (m.data() as Map<String, dynamic>)['status'] == 'completed');
+        return _BracketCompletionStream(
+          tournamentId: tournamentId,
+          bracketDocs: bracketDocs,
+          bracketIndex: bracketIndex + 1,
+          allCompleted: allCompleted && bracketComplete,
+          totalMatches: totalMatches + matches.length,
+          onEndTournament: onEndTournament,
+        );
+      },
+    );
+  }
+}
+
+// ━━━ 全試合完了バナー ━━━
+class _CompletionBanner extends StatelessWidget {
+  final int totalMatches;
+  final VoidCallback onEndTournament;
+
+  const _CompletionBanner({required this.totalMatches, required this.onEndTournament});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.green[50]!, Colors.green[100]!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.green[300]!, width: 1.5),
+        ),
+        child: Column(children: [
+          const Icon(Icons.emoji_events, size: 40, color: Colors.amber),
+          const SizedBox(height: 8),
+          const Text('全試合が完了しました！', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+          const SizedBox(height: 4),
+          Text('$totalMatches試合すべて終了', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          const SizedBox(height: 16),
+          // 順位を確認するボタン
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                // 順位表タブ(index 2)に遷移
+                final state = context.findAncestorStateOfType<_TournamentDetailScreenState>();
+                state?._tabController.animateTo(2);
+              },
+              icon: const Icon(Icons.leaderboard, size: 18),
+              label: const Text('順位を確認する', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // 大会を終了するボタン
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onEndTournament,
+              icon: const Icon(Icons.flag, size: 18),
+              label: const Text('大会を終了する', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
