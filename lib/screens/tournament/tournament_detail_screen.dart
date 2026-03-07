@@ -26,6 +26,7 @@ import '../home/create_post_screen.dart';
 import 'package:printing/printing.dart';
 import '../chat/chat_screen.dart';
 import '../../services/notification_service.dart';
+import '../../services/point_service.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> tournament;
@@ -502,6 +503,31 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   ),
                 ),
               ]),
+            ),
+            const SizedBox(height: 16),
+
+            // ━━━ 獲得ポイント ━━━
+            _buildCard(
+              title: '獲得ポイント',
+              titleIcon: Icons.star_rounded,
+              child: Builder(builder: (context) {
+                final pointTable = PointService.getPointTable(liveMaxTeams);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('この大会で獲得できるポイント',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 10),
+                    _buildPointTableRow(Icons.military_tech, '優勝', '${pointTable['優勝']}pt', Colors.amber),
+                    _buildPointTableRow(Icons.star, '準優勝', '${pointTable['準優勝']}pt', AppTheme.primaryColor),
+                    _buildPointTableRow(Icons.emoji_events_outlined, '3位', '${pointTable['3位']}pt', const Color(0xFFCD7F32)),
+                    _buildPointTableRow(Icons.sports_volleyball, '参加', '${pointTable['参加']}pt', AppTheme.textSecondary),
+                    const Divider(height: 16),
+                    _buildPointTableRow(Icons.how_to_vote, 'MVP', '+${pointTable['MVP']}pt', AppTheme.accentColor),
+                    _buildPointTableRow(Icons.volunteer_activism, '主催者', '+${pointTable['主催者']}pt', AppTheme.success),
+                  ],
+                );
+              }),
             ),
             const SizedBox(height: 16),
 
@@ -6219,6 +6245,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPointTableRow(IconData icon, String label, String points, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary))),
+          Text(points, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
+        ],
       ),
     );
   }

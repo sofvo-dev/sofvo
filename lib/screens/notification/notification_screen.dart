@@ -116,7 +116,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
     // 大会関連通知 → 大会詳細へ遷移
     if ((type == 'tournament_announcement' ||
             type == 'tournament_end' ||
-            type == 'waitlist_available') &&
+            type == 'waitlist_available' ||
+            type == 'points_earned') &&
         tournamentId != null &&
         tournamentId.isNotEmpty) {
       try {
@@ -195,6 +196,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
         icon = Icons.how_to_reg;
         iconColor = AppTheme.success;
         break;
+      case 'points_earned':
+        icon = Icons.star_rounded;
+        iconColor = AppTheme.accentColor;
+        break;
       default:
         icon = Icons.notifications;
         iconColor = AppTheme.textSecondary;
@@ -255,19 +260,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
               ),
             ],
           ),
-          title: RichText(
-            text: TextSpan(
-              style: const TextStyle(
-                  fontSize: 14, color: AppTheme.textPrimary),
-              children: [
-                TextSpan(
-                  text: senderName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+          title: type == 'points_earned'
+              ? Text(message,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))
+              : RichText(
+                  text: TextSpan(
+                    style: const TextStyle(
+                        fontSize: 14, color: AppTheme.textPrimary),
+                    children: [
+                      TextSpan(
+                        text: senderName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(text: ' $message'),
+                    ],
+                  ),
                 ),
-                TextSpan(text: ' $message'),
-              ],
-            ),
-          ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
