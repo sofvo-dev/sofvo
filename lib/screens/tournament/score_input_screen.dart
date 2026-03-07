@@ -357,21 +357,46 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           // === Match result summary ===
           if (_matchEnded) _buildResultSummary(),
 
+          // === Edit scores button (before confirmation) ===
+          if (_matchEnded && !_readOnly && !(_refereeConfirmed && _coachAConfirmed && _coachBConfirmed)) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _matchEnded = false;
+                  _winner = '';
+                  _setConfirmed = List.filled(_totalSets, false);
+                  _coachAConfirmed = false;
+                  _coachBConfirmed = false;
+                  _refereeConfirmed = false;
+                });
+              },
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('得点を修正する'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orangeAccent,
+                side: const BorderSide(color: Colors.orangeAccent),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+
           // === Confirmation sliders ===
           if (_matchEnded && !_readOnly) ...[
             const SizedBox(height: 16),
             if (_winner == 'a')
-              _buildConfirmSlider('${_match!['teamAName']} 監督確認（勝利チーム）', _coachAConfirmed, Icons.person,
+              _buildConfirmSlider('${_match!['teamAName']} キャプテン確認（勝利チーム）', _coachAConfirmed, Icons.person,
                   () => setState(() { _coachAConfirmed = true; _coachBConfirmed = true; _refereeConfirmed = true; }))
             else if (_winner == 'b')
-              _buildConfirmSlider('${_match!['teamBName']} 監督確認（勝利チーム）', _coachBConfirmed, Icons.person,
+              _buildConfirmSlider('${_match!['teamBName']} キャプテン確認（勝利チーム）', _coachBConfirmed, Icons.person,
                   () => setState(() { _coachBConfirmed = true; _coachAConfirmed = true; _refereeConfirmed = true; }))
             else ...[
               // 引き分け: 両チームの監督が確認
-              _buildConfirmSlider('${_match!['teamAName']} 監督確認', _coachAConfirmed, Icons.person,
+              _buildConfirmSlider('${_match!['teamAName']} キャプテン確認', _coachAConfirmed, Icons.person,
                   () => setState(() { _coachAConfirmed = true; if (_coachBConfirmed) _refereeConfirmed = true; })),
               const SizedBox(height: 12),
-              _buildConfirmSlider('${_match!['teamBName']} 監督確認', _coachBConfirmed, Icons.person,
+              _buildConfirmSlider('${_match!['teamBName']} キャプテン確認', _coachBConfirmed, Icons.person,
                   () => setState(() { _coachBConfirmed = true; if (_coachAConfirmed) _refereeConfirmed = true; })),
             ],
           ],
