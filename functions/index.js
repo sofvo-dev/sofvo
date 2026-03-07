@@ -1537,6 +1537,7 @@ exports.onTournamentStatusChange = functions.firestore
       const teamId = data.teamId || doc.id;
       if (!teamUserMap[teamId]) teamUserMap[teamId] = [];
 
+      // memberUids から取得（通常エントリー）
       if (data.memberUids && Array.isArray(data.memberUids)) {
         for (const uid of data.memberUids) {
           if (uid) {
@@ -1545,6 +1546,14 @@ exports.onTournamentStatusChange = functions.firestore
           }
         }
       }
+      // leaderUid から取得（CSV登録でも設定される場合がある）
+      if (data.leaderUid) {
+        userTeamMap[data.leaderUid] = teamId;
+        if (!teamUserMap[teamId].includes(data.leaderUid)) {
+          teamUserMap[teamId].push(data.leaderUid);
+        }
+      }
+      // enteredBy から取得
       if (data.enteredBy) {
         userTeamMap[data.enteredBy] = teamId;
         if (!teamUserMap[teamId].includes(data.enteredBy)) {
@@ -1554,10 +1563,6 @@ exports.onTournamentStatusChange = functions.firestore
     }
 
     const allUserIds = Object.keys(userTeamMap);
-    if (allUserIds.length === 0) {
-      console.log("[Points] No participants found, skipping");
-      return null;
-    }
 
     // ━━━ 順位取得（ブラケットから） ━━━
     const teamRanks = {};
