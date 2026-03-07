@@ -778,7 +778,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   _buildFlowStep(1, 'エントリー受付', liveStatus == '募集中', liveCurrentTeams > 0),
                   _buildFlowStep(2, 'エントリー締切', liveStatus == 'エントリー締切', pastEntry),
-                  _buildFlowStep(3, '予選リーグ', isRunning && !r1Completed, r1Completed),
+                  _buildFlowStep(3, hasTwoRounds ? '予選1' : '予選リーグ', isRunning && !r1Completed, r1Completed),
                   if (hasTwoRounds)
                     _buildFlowStep(4, '予選2', isR1Done || (isRunning && r1Completed && !r2Completed), r2Completed),
                   _buildFlowStep(hasTwoRounds ? 5 : 4, '順位決定戦', isFinals, isEnded),
