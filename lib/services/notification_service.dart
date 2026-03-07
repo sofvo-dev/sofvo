@@ -103,7 +103,7 @@ class NotificationService {
       if (enteredBy != null && enteredBy.isNotEmpty) participantUids.add(enteredBy);
     }
 
-    // 優勝チーム情報を取得（bracketの決勝 or standings 1位）
+    // 優勝チーム情報を取得（bracketの決勝から）
     String winnerTeamName = '';
     try {
       final brackets = await _firestore
@@ -114,12 +114,23 @@ class NotificationService {
         final matches = await _firestore
             .collection('tournaments').doc(tournamentId)
             .collection('brackets').doc(bracketId)
-            .collection('matches').orderBy('matchNumber', descending: true).limit(1).get();
-        if (matches.docs.isNotEmpty) {
-          final matchData = matches.docs.first.data();
+            .collection('matches').where('status', isEqualTo: 'completed').get();
+        // 決勝マッチを探す（final, final_1st のいずれか）
+        final finalMatch = matches.docs.where((m) {
+          final round = (m.data())['round'] as String? ?? '';
+          return round == 'final' || round == 'final_1st';
+        }).firstOrNull;
+        if (finalMatch != null) {
+          final matchData = finalMatch.data();
           final result = matchData['result'] as Map<String, dynamic>?;
           if (result != null && result['winner'] != null) {
-            winnerTeamName = (result['winner'] as String?) ?? '';
+            final winnerId = result['winner'] as String? ?? '';
+            // winnerIdからチーム名を解決
+            if (winnerId == matchData['teamAId']) {
+              winnerTeamName = matchData['teamAName'] as String? ?? '';
+            } else if (winnerId == matchData['teamBId']) {
+              winnerTeamName = matchData['teamBName'] as String? ?? '';
+            }
           }
         }
       }
