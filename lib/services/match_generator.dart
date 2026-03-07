@@ -793,7 +793,7 @@ class MatchGenerator {
         brackets.add({
           'bracketName': leagueName,
           'rankRange': '$rankStart〜$rankEnd位',
-          'teams': league.map((e) => {
+          'teams': league.map((e) {
             return {
               'teamId': e.key,
               'teamName': e.value['teamName'],
