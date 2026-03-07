@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
+import '../tournament/tournament_detail_screen.dart';
 import 'create_post_screen.dart';
 import 'comment_screen.dart';
 
@@ -446,6 +447,7 @@ class _HomeScreenState extends State<HomeScreen>
     final isMyPost = currentUserId != null && postUserId == currentUserId;
     final nickname = _safeString(data['userNickname'], '名無し');
     final text = _safeString(data['text'], '');
+    final tournamentId = data['tournamentId'] as String?;
     final images = data['images'] is List ? List<String>.from(data['images']) : <String>[];
     final imageBase64 = data['imageBase64'] is List ? List<String>.from(data['imageBase64']) : <String>[];
     final likesCount = _safeInt(data['likesCount']);
@@ -513,6 +515,41 @@ class _HomeScreenState extends State<HomeScreen>
                 if (text.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(text, style: const TextStyle(fontSize: 15, color: AppTheme.textPrimary, height: 1.5)),
+                ],
+                if (tournamentId != null && tournamentId.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () async {
+                      final doc = await FirebaseFirestore.instance
+                          .collection('tournaments').doc(tournamentId).get();
+                      if (!doc.exists || !mounted) return;
+                      final tData = doc.data()!;
+                      tData['id'] = doc.id;
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => TournamentDetailScreen(tournament: tData),
+                      ));
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.emoji_events, size: 16, color: AppTheme.primaryColor),
+                          SizedBox(width: 6),
+                          Text('大会の詳細を見る',
+                            style: TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                          SizedBox(width: 4),
+                          Icon(Icons.chevron_right, size: 16, color: AppTheme.primaryColor),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
                 if (hasBadge) ...[
                   const SizedBox(height: 10),
