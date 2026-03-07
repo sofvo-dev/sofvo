@@ -7018,22 +7018,50 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
 
   List<_RankedTeam> _computeRankings() {
     final rankings = <_RankedTeam>[];
+    // チームごとの獲得ポイント集計（全ブラケット試合の合計）
+    final teamPoints = <String, int>{};
+    final teamWins = <String, int>{};
+    final teamLosses = <String, int>{};
 
     for (final entry in _brackets.entries) {
       final info = entry.value;
       final rankStart = info.rankStart;
 
       for (final match in info.matches) {
-        final round = match['round'] as String? ?? '';
         final status = match['status'] as String? ?? '';
-        if (status != 'completed') continue;
-
+        final teamAId = match['teamAId'] as String? ?? '';
+        final teamBId = match['teamBId'] as String? ?? '';
         final result = match['result'] as Map<String, dynamic>? ?? {};
+
+        // 完了した試合のポイントを集計
+        if (status == 'completed') {
+          final totalA = (result['totalPointsA'] as num?)?.toInt() ?? 0;
+          final totalB = (result['totalPointsB'] as num?)?.toInt() ?? 0;
+          final winnerId = result['winner'] as String? ?? '';
+          if (teamAId.isNotEmpty) {
+            teamPoints[teamAId] = (teamPoints[teamAId] ?? 0) + totalA;
+            if (winnerId == teamAId) {
+              teamWins[teamAId] = (teamWins[teamAId] ?? 0) + 1;
+            } else if (winnerId.isNotEmpty && winnerId != '引き分け') {
+              teamLosses[teamAId] = (teamLosses[teamAId] ?? 0) + 1;
+            }
+          }
+          if (teamBId.isNotEmpty) {
+            teamPoints[teamBId] = (teamPoints[teamBId] ?? 0) + totalB;
+            if (winnerId == teamBId) {
+              teamWins[teamBId] = (teamWins[teamBId] ?? 0) + 1;
+            } else if (winnerId.isNotEmpty && winnerId != '引き分け') {
+              teamLosses[teamBId] = (teamLosses[teamBId] ?? 0) + 1;
+            }
+          }
+        }
+
+        // 順位確定
+        final round = match['round'] as String? ?? '';
+        if (status != 'completed') continue;
         final winnerId = result['winner'] as String? ?? '';
         if (winnerId.isEmpty || winnerId == '引き分け') continue;
 
-        final teamAId = match['teamAId'] as String? ?? '';
-        final teamBId = match['teamBId'] as String? ?? '';
         final teamAName = match['teamAName'] as String? ?? '';
         final teamBName = match['teamBName'] as String? ?? '';
 
@@ -7061,9 +7089,16 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
 
     rankings.sort((a, b) => a.globalRank.compareTo(b.globalRank));
 
-    // 重複排除（同じチームが複数回出る可能性を防ぐ）
+    // 重複排除＋ポイント付与
     final seen = <String>{};
-    return rankings.where((r) => seen.add(r.teamId)).toList();
+    return rankings.where((r) => seen.add(r.teamId)).map((r) => _RankedTeam(
+      globalRank: r.globalRank,
+      teamId: r.teamId,
+      teamName: r.teamName,
+      totalPoints: teamPoints[r.teamId] ?? 0,
+      wins: teamWins[r.teamId] ?? 0,
+      losses: teamLosses[r.teamId] ?? 0,
+    )).toList();
   }
 
   @override
@@ -7097,6 +7132,19 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
             Text('${rankings.length}チーム確定', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         ),
+        // Column labels
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: Row(children: const [
+            SizedBox(width: 36),
+            SizedBox(width: 36, child: Text('#', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+            Expanded(child: Text('チーム', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+            SizedBox(width: 36, child: Text('勝', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
+            SizedBox(width: 36, child: Text('敗', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
+            SizedBox(width: 44, child: Text('得点', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
+          ]),
+        ),
+        Divider(height: 1, color: Colors.grey[200]),
         // Rankings
         ...rankings.asMap().entries.expand((e) {
           final i = e.key;
@@ -7121,24 +7169,23 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
                                     ? Colors.grey[400]
                                     : Colors.brown[300],
                           )
-                        : Text(
-                            '${r.globalRank}',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          ),
+                        : const SizedBox.shrink(),
                   ),
-                  Text(
-                    '${r.globalRank}位',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: r.globalRank == 1
-                          ? Colors.amber[700]
-                          : r.globalRank <= 3
-                              ? AppTheme.primaryColor
-                              : AppTheme.textPrimary,
+                  SizedBox(
+                    width: 36,
+                    child: Text(
+                      '${r.globalRank}位',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: r.globalRank == 1
+                            ? Colors.amber[700]
+                            : r.globalRank <= 3
+                                ? AppTheme.primaryColor
+                                : AppTheme.textPrimary,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       r.teamName,
@@ -7150,6 +7197,9 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  SizedBox(width: 36, child: Text('${r.wins}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                  SizedBox(width: 36, child: Text('${r.losses}', style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center)),
+                  SizedBox(width: 44, child: Text('${r.totalPoints}', style: const TextStyle(fontSize: 14), textAlign: TextAlign.center)),
                 ]),
               ),
             ),
@@ -7172,8 +7222,18 @@ class _RankedTeam {
   final int globalRank;
   final String teamId;
   final String teamName;
+  final int totalPoints;
+  final int wins;
+  final int losses;
 
-  _RankedTeam({required this.globalRank, required this.teamId, required this.teamName});
+  _RankedTeam({
+    required this.globalRank,
+    required this.teamId,
+    required this.teamName,
+    this.totalPoints = 0,
+    this.wins = 0,
+    this.losses = 0,
+  });
 }
 
 // ━━━ ギャラリー写真ビューア（横スワイプ＋ダウンロード） ━━━
