@@ -758,6 +758,32 @@ class MatchGenerator {
       final leagues = _splitIntoGroups(sorted, teamsPerLeague);
       final leagueNames = _getLeagueNames(leagues.length);
 
+      // 同順位チームの検出（境界をまたぐ同スコアチーム）
+      final tiedTeamIds = <String>{};
+      int idx = 0;
+      for (int b = 0; b < leagues.length - 1; b++) {
+        idx += leagues[b].length;
+        if (idx > 0 && idx < sorted.length) {
+          final prev = sorted[idx - 1].value;
+          final curr = sorted[idx].value;
+          if ((prev['matchPoints'] as int) == (curr['matchPoints'] as int) &&
+              (prev['pointDiff'] as int) == (curr['pointDiff'] as int) &&
+              (prev['totalPoints'] as int) == (curr['totalPoints'] as int)) {
+            // この境界前後で同スコアのチームを全て収集
+            final mp = prev['matchPoints'] as int;
+            final pd = prev['pointDiff'] as int;
+            final tp = prev['totalPoints'] as int;
+            for (final e in sorted) {
+              if ((e.value['matchPoints'] as int) == mp &&
+                  (e.value['pointDiff'] as int) == pd &&
+                  (e.value['totalPoints'] as int) == tp) {
+                tiedTeamIds.add(e.key);
+              }
+            }
+          }
+        }
+      }
+
       for (int b = 0; b < leagues.length; b++) {
         final league = leagues[b];
         final leagueName = b < leagueNames.length ? leagueNames[b] : '第${b + 1}';
@@ -767,7 +793,16 @@ class MatchGenerator {
         brackets.add({
           'bracketName': leagueName,
           'rankRange': '$rankStart〜$rankEnd位',
-          'teams': league.map((e) => {'teamId': e.key, 'teamName': e.value['teamName']}).toList(),
+          'teams': league.map((e) => {
+            return {
+              'teamId': e.key,
+              'teamName': e.value['teamName'],
+              'isTied': tiedTeamIds.contains(e.key),
+              'matchPoints': e.value['matchPoints'],
+              'pointDiff': e.value['pointDiff'],
+              'totalPoints': e.value['totalPoints'],
+            };
+          }).toList(),
           'teamCount': league.length,
         });
       }
@@ -796,9 +831,25 @@ class MatchGenerator {
     final sorted = preview['sorted'] as List<MapEntry<String, Map<String, dynamic>>>;
     final format = preview['format'] as String;
     final finalRules = preview['finalRules'] as Map<String, dynamic>;
+    final brackets = preview['brackets'] as List<Map<String, dynamic>>?;
 
     if (format == '順位別複数') {
-      await _generateTierBrackets(tournamentId, sorted, finalRules);
+      // ユーザーが調整したbrackets情報がある場合、そこからsortedを再構築
+      if (brackets != null && brackets.isNotEmpty) {
+        final adjustedSorted = <MapEntry<String, Map<String, dynamic>>>[];
+        for (final bracket in brackets) {
+          final teams = (bracket['teams'] as List).cast<Map<String, dynamic>>();
+          for (final team in teams) {
+            final teamId = team['teamId'] as String;
+            final original = sorted.firstWhere((e) => e.key == teamId,
+                orElse: () => MapEntry(teamId, {'teamName': team['teamName'] ?? ''}));
+            adjustedSorted.add(original);
+          }
+        }
+        await _generateTierBrackets(tournamentId, adjustedSorted, finalRules);
+      } else {
+        await _generateTierBrackets(tournamentId, sorted, finalRules);
+      }
     } else {
       await _generateSingleBracket(tournamentId, sorted);
     }
@@ -899,8 +950,7 @@ class MatchGenerator {
     // ルール設定の区分数（tierCount）を使用
     final leagueCount = (finalRules['tierCount'] as int? ?? 3).clamp(1, sorted.length);
     final teamsPerLeague = (sorted.length / leagueCount).ceil();
-    // 同順位チームを分断しないよう境界を調整してグループ分け
-    final leagues = _splitIntoGroupsRespectingTies(sorted, teamsPerLeague, leagueCount);
+    final leagues = _splitIntoGroups(sorted, teamsPerLeague);
 
     // リーグ数に応じた名前を動的に決定
     final leagueNames = _getLeagueNames(leagues.length);
@@ -1308,41 +1358,7 @@ class MatchGenerator {
     return groups;
   }
 
-  /// 同順位チームを分断しないようにグループ分け
-  /// 境界が同順位チームの間にある場合、そのチームを前のグループに含める
-  List<List<MapEntry<String, Map<String, dynamic>>>> _splitIntoGroupsRespectingTies(
-    List<MapEntry<String, Map<String, dynamic>>> sorted, int baseGroupSize, int targetGroupCount) {
-    if (sorted.isEmpty) return [];
 
-    bool _isTied(int i) {
-      if (i <= 0 || i >= sorted.length) return false;
-      final a = sorted[i - 1].value;
-      final b = sorted[i].value;
-      return (a['matchPoints'] as int) == (b['matchPoints'] as int) &&
-             (a['pointDiff'] as int) == (b['pointDiff'] as int) &&
-             (a['totalPoints'] as int) == (b['totalPoints'] as int);
-    }
-
-    final groups = <List<MapEntry<String, Map<String, dynamic>>>>[];
-    int start = 0;
-    for (int g = 0; g < targetGroupCount && start < sorted.length; g++) {
-      var end = start + baseGroupSize;
-      if (end > sorted.length) end = sorted.length;
-      // 最後のグループでなければ、同順位チームを分断しないよう境界を調整
-      if (g < targetGroupCount - 1 && end < sorted.length) {
-        while (end < sorted.length && _isTied(end)) {
-          end++;
-        }
-      }
-      groups.add(sorted.sublist(start, end));
-      start = end;
-    }
-    // 残りのチームがあれば最後のグループに追加
-    if (start < sorted.length && groups.isNotEmpty) {
-      groups.last.addAll(sorted.sublist(start));
-    }
-    return groups;
-  }
 
   /// After a bracket match is completed, update next round matches
   /// Handles: QF→SF(winner/loser), SF→Finals, Semi→Finals(4-team)
