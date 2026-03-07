@@ -899,7 +899,8 @@ class MatchGenerator {
     // ルール設定の区分数（tierCount）を使用
     final leagueCount = (finalRules['tierCount'] as int? ?? 3).clamp(1, sorted.length);
     final teamsPerLeague = (sorted.length / leagueCount).ceil();
-    final leagues = _splitIntoGroups(sorted, teamsPerLeague);
+    // 同順位チームを分断しないよう境界を調整してグループ分け
+    final leagues = _splitIntoGroupsRespectingTies(sorted, teamsPerLeague, leagueCount);
 
     // リーグ数に応じた名前を動的に決定
     final leagueNames = _getLeagueNames(leagues.length);
@@ -1303,6 +1304,42 @@ class MatchGenerator {
     for (int i = 0; i < sorted.length; i += groupSize) {
       final end = (i + groupSize).clamp(0, sorted.length);
       groups.add(sorted.sublist(i, end));
+    }
+    return groups;
+  }
+
+  /// 同順位チームを分断しないようにグループ分け
+  /// 境界が同順位チームの間にある場合、そのチームを前のグループに含める
+  List<List<MapEntry<String, Map<String, dynamic>>>> _splitIntoGroupsRespectingTies(
+    List<MapEntry<String, Map<String, dynamic>>> sorted, int baseGroupSize, int targetGroupCount) {
+    if (sorted.isEmpty) return [];
+
+    bool _isTied(int i) {
+      if (i <= 0 || i >= sorted.length) return false;
+      final a = sorted[i - 1].value;
+      final b = sorted[i].value;
+      return (a['matchPoints'] as int) == (b['matchPoints'] as int) &&
+             (a['pointDiff'] as int) == (b['pointDiff'] as int) &&
+             (a['totalPoints'] as int) == (b['totalPoints'] as int);
+    }
+
+    final groups = <List<MapEntry<String, Map<String, dynamic>>>>[];
+    int start = 0;
+    for (int g = 0; g < targetGroupCount && start < sorted.length; g++) {
+      var end = start + baseGroupSize;
+      if (end > sorted.length) end = sorted.length;
+      // 最後のグループでなければ、同順位チームを分断しないよう境界を調整
+      if (g < targetGroupCount - 1 && end < sorted.length) {
+        while (end < sorted.length && _isTied(end)) {
+          end++;
+        }
+      }
+      groups.add(sorted.sublist(start, end));
+      start = end;
+    }
+    // 残りのチームがあれば最後のグループに追加
+    if (start < sorted.length && groups.isNotEmpty) {
+      groups.last.addAll(sorted.sublist(start));
     }
     return groups;
   }
