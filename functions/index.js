@@ -979,24 +979,81 @@ exports.onGadgetWrite = functions.firestore
 
 exports.onUserWrite = functions.firestore
   .document("users/{userId}")
-  .onWrite(async (change) => {
+  .onWrite(async (change, context) => {
+    if (!change.before.exists || !change.after.exists) return;
+    const before = change.before.data();
+    const after = change.after.data();
+    const userId = context.params.userId;
+
+    const nicknameChanged = (before.nickname || "") !== (after.nickname || "");
+    const avatarChanged = (before.avatarUrl || "") !== (after.avatarUrl || "");
+
     // searchId または nickname が変わった場合のみシート再同期
-    if (change.before.exists && change.after.exists) {
-      const before = change.before.data();
-      const after = change.after.data();
-      if ((before.searchId || "") === (after.searchId || "") &&
-          (before.nickname || "") === (after.nickname || "")) {
-        return;
+    if (nicknameChanged || (before.searchId || "") !== (after.searchId || "")) {
+      try {
+        const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+        const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncGadgetsToSheet`;
+        const ac = new AbortController();
+        const tid = setTimeout(() => ac.abort(), 30000);
+        await fetch(syncUrl, { method: "POST", signal: ac.signal }).finally(() => clearTimeout(tid));
+      } catch (e) {
+        console.warn("Auto user-profile gadget sync failed (non-critical):", e.message);
       }
     }
+
+    // ニックネームまたはアバターが変わった場合、非正規化データを同期
+    if (!nicknameChanged && !avatarChanged) return;
+
+    const db = admin.firestore();
+    const newNickname = after.nickname || "";
+    const newAvatar = after.avatarUrl || "";
+
     try {
-      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-      const syncUrl = `https://us-central1-${projectId}.cloudfunctions.net/syncGadgetsToSheet`;
-      const ac = new AbortController();
-      const tid = setTimeout(() => ac.abort(), 30000);
-      await fetch(syncUrl, { method: "POST", signal: ac.signal }).finally(() => clearTimeout(tid));
+      // 1. フォロワーの following サブコレクション内の自分のドキュメントを更新
+      const followersSnap = await db.collection("users").doc(userId).collection("followers").get();
+      const batch1 = db.batch();
+      for (const doc of followersSnap.docs) {
+        batch1.update(db.collection("users").doc(doc.id).collection("following").doc(userId), {
+          nickname: newNickname, avatarUrl: newAvatar,
+        });
+      }
+      if (followersSnap.docs.length > 0) await batch1.commit();
+
+      // 2. フォロー先の followers サブコレクション内の自分のドキュメントを更新
+      const followingSnap = await db.collection("users").doc(userId).collection("following").get();
+      const batch2 = db.batch();
+      for (const doc of followingSnap.docs) {
+        batch2.update(db.collection("users").doc(doc.id).collection("followers").doc(userId), {
+          nickname: newNickname, avatarUrl: newAvatar,
+        });
+      }
+      if (followingSnap.docs.length > 0) await batch2.commit();
+
+      // 3. 自分の投稿の userNickname / userAvatarUrl を更新
+      const postsSnap = await db.collection("posts").where("userId", "==", userId).get();
+      if (postsSnap.docs.length > 0) {
+        const batch3 = db.batch();
+        for (const doc of postsSnap.docs) {
+          batch3.update(doc.ref, { userNickname: newNickname, userAvatarUrl: newAvatar });
+        }
+        await batch3.commit();
+      }
+
+      // 4. 主催大会の organizerName を更新
+      if (nicknameChanged) {
+        const tournsSnap = await db.collection("tournaments").where("organizerId", "==", userId).get();
+        if (tournsSnap.docs.length > 0) {
+          const batch4 = db.batch();
+          for (const doc of tournsSnap.docs) {
+            batch4.update(doc.ref, { organizerName: newNickname });
+          }
+          await batch4.commit();
+        }
+      }
+
+      console.log(`[UserSync] Synced nickname/avatar for user ${userId}`);
     } catch (e) {
-      console.warn("Auto user-profile gadget sync failed (non-critical):", e.message);
+      console.warn(`[UserSync] Failed to sync denormalized data for ${userId}:`, e.message);
     }
   });
 
