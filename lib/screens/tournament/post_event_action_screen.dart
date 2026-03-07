@@ -490,8 +490,8 @@ class _TournamentParticipantsScreenState extends State<_TournamentParticipantsSc
       final myName = myDoc.data()?['nickname'] ?? myDoc.data()?['displayName'] ?? '';
       NotificationService.sendFollowNotification(
         targetUserId: targetUid,
-        followerName: myName,
-        followerUid: uid,
+        senderName: myName,
+        senderId: uid,
       );
     }
   }
