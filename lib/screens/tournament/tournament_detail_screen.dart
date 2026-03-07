@@ -6913,15 +6913,18 @@ class _FinalRankingsWidget extends StatefulWidget {
 class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
   final _firestore = FirebaseFirestore.instance;
   StreamSubscription<QuerySnapshot>? _bracketsSub;
+  StreamSubscription<DocumentSnapshot>? _tournamentSub;
   final List<StreamSubscription<QuerySnapshot>> _matchSubs = [];
 
   // bracketId → { rankStart, matches }
   final Map<String, _BracketInfo> _brackets = {};
   bool _loaded = false;
+  int _maxTeams = 0;
 
   @override
   void initState() {
     super.initState();
+    _subscribeTournament();
     _subscribe();
   }
 
@@ -6932,6 +6935,19 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
       _cancelAll();
       _subscribe();
     }
+  }
+
+  void _subscribeTournament() {
+    _tournamentSub = _firestore
+        .collection('tournaments').doc(widget.tournamentId)
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      final data = snap.data() as Map<String, dynamic>? ?? {};
+      setState(() {
+        _maxTeams = (data['maxTeams'] as num?)?.toInt() ?? 0;
+      });
+    });
   }
 
   void _subscribe() {
@@ -6987,6 +7003,7 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
 
   void _cancelAll() {
     _bracketsSub?.cancel();
+    _tournamentSub?.cancel();
     for (final sub in _matchSubs) sub.cancel();
     _matchSubs.clear();
     _brackets.clear();
@@ -7018,50 +7035,22 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
 
   List<_RankedTeam> _computeRankings() {
     final rankings = <_RankedTeam>[];
-    // チームごとの獲得ポイント集計（全ブラケット試合の合計）
-    final teamPoints = <String, int>{};
-    final teamWins = <String, int>{};
-    final teamLosses = <String, int>{};
 
     for (final entry in _brackets.entries) {
       final info = entry.value;
       final rankStart = info.rankStart;
 
       for (final match in info.matches) {
-        final status = match['status'] as String? ?? '';
-        final teamAId = match['teamAId'] as String? ?? '';
-        final teamBId = match['teamBId'] as String? ?? '';
-        final result = match['result'] as Map<String, dynamic>? ?? {};
-
-        // 完了した試合のポイントを集計
-        if (status == 'completed') {
-          final totalA = (result['totalPointsA'] as num?)?.toInt() ?? 0;
-          final totalB = (result['totalPointsB'] as num?)?.toInt() ?? 0;
-          final winnerId = result['winner'] as String? ?? '';
-          if (teamAId.isNotEmpty) {
-            teamPoints[teamAId] = (teamPoints[teamAId] ?? 0) + totalA;
-            if (winnerId == teamAId) {
-              teamWins[teamAId] = (teamWins[teamAId] ?? 0) + 1;
-            } else if (winnerId.isNotEmpty && winnerId != '引き分け') {
-              teamLosses[teamAId] = (teamLosses[teamAId] ?? 0) + 1;
-            }
-          }
-          if (teamBId.isNotEmpty) {
-            teamPoints[teamBId] = (teamPoints[teamBId] ?? 0) + totalB;
-            if (winnerId == teamBId) {
-              teamWins[teamBId] = (teamWins[teamBId] ?? 0) + 1;
-            } else if (winnerId.isNotEmpty && winnerId != '引き分け') {
-              teamLosses[teamBId] = (teamLosses[teamBId] ?? 0) + 1;
-            }
-          }
-        }
-
-        // 順位確定
         final round = match['round'] as String? ?? '';
+        final status = match['status'] as String? ?? '';
         if (status != 'completed') continue;
+
+        final result = match['result'] as Map<String, dynamic>? ?? {};
         final winnerId = result['winner'] as String? ?? '';
         if (winnerId.isEmpty || winnerId == '引き分け') continue;
 
+        final teamAId = match['teamAId'] as String? ?? '';
+        final teamBId = match['teamBId'] as String? ?? '';
         final teamAName = match['teamAName'] as String? ?? '';
         final teamBName = match['teamBName'] as String? ?? '';
 
@@ -7070,18 +7059,22 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
 
         if (winnerLocalRank != null) {
           final isA = winnerId == teamAId;
+          final globalRank = rankStart + winnerLocalRank - 1;
           rankings.add(_RankedTeam(
-            globalRank: rankStart + winnerLocalRank - 1,
+            globalRank: globalRank,
             teamId: isA ? teamAId : teamBId,
             teamName: isA ? teamAName : teamBName,
+            rewardPoints: _maxTeams > 0 ? PointService.calculateRankPoints(_maxTeams, globalRank) : 0,
           ));
         }
         if (loserLocalRank != null) {
           final isA = winnerId == teamAId;
+          final globalRank = rankStart + loserLocalRank - 1;
           rankings.add(_RankedTeam(
-            globalRank: rankStart + loserLocalRank - 1,
+            globalRank: globalRank,
             teamId: isA ? teamBId : teamAId,
             teamName: isA ? teamBName : teamAName,
+            rewardPoints: _maxTeams > 0 ? PointService.calculateRankPoints(_maxTeams, globalRank) : 0,
           ));
         }
       }
@@ -7089,16 +7082,9 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
 
     rankings.sort((a, b) => a.globalRank.compareTo(b.globalRank));
 
-    // 重複排除＋ポイント付与
+    // 重複排除
     final seen = <String>{};
-    return rankings.where((r) => seen.add(r.teamId)).map((r) => _RankedTeam(
-      globalRank: r.globalRank,
-      teamId: r.teamId,
-      teamName: r.teamName,
-      totalPoints: teamPoints[r.teamId] ?? 0,
-      wins: teamWins[r.teamId] ?? 0,
-      losses: teamLosses[r.teamId] ?? 0,
-    )).toList();
+    return rankings.where((r) => seen.add(r.teamId)).toList();
   }
 
   @override
@@ -7132,19 +7118,6 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
             Text('${rankings.length}チーム確定', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         ),
-        // Column labels
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Row(children: const [
-            SizedBox(width: 36),
-            SizedBox(width: 36, child: Text('#', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-            Expanded(child: Text('チーム', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
-            SizedBox(width: 36, child: Text('勝', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
-            SizedBox(width: 36, child: Text('敗', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
-            SizedBox(width: 44, child: Text('得点', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary), textAlign: TextAlign.center)),
-          ]),
-        ),
-        Divider(height: 1, color: Colors.grey[200]),
         // Rankings
         ...rankings.asMap().entries.expand((e) {
           final i = e.key;
@@ -7197,9 +7170,30 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  SizedBox(width: 36, child: Text('${r.wins}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                  SizedBox(width: 36, child: Text('${r.losses}', style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center)),
-                  SizedBox(width: 44, child: Text('${r.totalPoints}', style: const TextStyle(fontSize: 14), textAlign: TextAlign.center)),
+                  if (r.rewardPoints > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: r.globalRank == 1
+                            ? Colors.amber.withValues(alpha: 0.15)
+                            : r.globalRank <= 3
+                                ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                                : Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${r.rewardPoints}pt',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: r.globalRank == 1
+                              ? Colors.amber[700]
+                              : r.globalRank <= 3
+                                  ? AppTheme.primaryColor
+                                  : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
                 ]),
               ),
             ),
@@ -7222,17 +7216,13 @@ class _RankedTeam {
   final int globalRank;
   final String teamId;
   final String teamName;
-  final int totalPoints;
-  final int wins;
-  final int losses;
+  final int rewardPoints;
 
   _RankedTeam({
     required this.globalRank,
     required this.teamId,
     required this.teamName,
-    this.totalPoints = 0,
-    this.wins = 0,
-    this.losses = 0,
+    this.rewardPoints = 0,
   });
 }
 
