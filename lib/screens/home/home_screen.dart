@@ -626,9 +626,9 @@ class _HomeScreenState extends State<HomeScreen>
                 GestureDetector(
                   onTap: () => _showCommentSheet(postId, nickname),
                   child: Row(children: [
-                    Icon(Icons.chat_bubble_outline, size: 20, color: Colors.grey.shade400),
+                    Icon(Icons.chat_bubble_outline, size: 22, color: Colors.grey.shade400),
                     const SizedBox(width: 4),
-                    Text('$commentsCount', style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
+                    Text('$commentsCount', style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
                   ]),
                 ),
                 const Spacer(),
@@ -829,7 +829,7 @@ class _HomeScreenState extends State<HomeScreen>
             children: [
               Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border,
-                size: 18,
+                size: 22,
                 color: isLiked ? Colors.red : AppTheme.textSecondary,
               ),
               if (fallbackCount > 0 || isLiked) ...[
@@ -844,7 +844,7 @@ class _HomeScreenState extends State<HomeScreen>
                     return Text(
                       '$count',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: isLiked ? Colors.red : AppTheme.textSecondary,
                       ),
                     );
@@ -865,12 +865,12 @@ class _HomeScreenState extends State<HomeScreen>
       child: Row(
         children: [
           Icon(Icons.chat_bubble_outline,
-              size: 18, color: AppTheme.textSecondary),
+              size: 22, color: AppTheme.textSecondary),
           if (count > 0) ...[
             const SizedBox(width: 4),
             Text('$count',
                 style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textSecondary)),
+                    fontSize: 14, color: AppTheme.textSecondary)),
           ],
         ],
       ),
@@ -1061,12 +1061,12 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildStaticActionButton(IconData icon, String count) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppTheme.textSecondary),
+        Icon(icon, size: 22, color: AppTheme.textSecondary),
         if (count.isNotEmpty && count != '0') ...[
           const SizedBox(width: 4),
           Text(count,
               style: const TextStyle(
-                  fontSize: 13, color: AppTheme.textSecondary)),
+                  fontSize: 14, color: AppTheme.textSecondary)),
         ],
       ],
     );
