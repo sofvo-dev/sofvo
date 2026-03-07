@@ -113,10 +113,10 @@ class PointService {
             .where('status', isEqualTo: 'completed')
             .get();
 
-        // 決勝戦を見つける
+        // 決勝戦を見つける（round: 'final' or 'final_1st'）
         final finalMatch = matches.docs.where((m) {
-          final data = m.data();
-          return data['round'] == 'final';
+          final round = m.data()['round'] as String? ?? '';
+          return round == 'final' || round == 'final_1st';
         }).firstOrNull;
 
         if (finalMatch != null) {
@@ -133,10 +133,10 @@ class PointService {
           }
         }
 
-        // 3位決定戦
+        // 3位決定戦（round: 'third_place' or 'final_3rd'）
         final thirdPlaceMatch = matches.docs.where((m) {
-          final data = m.data();
-          return data['round'] == 'third_place';
+          final round = m.data()['round'] as String? ?? '';
+          return round == 'third_place' || round == 'final_3rd';
         }).firstOrNull;
 
         if (thirdPlaceMatch != null) {
@@ -150,6 +150,46 @@ class PointService {
             teamRanks[winnerId] = 3;
             final loserId = winnerId == teamAId ? teamBId : teamAId;
             if (loserId.isNotEmpty) teamRanks[loserId] = 4;
+          }
+        }
+
+        // 5位決定戦
+        final fifthPlaceMatch = matches.docs.where((m) {
+          final round = m.data()['round'] as String? ?? '';
+          return round == 'final_5th';
+        }).firstOrNull;
+
+        if (fifthPlaceMatch != null) {
+          final fm5 = fifthPlaceMatch.data();
+          final result = fm5['result'] as Map<String, dynamic>? ?? {};
+          final winnerId = result['winner'] as String? ?? '';
+          final teamAId = fm5['teamAId'] as String? ?? '';
+          final teamBId = fm5['teamBId'] as String? ?? '';
+
+          if (winnerId.isNotEmpty) {
+            teamRanks[winnerId] = 5;
+            final loserId = winnerId == teamAId ? teamBId : teamAId;
+            if (loserId.isNotEmpty) teamRanks[loserId] = 6;
+          }
+        }
+
+        // 7位決定戦
+        final seventhPlaceMatch = matches.docs.where((m) {
+          final round = m.data()['round'] as String? ?? '';
+          return round == 'final_7th';
+        }).firstOrNull;
+
+        if (seventhPlaceMatch != null) {
+          final fm7 = seventhPlaceMatch.data();
+          final result = fm7['result'] as Map<String, dynamic>? ?? {};
+          final winnerId = result['winner'] as String? ?? '';
+          final teamAId = fm7['teamAId'] as String? ?? '';
+          final teamBId = fm7['teamBId'] as String? ?? '';
+
+          if (winnerId.isNotEmpty) {
+            teamRanks[winnerId] = 7;
+            final loserId = winnerId == teamAId ? teamBId : teamAId;
+            if (loserId.isNotEmpty) teamRanks[loserId] = 8;
           }
         }
       }

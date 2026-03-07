@@ -1571,16 +1571,28 @@ exports.onTournamentStatusChange = functions.firestore
         const mData = mDoc.data();
         const result = mData.result || {};
 
-        if (mData.round === "final" && result.winner) {
+        if ((mData.round === "final" || mData.round === "final_1st") && result.winner) {
           teamRanks[result.winner] = 1;
           const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
           if (loserId) teamRanks[loserId] = 2;
         }
 
-        if (mData.round === "third_place" && result.winner) {
+        if ((mData.round === "third_place" || mData.round === "final_3rd") && result.winner) {
           teamRanks[result.winner] = 3;
           const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
           if (loserId) teamRanks[loserId] = 4;
+        }
+
+        if (mData.round === "final_5th" && result.winner) {
+          teamRanks[result.winner] = 5;
+          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
+          if (loserId) teamRanks[loserId] = 6;
+        }
+
+        if (mData.round === "final_7th" && result.winner) {
+          teamRanks[result.winner] = 7;
+          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
+          if (loserId) teamRanks[loserId] = 8;
         }
       }
     }

@@ -807,8 +807,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           builder: (context, mSnap) {
                             if (!mSnap.hasData) return const SizedBox();
                             final matches = mSnap.data!.docs;
-                            final finalMatch = matches.where((m) =>
-                              (m.data() as Map<String, dynamic>)['round'] == 'final').firstOrNull;
+                            final finalMatch = matches.where((m) {
+                              final round = (m.data() as Map<String, dynamic>)['round'] as String? ?? '';
+                              return round == 'final' || round == 'final_1st';
+                            }).firstOrNull;
                             if (finalMatch == null) return const Text('順位決定戦が完了していません');
                             final fm = finalMatch.data() as Map<String, dynamic>;
                             final result = fm['result'] as Map<String, dynamic>? ?? {};
