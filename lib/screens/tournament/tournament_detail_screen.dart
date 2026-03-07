@@ -7101,16 +7101,41 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       return (b['totalPoints'] as num).compareTo(a['totalPoints'] as num);
     });
 
-    // 区分境界を計算（match_generator と同じ ceil ロジック）
+    // 同順位の計算（境界調整に使用）
+    final ranks = <int>[];
+    for (int i = 0; i < allTeams.length; i++) {
+      if (i == 0) {
+        ranks.add(1);
+      } else {
+        final prev = allTeams[i - 1];
+        final curr = allTeams[i];
+        if (curr['matchPoints'] == prev['matchPoints'] &&
+            curr['pointDiff'] == prev['pointDiff'] &&
+            curr['totalPoints'] == prev['totalPoints']) {
+          ranks.add(ranks[i - 1]); // 同順位
+        } else {
+          ranks.add(i + 1);
+        }
+      }
+    }
+
+    // 区分境界を計算（同順位チームを分断しないよう調整）
     final tierBoundaries = <int, String>{};
     if (_finalEnabled && _finalFormat == '順位別複数' && _tierCount >= 2) {
       final leagueCount = _tierCount.clamp(1, allTeams.length);
       final teamsPerTier = (allTeams.length / leagueCount).ceil();
       final leagueNames = _getLeagueNames(leagueCount);
-      // 各区分の先頭インデックスにリーグ名を割り当て（0 = 最初の区分も含む）
       for (int t = 0; t < leagueCount; t++) {
-        final boundary = t * teamsPerTier;
-        if (boundary < allTeams.length && t < leagueNames.length) {
+        var boundary = t * teamsPerTier;
+        if (boundary >= allTeams.length) break;
+        // 同順位チームを分断しないよう境界を後ろにずらす
+        if (t > 0) {
+          while (boundary < allTeams.length && boundary > 0 && ranks[boundary] == ranks[boundary - 1]) {
+            boundary++;
+          }
+          if (boundary >= allTeams.length) break;
+        }
+        if (t < leagueNames.length) {
           tierBoundaries[boundary] = leagueNames[t];
         }
       }
@@ -7152,23 +7177,6 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
         Divider(height: 1, color: Colors.grey[200]),
         // Team rows（同順位対応）
         ...() {
-          // 同順位の計算: matchPoints, pointDiff, totalPoints が全て同じ場合は同順位
-          final ranks = <int>[];
-          for (int i = 0; i < allTeams.length; i++) {
-            if (i == 0) {
-              ranks.add(1);
-            } else {
-              final prev = allTeams[i - 1];
-              final curr = allTeams[i];
-              if (curr['matchPoints'] == prev['matchPoints'] &&
-                  curr['pointDiff'] == prev['pointDiff'] &&
-                  curr['totalPoints'] == prev['totalPoints']) {
-                ranks.add(ranks[i - 1]); // 同順位
-              } else {
-                ranks.add(i + 1);
-              }
-            }
-          }
           return allTeams.asMap().entries.expand((e) {
             final i = e.key;
             final t = e.value;
