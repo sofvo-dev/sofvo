@@ -109,11 +109,10 @@ class NotificationService {
       final brackets = await _firestore
           .collection('tournaments').doc(tournamentId)
           .collection('brackets').get();
-      if (brackets.docs.isNotEmpty) {
-        final bracketId = brackets.docs.first.id;
-        final matches = await _firestore
-            .collection('tournaments').doc(tournamentId)
-            .collection('brackets').doc(bracketId)
+      // 全ブラケットを検索（順位別トーナメントの場合、複数ブラケットがある）
+      for (final bracketDoc in brackets.docs) {
+        if (winnerTeamName.isNotEmpty) break;
+        final matches = await bracketDoc.reference
             .collection('matches').where('status', isEqualTo: 'completed').get();
         // 決勝マッチを探す（final, final_1st のいずれか）
         final finalMatch = matches.docs.where((m) {
@@ -134,6 +133,19 @@ class NotificationService {
           }
         }
       }
+      // フォールバック: チーム名がIDの場合、entriesからチーム名を取得
+      if (winnerTeamName.isNotEmpty) {
+        final looksLikeId = RegExp(r'^[a-zA-Z0-9]{15,}$').hasMatch(winnerTeamName);
+        if (looksLikeId) {
+          final entryDoc = await _firestore
+              .collection('tournaments').doc(tournamentId)
+              .collection('entries').where('teamId', isEqualTo: winnerTeamName).limit(1).get();
+          if (entryDoc.docs.isNotEmpty) {
+            final entryName = entryDoc.docs.first.data()['teamName'] as String? ?? '';
+            if (entryName.isNotEmpty) winnerTeamName = entryName;
+          }
+        }
+      }
     } catch (e) {
       // 優勝チーム取得失敗時は汎用メッセージにフォールバック
     }
@@ -141,6 +153,10 @@ class NotificationService {
     final resultMessage = winnerTeamName.isNotEmpty
         ? '「$tournamentName」が終了しました！優勝: $winnerTeamName'
         : '「$tournamentName」が終了しました！結果を確認しましょう';
+
+    // 主催者のアバターを取得
+    final userDoc = await _firestore.collection('users').doc(organizerId).get();
+    final avatarUrl = (userDoc.data()?['avatarUrl'] ?? '') as String;
 
     // 全参加者に通知を送信
     final batch = _firestore.batch();
@@ -152,6 +168,7 @@ class NotificationService {
         'type': 'tournament_end',
         'senderId': organizerId,
         'senderName': organizerName,
+        'senderAvatar': avatarUrl,
         'message': resultMessage,
         'tournamentId': tournamentId,
         'read': false,
@@ -164,9 +181,6 @@ class NotificationService {
     final postText = winnerTeamName.isNotEmpty
         ? '🏆「$tournamentName」($tournamentDate) が終了しました！\n\n優勝: $winnerTeamName\n\nご参加ありがとうございました！'
         : '「$tournamentName」($tournamentDate) が終了しました！\n\nご参加ありがとうございました！';
-
-    final userDoc = await _firestore.collection('users').doc(organizerId).get();
-    final avatarUrl = (userDoc.data()?['avatarUrl'] ?? '') as String;
 
     await _firestore.collection('posts').add({
       'userId': organizerId,
@@ -208,6 +222,10 @@ class NotificationService {
       if (enteredBy != null && enteredBy.isNotEmpty) participantUids.add(enteredBy);
     }
 
+    // 送信者のアバターを取得
+    final senderDoc = await _firestore.collection('users').doc(senderId).get();
+    final senderAvatar = (senderDoc.data()?['avatarUrl'] ?? '') as String;
+
     final preview = message.length > 40 ? '${message.substring(0, 40)}...' : message;
     final batch = _firestore.batch();
     for (final uid in participantUids) {
@@ -219,6 +237,7 @@ class NotificationService {
         'type': 'tournament_announcement',
         'senderId': senderId,
         'senderName': senderName,
+        'senderAvatar': senderAvatar,
         'message': '[$tournamentName] $preview',
         'tournamentId': tournamentId,
         'read': false,

@@ -2743,6 +2743,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             onPressed: () async {
               await _firestore.collection('tournaments').doc(_tournamentId).update({'status': '終了'});
               if (ctx.mounted) Navigator.pop(ctx);
+              // ポイント付与
+              PointService.awardTournamentPoints(
+                tournamentId: _tournamentId,
+              );
               // 全参加者に結果通知 + タイムライン自動投稿
               final t = widget.tournament;
               final tournamentName = t['name'] as String? ?? t['title'] as String? ?? '';
