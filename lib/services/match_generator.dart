@@ -1000,34 +1000,10 @@ class MatchGenerator {
       } else if (league.length >= 4) {
         await _generate4TeamSE(bracketRef, league, leagueCourts, leagueTeams);
       } else if (league.length == 3) {
-        // 3チーム: 総当たり — 主審のみ（副審なし）
-        int matchNum = 1;
-        final mainRefCount = <String, int>{};
-        for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; }
-
-        for (int i = 0; i < league.length; i++) {
-          for (int j = i + 1; j < league.length; j++) {
-            // 試合していないチームを主審に
-            final playingIds = {league[i].key, league[j].key};
-            final refs = leagueTeams.where((t) => !playingIds.contains(t['teamId'])).toList();
-            refs.sort((a, b) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b['teamId']]!));
-
-            final mainRef = refs.isNotEmpty ? refs.first : null;
-            if (mainRef != null) mainRefCount[mainRef['teamId']!] = (mainRefCount[mainRef['teamId']!] ?? 0) + 1;
-
-            final courtNum = leagueCourts[(matchNum - 1) % leagueCourts.length];
-            await bracketRef.collection('matches').add({
-              'round': 'round-robin', 'matchNumber': matchNum++,
-              'teamAId': league[i].key, 'teamAName': league[i].value['teamName'],
-              'teamBId': league[j].key, 'teamBName': league[j].value['teamName'],
-              'refereeTeamId': mainRef?['teamId'] ?? '', 'refereeTeamName': mainRef?['teamName'] ?? '',
-              'subRefereeTeamId': '', 'subRefereeTeamName': '',
-              'courtNumber': courtNum,
-              'courtId': 'court_$courtNum',
-              'status': 'pending', 'sets': [], 'result': {},
-            });
-          }
-        }
+        // 3チーム: 1位シード付きトーナメント
+        // 第1試合（準決勝）: 2位 vs 3位、1位が審判
+        // 第2試合（決勝）: 1位 vs 第1試合の勝者、敗者が審判
+        await _generate3TeamSE(bracketRef, league, leagueCourts, leagueTeams);
       } else if (league.length == 2) {
         final courtNum = leagueCourts.first;
         await bracketRef.collection('matches').add({
@@ -1046,6 +1022,43 @@ class MatchGenerator {
 
   /// 8チームSE全順位決定トーナメント
   /// QF(4試合) → SF勝者(2) + SF敗者(2) → 決勝+3位+5位+7位決定戦(4)
+  /// 3チーム: 1位シード付きトーナメント
+  /// 第1試合（準決勝）: 2位 vs 3位、1位が審判
+  /// 第2試合（決勝）: 1位 vs 第1試合の勝者、敗者が審判
+  Future<void> _generate3TeamSE(
+    DocumentReference bracketRef,
+    List<MapEntry<String, Map<String, dynamic>>> teams,
+    List<int> leagueCourts,
+    List<Map<String, String>> leagueTeams,
+  ) async {
+    final courtNum = leagueCourts.first;
+
+    // teams[0] = 1位（シード）, teams[1] = 2位, teams[2] = 3位
+
+    // 第1試合（準決勝）: 2位 vs 3位、審判は1位
+    await bracketRef.collection('matches').add({
+      'round': 'semi', 'matchNumber': 1,
+      'teamAId': teams[1].key, 'teamAName': teams[1].value['teamName'],
+      'teamBId': teams[2].key, 'teamBName': teams[2].value['teamName'],
+      'refereeTeamId': teams[0].key, 'refereeTeamName': teams[0].value['teamName'],
+      'subRefereeTeamId': '', 'subRefereeTeamName': '',
+      'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+      'status': 'pending', 'sets': [], 'result': {},
+    });
+
+    // 第2試合（決勝）: 1位 vs 第1試合の勝者、審判は第1試合の敗者
+    await bracketRef.collection('matches').add({
+      'round': 'final_1st', 'matchNumber': 2,
+      'teamAId': teams[0].key, 'teamAName': teams[0].value['teamName'],
+      'teamBId': '', 'teamBName': '第1試合 勝者',
+      'label': '決勝',
+      'refereeTeamId': '', 'refereeTeamName': '第1試合 敗者',
+      'subRefereeTeamId': '', 'subRefereeTeamName': '',
+      'courtNumber': courtNum, 'courtId': 'court_$courtNum',
+      'status': 'waiting', 'sets': [], 'result': {},
+    });
+  }
+
   Future<void> _generate8TeamSE(
     DocumentReference bracketRef,
     List<MapEntry<String, Map<String, dynamic>>> teams,
