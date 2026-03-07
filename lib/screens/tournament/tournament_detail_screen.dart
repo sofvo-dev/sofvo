@@ -1092,10 +1092,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final roundIds = rounds.map((d) => d.id).toList();
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: _OverallStandingsAggregator(
-            tournamentId: _tournamentId,
-            roundIds: roundIds,
-            myTeamIds: _myTeamIds,
+          child: Column(
+            children: [
+              _FinalRankingsWidget(
+                tournamentId: _tournamentId,
+                myTeamIds: _myTeamIds,
+              ),
+              _OverallStandingsAggregator(
+                tournamentId: _tournamentId,
+                roundIds: roundIds,
+                myTeamIds: _myTeamIds,
+              ),
+            ],
           ),
         );
       },
@@ -6886,6 +6894,286 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       ]),
     );
   }
+}
+
+// ━━━ 最終順位（決勝トーナメント結果から算出） ━━━
+class _FinalRankingsWidget extends StatefulWidget {
+  final String tournamentId;
+  final List<String> myTeamIds;
+
+  const _FinalRankingsWidget({
+    required this.tournamentId,
+    required this.myTeamIds,
+  });
+
+  @override
+  State<_FinalRankingsWidget> createState() => _FinalRankingsWidgetState();
+}
+
+class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
+  final _firestore = FirebaseFirestore.instance;
+  StreamSubscription<QuerySnapshot>? _bracketsSub;
+  final List<StreamSubscription<QuerySnapshot>> _matchSubs = [];
+
+  // bracketId → { rankStart, matches }
+  final Map<String, _BracketInfo> _brackets = {};
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FinalRankingsWidget old) {
+    super.didUpdateWidget(old);
+    if (old.tournamentId != widget.tournamentId) {
+      _cancelAll();
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
+    _bracketsSub = _firestore
+        .collection('tournaments').doc(widget.tournamentId)
+        .collection('brackets').snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      // Cancel old match subs
+      for (final sub in _matchSubs) sub.cancel();
+      _matchSubs.clear();
+      _brackets.clear();
+
+      if (snap.docs.isEmpty) {
+        setState(() => _loaded = true);
+        return;
+      }
+
+      for (final bracketDoc in snap.docs) {
+        final data = bracketDoc.data();
+        final rankRange = data['rankRange'] as String? ?? '';
+        final rankStart = _parseRankStart(rankRange);
+
+        _brackets[bracketDoc.id] = _BracketInfo(
+          rankStart: rankStart,
+          teamCount: (data['teamCount'] as num?)?.toInt() ?? 0,
+          matches: [],
+        );
+
+        // Subscribe to matches of this bracket
+        final sub = bracketDoc.reference
+            .collection('matches')
+            .snapshots()
+            .listen((matchSnap) {
+          if (!mounted) return;
+          setState(() {
+            _brackets[bracketDoc.id]?.matches = matchSnap.docs
+                .map((d) => Map<String, dynamic>.from(d.data()))
+                .toList();
+            _loaded = true;
+          });
+        });
+        _matchSubs.add(sub);
+      }
+    });
+  }
+
+  int _parseRankStart(String rankRange) {
+    // "1〜8位" → 1, "9〜16位" → 9
+    final match = RegExp(r'(\d+)').firstMatch(rankRange);
+    return match != null ? int.parse(match.group(1)!) : 1;
+  }
+
+  void _cancelAll() {
+    _bracketsSub?.cancel();
+    for (final sub in _matchSubs) sub.cancel();
+    _matchSubs.clear();
+    _brackets.clear();
+    _loaded = false;
+  }
+
+  @override
+  void dispose() {
+    _cancelAll();
+    super.dispose();
+  }
+
+  /// 決勝系ラウンドから順位を抽出
+  /// final_1st → winner=1, loser=2
+  /// final_3rd → winner=3, loser=4
+  /// final_5th → winner=5, loser=6
+  /// final_7th → winner=7, loser=8
+  int? _localRankFromRound(String round, {required bool isWinner}) {
+    final mapping = {
+      'final_1st': 1,
+      'final_3rd': 3,
+      'final_5th': 5,
+      'final_7th': 7,
+    };
+    final base = mapping[round];
+    if (base == null) return null;
+    return isWinner ? base : base + 1;
+  }
+
+  List<_RankedTeam> _computeRankings() {
+    final rankings = <_RankedTeam>[];
+
+    for (final entry in _brackets.entries) {
+      final info = entry.value;
+      final rankStart = info.rankStart;
+
+      for (final match in info.matches) {
+        final round = match['round'] as String? ?? '';
+        final status = match['status'] as String? ?? '';
+        if (status != 'completed') continue;
+
+        final result = match['result'] as Map<String, dynamic>? ?? {};
+        final winnerId = result['winner'] as String? ?? '';
+        if (winnerId.isEmpty || winnerId == '引き分け') continue;
+
+        final teamAId = match['teamAId'] as String? ?? '';
+        final teamBId = match['teamBId'] as String? ?? '';
+        final teamAName = match['teamAName'] as String? ?? '';
+        final teamBName = match['teamBName'] as String? ?? '';
+
+        final winnerLocalRank = _localRankFromRound(round, isWinner: true);
+        final loserLocalRank = _localRankFromRound(round, isWinner: false);
+
+        if (winnerLocalRank != null) {
+          final isA = winnerId == teamAId;
+          rankings.add(_RankedTeam(
+            globalRank: rankStart + winnerLocalRank - 1,
+            teamId: isA ? teamAId : teamBId,
+            teamName: isA ? teamAName : teamBName,
+          ));
+        }
+        if (loserLocalRank != null) {
+          final isA = winnerId == teamAId;
+          rankings.add(_RankedTeam(
+            globalRank: rankStart + loserLocalRank - 1,
+            teamId: isA ? teamBId : teamAId,
+            teamName: isA ? teamBName : teamAName,
+          ));
+        }
+      }
+    }
+
+    rankings.sort((a, b) => a.globalRank.compareTo(b.globalRank));
+
+    // 重複排除（同じチームが複数回出る可能性を防ぐ）
+    final seen = <String>{};
+    return rankings.where((r) => seen.add(r.teamId)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded) return const SizedBox.shrink();
+    if (_brackets.isEmpty) return const SizedBox.shrink();
+
+    final rankings = _computeRankings();
+    if (rankings.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+      ),
+      child: Column(children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.1),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.emoji_events, size: 18, color: Colors.amber),
+            const SizedBox(width: 8),
+            const Text('最終順位', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text('${rankings.length}チーム確定', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ]),
+        ),
+        // Rankings
+        ...rankings.asMap().entries.expand((e) {
+          final i = e.key;
+          final r = e.value;
+          final isMyTeam = widget.myTeamIds.contains(r.teamId);
+          return [
+            if (i > 0) Divider(height: 1, color: Colors.grey[200]),
+            Container(
+              color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  SizedBox(
+                    width: 36,
+                    child: r.globalRank <= 3
+                        ? Icon(
+                            Icons.emoji_events,
+                            size: 20,
+                            color: r.globalRank == 1
+                                ? Colors.amber[700]
+                                : r.globalRank == 2
+                                    ? Colors.grey[400]
+                                    : Colors.brown[300],
+                          )
+                        : Text(
+                            '${r.globalRank}',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                  ),
+                  Text(
+                    '${r.globalRank}位',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: r.globalRank == 1
+                          ? Colors.amber[700]
+                          : r.globalRank <= 3
+                              ? AppTheme.primaryColor
+                              : AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      r.teamName,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isMyTeam ? Colors.red : null,
+                        fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ];
+        }),
+      ]),
+    );
+  }
+}
+
+class _BracketInfo {
+  final int rankStart;
+  final int teamCount;
+  List<Map<String, dynamic>> matches;
+
+  _BracketInfo({required this.rankStart, required this.teamCount, required this.matches});
+}
+
+class _RankedTeam {
+  final int globalRank;
+  final String teamId;
+  final String teamName;
+
+  _RankedTeam({required this.globalRank, required this.teamId, required this.teamName});
 }
 
 // ━━━ ギャラリー写真ビューア（横スワイプ＋ダウンロード） ━━━
