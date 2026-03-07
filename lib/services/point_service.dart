@@ -557,7 +557,7 @@ class PointService {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(children: [
-        SizedBox(width: 60, child: Text(label, style: const TextStyle(fontSize: 13))),
+        Expanded(flex: 2, child: Text(label, style: const TextStyle(fontSize: 13))),
         SizedBox(width: 50, child: Text(multiplier, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
         Expanded(child: Text(points, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
       ]),
