@@ -539,11 +539,11 @@ class _HomeScreenState extends State<HomeScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFDAA520).withValues(alpha: 0.12),
+                        color: AppTheme.accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFDAA520).withValues(alpha: 0.3)),
+                        border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
                       ),
-                      child: const Text('大会結果', style: TextStyle(color: Color(0xFFDAA520), fontSize: 11, fontWeight: FontWeight.bold)),
+                      child: const Text('大会結果', style: TextStyle(color: AppTheme.accentColor, fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -551,7 +551,7 @@ class _HomeScreenState extends State<HomeScreen>
                 // トロフィーと大会名
                 Row(
                   children: [
-                    const Icon(Icons.emoji_events, color: Color(0xFFDAA520), size: 28),
+                    const Icon(Icons.emoji_events, color: AppTheme.accentColor, size: 28),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -568,16 +568,16 @@ class _HomeScreenState extends State<HomeScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBF0),
+                      color: AppTheme.accentColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFDAA520).withValues(alpha: 0.3)),
+                      border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       children: [
-                        const Text('優勝', style: TextStyle(color: Color(0xFFDAA520), fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 2)),
+                        const Text('優勝', style: TextStyle(color: AppTheme.accentColor, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 2)),
                         const SizedBox(height: 4),
                         Text(winnerName,
-                          style: const TextStyle(color: Color(0xFFDAA520), fontSize: 22, fontWeight: FontWeight.w800),
+                          style: const TextStyle(color: AppTheme.accentColor, fontSize: 22, fontWeight: FontWeight.w800),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -605,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen>
                     icon: const Icon(Icons.emoji_events, size: 16),
                     label: const Text('大会結果を見る'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A237E),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
