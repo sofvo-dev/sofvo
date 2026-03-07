@@ -236,7 +236,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     return StreamBuilder<DocumentSnapshot>(
       stream: _firestore.collection('tournaments').doc(_tournamentId).snapshots(),
-      builder: (context, statusSnap) {
+      builder: (_, statusSnap) {
         final liveData = (statusSnap.hasData && statusSnap.data!.exists)
             ? statusSnap.data!.data() as Map<String, dynamic>? ?? {}
             : <String, dynamic>{};
