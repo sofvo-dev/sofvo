@@ -4056,7 +4056,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: GestureDetector(
-                      onTap: isMyTeam ? () => _showMemberList(teamName.toString(), memberNames, leader.toString()) : null,
+                      onTap: isMyTeam ? () => _showEditEntrySheet(doc) : null,
                       child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
@@ -4898,6 +4898,220 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return '${ts.toDate().month}/${ts.toDate().day}';
   }
 
+  // ━━━ エントリー編集シート ━━━
+  void _showEditEntrySheet(DocumentSnapshot entryDoc) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return;
+    final data = entryDoc.data() as Map<String, dynamic>;
+    final entryDocId = entryDoc.id;
+    final currentTeamName = (data['teamName'] ?? '') as String;
+    final leaderUid = (data['leaderUid'] ?? '') as String;
+    final leaderName = (data['leaderName'] ?? '') as String;
+    final currentMemberUids = List<String>.from((data['memberUids'] as List<dynamic>?) ?? []);
+    final currentMemberNames = Map<String, String>.from(
+      ((data['memberNames'] as Map<String, dynamic>?) ?? {}).map((k, v) => MapEntry(k, v.toString())),
+    );
+
+    // 自分がエントリーした人（leaderUid）でなければ編集不可
+    if (leaderUid != uid) {
+      _showMemberList(currentTeamName, Map<String, dynamic>.from(currentMemberNames), leaderName);
+      return;
+    }
+
+    final teamNameCtrl = TextEditingController(text: currentTeamName);
+    // 自分以外のメンバーを選択済みとして初期化
+    final selectedMembers = <String, String>{};
+    for (final entry in currentMemberNames.entries) {
+      if (entry.key != uid) {
+        selectedMembers[entry.key] = entry.value;
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(child: Container(width: 40, height: 4,
+                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+                    const SizedBox(height: 16),
+                    const Text('エントリー編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
+
+                    // チーム名入力
+                    const Text('チーム名', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: teamNameCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'チーム名を入力',
+                        filled: true,
+                        fillColor: AppTheme.backgroundColor,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // メンバー選択（フォロワーから）
+                    const Text('メンバーを選択（フォロワーから）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: _firestore.collection('users').doc(uid)
+                          .collection('following').snapshots(),
+                      builder: (context, followSnap) {
+                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator());
+                        final followings = followSnap.data!.docs;
+                        if (followings.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                            child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
+                          );
+                        }
+                        return Container(
+                          constraints: const BoxConstraints(maxHeight: 250),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[200]!),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: followings.length,
+                            itemBuilder: (context, index) {
+                              final fDoc = followings[index];
+                              final fData = fDoc.data() as Map<String, dynamic>;
+                              final fUid = fDoc.id;
+                              final fName = fData['nickname'] ?? fData['userName'] ?? '名前なし';
+                              final fAvatar = fData['avatarUrl'] ?? '';
+                              final isSelected = selectedMembers.containsKey(fUid);
+
+                              return ListTile(
+                                leading: fAvatar.toString().isNotEmpty
+                                    ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
+                                    : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
+                                        child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?', style: TextStyle(color: AppTheme.primaryColor))),
+                                title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
+                                trailing: isSelected
+                                    ? const Icon(Icons.check_circle, color: AppTheme.primaryColor)
+                                    : Icon(Icons.circle_outlined, color: Colors.grey[400]),
+                                onTap: () {
+                                  setSheetState(() {
+                                    if (isSelected) {
+                                      selectedMembers.remove(fUid);
+                                    } else {
+                                      selectedMembers[fUid] = fName.toString();
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      selectedMembers.isEmpty
+                          ? '自分＋メンバー3人以上を選択してください（4人以上必要）'
+                          : '${selectedMembers.length + 1}人（自分＋${selectedMembers.length}人選択中）${selectedMembers.length < 3 ? " ※あと${3 - selectedMembers.length}人必要" : ""}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: selectedMembers.length < 3 ? AppTheme.textHint : AppTheme.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 保存ボタン
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final teamName = teamNameCtrl.text.trim();
+                          if (teamName.isEmpty) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('チーム名を入力してください'), backgroundColor: AppTheme.warning));
+                            return;
+                          }
+                          if (selectedMembers.length < 3) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('メンバーは自分を含めて4人以上必要です'), backgroundColor: AppTheme.warning));
+                            return;
+                          }
+
+                          // 同じ大会に同じ人がいないかチェック
+                          final newMemberUids = [uid, ...selectedMembers.keys];
+                          final allEntries = await _firestore
+                              .collection('tournaments').doc(_tournamentId)
+                              .collection('entries').get();
+                          final duplicates = <String>[];
+                          for (final doc in allEntries.docs) {
+                            if (doc.id == entryDocId) continue; // 自分のエントリーはスキップ
+                            final otherUids = List<String>.from((doc.data()['memberUids'] as List<dynamic>?) ?? []);
+                            for (final mUid in newMemberUids) {
+                              if (otherUids.contains(mUid)) {
+                                final name = selectedMembers[mUid] ?? (mUid == uid ? leaderName : mUid);
+                                final otherTeam = doc.data()['teamName'] ?? '';
+                                duplicates.add('$nameは「$otherTeam」に所属しています');
+                              }
+                            }
+                          }
+                          if (duplicates.isNotEmpty) {
+                            if (!ctx.mounted) return;
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(content: Text(duplicates.first), backgroundColor: AppTheme.error),
+                            );
+                            return;
+                          }
+
+                          // エントリー更新
+                          final userDoc = await _firestore.collection('users').doc(uid).get();
+                          final updatedLeaderName = userDoc.data()?['nickname'] ?? leaderName;
+                          await _firestore.collection('tournaments').doc(_tournamentId)
+                              .collection('entries').doc(entryDocId).update({
+                            'teamName': teamName,
+                            'memberUids': newMemberUids,
+                            'memberNames': {uid: updatedLeaderName, ...selectedMembers},
+                            'leaderName': updatedLeaderName,
+                          });
+
+                          Navigator.pop(sheetContext);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('エントリーを更新しました'), backgroundColor: AppTheme.success),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('変更を保存', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ━━━ エントリーシート ━━━
   void _showEntrySheet(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -5108,26 +5322,27 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    // エントリー重複チェック（enteredBy OR memberUidsに含まれる場合）
+    // エントリー重複チェック（全メンバーが他チームに所属していないか）
+    final newMemberUids = [uid, ...members.keys];
     final allEntries = await _firestore
         .collection('tournaments').doc(_tournamentId)
         .collection('entries').get();
-    final alreadyEntered = allEntries.docs.any((d) {
-      final data = d.data();
-      if (data['enteredBy'] == uid) return true;
-      final memberUids = data['memberUids'];
-      if (memberUids is List && memberUids.contains(uid)) return true;
-      return false;
-    });
-
-    if (alreadyEntered) {
-      Navigator.pop(sheetContext);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('既にエントリー済みです'), backgroundColor: AppTheme.warning),
-        );
+    for (final doc in allEntries.docs) {
+      final otherData = doc.data();
+      final otherUids = List<String>.from((otherData['memberUids'] as List<dynamic>?) ?? []);
+      final otherTeam = otherData['teamName'] ?? '';
+      for (final mUid in newMemberUids) {
+        if (otherUids.contains(mUid)) {
+          final name = members[mUid] ?? (mUid == uid ? 'あなた' : mUid);
+          Navigator.pop(sheetContext);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$nameは既に「$otherTeam」に所属しています'), backgroundColor: AppTheme.error),
+            );
+          }
+          return;
+        }
       }
-      return;
     }
 
     // ユーザー名取得
