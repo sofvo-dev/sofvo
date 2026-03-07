@@ -2593,30 +2593,38 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           itemCount: followings.length,
                           itemBuilder: (context, index) {
                             final fDoc = followings[index];
-                            final fData = fDoc.data() as Map<String, dynamic>;
                             final fUid = fDoc.id;
-                            final fName = fData['nickname'] ?? fData['userName'] ?? '名前なし';
-                            final fAvatar = fData['avatarUrl'] ?? '';
                             final isAlreadyEditor = currentEditors.contains(fUid);
 
-                            return ListTile(
-                              leading: fAvatar.toString().isNotEmpty
-                                  ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
-                                  : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                      child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?',
-                                          style: const TextStyle(color: AppTheme.primaryColor))),
-                              title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
-                              trailing: isAlreadyEditor
-                                  ? const Icon(Icons.check_circle, color: AppTheme.success)
-                                  : IconButton(
-                                      icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
-                                      onPressed: () async {
-                                        await _firestore.collection('tournaments').doc(_tournamentId).update({
-                                          'editors': FieldValue.arrayUnion([fUid]),
-                                        });
-                                        setSheetState(() {});
-                                      },
-                                    ),
+                            // ユーザードキュメントから最新の名前・アバターを取得
+                            return FutureBuilder<DocumentSnapshot>(
+                              future: _firestore.collection('users').doc(fUid).get(),
+                              builder: (context, userSnap) {
+                                final fData = fDoc.data() as Map<String, dynamic>;
+                                final userData = userSnap.data?.data() as Map<String, dynamic>?;
+                                final fName = userData?['nickname'] ?? fData['nickname'] ?? fData['userName'] ?? '名前なし';
+                                final fAvatar = userData?['avatarUrl'] ?? fData['avatarUrl'] ?? '';
+
+                                return ListTile(
+                                  leading: fAvatar.toString().isNotEmpty
+                                      ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
+                                      : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                          child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?',
+                                              style: const TextStyle(color: AppTheme.primaryColor))),
+                                  title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
+                                  trailing: isAlreadyEditor
+                                      ? const Icon(Icons.check_circle, color: AppTheme.success)
+                                      : IconButton(
+                                          icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
+                                          onPressed: () async {
+                                            await _firestore.collection('tournaments').doc(_tournamentId).update({
+                                              'editors': FieldValue.arrayUnion([fUid]),
+                                            });
+                                            setSheetState(() {});
+                                          },
+                                        ),
+                                );
+                              },
                             );
                           },
                         ),

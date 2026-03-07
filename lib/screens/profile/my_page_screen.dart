@@ -1801,10 +1801,46 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           updateData['birthDate'] = Timestamp.fromDate(_birthDate!);
         }
 
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .update(updateData);
+        final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+        await userRef.update(updateData);
+
+        // フォロワー・フォロー先のサブコレクションに保存された名前・アバターを同期
+        final newNickname = _nicknameCtrl.text.trim();
+        final newAvatar = _avatarUrl;
+        final syncData = <String, dynamic>{
+          'nickname': newNickname,
+          'avatarUrl': newAvatar,
+        };
+
+        // followers（自分をフォローしている人の following サブコレクション内の自分のドキュメント）
+        final followersSnap = await userRef.collection('followers').get();
+        for (final doc in followersSnap.docs) {
+          FirebaseFirestore.instance
+              .collection('users').doc(doc.id)
+              .collection('following').doc(uid)
+              .update(syncData).catchError((_) {});
+        }
+
+        // following（自分がフォローしている人の followers サブコレクション内の自分のドキュメント）
+        final followingSnap = await userRef.collection('following').get();
+        for (final doc in followingSnap.docs) {
+          FirebaseFirestore.instance
+              .collection('users').doc(doc.id)
+              .collection('followers').doc(uid)
+              .update(syncData).catchError((_) {});
+        }
+
+        // 自分の投稿の userNickname / userAvatarUrl を同期
+        final postsSnap = await FirebaseFirestore.instance
+            .collection('posts')
+            .where('userId', isEqualTo: uid)
+            .get();
+        for (final doc in postsSnap.docs) {
+          doc.reference.update({
+            'userNickname': newNickname,
+            'userAvatarUrl': newAvatar,
+          }).catchError((_) {});
+        }
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
