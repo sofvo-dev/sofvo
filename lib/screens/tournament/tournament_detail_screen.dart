@@ -3956,7 +3956,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     } else if (teamCount >= 4) {
                       formatLabel = 'トーナメント（準決勝→決勝）';
                     } else if (teamCount == 3) {
-                      formatLabel = '総当たり';
+                      formatLabel = 'トーナメント（1位シード）';
                     } else if (teamCount == 2) {
                       formatLabel = '決勝戦';
                     } else {
