@@ -6881,7 +6881,6 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
               ] else if (i > 0)
                 Divider(height: 1, color: Colors.grey[200]),
               Container(
-                color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Row(children: [
