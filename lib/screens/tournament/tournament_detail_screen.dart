@@ -233,20 +233,29 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   @override
   Widget build(BuildContext context) {
     final t = widget.tournament;
-    final status = (t['status'] ?? '準備中') as String;
-    Color statusColor;
-    switch (status) {
-      case '募集中': statusColor = AppTheme.success; break;
-      case 'エントリー締切': statusColor = AppTheme.accentColor; break;
-      case '準備中': statusColor = AppTheme.warning; break;
-      case '開催中': statusColor = AppTheme.primaryColor; break;
-      case '決勝中': statusColor = Colors.amber; break;
-      case '順位決定中': statusColor = Colors.amber; break;
-      default: statusColor = AppTheme.textSecondary;
-    }
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _firestore.collection('tournaments').doc(_tournamentId).snapshots(),
+      builder: (context, statusSnap) {
+        final liveData = (statusSnap.hasData && statusSnap.data!.exists)
+            ? statusSnap.data!.data() as Map<String, dynamic>? ?? {}
+            : <String, dynamic>{};
+        final status = (liveData['status'] ?? t['status'] ?? '準備中') as String;
+        Color statusColor;
+        switch (status) {
+          case '募集中': statusColor = AppTheme.success; break;
+          case 'エントリー締切': statusColor = AppTheme.accentColor; break;
+          case '準備中': statusColor = AppTheme.warning; break;
+          case '開催中': statusColor = AppTheme.primaryColor; break;
+          case '予選1完了': statusColor = AppTheme.info; break;
+          case '予選2完了': statusColor = AppTheme.info; break;
+          case '決勝中': statusColor = Colors.amber; break;
+          case '順位決定中': statusColor = Colors.amber; break;
+          default: statusColor = AppTheme.textSecondary;
+        }
+
+        return Scaffold(
+          backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
@@ -290,6 +299,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         ],
       ),
       bottomNavigationBar: _buildBottomButtons(),
+    );
+      },
     );
   }
 
