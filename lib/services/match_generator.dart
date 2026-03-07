@@ -1540,7 +1540,7 @@ class MatchGenerator {
   List<String> _getLeagueNames(int count) {
     switch (count) {
       case 1:
-        return ['リーグ'];
+        return ['順位決定トーナメント'];
       case 2:
         return ['上位リーグ', '下位リーグ'];
       case 3:
