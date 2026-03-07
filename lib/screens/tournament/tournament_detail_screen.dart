@@ -5454,19 +5454,90 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ),
               ]),
             ])
-          : SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showOrganizerMenuSheet(t),
-                icon: const Icon(Icons.admin_panel_settings, size: 20),
-                label: const Text('大会主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          : Column(mainAxisSize: MainAxisSize.min, children: [
+              _buildNextStepButton(t),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showOrganizerMenuSheet(t),
+                  icon: const Icon(Icons.admin_panel_settings, size: 20),
+                  label: const Text('大会主催者メニュー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
-            ),
+            ]),
+    );
+  }
+
+  Widget _buildNextStepButton(Map<String, dynamic> t) {
+    final rules = t['rules'] as Map<String, dynamic>? ?? {};
+    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
+    final prelimRounds = (preliminary['rounds'] as num?)?.toInt() ?? 1;
+    final finalEnabled = (rules['final'] as Map<String, dynamic>?)?['enabled'] ?? true;
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore.collection('tournaments').doc(_tournamentId)
+          .collection('rounds').snapshots(),
+      builder: (context, roundsSnap) {
+        final roundDocs = roundsSnap.data?.docs ?? [];
+        final existingRoundNumbers = roundDocs.map((d) => (d.data() as Map<String, dynamic>)['roundNumber'] ?? 1).toSet();
+        final hasRound1 = existingRoundNumbers.contains(1);
+        final hasRound2 = existingRoundNumbers.contains(2);
+        final lastRoundNum = hasRound2 ? 2 : (hasRound1 ? 1 : 0);
+
+        if (lastRoundNum == 0) return const SizedBox();
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('tournaments').doc(_tournamentId)
+              .collection('rounds').doc('round_$lastRoundNum').collection('matches').snapshots(),
+          builder: (context, matchesSnap) {
+            final matchDocs = matchesSnap.data?.docs ?? [];
+            final allCompleted = matchDocs.isNotEmpty &&
+                matchDocs.every((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed');
+
+            if (!allCompleted) return const SizedBox();
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection('tournaments').doc(_tournamentId)
+                  .collection('brackets').snapshots(),
+              builder: (context, bracketsSnap) {
+                final hasBrackets = bracketsSnap.hasData && bracketsSnap.data!.docs.isNotEmpty;
+
+                final showRound2 = prelimRounds >= 2 && hasRound1 && !hasRound2 && lastRoundNum == 1;
+                final showFinals = finalEnabled && !hasBrackets &&
+                    (prelimRounds == 1 ? hasRound1 : (hasRound1 && hasRound2)) &&
+                    lastRoundNum == (prelimRounds == 1 ? 1 : 2);
+
+                if (!showRound2 && !showFinals) return const SizedBox();
+
+                final label = showRound2 ? '予選2 対戦表作成' : '順位決定戦 対戦表作成';
+                final icon = showRound2 ? Icons.replay : Icons.emoji_events;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => showRound2 ? _generateMatches(2) : _generateFinals(),
+                      icon: Icon(icon, size: 20),
+                      label: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber, foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
