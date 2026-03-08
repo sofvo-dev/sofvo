@@ -508,70 +508,71 @@ function ScoresTab({ matches, roundIds, selectedRound, onSelectRound, tournament
           対戦表がまだ生成されていません
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {sortedCourts.map(([courtId, courtMatches]) => {
             const label = getCourtLabel(courtId);
             const color = getCourtColor(courtId);
             return (
               <div key={courtId} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 {/* Court header */}
-                <div className="px-5 py-3 flex items-center gap-3 border-b border-gray-100" style={{ background: `linear-gradient(135deg, ${color}08, ${color}02)` }}>
-                  <span className="w-8 h-8 rounded-lg text-white text-xs font-bold flex items-center justify-center" style={{ background: color }}>{label}</span>
+                <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-100" style={{ background: `linear-gradient(135deg, ${color}08, ${color}02)` }}>
+                  <span className="w-6 h-6 rounded text-white text-[10px] font-bold flex items-center justify-center" style={{ background: color }}>{label}</span>
                   <span className="text-sm font-bold text-foreground">{label}コート</span>
                   <span className="text-xs text-muted">{courtMatches.length}試合</span>
                 </div>
-                {/* Score cards */}
-                <div className="divide-y divide-gray-100">
-                  {courtMatches.sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0)).map((m) => {
-                    const sets = getEditSets(m);
-                    const isEdited = !!editScores[m.id];
-                    const isSaving = saving === m.id;
-                    return (
-                      <div key={m.id} className={`px-5 py-4 transition-colors ${isEdited ? "bg-amber-50/50" : "hover:bg-gray-50/50"}`}>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-bold text-muted">第{m.matchOrder}試合</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${m.status === "completed" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                              {m.status === "completed" ? "完了" : "未完了"}
-                            </span>
-                            {isEdited && (
-                              <button onClick={() => saveMatch(m.id)} disabled={!!isSaving} className="text-xs text-white bg-primary px-3 py-1.5 rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                {/* Compact score table */}
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10px] text-muted border-b border-gray-100 bg-gray-50/50">
+                      <th className="px-3 py-1.5 text-center w-8">#</th>
+                      <th className="py-1.5 text-right pr-2">チームA</th>
+                      <th className="py-1.5 text-center" colSpan={2}>スコア</th>
+                      <th className="py-1.5 text-left pl-2">チームB</th>
+                      <th className="px-3 py-1.5 text-center w-14"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courtMatches.sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0)).map((m) => {
+                      const sets = getEditSets(m);
+                      const isEdited = !!editScores[m.id];
+                      const isSaving = saving === m.id;
+                      return (
+                        <tr key={m.id} className={`border-b border-gray-50 ${isEdited ? "bg-amber-50/40" : "hover:bg-gray-50/50"}`}>
+                          <td className="px-3 py-2 text-center text-xs text-muted">{m.matchOrder}</td>
+                          <td className="py-2 text-right pr-2 font-semibold text-foreground truncate max-w-[120px]">{m.teamAName}</td>
+                          <td className="py-2 text-center" colSpan={2}>
+                            <div className="flex items-center justify-center gap-1">
+                              {sets.map((s, si) => (
+                                <div key={si} className="flex items-center gap-0.5">
+                                  {si > 0 && <span className="text-gray-300 mx-0.5">|</span>}
+                                  <input type="number" value={s.a} min={0} max={99}
+                                    onChange={(e) => handleChange(m.id, si, "a", parseInt(e.target.value) || 0, m.sets || [])}
+                                    className={`w-11 h-7 text-center text-sm font-bold rounded border focus:border-primary focus:ring-1 focus:ring-primary/20 ${s.a > s.b ? "border-[#1B3A5C]/40 bg-[#1B3A5C]/5 text-[#1B3A5C]" : "border-gray-200 bg-white"}`} />
+                                  <span className="text-[10px] text-gray-300">-</span>
+                                  <input type="number" value={s.b} min={0} max={99}
+                                    onChange={(e) => handleChange(m.id, si, "b", parseInt(e.target.value) || 0, m.sets || [])}
+                                    className={`w-11 h-7 text-center text-sm font-bold rounded border focus:border-primary focus:ring-1 focus:ring-primary/20 ${s.b > s.a ? "border-[#D32F2F]/40 bg-[#D32F2F]/5 text-[#D32F2F]" : "border-gray-200 bg-white"}`} />
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-2 text-left pl-2 font-semibold text-foreground truncate max-w-[120px]">{m.teamBName}</td>
+                          <td className="px-2 py-2 text-center">
+                            {isEdited ? (
+                              <button onClick={() => saveMatch(m.id)} disabled={!!isSaving} className="text-[10px] text-white bg-primary px-2 py-1 rounded hover:bg-primary-dark transition-colors font-medium">
                                 {isSaving ? "..." : "保存"}
                               </button>
+                            ) : (
+                              <span className={`text-[10px] font-medium ${m.status === "completed" ? "text-green-600" : "text-gray-400"}`}>
+                                {m.status === "completed" ? "完了" : "—"}
+                              </span>
                             )}
-                          </div>
-                        </div>
-                        {/* Team A row */}
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="w-[140px] text-sm font-bold text-[#1B3A5C] truncate text-right">{m.teamAName}</span>
-                          <div className="flex items-center gap-2 flex-1">
-                            {sets.map((s, si) => (
-                              <div key={si} className="flex flex-col items-center gap-1">
-                                {m.matchOrder === (courtMatches[0]?.matchOrder ?? 1) && <span className="text-[10px] text-muted font-medium">S{si + 1}</span>}
-                                <input type="number" value={s.a} min={0} max={99}
-                                  onChange={(e) => handleChange(m.id, si, "a", parseInt(e.target.value) || 0, m.sets || [])}
-                                  className={`w-14 h-10 text-center text-base font-bold border-2 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/10 ${s.a > s.b ? "border-[#1B3A5C] bg-[#1B3A5C]/5 text-[#1B3A5C]" : "border-gray-200 bg-white text-foreground"}`} />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Team B row */}
-                        <div className="flex items-center gap-3">
-                          <span className="w-[140px] text-sm font-bold text-[#D32F2F] truncate text-right">{m.teamBName}</span>
-                          <div className="flex items-center gap-2 flex-1">
-                            {sets.map((s, si) => (
-                              <div key={si} className="flex flex-col items-center gap-1">
-                                <input type="number" value={s.b} min={0} max={99}
-                                  onChange={(e) => handleChange(m.id, si, "b", parseInt(e.target.value) || 0, m.sets || [])}
-                                  className={`w-14 h-10 text-center text-base font-bold border-2 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/10 ${s.b > s.a ? "border-[#D32F2F] bg-[#D32F2F]/5 text-[#D32F2F]" : "border-gray-200 bg-white text-foreground"}`} />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             );
           })}
