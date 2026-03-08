@@ -16,6 +16,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <link rel="preconnect" href="https://firestore.googleapis.com" />
+        <link rel="preconnect" href="https://www.googleapis.com" />
+        <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+      </head>
       <body className="antialiased">
         <AuthProvider>
           <LayoutShell>{children}</LayoutShell>

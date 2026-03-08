@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import dynamic from "next/dynamic";
 import {
   doc,
   onSnapshot,
@@ -12,13 +13,22 @@ import {
 import { db } from "@/lib/firebase";
 import type { Tournament, Match, Entry } from "@/types/firestore";
 import StatusBadge from "@/components/StatusBadge";
-import Scoreboard from "@/components/Scoreboard";
-import Standings from "@/components/Standings";
-import BracketView from "@/components/BracketView";
 import TournamentInfo from "@/components/TournamentInfo";
-import TeamList from "@/components/TeamList";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
+
+const Scoreboard = dynamic(() => import("@/components/Scoreboard"), {
+  loading: () => <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>,
+});
+const Standings = dynamic(() => import("@/components/Standings"), {
+  loading: () => <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>,
+});
+const BracketView = dynamic(() => import("@/components/BracketView"), {
+  loading: () => <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>,
+});
+const TeamList = dynamic(() => import("@/components/TeamList"), {
+  loading: () => <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>,
+});
 
 type Tab = "info" | "scoreboard" | "standings" | "bracket" | "teams";
 
@@ -88,12 +98,12 @@ export default function TournamentPage({
       );
       const ids = roundsSnap.docs.map((d) => d.id).sort();
       setRoundIds(ids);
-      if (ids.length > 0 && !selectedRound) {
-        setSelectedRound(ids[ids.length - 1]);
+      if (ids.length > 0) {
+        setSelectedRound((prev) => prev || ids[ids.length - 1]);
       }
     }
     loadRounds();
-  }, [tournamentId, selectedRound]);
+  }, [tournamentId]);
 
   useEffect(() => {
     if (!selectedRound) return;

@@ -82,10 +82,10 @@ export default function TournamentManagePage({ params }: { params: Promise<{ id:
       const snap = await getDocs(collection(db, "tournaments", tournamentId, "rounds"));
       const ids = snap.docs.map((d) => d.id).sort();
       setRoundIds(ids);
-      if (ids.length > 0 && !selectedRound) setSelectedRound(ids[ids.length - 1]);
+      if (ids.length > 0) setSelectedRound((prev) => prev || ids[ids.length - 1]);
     }
     loadRounds();
-  }, [tournamentId, selectedRound]);
+  }, [tournamentId]);
 
   useEffect(() => {
     if (!selectedRound) return;
