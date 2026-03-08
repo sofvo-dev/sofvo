@@ -1101,11 +1101,14 @@ class MatchGenerator {
     final slotReferees = <int, Set<String>>{};
 
     // QF: 1v8, 4v5, 2v7, 3v6（シード配置）
+    // コート割り当て: 同コートの勝者同士がSFで対戦するよう配置
+    // コート1: 1v8, 4v5 → 勝者同士=1位vs4位
+    // コート2: 2v7, 3v6 → 勝者同士=2位vs3位
     final qfPairs = [
-      [0, 7], // 1位 vs 8位
-      [3, 4], // 4位 vs 5位
-      [1, 6], // 2位 vs 7位
-      [2, 5], // 3位 vs 6位
+      [0, 7], // 1位 vs 8位（コート1）
+      [1, 6], // 2位 vs 7位（コート2）
+      [3, 4], // 4位 vs 5位（コート1）
+      [2, 5], // 3位 vs 6位（コート2）
     ];
 
     // 同時進行試合をコート数でグループ化して、同時に出場するチームを把握
@@ -1153,10 +1156,10 @@ class MatchGenerator {
     // SF以降はチーム未定のため審判は空、コートは割り当て
     // SF勝者・敗者
     for (final entry in [
-      {'round': 'sf_winner', 'num': 5, 'a': '第1試合 勝者', 'b': '第2試合 勝者'},
-      {'round': 'sf_winner', 'num': 6, 'a': '第3試合 勝者', 'b': '第4試合 勝者'},
-      {'round': 'sf_loser', 'num': 7, 'a': '第1試合 敗者', 'b': '第2試合 敗者'},
-      {'round': 'sf_loser', 'num': 8, 'a': '第3試合 敗者', 'b': '第4試合 敗者'},
+      {'round': 'sf_winner', 'num': 5, 'a': '第1試合 勝者', 'b': '第3試合 勝者'},
+      {'round': 'sf_winner', 'num': 6, 'a': '第2試合 勝者', 'b': '第4試合 勝者'},
+      {'round': 'sf_loser', 'num': 7, 'a': '第1試合 敗者', 'b': '第3試合 敗者'},
+      {'round': 'sf_loser', 'num': 8, 'a': '第2試合 敗者', 'b': '第4試合 敗者'},
     ]) {
       final courtNum = leagueCourts[matchIdx % leagueCourts.length];
       matchIdx++;
@@ -1232,13 +1235,15 @@ class MatchGenerator {
     final courtCount = leagueCourts.length;
 
     // 8チームブラケットのQFペア（シード配置）
-    // [0,7]=1v8, [3,4]=4v5, [1,6]=2v7, [2,5]=3v6
+    // 同コートの勝者同士がSFで対戦するよう配置
+    // コート1: QF1(1v8), QF3(4v5) → 勝者同士=1位vs4位
+    // コート2: QF2(2v7), QF4(3v6) → 勝者同士=2位vs3位
     // チーム不在のスロット = BYE（上位シードが自動進出）
     final qfSeeds = [
-      [0, 7], // QF1: 1位 vs 8位 → n<8なら1位BYE
-      [3, 4], // QF2: 4位 vs 5位
-      [1, 6], // QF3: 2位 vs 7位 → n<7なら2位BYE
-      [2, 5], // QF4: 3位 vs 6位 → n<6なら3位BYE
+      [0, 7], // QF1: 1位 vs 8位 → n<8なら1位BYE（コート1）
+      [1, 6], // QF2: 2位 vs 7位 → n<7なら2位BYE（コート2）
+      [3, 4], // QF3: 4位 vs 5位（コート1）
+      [2, 5], // QF4: 3位 vs 6位 → n<6なら3位BYE（コート2）
     ];
 
     // BYE判定: 対戦相手がいないペア → 上位シードが自動進出
@@ -1275,8 +1280,8 @@ class MatchGenerator {
       }
     }
 
-    // SF勝者側: QF1勝者 vs QF2勝者、QF3勝者 vs QF4勝者
-    final sfPairs = [[0, 1], [2, 3]]; // qfResultのインデックス
+    // SF勝者側: 同コートの勝者同士 QF1勝者 vs QF3勝者、QF2勝者 vs QF4勝者
+    final sfPairs = [[0, 2], [1, 3]]; // qfResultのインデックス（同コート同士）
     for (int si = 0; si < sfPairs.length; si++) {
       final qiA = sfPairs[si][0];
       final qiB = sfPairs[si][1];
@@ -1583,6 +1588,7 @@ class MatchGenerator {
 
       if (allDone && qf.length >= 4) {
         // 8-team: 4 QF matches → SF
+        // 同コートの勝者同士がSFで対戦: q1 vs q3, q2 vs q4
         final q1 = qf[0].data() as Map<String, dynamic>;
         final q2 = qf[1].data() as Map<String, dynamic>;
         final q3 = qf[2].data() as Map<String, dynamic>;
@@ -1593,13 +1599,13 @@ class MatchGenerator {
           if (!_isCompleted(sfW[0])) {
             await sfW[0].reference.update({
               'teamAId': _winnerId(q1), 'teamAName': _winnerName(q1),
-              'teamBId': _winnerId(q2), 'teamBName': _winnerName(q2),
+              'teamBId': _winnerId(q3), 'teamBName': _winnerName(q3),
               'status': 'pending',
             });
           }
           if (!_isCompleted(sfW[1])) {
             await sfW[1].reference.update({
-              'teamAId': _winnerId(q3), 'teamAName': _winnerName(q3),
+              'teamAId': _winnerId(q2), 'teamAName': _winnerName(q2),
               'teamBId': _winnerId(q4), 'teamBName': _winnerName(q4),
               'status': 'pending',
             });
@@ -1611,13 +1617,13 @@ class MatchGenerator {
           if (!_isCompleted(sfL[0])) {
             await sfL[0].reference.update({
               'teamAId': _loserId(q1), 'teamAName': _loserName(q1),
-              'teamBId': _loserId(q2), 'teamBName': _loserName(q2),
+              'teamBId': _loserId(q3), 'teamBName': _loserName(q3),
               'status': 'pending',
             });
           }
           if (!_isCompleted(sfL[1])) {
             await sfL[1].reference.update({
-              'teamAId': _loserId(q3), 'teamAName': _loserName(q3),
+              'teamAId': _loserId(q2), 'teamAName': _loserName(q2),
               'teamBId': _loserId(q4), 'teamBName': _loserName(q4),
               'status': 'pending',
             });
@@ -1633,13 +1639,14 @@ class MatchGenerator {
           if (qi >= 0) qfBySlot[qi] = data;
         }
 
-        // SF勝者側を更新: SF[0]={QF0勝者 vs QF1勝者}, SF[1]={QF2勝者 vs QF3勝者}
+        // SF勝者側を更新: 同コート同士 SF[0]={QF0勝者 vs QF2勝者}, SF[1]={QF1勝者 vs QF3勝者}
         final sfW = byRound['sf_winner'] ?? [];
+        const sfQfMapping = [[0, 2], [1, 3]]; // 同コートのQFペア
         for (int si = 0; si < sfW.length && si < 2; si++) {
           if (_isCompleted(sfW[si])) continue;
           final sfData = sfW[si].data() as Map<String, dynamic>;
-          final qiA = si * 2;     // SF0→QF0,QF1  SF1→QF2,QF3
-          final qiB = si * 2 + 1;
+          final qiA = sfQfMapping[si][0];  // SF0→QF0,QF2  SF1→QF1,QF3
+          final qiB = sfQfMapping[si][1];
 
           final updates = <String, dynamic>{};
           // teamA側: QFスロットAの勝者（BYEなら既にSFに配置済み）
