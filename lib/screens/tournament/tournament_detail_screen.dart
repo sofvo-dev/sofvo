@@ -8209,7 +8209,6 @@ class _OrganizerMenuScreen extends StatelessWidget {
           _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
           _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
           _menuTile(context, Icons.upload_file, 'CSVインポート', 'エントリー・対戦表・決勝のCSV管理', onCsvMenu, color: AppTheme.success),
-          _menuTile(context, Icons.delete_sweep, 'エントリーチーム削除', '選択したチームをエントリーから削除', onDeleteTeams, isDestructive: true),
 
           // ━━━ 運営 ━━━
           _sectionLabel('運営'),
@@ -8227,7 +8226,6 @@ class _OrganizerMenuScreen extends StatelessWidget {
               final existingRoundNumbers = roundDocs.map((d) => (d.data() as Map<String, dynamic>)['roundNumber'] ?? 1).toSet();
               final hasRound1 = existingRoundNumbers.contains(1);
               final hasRound2 = existingRoundNumbers.contains(2);
-              final hasAnyRound = roundDocs.isNotEmpty;
 
               // 最終ラウンドのmatchesをStreamで監視して全完了かチェック
               final lastRoundNum = hasRound2 ? 2 : (hasRound1 ? 1 : 0);
@@ -8239,10 +8237,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
                   final hasBrackets = bracketsSnap.hasData && bracketsSnap.data!.docs.isNotEmpty;
 
                   if (lastRoundNum == 0) {
-                    return Column(children: [
-                      if (hasAnyRound || hasBrackets)
-                        _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
-                    ]);
+                    return const SizedBox();
                   }
 
                   // 該当ラウンドの試合完了状況をリアルタイムで監視
@@ -8270,8 +8265,6 @@ class _OrganizerMenuScreen extends StatelessWidget {
                           _menuTile(context, Icons.emoji_events, '順位決定戦の対戦表を生成', '全予選完了済み — 順位決定戦を生成できます', onGenerateFinals, color: AppTheme.info),
                         if (hasBrackets)
                           _menuTile(context, Icons.sports_volleyball, 'コート・審判を更新', '順位決定戦のコート割振・審判割当を再設定', onUpdateBracketCourts, color: Colors.amber),
-                        if (hasAnyRound || hasBrackets)
-                          _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, color: AppTheme.info),
                       ]);
                     },
                   );
@@ -8280,9 +8273,34 @@ class _OrganizerMenuScreen extends StatelessWidget {
             },
           ),
 
+          // ━━━ その他 ━━━
+          _sectionLabel('その他'),
+          _menuTile(context, Icons.bookmark_add_outlined, 'テンプレートに保存', '大会設定をテンプレートとして保存', onSaveTemplate, color: AppTheme.textSecondary),
+
+          // ━━━ リセット・削除 ━━━
+          _sectionLabel('リセット・削除'),
+          _menuTile(context, Icons.delete_sweep, 'エントリーチーム削除', '選択したチームをエントリーから削除', onDeleteTeams, isDestructive: true),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('tournaments').doc(tournamentId)
+                .collection('rounds').snapshots(),
+            builder: (context, roundsSnap) {
+              final hasAnyRound = roundsSnap.hasData && roundsSnap.data!.docs.isNotEmpty;
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('tournaments').doc(tournamentId)
+                    .collection('brackets').snapshots(),
+                builder: (context, bracketsSnap) {
+                  final hasBrackets = bracketsSnap.hasData && bracketsSnap.data!.docs.isNotEmpty;
+                  if (!hasAnyRound && !hasBrackets) return const SizedBox();
+                  return _menuTile(context, Icons.refresh, 'リセット', '対戦表・スコアをリセット', onReset, isDestructive: true);
+                },
+              );
+            },
+          ),
+          _menuTile(context, Icons.delete_outline, '大会を削除', 'この大会を完全に削除', onDelete, isDestructive: true),
+
           // ━━━ 大会を終了する ━━━
           if (isRunning) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: SizedBox(
@@ -8300,11 +8318,6 @@ class _OrganizerMenuScreen extends StatelessWidget {
               ),
             ),
           ],
-
-          // ━━━ その他 ━━━
-          _sectionLabel('その他'),
-          _menuTile(context, Icons.bookmark_add_outlined, 'テンプレートに保存', '大会設定をテンプレートとして保存', onSaveTemplate, color: AppTheme.textSecondary),
-          _menuTile(context, Icons.delete_outline, '大会を削除', 'この大会を完全に削除', onDelete, isDestructive: true),
         ],
       ),
     );
