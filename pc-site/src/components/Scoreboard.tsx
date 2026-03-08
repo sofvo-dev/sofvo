@@ -10,27 +10,37 @@ import {
 import { db } from "@/lib/firebase";
 import type { Match } from "@/types/firestore";
 
-const courtColors: Record<string, string> = {
-  court_a: "border-l-blue-600",
-  court_b: "border-l-red-600",
-  court_c: "border-l-green-600",
-  court_d: "border-l-purple-600",
-};
+/** court_1 → "A", court_2 → "B", ... */
+function getCourtLabel(courtId: string): string {
+  const num = parseInt(courtId.replace(/\D/g, ""), 10);
+  if (isNaN(num) || num < 1) return courtId;
+  return String.fromCharCode(64 + num);
+}
 
-const courtLabels: Record<string, string> = {
-  court_a: "A",
-  court_b: "B",
-  court_c: "C",
-  court_d: "D",
-};
+const courtBorderColors = [
+  "border-l-[#1B3A5C]",   // A - navy
+  "border-l-[#D32F2F]",   // B - red
+  "border-l-[#2E7D32]",   // C - green
+  "border-l-[#7B1FA2]",   // D - purple
+  "border-l-[#E65100]",   // E - orange
+  "border-l-[#0277BD]",   // F - light blue
+  "border-l-[#4E342E]",   // G - brown
+  "border-l-[#00695C]",   // H - teal
+];
+
+function getCourtBorderColor(courtId: string): string {
+  const num = parseInt(courtId.replace(/\D/g, ""), 10);
+  if (isNaN(num) || num < 1) return "border-l-gray-400";
+  return courtBorderColors[(num - 1) % courtBorderColors.length];
+}
 
 function MatchCard({ match }: { match: Match }) {
   const isLive =
     match.status !== "completed" &&
     match.sets?.some((s) => s.a > 0 || s.b > 0);
   const isCompleted = match.status === "completed";
-  const courtLabel = courtLabels[match.courtId] ?? match.courtId;
-  const borderColor = courtColors[match.courtId] ?? "border-l-gray-400";
+  const courtLabel = getCourtLabel(match.courtId);
+  const borderColor = getCourtBorderColor(match.courtId);
 
   return (
     <div
@@ -63,7 +73,9 @@ function MatchCard({ match }: { match: Match }) {
           <span
             className={`text-sm font-bold truncate max-w-[40%] ${
               isCompleted && match.result?.winner === match.teamAId
-                ? "text-blue-600"
+                ? "text-[#1B3A5C]"
+                : isCompleted && match.result?.winner === match.teamBId
+                ? "text-gray-400"
                 : "text-foreground"
             }`}
           >
@@ -80,7 +92,7 @@ function MatchCard({ match }: { match: Match }) {
                 </div>
                 <div
                   className={`text-sm font-bold ${
-                    s.a > s.b ? "text-blue-600" : "text-foreground"
+                    s.a > s.b ? "text-[#1B3A5C]" : s.a < s.b ? "text-gray-400" : "text-foreground"
                   }`}
                 >
                   {s.a}
@@ -90,7 +102,7 @@ function MatchCard({ match }: { match: Match }) {
             {match.result && (
               <div className="text-center min-w-[32px] border-l border-gray-200 pl-2">
                 <div className="text-[10px] text-muted mb-0.5">SET</div>
-                <div className="text-sm font-bold text-foreground">
+                <div className={`text-sm font-bold ${match.result.setsA > match.result.setsB ? "text-[#1B3A5C]" : "text-gray-400"}`}>
                   {match.result.setsA}
                 </div>
               </div>
@@ -101,7 +113,9 @@ function MatchCard({ match }: { match: Match }) {
           <span
             className={`text-sm font-bold truncate max-w-[40%] ${
               isCompleted && match.result?.winner === match.teamBId
-                ? "text-red-600"
+                ? "text-[#D32F2F]"
+                : isCompleted && match.result?.winner === match.teamAId
+                ? "text-gray-400"
                 : "text-foreground"
             }`}
           >
@@ -113,7 +127,7 @@ function MatchCard({ match }: { match: Match }) {
                 <div className="invisible text-[10px]">S</div>
                 <div
                   className={`text-sm font-bold ${
-                    s.b > s.a ? "text-red-600" : "text-foreground"
+                    s.b > s.a ? "text-[#D32F2F]" : s.b < s.a ? "text-gray-400" : "text-foreground"
                   }`}
                 >
                   {s.b}
@@ -123,7 +137,7 @@ function MatchCard({ match }: { match: Match }) {
             {match.result && (
               <div className="text-center min-w-[32px] border-l border-gray-200 pl-2">
                 <div className="invisible text-[10px]">S</div>
-                <div className="text-sm font-bold text-foreground">
+                <div className={`text-sm font-bold ${match.result.setsB > match.result.setsA ? "text-[#D32F2F]" : "text-gray-400"}`}>
                   {match.result.setsB}
                 </div>
               </div>
@@ -225,8 +239,8 @@ export default function Scoreboard({ tournamentId, roundId }: ScoreboardProps) {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([courtId, courtMatches]) => (
             <div key={courtId}>
-              <h3 className="text-sm font-bold text-muted mb-3 uppercase">
-                {courtLabels[courtId] ?? courtId}コート
+              <h3 className="text-sm font-bold text-foreground mb-3">
+                {getCourtLabel(courtId)}コート
               </h3>
               <div className="space-y-3">
                 {courtMatches.map((m) => (

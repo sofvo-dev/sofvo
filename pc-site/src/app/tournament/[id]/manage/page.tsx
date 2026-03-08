@@ -21,13 +21,19 @@ const tabIcons: Record<Tab, React.ReactNode> = {
   settings: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
 };
 
-const courtColors: Record<string, string> = {
-  court_a: "var(--court-a)",
-  court_b: "var(--court-b)",
-  court_c: "var(--court-c)",
-  court_d: "var(--court-d)",
-};
-const courtLabels: Record<string, string> = { court_a: "A", court_b: "B", court_c: "C", court_d: "D" };
+/** court_1 → "A", court_2 → "B", ... */
+function getCourtLabel(courtId: string): string {
+  const num = parseInt(courtId.replace(/\D/g, ""), 10);
+  if (isNaN(num) || num < 1) return courtId;
+  return String.fromCharCode(64 + num);
+}
+
+const courtColorList = ["#1B3A5C", "#D32F2F", "#2E7D32", "#7B1FA2", "#E65100", "#0277BD", "#4E342E", "#00695C"];
+function getCourtColor(courtId: string): string {
+  const num = parseInt(courtId.replace(/\D/g, ""), 10);
+  if (isNaN(num) || num < 1) return "#1B3A5C";
+  return courtColorList[(num - 1) % courtColorList.length];
+}
 
 export default function TournamentManagePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: tournamentId } = use(params);
@@ -504,8 +510,8 @@ function ScoresTab({ matches, roundIds, selectedRound, onSelectRound, tournament
       ) : (
         <div className="space-y-6">
           {sortedCourts.map(([courtId, courtMatches]) => {
-            const label = courtLabels[courtId] ?? courtId;
-            const color = courtColors[courtId] ?? "var(--primary)";
+            const label = getCourtLabel(courtId);
+            const color = getCourtColor(courtId);
             return (
               <div key={courtId} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 {/* Court header */}
@@ -514,62 +520,57 @@ function ScoresTab({ matches, roundIds, selectedRound, onSelectRound, tournament
                   <span className="text-sm font-bold text-foreground">{label}コート</span>
                   <span className="text-xs text-muted">{courtMatches.length}試合</span>
                 </div>
-                {/* Score table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-muted border-b border-gray-100 bg-gray-50/50">
-                        <th className="px-4 py-2.5 text-center w-12">#</th>
-                        <th className="px-4 py-2.5 text-right w-[25%]">チームA</th>
-                        <th className="px-2 py-2.5 text-center" colSpan={2}>スコア</th>
-                        <th className="px-4 py-2.5 text-left w-[25%]">チームB</th>
-                        <th className="px-4 py-2.5 text-center w-16">状態</th>
-                        <th className="px-4 py-2.5 text-center w-20"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {courtMatches.sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0)).map((m) => {
-                        const sets = getEditSets(m);
-                        const isEdited = !!editScores[m.id];
-                        const isSaving = saving === m.id;
-                        return (
-                          <tr key={m.id} className={`transition-colors ${isEdited ? "bg-accent/5" : "hover:bg-gray-50"}`}>
-                            <td className="px-4 py-3 text-center text-xs font-bold text-muted">{m.matchOrder}</td>
-                            <td className="px-4 py-3 text-right font-semibold text-foreground truncate">{m.teamAName}</td>
-                            <td className="py-3 text-center" colSpan={2}>
-                              <div className="flex items-center justify-center gap-1.5">
-                                {sets.map((s, si) => (
-                                  <div key={si} className="flex items-center gap-0.5">
-                                    {si > 0 && <span className="text-gray-300 mx-0.5">|</span>}
-                                    <input type="number" value={s.a} min={0} max={99}
-                                      onChange={(e) => handleChange(m.id, si, "a", parseInt(e.target.value) || 0, m.sets || [])}
-                                      className="w-10 h-8 text-center text-sm font-bold border border-gray-200 rounded-md focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white" />
-                                    <span className="text-xs text-hint font-bold">-</span>
-                                    <input type="number" value={s.b} min={0} max={99}
-                                      onChange={(e) => handleChange(m.id, si, "b", parseInt(e.target.value) || 0, m.sets || [])}
-                                      className="w-10 h-8 text-center text-sm font-bold border border-gray-200 rounded-md focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white" />
-                                  </div>
-                                ))}
+                {/* Score cards */}
+                <div className="divide-y divide-gray-100">
+                  {courtMatches.sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0)).map((m) => {
+                    const sets = getEditSets(m);
+                    const isEdited = !!editScores[m.id];
+                    const isSaving = saving === m.id;
+                    return (
+                      <div key={m.id} className={`px-5 py-4 transition-colors ${isEdited ? "bg-amber-50/50" : "hover:bg-gray-50/50"}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-bold text-muted">第{m.matchOrder}試合</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${m.status === "completed" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                              {m.status === "completed" ? "完了" : "未完了"}
+                            </span>
+                            {isEdited && (
+                              <button onClick={() => saveMatch(m.id)} disabled={!!isSaving} className="text-xs text-white bg-primary px-3 py-1.5 rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                                {isSaving ? "..." : "保存"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {/* Team A row */}
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="w-[140px] text-sm font-bold text-[#1B3A5C] truncate text-right">{m.teamAName}</span>
+                          <div className="flex items-center gap-2 flex-1">
+                            {sets.map((s, si) => (
+                              <div key={si} className="flex flex-col items-center gap-1">
+                                {m.matchOrder === (courtMatches[0]?.matchOrder ?? 1) && <span className="text-[10px] text-muted font-medium">S{si + 1}</span>}
+                                <input type="number" value={s.a} min={0} max={99}
+                                  onChange={(e) => handleChange(m.id, si, "a", parseInt(e.target.value) || 0, m.sets || [])}
+                                  className={`w-14 h-10 text-center text-base font-bold border-2 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/10 ${s.a > s.b ? "border-[#1B3A5C] bg-[#1B3A5C]/5 text-[#1B3A5C]" : "border-gray-200 bg-white text-foreground"}`} />
                               </div>
-                            </td>
-                            <td className="px-4 py-3 font-semibold text-foreground truncate">{m.teamBName}</td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${m.status === "completed" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                {m.status === "completed" ? "完了" : "未完了"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {isEdited && (
-                                <button onClick={() => saveMatch(m.id)} disabled={!!isSaving} className="text-xs text-white bg-primary px-3 py-1 rounded-lg hover:bg-primary-dark transition-colors font-medium">
-                                  {isSaving ? "..." : "保存"}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Team B row */}
+                        <div className="flex items-center gap-3">
+                          <span className="w-[140px] text-sm font-bold text-[#D32F2F] truncate text-right">{m.teamBName}</span>
+                          <div className="flex items-center gap-2 flex-1">
+                            {sets.map((s, si) => (
+                              <div key={si} className="flex flex-col items-center gap-1">
+                                <input type="number" value={s.b} min={0} max={99}
+                                  onChange={(e) => handleChange(m.id, si, "b", parseInt(e.target.value) || 0, m.sets || [])}
+                                  className={`w-14 h-10 text-center text-base font-bold border-2 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/10 ${s.b > s.a ? "border-[#D32F2F] bg-[#D32F2F]/5 text-[#D32F2F]" : "border-gray-200 bg-white text-foreground"}`} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -735,9 +736,33 @@ function FinanceTab({ tournament, entries, expenses, tournamentId }: { tournamen
 /* ==============================
    Settings Tab
    ============================== */
+/** Convert "2025/3/8" or "2025-3-8" to "2025-03-08" for input[type=date] */
+function toDateInputValue(dateStr: string): string {
+  if (!dateStr) return "";
+  // Try parsing as-is (already YYYY-MM-DD)
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+  }
+  // Parse "YYYY/M/D" format
+  const jpMatch = dateStr.match(/^(\d{4})[/.](\d{1,2})[/.](\d{1,2})$/);
+  if (jpMatch) {
+    return `${jpMatch[1]}-${jpMatch[2].padStart(2, "0")}-${jpMatch[3].padStart(2, "0")}`;
+  }
+  return dateStr;
+}
+
+/** Convert "2025-03-08" back to "2025/3/8" for Firestore */
+function toFirestoreDateStr(dateInput: string): string {
+  if (!dateInput) return "";
+  const parts = dateInput.split("-");
+  if (parts.length !== 3) return dateInput;
+  return `${parseInt(parts[0])}/${parseInt(parts[1])}/${parseInt(parts[2])}`;
+}
+
 function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tournamentId: string }) {
   const [title, setTitle] = useState(tournament.title);
-  const [date, setDate] = useState(tournament.date || "");
+  const [date, setDate] = useState(toDateInputValue(tournament.date || ""));
   const [location, setLocation] = useState(tournament.location);
   const [venueAddress, setVenueAddress] = useState(tournament.venueAddress || "");
   const [area, setArea] = useState(tournament.area || "");
@@ -745,7 +770,7 @@ function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tou
   const [courts, setCourts] = useState(tournament.courts);
   const [entryFee, setEntryFee] = useState(tournament.entryFee || 0);
   const [type, setType] = useState(tournament.type || "");
-  const [deadline, setDeadline] = useState(tournament.deadline || "");
+  const [deadline, setDeadline] = useState(toDateInputValue(tournament.deadline || ""));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -763,7 +788,7 @@ function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tou
     setSaving(true);
     try {
       await updateDoc(doc(db, "tournaments", tournamentId), {
-        title, date, location, venueAddress, area, maxTeams, courts, entryFee, type, deadline,
+        title, date: toFirestoreDateStr(date), location, venueAddress, area, maxTeams, courts, entryFee, type, deadline: toFirestoreDateStr(deadline),
       });
       setMessage("保存しました");
       setTimeout(() => setMessage(""), 3000);
