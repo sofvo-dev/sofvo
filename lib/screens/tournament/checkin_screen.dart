@@ -10,11 +10,13 @@ import '../../config/app_theme.dart';
 class CheckInScreen extends StatefulWidget {
   final String tournamentId;
   final String tournamentName;
+  final int initialTab;
 
   const CheckInScreen({
     super.key,
     required this.tournamentId,
     required this.tournamentName,
+    this.initialTab = 0,
   });
 
   @override
@@ -29,7 +31,7 @@ class _CheckInScreenState extends State<CheckInScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
   }
 
   @override

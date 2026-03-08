@@ -6051,7 +6051,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           }, color: AppTheme.primaryColor),
           _menuTile(ctx, Icons.checklist, '手動チェックイン', 'リストからチームを手動でチェックイン', () {
             Navigator.push(context, MaterialPageRoute(
-              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '')));
+              builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? '', initialTab: 1)));
           }, color: AppTheme.success),
           _menuTile(ctx, Icons.payment, '参加費の確認', '各チームの入金状況を確認', () {
             Navigator.push(context, MaterialPageRoute(
