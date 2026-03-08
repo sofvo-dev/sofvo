@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0F2440"/>
-      <stop offset="50%" stop-color="#1B3A5C"/>
-      <stop offset="100%" stop-color="#2E5C8A"/>
-    </linearGradient>
     <style>
       .st0 { fill: none; stroke: #fff; stroke-width: 30px; stroke-miterlimit: 10; }
       .st2 { fill: none; stroke: #fff; stroke-width: 40px; stroke-linecap: round; stroke-linejoin: round; }
@@ -13,7 +8,7 @@
       .st4 { fill: #fff; }
     </style>
   </defs>
-  <rect width="1200" height="1200" fill="url(#bg)"/>
+  <rect width="1200" height="1200" fill="#222"/>
   <line class="st0" x1="851.78" y1="833.51" x2="851.78" y2="1200"/>
   <line class="st0" x1="688.64" y1="867.29" x2="688.64" y2="1200"/>
   <line class="st0" x1="525.5" y1="885.55" x2="525.5" y2="1200"/>
