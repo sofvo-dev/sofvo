@@ -2982,7 +2982,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             _buildCourtChipsForRound(roundNum, courtChipData, myCourts),
             ...filteredCourts.map((court) {
               final courtNum = (court.value.first.data() as Map<String, dynamic>)['courtNumber'] ?? 0;
-              return _buildCourtCard(court.key, courtNum, court.value, roundId, isOrganizer);
+              return _buildCourtCard(court.key, courtNum, court.value, roundId, isOrganizer, tournamentStatus: tournamentStatus);
             }),
           ]);
         },
@@ -2992,7 +2992,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     ]);
   }
 
-  Widget _buildCourtCard(String courtId, int courtNum, List<QueryDocumentSnapshot> matches, String roundId, bool isOrganizer) {
+  Widget _buildCourtCard(String courtId, int courtNum, List<QueryDocumentSnapshot> matches, String roundId, bool isOrganizer, {String tournamentStatus = ''}) {
     // 自分のチームがこのコートに属しているか
     final isMyCourt = matches.any((m) {
       final md = m.data() as Map<String, dynamic>;
