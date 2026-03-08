@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useRef, use } from "react";
 import {
   doc, onSnapshot, collection, getDocs, updateDoc, addDoc, deleteDoc, query, orderBy, Timestamp, writeBatch,
 } from "firebase/firestore";
@@ -20,6 +20,14 @@ const tabIcons: Record<Tab, React.ReactNode> = {
   finance: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   settings: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
 };
+
+const courtColors: Record<string, string> = {
+  court_a: "var(--court-a)",
+  court_b: "var(--court-b)",
+  court_c: "var(--court-c)",
+  court_d: "var(--court-d)",
+};
+const courtLabels: Record<string, string> = { court_a: "A", court_b: "B", court_c: "C", court_d: "D" };
 
 export default function TournamentManagePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: tournamentId } = use(params);
@@ -127,7 +135,7 @@ export default function TournamentManagePage({ params }: { params: Promise<{ id:
         <span className="text-foreground font-medium">管理パネル</span>
       </div>
 
-      {/* Header with gradient */}
+      {/* Header */}
       <div className="rounded-2xl overflow-hidden mb-6 border border-gray-200">
         <div className="gradient-navy px-8 py-6 relative">
           <div className="absolute top-[-30px] right-[-30px] w-40 h-40 rounded-full bg-white/5" />
@@ -177,6 +185,9 @@ export default function TournamentManagePage({ params }: { params: Promise<{ id:
   );
 }
 
+/* ==============================
+   Status Changer
+   ============================== */
 function StatusChanger({ tournamentId, currentStatus }: { tournamentId: string; currentStatus: string }) {
   const statuses = ["募集中", "準備中", "満員", "開催中", "決勝中", "終了"];
   const [open, setOpen] = useState(false);
@@ -202,6 +213,9 @@ function StatusChanger({ tournamentId, currentStatus }: { tournamentId: string; 
   );
 }
 
+/* ==============================
+   Overview Tab
+   ============================== */
 function OverviewTab({ tournament: t, entries, checkIns, expenses }: { tournament: Tournament; entries: Entry[]; checkIns: CheckIn[]; expenses: Expense[] }) {
   const revenue = (t.entryFee || 0) * entries.length;
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -250,72 +264,236 @@ function OverviewTab({ tournament: t, entries, checkIns, expenses }: { tournamen
   );
 }
 
+/* ==============================
+   Entries Tab (with CSV Import)
+   ============================== */
 function EntriesTab({ entries, tournamentId }: { entries: Entry[]; tournamentId: string }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [csvPreview, setCsvPreview] = useState<{ teamName: string; members: string[] }[] | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [csvMsg, setCsvMsg] = useState("");
+
+  const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (!text) return;
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) { setCsvMsg("CSVファイルが空です"); return; }
+      // Skip header if it looks like one
+      let startIdx = 0;
+      const first = lines[0].toLowerCase();
+      if (first.includes("チーム") || first.includes("team") || first.includes("名前")) startIdx = 1;
+      const teams: { teamName: string; members: string[] }[] = [];
+      for (let i = startIdx; i < lines.length; i++) {
+        const cols = lines[i].split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+        if (!cols[0]) continue;
+        teams.push({ teamName: cols[0], members: cols.slice(1).filter(Boolean) });
+      }
+      if (teams.length === 0) { setCsvMsg("有効なチームデータがありません"); return; }
+      setCsvPreview(teams);
+      setCsvMsg("");
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  };
+
+  const importCsv = async () => {
+    if (!csvPreview) return;
+    setImporting(true);
+    try {
+      const batch = writeBatch(db);
+      for (const team of csvPreview) {
+        const entryRef = doc(collection(db, "tournaments", tournamentId, "entries"));
+        const memberNames: Record<string, string> = {};
+        team.members.forEach((m, i) => { memberNames[`p${i + 1}`] = m; });
+        batch.set(entryRef, {
+          teamId: entryRef.id,
+          teamName: team.teamName,
+          leaderName: team.members[0] || "",
+          memberCount: team.members.length,
+          memberNames,
+          enteredBy: "csv_import",
+          createdAt: Timestamp.now(),
+        });
+      }
+      await batch.commit();
+      setCsvPreview(null);
+      setCsvMsg(`${csvPreview.length}チームをインポートしました`);
+      setTimeout(() => setCsvMsg(""), 4000);
+    } catch (e) {
+      console.error("CSV import failed:", e);
+      setCsvMsg("インポートに失敗しました");
+    }
+    setImporting(false);
+  };
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <div className="section-header-navy px-5 py-4 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-          <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584" /></svg>
-          エントリー一覧 ({entries.length}チーム)
-        </h3>
-      </div>
-      {entries.length === 0 ? (
-        <div className="text-center py-16 text-muted text-sm">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gray-100 flex items-center justify-center">
-            <svg className="w-6 h-6 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72" /></svg>
+    <div className="space-y-4">
+      {/* CSV Import Section */}
+      <div className="card-accent-left p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+              CSV一括登録
+            </h3>
+            <p className="text-xs text-muted mt-1">CSVフォーマット: チーム名, 選手1, 選手2, ...</p>
           </div>
-          まだエントリーがありません
+          <div className="flex gap-2">
+            <input ref={fileRef} type="file" accept=".csv" onChange={handleCsvFile} className="hidden" />
+            <button onClick={() => fileRef.current?.click()} className="btn-secondary text-xs px-4 py-2">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+              CSVファイルを選択
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="divide-y divide-gray-100">
-          {entries.map((e, i) => (
-            <div key={e.teamId || i} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50 transition-colors">
-              <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{i + 1}</span>
-              <div className="flex-1"><span className="text-sm font-semibold text-foreground">{e.teamName}</span></div>
+        {csvMsg && (
+          <div className={`mt-3 text-sm font-medium ${csvMsg.includes("失敗") || csvMsg.includes("空") || csvMsg.includes("有効") ? "text-error" : "text-success"}`}>{csvMsg}</div>
+        )}
+      </div>
+
+      {/* CSV Preview Modal */}
+      {csvPreview && (
+        <div className="bg-white rounded-2xl border-2 border-accent p-5 animate-scale-in">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="section-title text-sm">インポート確認 ({csvPreview.length}チーム)</h3>
+            <div className="flex gap-2">
+              <button onClick={() => setCsvPreview(null)} className="btn-secondary text-xs px-4 py-2">キャンセル</button>
+              <button onClick={importCsv} disabled={importing} className="btn-accent text-xs px-4 py-2">
+                {importing ? <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> インポート中...</> : "インポート実行"}
+              </button>
             </div>
-          ))}
+          </div>
+          <div className="max-h-60 overflow-y-auto rounded-xl border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr><th className="px-4 py-2 text-left text-xs font-bold text-muted">チーム名</th><th className="px-4 py-2 text-left text-xs font-bold text-muted">メンバー</th></tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {csvPreview.map((t, i) => (
+                  <tr key={i} className="hover:bg-gray-50"><td className="px-4 py-2.5 font-medium">{t.teamName}</td><td className="px-4 py-2.5 text-muted">{t.members.join(", ") || "-"}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      {/* Entry List */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="section-header-navy px-5 py-4 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584" /></svg>
+            エントリー一覧 ({entries.length}チーム)
+          </h3>
+        </div>
+        {entries.length === 0 ? (
+          <div className="text-center py-16 text-muted text-sm">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gray-100 flex items-center justify-center">
+              <svg className="w-6 h-6 text-hint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72" /></svg>
+            </div>
+            まだエントリーがありません
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {entries.map((e, i) => (
+              <div key={e.teamId || i} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50 transition-colors">
+                <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">{i + 1}</span>
+                <div className="flex-1"><span className="text-sm font-semibold text-foreground">{e.teamName}</span></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+/* ==============================
+   Scores Tab - Court-based table with inline editing
+   ============================== */
 function ScoresTab({ matches, roundIds, selectedRound, onSelectRound, tournamentId }: {
   matches: Match[]; roundIds: string[]; selectedRound: string; onSelectRound: (id: string) => void; tournamentId: string;
 }) {
-  const [editingMatch, setEditingMatch] = useState<string | null>(null);
-  const [scores, setScores] = useState<Record<string, { sets: { a: number; b: number }[] }>>({});
+  const [editScores, setEditScores] = useState<Record<string, { a: number; b: number }[]>>({});
+  const [saving, setSaving] = useState<string | null>(null);
 
-  const handleScoreChange = (matchId: string, setIndex: number, team: "a" | "b", value: number) => {
-    setScores((prev) => {
-      const match = matches.find((m) => m.id === matchId);
-      const current = prev[matchId] || { sets: match?.sets?.map((s) => ({ ...s })) || [] };
-      const sets = [...current.sets];
-      if (!sets[setIndex]) sets[setIndex] = { a: 0, b: 0 };
-      sets[setIndex] = { ...sets[setIndex], [team]: value };
-      return { ...prev, [matchId]: { sets } };
+  // Group matches by court
+  const courtGroups = new Map<string, Match[]>();
+  for (const m of matches) {
+    const cid = m.courtId || "unknown";
+    if (!courtGroups.has(cid)) courtGroups.set(cid, []);
+    courtGroups.get(cid)!.push(m);
+  }
+  const sortedCourts = Array.from(courtGroups.entries()).sort(([a], [b]) => a.localeCompare(b));
+
+  const getEditSets = (m: Match) => editScores[m.id] || m.sets || [];
+
+  const handleChange = (matchId: string, setIdx: number, team: "a" | "b", val: number, originalSets: { a: number; b: number }[]) => {
+    setEditScores((prev) => {
+      const current = prev[matchId] || originalSets.map((s) => ({ ...s }));
+      const sets = [...current];
+      if (!sets[setIdx]) sets[setIdx] = { a: 0, b: 0 };
+      sets[setIdx] = { ...sets[setIdx], [team]: val };
+      return { ...prev, [matchId]: sets };
     });
   };
 
-  const saveScore = async (matchId: string) => {
-    const data = scores[matchId];
-    if (!data) return;
-    const matchRef = doc(db, "tournaments", tournamentId, "rounds", selectedRound, "matches", matchId);
-    await updateDoc(matchRef, { sets: data.sets });
-    setEditingMatch(null);
+  const saveMatch = async (matchId: string) => {
+    const sets = editScores[matchId];
+    if (!sets) return;
+    setSaving(matchId);
+    try {
+      const matchRef = doc(db, "tournaments", tournamentId, "rounds", selectedRound, "matches", matchId);
+      await updateDoc(matchRef, { sets });
+      setEditScores((prev) => { const next = { ...prev }; delete next[matchId]; return next; });
+    } catch (e) { console.error("Save failed:", e); }
+    setSaving(null);
   };
 
+  const saveAll = async () => {
+    const ids = Object.keys(editScores);
+    if (ids.length === 0) return;
+    setSaving("all");
+    try {
+      const batch = writeBatch(db);
+      for (const matchId of ids) {
+        const matchRef = doc(db, "tournaments", tournamentId, "rounds", selectedRound, "matches", matchId);
+        batch.update(matchRef, { sets: editScores[matchId] });
+      }
+      await batch.commit();
+      setEditScores({});
+    } catch (e) { console.error("Batch save failed:", e); }
+    setSaving(null);
+  };
+
+  const hasChanges = Object.keys(editScores).length > 0;
+
   return (
-    <div>
-      {roundIds.length > 0 && (
-        <div className="flex gap-2 mb-4">
-          {roundIds.map((rid) => (
-            <button key={rid} onClick={() => onSelectRound(rid)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${selectedRound === rid ? "bg-primary text-white shadow-sm" : "bg-white text-muted border border-gray-200 hover:bg-gray-100"}`}
-            >予選{rid.replace("round_", "")}</button>
-          ))}
-        </div>
-      )}
+    <div className="space-y-4">
+      {/* Round selector + Save all */}
+      <div className="flex items-center justify-between">
+        {roundIds.length > 0 && (
+          <div className="flex gap-2">
+            {roundIds.map((rid) => (
+              <button key={rid} onClick={() => onSelectRound(rid)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${selectedRound === rid ? "bg-primary text-white shadow-sm" : "bg-white text-muted border border-gray-200 hover:bg-gray-100"}`}
+              >予選{rid.replace("round_", "")}</button>
+            ))}
+          </div>
+        )}
+        {hasChanges && (
+          <button onClick={saveAll} disabled={saving === "all"} className="btn-accent text-sm px-5 py-2">
+            {saving === "all" ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 保存中...</> : (
+              <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> すべて保存 ({Object.keys(editScores).length}件)</>
+            )}
+          </button>
+        )}
+      </div>
+
       {matches.length === 0 ? (
         <div className="text-center py-16 text-muted bg-white rounded-2xl border border-gray-200">
           <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gray-100 flex items-center justify-center">
@@ -324,53 +502,74 @@ function ScoresTab({ matches, roundIds, selectedRound, onSelectRound, tournament
           対戦表がまだ生成されていません
         </div>
       ) : (
-        <div className="space-y-3">
-          {matches.map((m) => {
-            const isEditing = editingMatch === m.id;
-            const editSets = scores[m.id]?.sets || m.sets || [];
+        <div className="space-y-6">
+          {sortedCourts.map(([courtId, courtMatches]) => {
+            const label = courtLabels[courtId] ?? courtId;
+            const color = courtColors[courtId] ?? "var(--primary)";
             return (
-              <div key={m.id} className={`bg-white rounded-2xl border ${isEditing ? "border-primary ring-2 ring-primary/10" : "border-gray-200"} p-5 transition-all`}>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-muted flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">{m.courtId?.replace("court_", "").toUpperCase()}</span>
-                    コート 第{m.matchOrder}試合
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${m.status === "completed" ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-100 text-gray-600"}`}>
-                      {m.status === "completed" ? "完了" : "未完了"}
-                    </span>
-                    {!isEditing ? (
-                      <button onClick={() => { setEditingMatch(m.id); if (!scores[m.id]) setScores((prev) => ({ ...prev, [m.id]: { sets: m.sets?.map((s) => ({ ...s })) || [] } })); }}
-                        className="text-xs text-primary hover:underline font-medium flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
-                        編集
-                      </button>
-                    ) : (
-                      <button onClick={() => saveScore(m.id)} className="text-xs bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary-dark font-medium transition-colors">保存</button>
-                    )}
-                  </div>
+              <div key={courtId} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                {/* Court header */}
+                <div className="px-5 py-3 flex items-center gap-3 border-b border-gray-100" style={{ background: `linear-gradient(135deg, ${color}08, ${color}02)` }}>
+                  <span className="w-8 h-8 rounded-lg text-white text-xs font-bold flex items-center justify-center" style={{ background: color }}>{label}</span>
+                  <span className="text-sm font-bold text-foreground">{label}コート</span>
+                  <span className="text-xs text-muted">{courtMatches.length}試合</span>
                 </div>
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
-                  <span className="text-sm font-bold text-foreground truncate">{m.teamAName}</span>
-                  <div className="flex gap-2">
-                    {editSets.map((s, si) => (
-                      <div key={si} className="text-center">
-                        <div className="text-[10px] text-muted mb-1 font-medium">S{si + 1}</div>
-                        {isEditing ? (
-                          <div className="flex gap-1">
-                            <input type="number" value={s.a} onChange={(e) => handleScoreChange(m.id, si, "a", parseInt(e.target.value) || 0)}
-                              className="w-10 text-center border border-gray-300 rounded-lg text-sm py-1 focus:border-primary focus:ring-2 focus:ring-primary/10" min={0} />
-                            <span className="text-muted self-center">-</span>
-                            <input type="number" value={s.b} onChange={(e) => handleScoreChange(m.id, si, "b", parseInt(e.target.value) || 0)}
-                              className="w-10 text-center border border-gray-300 rounded-lg text-sm py-1 focus:border-primary focus:ring-2 focus:ring-primary/10" min={0} />
-                          </div>
-                        ) : (
-                          <span className="text-sm font-bold">{s.a} - {s.b}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <span className="text-sm font-bold text-foreground truncate text-right">{m.teamBName}</span>
+                {/* Score table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-muted border-b border-gray-100 bg-gray-50/50">
+                        <th className="px-4 py-2.5 text-center w-12">#</th>
+                        <th className="px-4 py-2.5 text-right w-[25%]">チームA</th>
+                        <th className="px-2 py-2.5 text-center" colSpan={2}>スコア</th>
+                        <th className="px-4 py-2.5 text-left w-[25%]">チームB</th>
+                        <th className="px-4 py-2.5 text-center w-16">状態</th>
+                        <th className="px-4 py-2.5 text-center w-20"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {courtMatches.sort((a, b) => (a.matchOrder ?? 0) - (b.matchOrder ?? 0)).map((m) => {
+                        const sets = getEditSets(m);
+                        const isEdited = !!editScores[m.id];
+                        const isSaving = saving === m.id;
+                        return (
+                          <tr key={m.id} className={`transition-colors ${isEdited ? "bg-accent/5" : "hover:bg-gray-50"}`}>
+                            <td className="px-4 py-3 text-center text-xs font-bold text-muted">{m.matchOrder}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-foreground truncate">{m.teamAName}</td>
+                            <td className="py-3 text-center" colSpan={2}>
+                              <div className="flex items-center justify-center gap-1.5">
+                                {sets.map((s, si) => (
+                                  <div key={si} className="flex items-center gap-0.5">
+                                    {si > 0 && <span className="text-gray-300 mx-0.5">|</span>}
+                                    <input type="number" value={s.a} min={0} max={99}
+                                      onChange={(e) => handleChange(m.id, si, "a", parseInt(e.target.value) || 0, m.sets || [])}
+                                      className="w-10 h-8 text-center text-sm font-bold border border-gray-200 rounded-md focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white" />
+                                    <span className="text-xs text-hint font-bold">-</span>
+                                    <input type="number" value={s.b} min={0} max={99}
+                                      onChange={(e) => handleChange(m.id, si, "b", parseInt(e.target.value) || 0, m.sets || [])}
+                                      className="w-10 h-8 text-center text-sm font-bold border border-gray-200 rounded-md focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white" />
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-foreground truncate">{m.teamBName}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${m.status === "completed" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                {m.status === "completed" ? "完了" : "未完了"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {isEdited && (
+                                <button onClick={() => saveMatch(m.id)} disabled={!!isSaving} className="text-xs text-white bg-primary px-3 py-1 rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                                  {isSaving ? "..." : "保存"}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             );
@@ -381,6 +580,9 @@ function ScoresTab({ matches, roundIds, selectedRound, onSelectRound, tournament
   );
 }
 
+/* ==============================
+   CheckIn Tab
+   ============================== */
 function CheckInTab({ entries, checkIns, tournamentId }: { entries: Entry[]; checkIns: CheckIn[]; tournamentId: string }) {
   const checkedTeamIds = new Set(checkIns.map((c) => c.teamId));
   const progress = entries.length > 0 ? (checkIns.length / entries.length) * 100 : 0;
@@ -439,6 +641,9 @@ function CheckInTab({ entries, checkIns, tournamentId }: { entries: Entry[]; che
   );
 }
 
+/* ==============================
+   Finance Tab
+   ============================== */
 function FinanceTab({ tournament, entries, expenses, tournamentId }: { tournament: Tournament; entries: Entry[]; expenses: Expense[]; tournamentId: string }) {
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
@@ -527,6 +732,9 @@ function FinanceTab({ tournament, entries, expenses, tournamentId }: { tournamen
   );
 }
 
+/* ==============================
+   Settings Tab
+   ============================== */
 function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tournamentId: string }) {
   const [title, setTitle] = useState(tournament.title);
   const [date, setDate] = useState(tournament.date || "");
@@ -568,10 +776,7 @@ function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tou
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 max-w-[700px]">
-      <h3 className="text-sm font-bold text-foreground mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
-        <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281" /></svg>
-        大会設定を編集
-      </h3>
+      <h3 className="section-title text-sm mb-4 pb-3 border-b border-gray-100">大会設定を編集</h3>
       {message && (
         <div className={`mb-4 p-3 text-sm rounded-xl flex items-center gap-2 ${message === "保存しました" ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"}`}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -628,18 +833,15 @@ function SettingsTab({ tournament, tournamentId }: { tournament: Tournament; tou
           <label className="block text-sm font-medium text-foreground mb-1.5">大会種別</label>
           <select value={type} onChange={(e) => setType(e.target.value)} className="input-field bg-white">
             <option value="">選択してください</option>
-            <option value="男子">男子</option>
-            <option value="女子">女子</option>
+            <option value="メンズ">メンズ</option>
+            <option value="レディース">レディース</option>
             <option value="混合">混合</option>
             <option value="ミックス">ミックス</option>
           </select>
         </div>
         <button onClick={handleSave} disabled={saving} className="btn-primary">
           {saving ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              保存中...
-            </>
+            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 保存中...</>
           ) : "変更を保存"}
         </button>
       </div>
