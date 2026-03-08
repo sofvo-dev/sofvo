@@ -5,12 +5,12 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Standing } from "@/types/firestore";
 
-const courtLabels: Record<string, string> = {
-  court_a: "A",
-  court_b: "B",
-  court_c: "C",
-  court_d: "D",
-};
+/** court_1 → "A", court_2 → "B", ... */
+function getCourtLabel(courtId: string): string {
+  const num = parseInt(courtId.replace(/\D/g, ""), 10);
+  if (isNaN(num) || num < 1) return courtId;
+  return String.fromCharCode(64 + num);
+}
 
 const rankBadge: Record<number, string> = {
   1: "bg-yellow-400 text-yellow-900",
@@ -28,7 +28,7 @@ function StandingsTable({
   const sorted = [...standings].sort(
     (a, b) => (a.rank || 99) - (b.rank || 99)
   );
-  const label = courtLabels[courtId] ?? courtId;
+  const label = getCourtLabel(courtId);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
