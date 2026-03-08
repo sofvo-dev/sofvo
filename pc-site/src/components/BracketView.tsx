@@ -57,89 +57,72 @@ const ROUND_ORDER = [
 
 function BracketMatchCard({ match }: { match: BracketMatchData }) {
   const isCompleted = match.status === "completed";
-  const isWaiting = match.status === "waiting";
+  const isWaiting = !match.teamAId && !match.teamBId;
   const winnerIsA = match.result?.winner === match.teamAId;
   const winnerIsB = match.result?.winner === match.teamBId;
 
+  const teamRow = (
+    name: string | undefined,
+    teamId: string | undefined,
+    sets: { a: number; b: number }[] | undefined,
+    side: "a" | "b",
+    isWinner: boolean,
+  ) => {
+    const isEmpty = !teamId;
+    const displayName = name || (isEmpty ? (match.label ? match.label : "TBD") : "TBD");
+    const setsWon = match.result ? (side === "a" ? match.result.setsA : match.result.setsB) : null;
+
+    return (
+      <div className={`flex items-center px-3 py-2 ${isCompleted && isWinner ? "bg-[#0F2440]/5" : ""}`}>
+        {/* Winner indicator */}
+        <div className="w-1 h-5 mr-2 rounded-full" style={{ background: isCompleted && isWinner ? "#C4A962" : "transparent" }} />
+        {/* Team name */}
+        <span className={`text-sm flex-1 truncate ${
+          isEmpty ? "text-gray-300 italic text-xs" :
+          isCompleted && isWinner ? "font-bold text-[#0F2440]" :
+          isCompleted && !isWinner ? "text-gray-400" :
+          "text-foreground font-medium"
+        }`}>
+          {displayName}
+        </span>
+        {/* Set scores */}
+        {sets && sets.length > 0 && !isEmpty && (
+          <div className="flex items-center gap-1 ml-2">
+            {sets.map((s, i) => {
+              const score = side === "a" ? s.a : s.b;
+              const opponentScore = side === "a" ? s.b : s.a;
+              return (
+                <span key={i} className={`text-xs font-bold w-5 text-center ${
+                  score > opponentScore ? "text-[#0F2440]" : "text-gray-400"
+                }`}>
+                  {score}
+                </span>
+              );
+            })}
+            {setsWon !== null && (
+              <span className={`text-xs font-bold w-5 text-center border-l border-gray-200 pl-1 ${isWinner ? "text-[#C4A962]" : "text-gray-400"}`}>
+                {setsWon}
+              </span>
+            )}
+          </div>
+        )}
+        {/* Waiting badge */}
+        {isWaiting && (
+          <span className="text-[10px] text-gray-300 ml-auto">待機中</span>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div
-      className={`bg-white rounded-lg border w-72 overflow-hidden ${
-        isWaiting ? "border-gray-100 opacity-60" : "border-gray-200"
-      }`}
-    >
-      {/* チームA */}
-      <div
-        className={`flex items-center justify-between px-3 py-2.5 border-b border-gray-100 ${
-          isCompleted && winnerIsA ? "bg-blue-50" : ""
-        }`}
-      >
-        <span
-          className={`text-sm truncate max-w-[60%] ${
-            isCompleted && winnerIsA
-              ? "font-bold text-blue-700"
-              : isWaiting && !match.teamAId
-              ? "text-gray-400 italic"
-              : "text-foreground"
-          }`}
-        >
-          {match.teamAName || "TBD"}
-        </span>
-        <div className="flex items-center gap-2">
-          {match.sets?.map((s, i) => (
-            <span
-              key={i}
-              className={`text-sm font-bold w-6 text-center ${
-                s.a > s.b ? "text-blue-600" : "text-gray-500"
-              }`}
-            >
-              {s.a}
-            </span>
-          ))}
-          {isCompleted && match.result && (
-            <span className="text-sm font-bold text-foreground border-l border-gray-200 pl-2 w-6 text-center">
-              {match.result.setsA}
-            </span>
-          )}
-          {isWaiting && (
-            <span className="text-xs text-gray-400">待機中</span>
-          )}
-        </div>
-      </div>
-      {/* チームB */}
-      <div
-        className={`flex items-center justify-between px-3 py-2.5 ${
-          isCompleted && winnerIsB ? "bg-red-50" : ""
-        }`}
-      >
-        <span
-          className={`text-sm truncate max-w-[60%] ${
-            isCompleted && winnerIsB
-              ? "font-bold text-red-700"
-              : isWaiting && !match.teamBId
-              ? "text-gray-400 italic"
-              : "text-foreground"
-          }`}
-        >
-          {match.teamBName || "TBD"}
-        </span>
-        <div className="flex items-center gap-2">
-          {match.sets?.map((s, i) => (
-            <span
-              key={i}
-              className={`text-sm font-bold w-6 text-center ${
-                s.b > s.a ? "text-red-600" : "text-gray-500"
-              }`}
-            >
-              {s.b}
-            </span>
-          ))}
-          {isCompleted && match.result && (
-            <span className="text-sm font-bold text-foreground border-l border-gray-200 pl-2 w-6 text-center">
-              {match.result.setsB}
-            </span>
-          )}
-        </div>
-      </div>
+    <div className={`rounded-xl border overflow-hidden w-64 ${
+      isCompleted ? "border-gray-200 bg-white" :
+      isWaiting ? "border-dashed border-gray-200 bg-gray-50/50" :
+      "border-gray-200 bg-white"
+    }`}>
+      {teamRow(match.teamAName, match.teamAId, match.sets, "a", winnerIsA)}
+      <div className="border-t border-gray-100" />
+      {teamRow(match.teamBName, match.teamBId, match.sets, "b", winnerIsB)}
     </div>
   );
 }
@@ -269,36 +252,43 @@ export default function BracketView({ tournamentId }: BracketViewProps) {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {brackets.map((bracket) => {
         const roundGroups = groupByRound(bracket.matches);
+        const completedCount = bracket.matches.filter(m => m.status === "completed").length;
+        const totalCount = bracket.matches.length;
 
         return (
-          <div key={bracket.id} className="space-y-4">
-            {/* Bracket header: リーグ名 + 順位範囲 */}
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-bold text-foreground">
+          <div key={bracket.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            {/* Bracket header */}
+            <div className="gradient-navy px-5 py-3 flex items-center gap-3">
+              <svg className="w-4 h-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-4.5A3.375 3.375 0 0012.75 10.5h-.75m-6 8.25a3 3 0 01-3-3V6.75m0 0A2.25 2.25 0 015.25 4.5h13.5A2.25 2.25 0 0121 6.75m-18 0v10.5" /></svg>
+              <h3 className="text-sm font-bold text-white">
                 {bracket.bracketName
                   ? `${bracket.bracketName}リーグ`
                   : bracket.id}
               </h3>
               {bracket.rankRange && (
-                <span className="text-sm text-muted bg-gray-100 px-2 py-0.5 rounded">
+                <span className="text-xs text-white/50 bg-white/10 px-2 py-0.5 rounded">
                   {bracket.rankRange}
                 </span>
               )}
               {bracket.teamCount && (
-                <span className="text-sm text-muted">
+                <span className="text-xs text-white/50">
                   {bracket.teamCount}チーム
                 </span>
               )}
+              <span className="text-xs text-white/40 ml-auto">
+                {completedCount}/{totalCount} 完了
+              </span>
             </div>
 
-            {/* Matches grouped by round */}
-            <div className="space-y-4">
+            {/* Rounds */}
+            <div className="p-4 space-y-4">
               {roundGroups.map((group) => (
                 <div key={group.round}>
-                  <h4 className="text-sm font-semibold text-muted mb-2 border-b border-gray-100 pb-1">
+                  <h4 className="text-xs font-bold text-muted mb-2 flex items-center gap-2">
+                    <span className="w-1 h-3 rounded-full bg-[#C4A962]" />
                     {group.label}
                   </h4>
                   <div className="flex flex-wrap gap-3">
