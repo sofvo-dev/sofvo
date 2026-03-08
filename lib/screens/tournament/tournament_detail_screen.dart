@@ -1090,7 +1090,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 ...roundsSnap.data!.docs.map((roundDoc) {
                   final roundData = roundDoc.data() as Map<String, dynamic>;
                   final roundNum = roundData['roundNumber'] ?? 1;
-                  return _buildRoundSection(roundDoc.id, roundNum, isOrganizer, defaultCollapsed: collapseRounds);
+                  return _buildRoundSection(roundDoc.id, roundNum, isOrganizer, defaultCollapsed: collapseRounds, tournamentStatus: status);
                 }),
 
                 // Show brackets if exist (自分のリーグ優先表示)
@@ -1116,7 +1116,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       allBrackets: allBrackets,
                       isOrganizer: isOrganizer,
                       status: status,
-                      buildBracketSection: (id, data) => _buildBracketSection(id, data, isOrganizer),
+                      buildBracketSection: (id, data) => _buildBracketSection(id, data, isOrganizer, status),
                       onEndTournament: _showEndTournamentDialog,
                     );
                   },
@@ -2902,7 +2902,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildRoundSection(String roundId, int roundNum, bool isOrganizer, {bool defaultCollapsed = false}) {
+  Widget _buildRoundSection(String roundId, int roundNum, bool isOrganizer, {bool defaultCollapsed = false, String tournamentStatus = ''}) {
     final isCollapsed = _collapsedRounds[roundNum] ?? defaultCollapsed;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       GestureDetector(
@@ -3049,6 +3049,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           final isNextToInput = !isCompleted && prevDone && isMyMatch;
           return InkWell(
             onTap: () {
+              if (tournamentStatus == '終了') {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("大会は終了しました。得点の変更はできません"), backgroundColor: Colors.orange));
+                return;
+              }
               if (isCompleted && !isOrganizer) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです。編集は大会主催者のみ可能です"), backgroundColor: Colors.orange));
                 return;
@@ -3059,7 +3063,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 return;
               }
               Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId, isOrganizer: isOrganizer)));
+                tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
             },
             child: Container(
             color: isNextToInput ? AppTheme.primaryColor.withValues(alpha: 0.06) : null,
@@ -3182,7 +3186,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildBracketSection(String bracketId, Map<String, dynamic> bData, bool isOrganizer) {
+  Widget _buildBracketSection(String bracketId, Map<String, dynamic> bData, bool isOrganizer, String tournamentStatus) {
     final rankRange = bData['rankRange'] as String? ?? '';
     final isMyLeague = _isMyBracket(bData);
     // 自分のリーグ以外はデフォルト折りたたみ（予選と同じ）
@@ -3335,6 +3339,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
                   return InkWell(
                     onTap: () {
+                      if (tournamentStatus == '終了') {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("大会は終了しました。得点の変更はできません"), backgroundColor: Colors.orange));
+                        return;
+                      }
                       if (status == 'waiting') return;
                       if (isCompleted && !isOrganizer) {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです"), backgroundColor: Colors.orange));
@@ -3342,7 +3350,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       }
                       if (!canInput) return;
                       Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
-                        tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId, isOrganizer: isOrganizer)));
+                        tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
                     },
                     child: Container(
                       color: isNextToInput ? Colors.amber.withValues(alpha: 0.06) : null,

@@ -10,6 +10,7 @@ class ScoreInputScreen extends StatefulWidget {
   final bool isBracket;
   final String? bracketId;
   final bool isOrganizer;
+  final String tournamentStatus;
 
   const ScoreInputScreen({
     super.key,
@@ -19,6 +20,7 @@ class ScoreInputScreen extends StatefulWidget {
     this.isBracket = false,
     this.bracketId,
     this.isOrganizer = false,
+    this.tournamentStatus = '',
   });
 
   @override
@@ -146,7 +148,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       _refereeConfirmed = matchData['refereeConfirmed'] ?? false;
       _coachAConfirmed = matchData['confirmedByA'] ?? false;
       _coachBConfirmed = matchData['confirmedByB'] ?? false;
-      _readOnly = isAlreadyCompleted && !widget.isOrganizer;
+      _readOnly = widget.tournamentStatus == '終了' || (isAlreadyCompleted && !widget.isOrganizer);
     });
 
     _checkMatchEnd();
@@ -310,11 +312,14 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
               ),
-              child: const Row(children: [
-                Icon(Icons.lock, size: 18, color: Colors.orange),
-                SizedBox(width: 8),
-                Expanded(child: Text('この試合は確定済みです。編集は大会運営者のみ可能です',
-                    style: TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w600))),
+              child: Row(children: [
+                const Icon(Icons.lock, size: 18, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(child: Text(
+                    widget.tournamentStatus == '終了'
+                        ? '大会は終了しました。得点の変更はできません'
+                        : 'この試合は確定済みです。編集は大会運営者のみ可能です',
+                    style: const TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w600))),
               ]),
             ),
 
