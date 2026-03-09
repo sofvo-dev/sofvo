@@ -508,11 +508,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 child: Row(
                   children: [
                     Expanded(child: _buildDashboardStat(Icons.calendar_today_rounded, '$seasonPoints', 'シーズンPt', AppTheme.accentColor)),
-                    Container(width: 1, height: 60, color: Colors.grey[200]),
+                    Container(width: 1, height: 36, color: Colors.grey[200]),
                     Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.textSecondary)),
-                    Container(width: 1, height: 60, color: Colors.grey[200]),
+                    Container(width: 1, height: 36, color: Colors.grey[200]),
                     Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
-                    Container(width: 1, height: 60, color: Colors.grey[200]),
+                    Container(width: 1, height: 36, color: Colors.grey[200]),
                     Expanded(child: _buildDashboardStat(Icons.military_tech_rounded, '$championships', '優勝', AppTheme.warning)),
                   ],
                 ),
@@ -595,11 +595,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildDashboardStat(IconData icon, String value, String label, Color color) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 32),
-        const SizedBox(height: 6),
-        Text(value, style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: color, height: 1.1)),
-        const SizedBox(height: 5),
-        Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color, height: 1.1)),
+        const SizedBox(height: 3),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
       ],
     );
   }
