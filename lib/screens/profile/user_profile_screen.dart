@@ -667,13 +667,14 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
     // エントリーした大会を検索
     final allTournaments = await firestore
         .collection('tournaments')
-        .where('status', isEqualTo: '終了')
         .orderBy('date', descending: true)
         .limit(100)
         .get();
 
     for (final doc in allTournaments.docs) {
       if (resultMap.containsKey(doc.id)) continue;
+      final data = doc.data();
+      if (data['status'] != '終了') continue;
       final entries = await firestore
           .collection('tournaments')
           .doc(doc.id)
@@ -682,7 +683,6 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           .limit(1)
           .get();
       if (entries.docs.isNotEmpty) {
-        final data = doc.data();
         data['id'] = doc.id;
         resultMap[doc.id] = data;
       }
