@@ -300,6 +300,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ? '${rawArea['prefecture'] ?? ''}${rawArea['city'] ?? ''}'
             : '';
     final experience = _safeString(_userData['experience']);
+    final seasonPoints = _safeInt(_userData['seasonPoints']);
     final totalPoints = _safeInt(_userData['totalPoints']);
     final stats = _userData['stats'] is Map<String, dynamic>
         ? _userData['stats'] as Map<String, dynamic>
@@ -506,7 +507,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.accentColor)),
+                    Expanded(child: _buildDashboardStat(Icons.calendar_today_rounded, '$seasonPoints', 'シーズンPt', AppTheme.accentColor)),
+                    Container(width: 1, height: 60, color: Colors.grey[200]),
+                    Expanded(child: _buildDashboardStat(Icons.star_rounded, '$totalPoints', '通算Pt', AppTheme.textSecondary)),
                     Container(width: 1, height: 60, color: Colors.grey[200]),
                     Expanded(child: _buildDashboardStat(Icons.emoji_events_rounded, '$tournamentsPlayed', '大会参加', AppTheme.primaryColor)),
                     Container(width: 1, height: 60, color: Colors.grey[200]),
