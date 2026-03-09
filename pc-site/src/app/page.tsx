@@ -77,16 +77,6 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Link href="/tournaments" className="inline-flex items-center gap-2 px-4 py-2 bg-white text-primary rounded-xl text-sm font-semibold hover:bg-white/90 transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-                  大会を探す
-                </Link>
-                <Link href="/tournaments/create" className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-[#B89B52] transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                  大会を作成
-                </Link>
-              </div>
             </div>
           </div>
 
