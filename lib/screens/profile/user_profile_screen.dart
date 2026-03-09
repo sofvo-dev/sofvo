@@ -337,12 +337,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             onPressed: () => Navigator.pop(context),
                             icon: const Icon(Icons.arrow_back, size: 22, color: Colors.white),
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(nickname,
-                                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
-                                overflow: TextOverflow.ellipsis),
-                          ),
+                          const Spacer(),
                           if (!_isMyProfile)
                             IconButton(
                               constraints: const BoxConstraints(),
