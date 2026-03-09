@@ -15,7 +15,6 @@ import 'package:file_picker/file_picker.dart';
 import 'score_input_screen.dart';
 import 'post_event_action_screen.dart';
 import 'checkin_screen.dart';
-import 'mvp_voting_screen.dart';
 import 'tournament_finance_screen.dart';
 import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
@@ -23,7 +22,6 @@ import '../../services/csv_download.dart';
 import '../../services/match_generator.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
-import '../home/create_post_screen.dart';
 import 'package:printing/printing.dart';
 import '../chat/chat_screen.dart';
 import '../../services/notification_service.dart';
@@ -800,160 +798,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               }),
             ),
 
-            // ━━━ 結果（終了時のみ） ━━━
-            if (liveStatus == '終了')
-              _buildCard(
-                title: '大会結果',
-                titleIcon: Icons.emoji_events,
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: _firestore.collection('tournaments').doc(_tournamentId)
-                      .collection('brackets').snapshots(),
-                  builder: (context, bracketSnap) {
-                    if (!bracketSnap.hasData || bracketSnap.data!.docs.isEmpty) {
-                      return const Text('順位決定戦のデータがまだありません', style: TextStyle(color: AppTheme.textSecondary));
-                    }
-                    return Column(
-                      children: bracketSnap.data!.docs.map((bDoc) {
-                        return StreamBuilder<QuerySnapshot>(
-                          stream: bDoc.reference.collection('matches')
-                              .where('status', isEqualTo: 'completed').snapshots(),
-                          builder: (context, mSnap) {
-                            if (!mSnap.hasData) return const SizedBox();
-                            final matches = mSnap.data!.docs;
-                            final finalMatch = matches.where((m) {
-                              final round = (m.data() as Map<String, dynamic>)['round'] as String? ?? '';
-                              return round == 'final' || round == 'final_1st';
-                            }).firstOrNull;
-                            if (finalMatch == null) return const Text('順位決定戦が完了していません');
-                            final fm = finalMatch.data() as Map<String, dynamic>;
-                            final result = fm['result'] as Map<String, dynamic>? ?? {};
-                            final winnerId = result['winner'] ?? '';
-                            var champion = winnerId == fm['teamAId'] ? fm['teamAName'] : fm['teamBName'];
-                            var runnerUp = winnerId == fm['teamAId'] ? fm['teamBName'] : fm['teamAName'];
-                            // チーム名がIDの場合、entriesから解決
-                            final idPattern = RegExp(r'^[a-zA-Z0-9]{15,}$');
-                            if (champion is String && idPattern.hasMatch(champion)) {
-                              champion = _entryNameCache[champion] ?? champion;
-                            }
-                            if (runnerUp is String && idPattern.hasMatch(runnerUp)) {
-                              runnerUp = _entryNameCache[runnerUp] ?? runnerUp;
-                            }
-
-                            return Column(children: [
-                              _buildResultRow(Icons.military_tech, '優勝', champion ?? '', Colors.amber),
-                              const SizedBox(height: 8),
-                              _buildResultRow(Icons.star, '準優勝', runnerUp ?? '', AppTheme.primaryColor),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () => Navigator.push(context, MaterialPageRoute(
-                                    builder: (_) => MvpVotingScreen(
-                                      tournamentId: _tournamentId,
-                                      tournamentName: widget.tournament['title'] ?? widget.tournament['name'] ?? '',
-                                    ),
-                                  )),
-                                  icon: const Icon(Icons.how_to_vote, size: 18),
-                                  label: const Text('MVP投票'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.amber[700],
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: () => _shareResult(champion ?? '', runnerUp ?? ''),
-                                  icon: const Icon(Icons.share, size: 18),
-                                  label: const Text('結果をシェア'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    side: const BorderSide(color: AppTheme.primaryColor),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _showImpressionModal(),
-                                  icon: const Icon(Icons.edit, size: 18),
-                                  label: const Text('感想を投稿する'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.accentColor,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
-                              ),
-                            ]);
-                          },
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ),
-
             const SizedBox(height: 100),
           ],
         );
       },
     );
-  }
-
-  void _shareResult(String champion, String runnerUp) {
-    final t = widget.tournament;
-    final text = '${t['name']}\n\n'
-        '優勝: $champion\n'
-        '準優勝: $runnerUp\n\n'
-        '日程: ${t['date']}\n'
-        '会場: ${t['location'] ?? t['venue'] ?? ''}\n\n'
-        '#Sofvo #バレーボール大会';
-
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('結果をコピーしました！SNSに貼り付けてシェアしましょう'),
-        backgroundColor: AppTheme.success,
-      ),
-    );
-  }
-
-  void _showImpressionModal() {
-    final t = widget.tournament;
-    final tournamentName = t['name'] ?? '大会';
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreatePostScreen(
-          tournamentId: _tournamentId,
-          tournamentName: tournamentName,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultRow(IconData icon, String label, String team, Color color) {
-    return Row(children: [
-      Container(
-        width: 40, height: 40,
-        decoration: BoxDecoration(color: color.withValues(alpha:0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color, size: 22),
-      ),
-      const SizedBox(width: 12),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
-        Text(team, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-      ]),
-    ]);
   }
 
   Widget _buildPointRow(String label, dynamic points) {
