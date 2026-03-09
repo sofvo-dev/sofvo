@@ -40,28 +40,28 @@ interface PointHistory {
   createdAt?: unknown;
 }
 
-// Badge SVG icons matching mobile app (flag, trophy, medal, star, diamond, devices, people)
+// Badge SVG icons matching mobile Material Design filled icons
 const badgeSvgs: Record<string, React.ReactNode> = {
-  flag: <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />,
-  trophy: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.52 1.772 6.003 6.003 0 01-4.52-1.772" />,
-  medal: <><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></>,
-  star: <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />,
-  diamond: <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />,
-  devices: <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />,
-  people: <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />,
+  flag: <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z" />,
+  trophy: <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" />,
+  medal: <path d="M17 10.43V2H7v8.43c0 .35.18.68.49.86l4.18 2.51-.99 2.34-3.41.29 2.59 2.24L9.07 22 12 20.23 14.93 22l-.79-3.33 2.59-2.24-3.41-.29-.99-2.34 4.18-2.51c.31-.18.49-.51.49-.86zM13 12.23l-1 .6-1-.6V3h2v9.23z" />,
+  star: <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />,
+  diamond: <path d="M19 3H5L2 9l10 12L22 9l-3-6zm-1.18 5h-3.09l-1.55-3.1L17.64 8zM6.36 8l3.46-3.1L8.27 8H6.36zM12 17.92L7.62 10h8.76L12 17.92z" />,
+  devices: <><path d="M3 6h18V4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4v-2H3V6z" /><path d="M13 12.5h-3v1c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2v-3c0-1.1-.9-2-2-2h-5v4zm7-2.5v3h-6v-3h6z" /><path d="M24 6v11.5c0 .83-.67 1.5-1.5 1.5h-1V6h2.5z" /></>,
+  people: <><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></>,
 };
 
 const BADGE_DEFS = [
-  { id: "first_tournament", name: "初参加", svgKey: "flag", color: "text-green-600", threshold: 1, field: "tournamentsPlayed" as const },
-  { id: "5_tournaments", name: "5大会参加", svgKey: "trophy", color: "text-blue-600", threshold: 5, field: "tournamentsPlayed" as const },
-  { id: "10_tournaments", name: "10大会参加", svgKey: "trophy", color: "text-purple-600", threshold: 10, field: "tournamentsPlayed" as const },
-  { id: "first_champion", name: "初優勝", svgKey: "medal", color: "text-amber-500", threshold: 1, field: "championships" as const },
-  { id: "3_champions", name: "3回優勝", svgKey: "medal", color: "text-amber-600", threshold: 3, field: "championships" as const },
-  { id: "100_pts", name: "100Pt達成", svgKey: "star", color: "text-red-500", threshold: 100, field: "totalPoints" as const },
-  { id: "500_pts", name: "500Pt達成", svgKey: "star", color: "text-amber-500", threshold: 500, field: "totalPoints" as const },
-  { id: "1000_pts", name: "1000Pt達成", svgKey: "diamond", color: "text-cyan-500", threshold: 1000, field: "totalPoints" as const },
-  { id: "5_gadgets", name: "ガジェット5個", svgKey: "devices", color: "text-pink-500", threshold: 5, field: "gadgetCount" as const },
-  { id: "10_followers", name: "フォロワー10", svgKey: "people", color: "text-indigo-500", threshold: 10, field: "followersCount" as const },
+  { id: "first_tournament", name: "初参加", svgKey: "flag", color: "text-[#4CAF50]", threshold: 1, field: "tournamentsPlayed" as const },
+  { id: "5_tournaments", name: "5大会参加", svgKey: "trophy", color: "text-[#2196F3]", threshold: 5, field: "tournamentsPlayed" as const },
+  { id: "10_tournaments", name: "10大会参加", svgKey: "trophy", color: "text-[#9C27B0]", threshold: 10, field: "tournamentsPlayed" as const },
+  { id: "first_champion", name: "初優勝", svgKey: "medal", color: "text-[#FF9800]", threshold: 1, field: "championships" as const },
+  { id: "3_champions", name: "3回優勝", svgKey: "medal", color: "text-[#F44336]", threshold: 3, field: "championships" as const },
+  { id: "100_pts", name: "100Pt達成", svgKey: "star", color: "text-[#FFC107]", threshold: 100, field: "totalPoints" as const },
+  { id: "500_pts", name: "500Pt達成", svgKey: "star", color: "text-[#FF5722]", threshold: 500, field: "totalPoints" as const },
+  { id: "1000_pts", name: "1000Pt達成", svgKey: "diamond", color: "text-[#E91E63]", threshold: 1000, field: "totalPoints" as const },
+  { id: "5_gadgets", name: "ガジェット5個", svgKey: "devices", color: "text-[#00BCD4]", threshold: 5, field: "gadgetCount" as const },
+  { id: "10_followers", name: "フォロワー10", svgKey: "people", color: "text-[#795548]", threshold: 10, field: "followersCount" as const },
 ];
 
 export default function HomePage() {
@@ -175,12 +175,12 @@ export default function HomePage() {
 
             {/* Followers / Following */}
             <div className="flex items-center gap-4 mx-6 mt-3 mb-1">
-              <Link href={`/profile/${user.uid}?tab=followers`} className="flex items-center gap-1.5 hover:opacity-70 transition-opacity">
-                <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+              <Link href={`/follows?uid=${user.uid}&tab=followers`} className="flex items-center gap-1.5 hover:opacity-70 transition-opacity">
+                <svg className="w-4 h-4 text-muted" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
                 <span className="text-sm font-bold text-foreground">{profile.followersCount ?? 0}</span>
                 <span className="text-xs text-muted">フォロワー</span>
               </Link>
-              <Link href={`/profile/${user.uid}?tab=following`} className="flex items-center gap-1.5 hover:opacity-70 transition-opacity">
+              <Link href={`/follows?uid=${user.uid}&tab=following`} className="flex items-center gap-1.5 hover:opacity-70 transition-opacity">
                 <span className="text-sm font-bold text-foreground">{profile.followingCount ?? 0}</span>
                 <span className="text-xs text-muted">フォロー中</span>
               </Link>
@@ -212,7 +212,7 @@ export default function HomePage() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-4.5A3.375 3.375 0 0012.75 10.5h-.75m-6 8.25a3 3 0 01-3-3V6.75m0 0A2.25 2.25 0 015.25 4.5h13.5A2.25 2.25 0 0121 6.75m-18 0v10.5" /></svg>
+                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9.68 13.69L12 11.93l2.31 1.76-.88-2.85L15.75 9H12.91l-.91-2.95L11.09 9H8.25l2.31 1.84-.88 2.85zM20 2H4c-1.1 0-2 .9-2 2v15.59c0 .89 1.08 1.34 1.71.71L6 18h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg>
                   バッジコレクション
                   <span className="text-xs text-muted font-normal">{earnedBadges.length}/{BADGE_DEFS.length}</span>
                 </h2>
@@ -224,7 +224,7 @@ export default function HomePage() {
                   const earned = val >= b.threshold;
                   return (
                     <div key={b.id} className={`flex flex-col items-center gap-1 p-2 rounded-lg ${earned ? "bg-amber-50" : "bg-gray-50 opacity-40"}`}>
-                      <svg className={`w-6 h-6 ${earned ? b.color : "text-gray-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{badgeSvgs[b.svgKey]}</svg>
+                      <svg className={`w-6 h-6 ${earned ? b.color : "text-gray-400"}`} fill="currentColor" viewBox="0 0 24 24">{badgeSvgs[b.svgKey]}</svg>
                       <span className="text-[9px] font-medium text-center leading-tight truncate w-full">{b.name}</span>
                       {!earned && <span className="text-[8px] text-muted">{val}/{b.threshold}</span>}
                     </div>
@@ -237,7 +237,7 @@ export default function HomePage() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>
+                  <svg className="w-4 h-4 text-purple-500" fill="currentColor" viewBox="0 0 24 24"><path d="M3 6h18V4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4v-2H3V6z" /><path d="M13 12.5h-3v1c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2v-3c0-1.1-.9-2-2-2h-5v4zm7-2.5v3h-6v-3h6z" /><path d="M24 6v11.5c0 .83-.67 1.5-1.5 1.5h-1V6h2.5z" /></svg>
                   マイガジェット
                 </h2>
                 <Link href="/gadgets" className="text-xs text-primary font-medium hover:underline">すべて見る</Link>
@@ -272,7 +272,7 @@ export default function HomePage() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
               <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <svg className="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" /></svg>
                   ポイント履歴
                 </h2>
               </div>
@@ -336,7 +336,7 @@ export default function HomePage() {
         <section className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 01-4.52 1.772 6.003 6.003 0 01-4.52-1.772" /></svg>
+              <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" /></svg>
               最近の大会
             </h2>
             <Link href="/tournaments" className="text-xs text-primary font-medium hover:underline">すべて見る</Link>
