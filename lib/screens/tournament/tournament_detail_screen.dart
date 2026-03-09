@@ -547,7 +547,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     _buildPointTableRow(Icons.looks_4_outlined, '4位', '${pointTable['4位']}pt', AppTheme.textSecondary),
                     _buildPointTableRow(Icons.sports_volleyball, '参加', '${pointTable['参加']}pt', AppTheme.textSecondary),
                     const Divider(height: 16),
-                    _buildPointTableRow(Icons.how_to_vote, 'MVP', '+${pointTable['MVP']}pt', AppTheme.accentColor),
                     _buildPointTableRow(Icons.volunteer_activism, '主催者', '+${pointTable['主催者']}pt', AppTheme.success),
                   ],
                 );
@@ -4372,23 +4371,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         border: Border.all(color: isMyTeam ? Colors.red.withValues(alpha:0.3) : Colors.grey[200]!),
                       ),
                       child: Row(children: [
-                        // アバター：チェックイン済みの場合は緑のチェックマーク付き
-                        Stack(
-                          children: [
-                            CircleAvatar(radius: 20, backgroundColor: isMyTeam ? Colors.red.withValues(alpha:0.12) : AppTheme.primaryColor.withValues(alpha:0.12),
-                                child: Text(teamName.toString().isNotEmpty ? teamName.toString()[0] : '?',
-                                    style: TextStyle(color: isMyTeam ? Colors.red : AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16))),
-                            if (isCheckedIn)
-                              Positioned(right: 0, bottom: 0,
-                                child: Container(
-                                  width: 16, height: 16,
-                                  decoration: BoxDecoration(color: AppTheme.success, shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2)),
-                                  child: const Icon(Icons.check, size: 10, color: Colors.white),
-                                ),
-                              ),
-                          ],
-                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

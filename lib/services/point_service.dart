@@ -22,11 +22,6 @@ class PointService {
     return (teamCount * _rankMultiplier(rank)).round();
   }
 
-  /// MVPボーナスを計算
-  static int calculateMvpBonus(int teamCount) {
-    return (teamCount * 0.5).round();
-  }
-
   /// 主催者ボーナスを計算
   static int calculateOrganizerBonus(int teamCount) {
     return (teamCount * 0.3).round();
@@ -48,7 +43,6 @@ class PointService {
       '3位': calculateRankPoints(teamCount, 3),
       '4位': calculateRankPoints(teamCount, 4),
       '参加': calculateRankPoints(teamCount, 5),
-      'MVP': calculateMvpBonus(teamCount),
       '主催者': calculateOrganizerBonus(teamCount),
     };
   }
@@ -204,22 +198,6 @@ class PointService {
       }
     }
 
-    // ━━━ MVP取得 ━━━
-    final mvpVotes = await tournamentRef.collection('mvpVotes').get();
-    final voteCounts = <String, int>{};
-    for (final doc in mvpVotes.docs) {
-      final votedFor = doc.data()['votedFor'] as String?;
-      if (votedFor != null && votedFor.isNotEmpty) {
-        voteCounts[votedFor] = (voteCounts[votedFor] ?? 0) + 1;
-      }
-    }
-    String? mvpUserId;
-    if (voteCounts.isNotEmpty) {
-      mvpUserId = voteCounts.entries
-          .reduce((a, b) => a.value >= b.value ? a : b)
-          .key;
-    }
-
     // ━━━ ポイント計算 & 付与 ━━━
     final batch = _firestore.batch();
     final pointHistoryData = <String, Map<String, dynamic>>{};
@@ -236,11 +214,7 @@ class PointService {
       final rank = teamRanks[teamId] ?? 99;
       final rankPoints = calculateRankPoints(teamCount, rank);
 
-      // MVPボーナス
-      final isMvp = uid == mvpUserId;
-      final mvpBonus = isMvp ? calculateMvpBonus(teamCount) : 0;
-
-      final totalEarned = rankPoints + mvpBonus;
+      final totalEarned = rankPoints;
 
       // ユーザードキュメント更新
       final userRef = _firestore.collection('users').doc(uid);
@@ -249,17 +223,14 @@ class PointService {
         'seasonPoints': FieldValue.increment(totalEarned),
         'stats.tournamentsPlayed': FieldValue.increment(1),
         if (rank == 1) 'stats.championships': FieldValue.increment(1),
-        if (isMvp) 'stats.mvpCount': FieldValue.increment(1),
       });
 
       // ポイント履歴
       pointHistoryData[uid] = {
         'rankPoints': rankPoints,
-        'mvpBonus': mvpBonus,
         'streakBonus': 0,
         'totalEarned': totalEarned,
         'rank': rank <= 4 ? rank : null,
-        'isMvp': isMvp,
       };
 
       // ポイント履歴をユーザーのサブコレクションに保存
@@ -271,11 +242,9 @@ class PointService {
         'teamCount': teamCount,
         'rank': rank <= 4 ? rank : null,
         'rankPoints': rankPoints,
-        'mvpBonus': mvpBonus,
         'streakBonus': 0,
         'organizerBonus': 0,
         'totalEarned': totalEarned,
-        'isMvp': isMvp,
         'season': season,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -306,11 +275,9 @@ class PointService {
           'teamCount': teamCount,
           'rank': null,
           'rankPoints': 0,
-          'mvpBonus': 0,
           'streakBonus': 0,
           'organizerBonus': orgBonus,
           'totalEarned': orgBonus,
-          'isMvp': false,
           'isOrganizer': true,
           'season': season,
           'createdAt': FieldValue.serverTimestamp(),
@@ -421,15 +388,12 @@ class PointService {
       final data = entry.value;
       final totalEarned = data['totalEarned'] as int;
       final rank = data['rank'] as int?;
-      final isMvp = data['isMvp'] as bool? ?? false;
 
-      final parts = <String>[];
+      String detail = '';
       if (rank != null && rank <= 4) {
         final rankNames = {1: '優勝', 2: '準優勝', 3: '3位', 4: '4位'};
-        parts.add('${rankNames[rank]}');
+        detail = '（${rankNames[rank]}）';
       }
-      if (isMvp) parts.add('MVP');
-      final detail = parts.isEmpty ? '' : '（${parts.join('・')}）';
 
       final notifRef = _firestore
           .collection('users').doc(uid)
@@ -512,15 +476,6 @@ class PointService {
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // MVPボーナス
-              _infoSection(
-                icon: Icons.star,
-                color: AppTheme.accentColor,
-                title: 'MVPボーナス',
-                description: '大会MVP投票で最多得票者に追加ポイント\n参加チーム数 × 0.5',
               ),
               const SizedBox(height: 16),
 

@@ -115,7 +115,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           'losses': 0,
           'championships': 0,
           'helperCount': 0,
-          'mvpCount': 0,
         },
         'settings': {
           'helperAvailable': false,
