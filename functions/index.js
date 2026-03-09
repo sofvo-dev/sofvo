@@ -1544,10 +1544,6 @@ function calcRankPoints(teamCount, rank) {
   return Math.round(teamCount * rankMultiplier(rank));
 }
 
-function calcMvpBonus(teamCount) {
-  return Math.round(teamCount * 0.5);
-}
-
 function calcOrganizerBonus(teamCount) {
   return Math.round(teamCount * 0.3);
 }
@@ -1659,19 +1655,6 @@ exports.onTournamentStatusChange = functions.firestore
       }
     }
 
-    // ━━━ MVP取得 ━━━
-    const mvpSnap = await db.collection("tournaments").doc(tournamentId).collection("mvpVotes").get();
-    const voteCounts = {};
-    for (const doc of mvpSnap.docs) {
-      const votedFor = doc.data().votedFor;
-      if (votedFor) voteCounts[votedFor] = (voteCounts[votedFor] || 0) + 1;
-    }
-    let mvpUserId = null;
-    let maxVotes = 0;
-    for (const [uid, count] of Object.entries(voteCounts)) {
-      if (count > maxVotes) { maxVotes = count; mvpUserId = uid; }
-    }
-
     // ━━━ ポイント付与 ━━━
     const batch = db.batch();
     const now = new Date();
@@ -1683,9 +1666,7 @@ exports.onTournamentStatusChange = functions.firestore
       const teamId = userTeamMap[uid];
       const rank = teamRanks[teamId] || 99;
       const rankPoints = calcRankPoints(teamCount, rank);
-      const isMvp = uid === mvpUserId;
-      const mvpBonus = isMvp ? calcMvpBonus(teamCount) : 0;
-      const totalEarned = rankPoints + mvpBonus;
+      const totalEarned = rankPoints;
 
       const userRef = db.collection("users").doc(uid);
       batch.update(userRef, {
@@ -1693,7 +1674,6 @@ exports.onTournamentStatusChange = functions.firestore
         seasonPoints: admin.firestore.FieldValue.increment(totalEarned),
         "stats.tournamentsPlayed": admin.firestore.FieldValue.increment(1),
         ...(rank === 1 ? { "stats.championships": admin.firestore.FieldValue.increment(1) } : {}),
-        ...(isMvp ? { "stats.mvpCount": admin.firestore.FieldValue.increment(1) } : {}),
       });
 
       // ポイント履歴
@@ -1705,23 +1685,18 @@ exports.onTournamentStatusChange = functions.firestore
         teamCount,
         rank: rank <= 4 ? rank : null,
         rankPoints,
-        mvpBonus,
         streakBonus: 0,
         organizerBonus: 0,
         totalEarned,
-        isMvp,
         season,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      userPointData[uid] = { totalEarned, rank: rank <= 4 ? rank : null, isMvp };
+      userPointData[uid] = { totalEarned, rank: rank <= 4 ? rank : null };
 
       // 通知
       const rankNames = { 1: "優勝", 2: "準優勝", 3: "3位", 4: "4位" };
-      const parts = [];
-      if (rank <= 4) parts.push(rankNames[rank]);
-      if (isMvp) parts.push("MVP");
-      const detail = parts.length > 0 ? `（${parts.join("・")}）` : "";
+      const detail = rank <= 4 ? `（${rankNames[rank]}）` : "";
 
       const notifRef = userRef.collection("notifications").doc();
       batch.set(notifRef, {
@@ -1762,11 +1737,9 @@ exports.onTournamentStatusChange = functions.firestore
           teamCount,
           rank: null,
           rankPoints: 0,
-          mvpBonus: 0,
           streakBonus: 0,
           organizerBonus: orgBonus,
           totalEarned: orgBonus,
-          isMvp: false,
           isOrganizer: true,
           season,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
