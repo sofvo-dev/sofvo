@@ -1062,29 +1062,217 @@ class _BadgeDef {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 最近の投稿セクション
+// 投稿セクション（いいね・コメント・画像拡大対応）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-class _RecentPostsSection extends StatelessWidget {
+class _RecentPostsSection extends StatefulWidget {
   final String userId;
   const _RecentPostsSection({required this.userId});
 
   @override
+  State<_RecentPostsSection> createState() => _RecentPostsSectionState();
+}
+
+class _RecentPostsSectionState extends State<_RecentPostsSection> {
+  final _firestore = FirebaseFirestore.instance;
+
+  Future<void> _toggleLike(String postId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final likeRef = _firestore.collection('posts').doc(postId).collection('likes').doc(uid);
+    final postRef = _firestore.collection('posts').doc(postId);
+    final likeDoc = await likeRef.get();
+
+    if (likeDoc.exists) {
+      await likeRef.delete();
+      await postRef.update({'likesCount': FieldValue.increment(-1)});
+    } else {
+      await likeRef.set({'userId': uid, 'createdAt': FieldValue.serverTimestamp()});
+      await postRef.update({'likesCount': FieldValue.increment(1)});
+    }
+  }
+
+  void _showCommentSheet(String postId) {
+    final commentController = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 12),
+                const Text('コメント', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Divider(height: 20),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: _firestore.collection('posts').doc(postId).collection('comments')
+                        .orderBy('createdAt', descending: false).snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                      }
+                      final comments = snapshot.data?.docs ?? [];
+                      if (comments.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.chat_bubble_outline, size: 40, color: Colors.grey[300]),
+                              const SizedBox(height: 8),
+                              Text('まだコメントはありません', style: TextStyle(color: AppTheme.textSecondary)),
+                            ],
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: comments.length,
+                        itemBuilder: (context, index) {
+                          final data = comments[index].data() as Map<String, dynamic>;
+                          final cId = comments[index].id;
+                          final nick = (data['userNickname'] as String?) ?? '名無し';
+                          final text = (data['text'] as String?) ?? '';
+                          final ts = data['createdAt'] as Timestamp?;
+                          final t = _formatTimeAgo(ts);
+                          final isMine = data['userId'] == FirebaseAuth.instance.currentUser?.uid;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                                  child: Text(nick.isNotEmpty ? nick[0] : '?',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(children: [
+                                        Text(nick, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                                        const SizedBox(width: 6),
+                                        Text(t, style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                                        const Spacer(),
+                                        if (isMine) GestureDetector(
+                                          onTap: () async {
+                                            await _firestore.collection('posts').doc(postId).collection('comments').doc(cId).delete();
+                                            await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(-1)});
+                                          },
+                                          child: Icon(Icons.close, size: 16, color: AppTheme.textHint),
+                                        ),
+                                      ]),
+                                      const SizedBox(height: 4),
+                                      Text(text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                // 入力欄
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey[200]!))),
+                  child: SafeArea(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(24)),
+                            child: TextField(
+                              controller: commentController,
+                              style: const TextStyle(fontSize: 14),
+                              decoration: const InputDecoration(
+                                hintText: 'コメントを入力...',
+                                hintStyle: TextStyle(color: AppTheme.textHint),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () async {
+                            final txt = commentController.text.trim();
+                            if (txt.isEmpty) return;
+                            commentController.clear();
+                            final uid = FirebaseAuth.instance.currentUser?.uid;
+                            if (uid == null) return;
+                            try {
+                              final uDoc = await _firestore.collection('users').doc(uid).get();
+                              final uName = (uDoc.data()?['nickname'] as String?) ?? '名無し';
+                              await _firestore.collection('posts').doc(postId).collection('comments').add({
+                                'userId': uid,
+                                'userNickname': uName,
+                                'text': txt,
+                                'createdAt': FieldValue.serverTimestamp(),
+                              });
+                              await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(1)});
+                            } catch (_) {}
+                          },
+                          child: Container(
+                            width: 36, height: 36,
+                            decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(18)),
+                            child: const Icon(Icons.send, color: Colors.white, size: 18),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) => commentController.dispose());
+  }
+
+  void _showImageViewer(BuildContext context, List<String> images, int initialIndex) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => _ImageViewerScreen(images: images, initialIndex: initialIndex),
+    ));
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+      stream: _firestore
           .collection('posts')
-          .where('userId', isEqualTo: userId)
+          .where('userId', isEqualTo: widget.userId)
           .orderBy('createdAt', descending: true)
-          .limit(3)
+          .limit(5)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          // インデックスなしフォールバック
           return FutureBuilder<QuerySnapshot>(
-            future: FirebaseFirestore.instance
+            future: _firestore
                 .collection('posts')
-                .where('userId', isEqualTo: userId)
-                .limit(3)
+                .where('userId', isEqualTo: widget.userId)
+                .limit(5)
                 .get(),
             builder: (context, futureSnap) {
               if (!futureSnap.hasData) {
@@ -1107,62 +1295,170 @@ class _RecentPostsSection extends StatelessWidget {
   }
 
   Widget _buildPostCards(List<QueryDocumentSnapshot> posts) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: posts.map((doc) {
+          final postId = doc.id;
           final data = doc.data() as Map<String, dynamic>;
           final text = (data['text'] ?? '') as String;
           final images = data['images'] is List ? List<String>.from(data['images']) : <String>[];
-          final likesCount = data['likesCount'] ?? 0;
-          final commentsCount = data['commentsCount'] ?? 0;
+          final nickname = (data['userNickname'] ?? '') as String;
+          final avatarUrl = (data['userAvatarUrl'] ?? '') as String;
           final createdAt = data['createdAt'] as Timestamp?;
           final timeAgo = _formatTimeAgo(createdAt);
 
           return Container(
-            margin: const EdgeInsets.only(bottom: 10),
+            margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5),
-                    maxLines: 3, overflow: TextOverflow.ellipsis),
+                // ── ユーザー情報ヘッダー ──
+                Row(
+                  children: [
+                    avatarUrl.isNotEmpty
+                        ? CircleAvatar(radius: 16, backgroundImage: CachedNetworkImageProvider(avatarUrl),
+                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1))
+                        : CircleAvatar(radius: 16, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            child: Text(nickname.isNotEmpty ? nickname[0] : '?',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(nickname.isNotEmpty ? nickname : '名無し',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                        ],
+                      ),
+                    ),
+                    Text(timeAgo, style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                  ],
+                ),
+                if (text.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5),
+                      maxLines: 4, overflow: TextOverflow.ellipsis),
+                ],
+                // ── 画像 ──
                 if (images.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: CachedNetworkImage(
-                      imageUrl: images.first,
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => const SizedBox(),
-                    ),
-                  ),
+                  _buildImageGrid(images),
                 ],
+                // ── いいね・コメントボタン ──
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    Icon(Icons.favorite, size: 16, color: AppTheme.textHint),
-                    const SizedBox(width: 4),
-                    Text('$likesCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                    const SizedBox(width: 16),
-                    Icon(Icons.comment, size: 16, color: AppTheme.textHint),
-                    const SizedBox(width: 4),
-                    Text('$commentsCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                    const Spacer(),
-                    Text(timeAgo, style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
+                    // いいねボタン（リアルタイム）
+                    if (uid != null)
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: _firestore.collection('posts').doc(postId).collection('likes').doc(uid).snapshots(),
+                        builder: (context, likeSnap) {
+                          final isLiked = likeSnap.data?.exists ?? false;
+                          return GestureDetector(
+                            onTap: () => _toggleLike(postId),
+                            child: Row(
+                              children: [
+                                Icon(isLiked ? Icons.favorite : Icons.favorite_border,
+                                    size: 20, color: isLiked ? Colors.red : AppTheme.textSecondary),
+                                const SizedBox(width: 4),
+                                StreamBuilder<DocumentSnapshot>(
+                                  stream: _firestore.collection('posts').doc(postId).snapshots(),
+                                  builder: (context, postSnap) {
+                                    final count = (postSnap.data?.data() as Map<String, dynamic>?)?['likesCount'] ?? 0;
+                                    return Text('$count', style: TextStyle(fontSize: 13,
+                                        color: isLiked ? Colors.red : AppTheme.textSecondary));
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    if (uid == null) ...[
+                      Icon(Icons.favorite_border, size: 20, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text('${data['likesCount'] ?? 0}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    ],
+                    const SizedBox(width: 20),
+                    // コメントボタン
+                    GestureDetector(
+                      onTap: () => _showCommentSheet(postId),
+                      child: Row(
+                        children: [
+                          Icon(Icons.chat_bubble_outline, size: 20, color: AppTheme.textSecondary),
+                          const SizedBox(width: 4),
+                          StreamBuilder<DocumentSnapshot>(
+                            stream: _firestore.collection('posts').doc(postId).snapshots(),
+                            builder: (context, postSnap) {
+                              final count = (postSnap.data?.data() as Map<String, dynamic>?)?['commentsCount'] ?? 0;
+                              return Text('$count', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary));
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildImageGrid(List<String> images) {
+    if (images.length == 1) {
+      return GestureDetector(
+        onTap: () => _showImageViewer(context, images, 0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: CachedNetworkImage(
+            imageUrl: images.first,
+            height: 180,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorWidget: (_, __, ___) => const SizedBox(),
+          ),
+        ),
+      );
+    }
+
+    // 複数画像: グリッド表示
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: images.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          return GestureDetector(
+            onTap: () => _showImageViewer(context, images, index),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: CachedNetworkImage(
+                imageUrl: images[index],
+                width: 160,
+                height: 160,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Container(
+                  width: 160, height: 160,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1175,6 +1471,73 @@ class _RecentPostsSection extends StatelessWidget {
     if (diff.inHours < 24) return '${diff.inHours}時間前';
     if (diff.inDays < 7) return '${diff.inDays}日前';
     return '${ts.toDate().month}/${ts.toDate().day}';
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 画像ビューア（ピンチズーム対応）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _ImageViewerScreen extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+  const _ImageViewerScreen({required this.images, required this.initialIndex});
+
+  @override
+  State<_ImageViewerScreen> createState() => _ImageViewerScreenState();
+}
+
+class _ImageViewerScreenState extends State<_ImageViewerScreen> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: widget.images.length > 1
+            ? Text('${_currentIndex + 1} / ${widget.images.length}', style: const TextStyle(fontSize: 15))
+            : null,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.images.length,
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        itemBuilder: (context, index) {
+          return InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: Center(
+              child: CachedNetworkImage(
+                imageUrl: widget.images[index],
+                fit: BoxFit.contain,
+                placeholder: (_, __) => const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white54, size: 48),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
