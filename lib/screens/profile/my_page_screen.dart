@@ -697,17 +697,74 @@ class _MenuItemData {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会結果カード（横スクロール）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-class _TournamentCardsRow extends StatelessWidget {
+class _TournamentCardsRow extends StatefulWidget {
   final String userId;
   const _TournamentCardsRow({required this.userId});
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+  State<_TournamentCardsRow> createState() => _TournamentCardsRowState();
+}
+
+class _TournamentCardsRowState extends State<_TournamentCardsRow> {
+  late Future<List<Map<String, dynamic>>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadTournaments();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadTournaments() async {
+    final firestore = FirebaseFirestore.instance;
+    final uid = widget.userId;
+    final resultMap = <String, Map<String, dynamic>>{};
+
+    // 主催した大会
+    final organized = await firestore
+        .collection('tournaments')
+        .where('organizerId', isEqualTo: uid)
+        .get();
+    for (final doc in organized.docs) {
+      final data = doc.data();
+      if (data['status'] != '終了') continue;
+      data['id'] = doc.id;
+      resultMap[doc.id] = data;
+    }
+
+    // エントリーした大会を検索
+    final allTournaments = await firestore
+        .collection('tournaments')
+        .where('status', isEqualTo: '終了')
+        .orderBy('date', descending: true)
+        .limit(100)
+        .get();
+
+    for (final doc in allTournaments.docs) {
+      if (resultMap.containsKey(doc.id)) continue;
+      final entries = await firestore
           .collection('tournaments')
-          .where('organizerId', isEqualTo: userId)
-          .snapshots(),
+          .doc(doc.id)
+          .collection('entries')
+          .where('enteredBy', isEqualTo: uid)
+          .limit(1)
+          .get();
+      if (entries.docs.isNotEmpty) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        resultMap[doc.id] = data;
+      }
+    }
+
+    final result = resultMap.values.toList()
+      ..sort((a, b) => ((b['date'] ?? '') as String).compareTo((a['date'] ?? '') as String));
+    if (result.length > 10) result.removeRange(10, result.length);
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return SizedBox(
@@ -721,20 +778,7 @@ class _TournamentCardsRow extends StatelessWidget {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
-        // 終了した大会のみクライアント側でフィルタ＆日付降順ソート
-        final tournaments = (snapshot.data?.docs ?? []).where((doc) {
-          final d = doc.data() as Map<String, dynamic>;
-          return d['status'] == '終了';
-        }).toList()
-          ..sort((a, b) {
-            final da = ((a.data() as Map<String, dynamic>)['date'] ?? '') as String;
-            final db = ((b.data() as Map<String, dynamic>)['date'] ?? '') as String;
-            return db.compareTo(da);
-          });
-        if (tournaments.length > 10) {
-          tournaments.removeRange(10, tournaments.length);
-        }
-
+        final tournaments = snapshot.data!;
         if (tournaments.isEmpty) {
           return SizedBox(
             height: 100,
@@ -752,17 +796,17 @@ class _TournamentCardsRow extends StatelessWidget {
             itemCount: tournaments.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              final doc = tournaments[index];
-              final d = doc.data() as Map<String, dynamic>;
+              final d = tournaments[index];
               final title = (d['title'] ?? d['name'] ?? '大会') as String;
               final date = (d['date'] ?? '') as String;
               final location = (d['location'] ?? d['venue'] ?? '') as String;
               final status = (d['status'] ?? '') as String;
               final type = (d['type'] ?? '') as String;
+              final docId = d['id'] as String;
 
               return GestureDetector(
                 onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {...d, 'id': doc.id, 'name': d['title'] ?? d['name'] ?? ''}))),
+                    MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {...d, 'id': docId, 'name': d['title'] ?? d['name'] ?? ''}))),
                 child: Container(
                   width: 180,
                   padding: const EdgeInsets.all(12),
