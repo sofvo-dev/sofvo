@@ -1305,8 +1305,6 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
           final data = doc.data() as Map<String, dynamic>;
           final text = (data['text'] ?? '') as String;
           final images = data['images'] is List ? List<String>.from(data['images']) : <String>[];
-          final nickname = (data['userNickname'] ?? '') as String;
-          final avatarUrl = (data['userAvatarUrl'] ?? '') as String;
           final createdAt = data['createdAt'] as Timestamp?;
           final timeAgo = _formatTimeAgo(createdAt);
 
@@ -1321,30 +1319,7 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── ユーザー情報ヘッダー ──
-                Row(
-                  children: [
-                    avatarUrl.isNotEmpty
-                        ? CircleAvatar(radius: 16, backgroundImage: CachedNetworkImageProvider(avatarUrl),
-                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1))
-                        : CircleAvatar(radius: 16, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            child: Text(nickname.isNotEmpty ? nickname[0] : '?',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(nickname.isNotEmpty ? nickname : '名無し',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                        ],
-                      ),
-                    ),
-                    Text(timeAgo, style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
-                  ],
-                ),
                 if (text.isNotEmpty) ...[
-                  const SizedBox(height: 10),
                   Text(text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.5),
                       maxLines: 4, overflow: TextOverflow.ellipsis),
                 ],
@@ -1406,6 +1381,8 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
                         ],
                       ),
                     ),
+                    const Spacer(),
+                    Text(timeAgo, style: TextStyle(fontSize: 11, color: AppTheme.textHint)),
                   ],
                 ),
               ],
