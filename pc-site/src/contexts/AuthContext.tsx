@@ -25,8 +25,11 @@ export interface UserProfile {
   area?: string;
   gender?: string;
   totalPoints?: number;
+  seasonPoints?: number;
   followersCount?: number;
   followingCount?: number;
+  gadgetCount?: number;
+  postsCount?: number;
   stats?: {
     tournamentsPlayed?: number;
     championships?: number;
