@@ -2073,6 +2073,106 @@ class MatchGenerator {
           'subRefereeTeamName': subRefName,
         });
       }
+
+      // プレースホルダーテキストの再生成（チーム未確定の試合に正しい試合番号を表示）
+      // ラウンド→試合番号のマッピングを構築
+      final roundMatchNums = <String, List<int>>{};
+      for (int i = 0; i < docs.length; i++) {
+        final round = (docs[i].data())['round'] as String? ?? '';
+        roundMatchNums.putIfAbsent(round, () => []);
+        roundMatchNums[round]!.add(i + 1);
+      }
+
+      for (int i = 0; i < docs.length; i++) {
+        final mDoc = docs[i];
+        final m = mDoc.data();
+        final aId = m['teamAId'] as String? ?? '';
+        final bId = m['teamBId'] as String? ?? '';
+        final round = m['round'] as String? ?? '';
+
+        // チームが確定している試合はスキップ
+        if (aId.isNotEmpty && bId.isNotEmpty) continue;
+
+        String? newAName, newBName;
+
+        // SF勝者側: QFの勝者を参照
+        if (round == 'sf_winner') {
+          final qfNums = roundMatchNums['qf'] ?? [];
+          final sfWinnerIdx = (roundMatchNums['sf_winner'] ?? []).indexOf(i + 1);
+          if (sfWinnerIdx == 0 && qfNums.length >= 2) {
+            if (aId.isEmpty) newAName = '第${qfNums[0]}試合 勝者';
+            if (bId.isEmpty) newBName = '第${qfNums[1]}試合 勝者';
+          } else if (sfWinnerIdx == 1 && qfNums.length >= 4) {
+            if (aId.isEmpty) newAName = '第${qfNums[2]}試合 勝者';
+            if (bId.isEmpty) newBName = '第${qfNums[3]}試合 勝者';
+          }
+        }
+        // SF敗者側: QFの敗者を参照
+        else if (round == 'sf_loser') {
+          final qfNums = roundMatchNums['qf'] ?? [];
+          final sfLoserIdx = (roundMatchNums['sf_loser'] ?? []).indexOf(i + 1);
+          if (sfLoserIdx == 0 && qfNums.length >= 2) {
+            if (aId.isEmpty) newAName = '第${qfNums[0]}試合 敗者';
+            if (bId.isEmpty) newBName = '第${qfNums[1]}試合 敗者';
+          } else if (sfLoserIdx == 1 && qfNums.length >= 4) {
+            if (aId.isEmpty) newAName = '第${qfNums[2]}試合 敗者';
+            if (bId.isEmpty) newBName = '第${qfNums[3]}試合 敗者';
+          }
+        }
+        // 決勝: SF勝者側の勝者を参照
+        else if (round == 'final_1st') {
+          final sfWNums = roundMatchNums['sf_winner'] ?? roundMatchNums['semi'] ?? [];
+          if (sfWNums.length >= 2) {
+            if (aId.isEmpty) newAName = '第${sfWNums[0]}試合 勝者';
+            if (bId.isEmpty) newBName = '第${sfWNums[1]}試合 勝者';
+          } else if (sfWNums.length == 1) {
+            // 3チーム: semi1試合のみ → teamBが勝者
+            if (bId.isEmpty) newBName = '第${sfWNums[0]}試合 勝者';
+          }
+        }
+        // 3位決定戦: SF勝者側の敗者を参照
+        else if (round == 'final_3rd') {
+          final sfWNums = roundMatchNums['sf_winner'] ?? roundMatchNums['semi'] ?? [];
+          if (sfWNums.length >= 2) {
+            if (aId.isEmpty) newAName = '第${sfWNums[0]}試合 敗者';
+            if (bId.isEmpty) newBName = '第${sfWNums[1]}試合 敗者';
+          }
+        }
+        // 5位決定戦: SF敗者側の勝者 or QF敗者を参照
+        else if (round == 'final_5th') {
+          final sfLNums = roundMatchNums['sf_loser'] ?? [];
+          if (sfLNums.length >= 2) {
+            if (aId.isEmpty) newAName = '第${sfLNums[0]}試合 勝者';
+            if (bId.isEmpty) newBName = '第${sfLNums[1]}試合 勝者';
+          } else {
+            // 5-6チーム: QF敗者同士の5位決定戦
+            final qfNums = roundMatchNums['qf'] ?? [];
+            if (qfNums.length >= 2) {
+              if (aId.isEmpty) newAName = '第${qfNums[0]}試合 敗者';
+              if (bId.isEmpty) newBName = '第${qfNums[1]}試合 敗者';
+            }
+            // sf_loser勝者が入る場合
+            if (sfLNums.length == 1 && bId.isEmpty) {
+              newBName = '第${sfLNums[0]}試合 勝者';
+            }
+          }
+        }
+        // 7位決定戦: SF敗者側の敗者を参照
+        else if (round == 'final_7th') {
+          final sfLNums = roundMatchNums['sf_loser'] ?? [];
+          if (sfLNums.length >= 2) {
+            if (aId.isEmpty) newAName = '第${sfLNums[0]}試合 敗者';
+            if (bId.isEmpty) newBName = '第${sfLNums[1]}試合 敗者';
+          }
+        }
+
+        if (newAName != null || newBName != null) {
+          final updates = <String, dynamic>{};
+          if (newAName != null && aId.isEmpty) updates['teamAName'] = newAName;
+          if (newBName != null && bId.isEmpty) updates['teamBName'] = newBName;
+          if (updates.isNotEmpty) await mDoc.reference.update(updates);
+        }
+      }
     }
   }
 
