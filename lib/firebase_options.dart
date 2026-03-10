@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '584952056517',
     projectId: 'sofvo-19d84',
     storageBucket: 'sofvo-19d84.firebasestorage.app',
-    iosBundleId: 'com.example.sofvo',
+    iosBundleId: 'com.sofvo.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '584952056517',
     projectId: 'sofvo-19d84',
     storageBucket: 'sofvo-19d84.firebasestorage.app',
-    iosBundleId: 'com.example.sofvo',
+    iosBundleId: 'com.sofvo.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
