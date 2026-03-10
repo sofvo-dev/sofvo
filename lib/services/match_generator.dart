@@ -1580,6 +1580,51 @@ class MatchGenerator {
     bool _isCompleted(QueryDocumentSnapshot doc) =>
         (doc.data() as Map<String, dynamic>)['status'] == 'completed';
 
+    // ブラケット内の全チームを収集（審判割り当て用）
+    final teamMap = <String, String>{}; // teamId -> teamName
+    for (var doc in matchesSnap.docs) {
+      final m = doc.data() as Map<String, dynamic>;
+      final aId = m['teamAId'] as String? ?? '';
+      final bId = m['teamBId'] as String? ?? '';
+      if (aId.isNotEmpty) teamMap[aId] = (m['teamAName'] ?? '') as String;
+      if (bId.isNotEmpty) teamMap[bId] = (m['teamBName'] ?? '') as String;
+    }
+    final leagueTeams = teamMap.entries.map((e) => {'teamId': e.key, 'teamName': e.value}).toList();
+
+    // 審判カウント（既割当分をカウント）
+    final mainRefCount = <String, int>{};
+    final subRefCount = <String, int>{};
+    for (var t in leagueTeams) { mainRefCount[t['teamId']!] = 0; subRefCount[t['teamId']!] = 0; }
+    for (var doc in matchesSnap.docs) {
+      final m = doc.data() as Map<String, dynamic>;
+      final rId = m['refereeTeamId'] as String? ?? '';
+      final sId = m['subRefereeTeamId'] as String? ?? '';
+      if (rId.isNotEmpty && mainRefCount.containsKey(rId)) mainRefCount[rId] = (mainRefCount[rId] ?? 0) + 1;
+      if (sId.isNotEmpty && subRefCount.containsKey(sId)) subRefCount[sId] = (subRefCount[sId] ?? 0) + 1;
+    }
+
+    // 審判割り当てヘルパー（出場チーム+同時進行チームを除外して最少回数のチームを選出）
+    Map<String, String> _pickRefsForMatch(Set<String> busyIds) {
+      final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
+      available.sort((a, b) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b['teamId']]!));
+      String refId = '', refName = '', subRefId = '', subRefName = '';
+      if (available.isNotEmpty) {
+        refId = available.first['teamId']!;
+        refName = available.first['teamName']!;
+        mainRefCount[refId] = (mainRefCount[refId] ?? 0) + 1;
+      }
+      if (leagueTeams.length >= 4 && available.length >= 2) {
+        final subCandidates = available.where((t) => t['teamId'] != refId).toList();
+        subCandidates.sort((a, b) => (subRefCount[a['teamId']]!).compareTo(subRefCount[b['teamId']]!));
+        if (subCandidates.isNotEmpty) {
+          subRefId = subCandidates.first['teamId']!;
+          subRefName = subCandidates.first['teamName']!;
+          subRefCount[subRefId] = (subRefCount[subRefId] ?? 0) + 1;
+        }
+      }
+      return {'refereeTeamId': refId, 'refereeTeamName': refName, 'subRefereeTeamId': subRefId, 'subRefereeTeamName': subRefName};
+    }
+
     // QF → SF winner + SF loser (8-team and 5-7 team with BYEs)
     if (byRound.containsKey('qf')) {
       final qf = byRound['qf']!;
@@ -1596,17 +1641,21 @@ class MatchGenerator {
         final sfW = byRound['sf_winner'] ?? [];
         if (sfW.length >= 2) {
           if (!_isCompleted(sfW[0])) {
+            final aId = _winnerId(q1), bId = _winnerId(q2);
+            final refs = _pickRefsForMatch({aId, bId, _winnerId(q3), _winnerId(q4), _loserId(q1), _loserId(q2), _loserId(q3), _loserId(q4)});
             await sfW[0].reference.update({
-              'teamAId': _winnerId(q1), 'teamAName': _winnerName(q1),
-              'teamBId': _winnerId(q2), 'teamBName': _winnerName(q2),
-              'status': 'pending',
+              'teamAId': aId, 'teamAName': _winnerName(q1),
+              'teamBId': bId, 'teamBName': _winnerName(q2),
+              'status': 'pending', ...refs,
             });
           }
           if (!_isCompleted(sfW[1])) {
+            final aId = _winnerId(q3), bId = _winnerId(q4);
+            final refs = _pickRefsForMatch({aId, bId, _winnerId(q1), _winnerId(q2), _loserId(q1), _loserId(q2), _loserId(q3), _loserId(q4)});
             await sfW[1].reference.update({
-              'teamAId': _winnerId(q3), 'teamAName': _winnerName(q3),
-              'teamBId': _winnerId(q4), 'teamBName': _winnerName(q4),
-              'status': 'pending',
+              'teamAId': aId, 'teamAName': _winnerName(q3),
+              'teamBId': bId, 'teamBName': _winnerName(q4),
+              'status': 'pending', ...refs,
             });
           }
         }
@@ -1614,17 +1663,21 @@ class MatchGenerator {
         final sfL = byRound['sf_loser'] ?? [];
         if (sfL.length >= 2) {
           if (!_isCompleted(sfL[0])) {
+            final aId = _loserId(q1), bId = _loserId(q2);
+            final refs = _pickRefsForMatch({aId, bId, _loserId(q3), _loserId(q4), _winnerId(q1), _winnerId(q2), _winnerId(q3), _winnerId(q4)});
             await sfL[0].reference.update({
-              'teamAId': _loserId(q1), 'teamAName': _loserName(q1),
-              'teamBId': _loserId(q2), 'teamBName': _loserName(q2),
-              'status': 'pending',
+              'teamAId': aId, 'teamAName': _loserName(q1),
+              'teamBId': bId, 'teamBName': _loserName(q2),
+              'status': 'pending', ...refs,
             });
           }
           if (!_isCompleted(sfL[1])) {
+            final aId = _loserId(q3), bId = _loserId(q4);
+            final refs = _pickRefsForMatch({aId, bId, _loserId(q1), _loserId(q2), _winnerId(q1), _winnerId(q2), _winnerId(q3), _winnerId(q4)});
             await sfL[1].reference.update({
-              'teamAId': _loserId(q3), 'teamAName': _loserName(q3),
-              'teamBId': _loserId(q4), 'teamBName': _loserName(q4),
-              'status': 'pending',
+              'teamAId': aId, 'teamAName': _loserName(q3),
+              'teamBId': bId, 'teamBName': _loserName(q4),
+              'status': 'pending', ...refs,
             });
           }
         }
@@ -1659,11 +1712,13 @@ class MatchGenerator {
             updates['teamBName'] = _winnerName(qfBySlot[qiB]!);
           }
 
-          // 両チーム確定したらpendingに
+          // 両チーム確定したらpendingに + 審判割り当て
           final newAId = updates['teamAId'] ?? sfData['teamAId'] ?? '';
           final newBId = updates['teamBId'] ?? sfData['teamBId'] ?? '';
           if ((newAId as String).isNotEmpty && (newBId as String).isNotEmpty) {
             updates['status'] = 'pending';
+            final refs = _pickRefsForMatch({newAId, newBId});
+            updates.addAll(refs);
           }
           if (updates.isNotEmpty) await sfW[si].reference.update(updates);
         }
@@ -1680,20 +1735,24 @@ class MatchGenerator {
         // 5位決定戦（2敗者の場合）
         final f5th = byRound['final_5th']?.firstOrNull;
         if (f5th != null && !_isCompleted(f5th) && qfLosers.length >= 2) {
+          final aId = qfLosers[0]['id']!, bId = qfLosers[1]['id']!;
+          final refs = _pickRefsForMatch({aId, bId});
           await f5th.reference.update({
-            'teamAId': qfLosers[0]['id'], 'teamAName': qfLosers[0]['name'],
-            'teamBId': qfLosers[1]['id'], 'teamBName': qfLosers[1]['name'],
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': qfLosers[0]['name'],
+            'teamBId': bId, 'teamBName': qfLosers[1]['name'],
+            'status': 'pending', ...refs,
           });
         }
 
         // sf_loser（7チームの3敗者: 最初の2チームで対戦）
         final sfL = byRound['sf_loser'] ?? [];
         if (sfL.isNotEmpty && !_isCompleted(sfL[0]) && qfLosers.length >= 2) {
+          final aId = qfLosers[0]['id']!, bId = qfLosers[qfLosers.length - 1]['id']!;
+          final refs = _pickRefsForMatch({aId, bId});
           await sfL[0].reference.update({
-            'teamAId': qfLosers[0]['id'], 'teamAName': qfLosers[0]['name'],
-            'teamBId': qfLosers[qfLosers.length - 1]['id'], 'teamBName': qfLosers[qfLosers.length - 1]['name'],
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': qfLosers[0]['name'],
+            'teamBId': bId, 'teamBName': qfLosers[qfLosers.length - 1]['name'],
+            'status': 'pending', ...refs,
           });
         }
       }
@@ -1709,18 +1768,22 @@ class MatchGenerator {
 
         final f1st = byRound['final_1st']?.firstOrNull;
         if (f1st != null && !_isCompleted(f1st)) {
+          final aId = _winnerId(sw1), bId = _winnerId(sw2);
+          final refs = _pickRefsForMatch({aId, bId, _loserId(sw1), _loserId(sw2)});
           await f1st.reference.update({
-            'teamAId': _winnerId(sw1), 'teamAName': _winnerName(sw1),
-            'teamBId': _winnerId(sw2), 'teamBName': _winnerName(sw2),
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': _winnerName(sw1),
+            'teamBId': bId, 'teamBName': _winnerName(sw2),
+            'status': 'pending', ...refs,
           });
         }
         final f3rd = byRound['final_3rd']?.firstOrNull;
         if (f3rd != null && !_isCompleted(f3rd)) {
+          final aId = _loserId(sw1), bId = _loserId(sw2);
+          final refs = _pickRefsForMatch({aId, bId, _winnerId(sw1), _winnerId(sw2)});
           await f3rd.reference.update({
-            'teamAId': _loserId(sw1), 'teamAName': _loserName(sw1),
-            'teamBId': _loserId(sw2), 'teamBName': _loserName(sw2),
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': _loserName(sw1),
+            'teamBId': bId, 'teamBName': _loserName(sw2),
+            'status': 'pending', ...refs,
           });
         }
       }
@@ -1737,18 +1800,22 @@ class MatchGenerator {
 
         final f5th = byRound['final_5th']?.firstOrNull;
         if (f5th != null && !_isCompleted(f5th)) {
+          final aId = _winnerId(sl1), bId = _winnerId(sl2);
+          final refs = _pickRefsForMatch({aId, bId, _loserId(sl1), _loserId(sl2)});
           await f5th.reference.update({
-            'teamAId': _winnerId(sl1), 'teamAName': _winnerName(sl1),
-            'teamBId': _winnerId(sl2), 'teamBName': _winnerName(sl2),
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': _winnerName(sl1),
+            'teamBId': bId, 'teamBName': _winnerName(sl2),
+            'status': 'pending', ...refs,
           });
         }
         final f7th = byRound['final_7th']?.firstOrNull;
         if (f7th != null && !_isCompleted(f7th)) {
+          final aId = _loserId(sl1), bId = _loserId(sl2);
+          final refs = _pickRefsForMatch({aId, bId, _winnerId(sl1), _winnerId(sl2)});
           await f7th.reference.update({
-            'teamAId': _loserId(sl1), 'teamAName': _loserName(sl1),
-            'teamBId': _loserId(sl2), 'teamBName': _loserName(sl2),
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': _loserName(sl1),
+            'teamBId': bId, 'teamBName': _loserName(sl2),
+            'status': 'pending', ...refs,
           });
         }
       } else if (allDone && sfL.length == 1) {
@@ -1772,6 +1839,8 @@ class MatchGenerator {
           final newBId = updates['teamBId'] ?? f5thData['teamBId'] ?? '';
           if ((newAId as String).isNotEmpty && (newBId as String).isNotEmpty) {
             updates['status'] = 'pending';
+            final refs = _pickRefsForMatch({newAId as String, newBId as String});
+            updates.addAll(refs);
           }
           await f5th.reference.update(updates);
         }
@@ -1789,18 +1858,41 @@ class MatchGenerator {
 
         final f1st = byRound['final_1st']?.firstOrNull;
         if (f1st != null && !_isCompleted(f1st)) {
+          final aId = _winnerId(s1), bId = _winnerId(s2);
+          final refs = _pickRefsForMatch({aId, bId, _loserId(s1), _loserId(s2)});
           await f1st.reference.update({
-            'teamAId': _winnerId(s1), 'teamAName': _winnerName(s1),
-            'teamBId': _winnerId(s2), 'teamBName': _winnerName(s2),
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': _winnerName(s1),
+            'teamBId': bId, 'teamBName': _winnerName(s2),
+            'status': 'pending', ...refs,
           });
         }
         final f3rd = byRound['final_3rd']?.firstOrNull;
         if (f3rd != null && !_isCompleted(f3rd)) {
+          final aId = _loserId(s1), bId = _loserId(s2);
+          final refs = _pickRefsForMatch({aId, bId, _winnerId(s1), _winnerId(s2)});
           await f3rd.reference.update({
-            'teamAId': _loserId(s1), 'teamAName': _loserName(s1),
-            'teamBId': _loserId(s2), 'teamBName': _loserName(s2),
-            'status': 'pending',
+            'teamAId': aId, 'teamAName': _loserName(s1),
+            'teamBId': bId, 'teamBName': _loserName(s2),
+            'status': 'pending', ...refs,
+          });
+        }
+      } else if (allDone && semi.length == 1) {
+        // 3チーム: semi(2位vs3位) → final_1st(1位vs勝者)
+        final s1 = semi[0].data() as Map<String, dynamic>;
+        final f1st = byRound['final_1st']?.firstOrNull;
+        if (f1st != null && !_isCompleted(f1st)) {
+          final f1stData = f1st.data() as Map<String, dynamic>;
+          final aId = f1stData['teamAId'] as String? ?? '';
+          final bId = _winnerId(s1);
+          final loserId = _loserId(s1);
+          final refs = _pickRefsForMatch({aId, bId});
+          await f1st.reference.update({
+            'teamBId': bId, 'teamBName': _winnerName(s1),
+            'refereeTeamId': loserId.isNotEmpty ? loserId : (refs['refereeTeamId'] ?? ''),
+            'refereeTeamName': loserId.isNotEmpty ? _loserName(s1) : (refs['refereeTeamName'] ?? ''),
+            'subRefereeTeamId': refs['subRefereeTeamId'] ?? '',
+            'subRefereeTeamName': refs['subRefereeTeamName'] ?? '',
+            'status': aId.isNotEmpty && bId.isNotEmpty ? 'pending' : 'waiting',
           });
         }
       }

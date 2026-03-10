@@ -3306,11 +3306,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       ]),
                       Row(children: [
                         Text("主審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
-                        Text(m['refereeTeamName'] ?? '未定', style: TextStyle(fontSize: 13,
+                        Text((m['refereeTeamName'] ?? '').toString().isNotEmpty ? m['refereeTeamName'] : '未定', style: TextStyle(fontSize: 13,
                           color: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint,
                           fontWeight: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
                         Text(" / 副審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
-                        Text(m['subRefereeTeamName'] ?? 'ー', style: TextStyle(fontSize: 13,
+                        Text((m['subRefereeTeamName'] ?? '').toString().isNotEmpty ? m['subRefereeTeamName'] : 'ー', style: TextStyle(fontSize: 13,
                           color: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint,
                           fontWeight: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
                       ]),
