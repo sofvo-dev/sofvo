@@ -6,8 +6,6 @@ import {
   query,
   orderBy,
   onSnapshot,
-  addDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,16 +56,6 @@ export default function GadgetsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [categoryFilter, setCategoryFilter] = useState<string>("すべて");
-  const [showForm, setShowForm] = useState(false);
-
-  // Form state
-  const [formName, setFormName] = useState("");
-  const [formCategory, setFormCategory] = useState("ラケット");
-  const [formDescription, setFormDescription] = useState("");
-  const [formMemo, setFormMemo] = useState("");
-  const [formUrl, setFormUrl] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -128,41 +116,6 @@ export default function GadgetsPage() {
     return sorted;
   }, [gadgets, categoryFilter, sortKey]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    if (!formName.trim()) {
-      setFormError("名前を入力してください");
-      return;
-    }
-
-    setSubmitting(true);
-    setFormError("");
-
-    try {
-      await addDoc(collection(db, "users", user.uid, "gadgets"), {
-        name: formName.trim(),
-        category: formCategory,
-        description: formDescription.trim() || null,
-        memo: formMemo.trim() || null,
-        url: formUrl.trim() || null,
-        createdAt: serverTimestamp(),
-      });
-
-      // Reset form
-      setFormName("");
-      setFormCategory("ラケット");
-      setFormDescription("");
-      setFormMemo("");
-      setFormUrl("");
-      setShowForm(false);
-    } catch {
-      setFormError("ガジェットの登録に失敗しました");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (authLoading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -207,127 +160,13 @@ export default function GadgetsPage() {
             シューズやラケットなど、普段使っている用具・装備を登録して管理できます。
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href="/gadgets/register"
-            className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
-          >
-            ガジェット登録
-          </Link>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-muted hover:text-foreground hover:border-gray-400 transition-colors"
-          >
-            {showForm ? "閉じる" : "クイック登録"}
-          </button>
-        </div>
+        <Link
+          href="/gadgets/register"
+          className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+        >
+          ガジェット登録
+        </Link>
       </div>
-
-      {/* Quick Create Form */}
-      {showForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-          <h2 className="text-base font-bold text-foreground mb-4 pb-3 border-b border-gray-100">
-            クイック登録
-          </h2>
-
-          {formError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-error text-sm rounded-lg">
-              {formError}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  名前 <span className="text-error">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="例: ヨネックス ナノフレア700"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  カテゴリ
-                </label>
-                <select
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white"
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                説明
-              </label>
-              <textarea
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm resize-none"
-                placeholder="用具の説明..."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  メモ
-                </label>
-                <input
-                  type="text"
-                  value={formMemo}
-                  onChange={(e) => setFormMemo(e.target.value)}
-                  placeholder="メモ（任意）"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  URL
-                </label>
-                <input
-                  type="text"
-                  value={formUrl}
-                  onChange={(e) => setFormUrl(e.target.value)}
-                  placeholder="商品ページURL（任意）"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
-              >
-                {submitting ? "登録中..." : "登録する"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-muted hover:text-foreground hover:border-gray-400 transition-colors"
-              >
-                キャンセル
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Controls: View mode, Sort, Filter */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -406,20 +245,12 @@ export default function GadgetsPage() {
           <p className="text-sm text-muted mb-6">
             使用している用具を登録して管理しましょう
           </p>
-          <div className="flex gap-3 justify-center">
-            <Link
-              href="/gadgets/register"
-              className="inline-flex px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
-            >
-              ガジェット登録
-            </Link>
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-muted hover:text-foreground hover:border-gray-400 transition-colors"
-            >
-              クイック登録
-            </button>
-          </div>
+          <Link
+            href="/gadgets/register"
+            className="inline-flex px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
+            ガジェット登録
+          </Link>
         </div>
       ) : displayGadgets.length === 0 ? (
         /* Filter empty state */
@@ -438,15 +269,15 @@ export default function GadgetsPage() {
             >
               {/* Image area */}
               {g.imageUrl ? (
-                <div className="aspect-video bg-gray-100 overflow-hidden">
+                <div className="aspect-square bg-gray-50 overflow-hidden">
                   <img
                     src={g.imageUrl}
                     alt={g.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
               ) : (
-                <div className="aspect-video bg-gray-50 flex items-center justify-center">
+                <div className="aspect-square bg-gray-50 flex items-center justify-center">
                   <svg
                     className="w-12 h-12 text-gray-200"
                     fill="none"
@@ -483,18 +314,20 @@ export default function GadgetsPage() {
                   </p>
                 )}
 
-                <div className="flex items-center justify-between text-xs text-muted pt-2 border-t border-gray-100">
+                {g.url && (
+                  <a
+                    href={g.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-primary hover:text-primary-dark transition-colors mb-2"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
+                    商品ページを見る
+                  </a>
+                )}
+
+                <div className="text-xs text-muted pt-2 border-t border-gray-100">
                   <span>{formatDate(g.createdAt)}</span>
-                  {g.url && (
-                    <a
-                      href={g.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:text-primary-dark transition-colors"
-                    >
-                      詳細リンク
-                    </a>
-                  )}
                 </div>
               </div>
             </div>
