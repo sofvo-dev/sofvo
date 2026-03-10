@@ -3317,62 +3317,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     Text('完了', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                   ]),
                 ),
-                // 各試合（ラウンド別セクション付き）
-                ...() {
-                  final widgets = <Widget>[];
-                  int? lastRoundGroup;
-                  for (int i = 0; i < court.matches.length; i++) {
-                    final mData = court.matches[i].data() as Map<String, dynamic>;
-                    final round = mData['round'] as String? ?? '';
-                    // ラウンドグループ: 0=QF, 1=Semi, 2=SF, 4=RR, 5-6=Finals
-                    final roundGroup = _roundTemporal[round] ?? 99;
-                    // 最初のセクションにもヘッダーを付ける
-                    if (i == 0 && court.matches.length > 2) {
-                      final firstName = roundGroup == 0 ? '1回戦（QF）'
-                          : roundGroup <= 2 ? '準決勝'
-                          : roundGroup >= 5 ? '順位決定戦'
-                          : '';
-                      if (firstName.isNotEmpty) {
-                        widgets.add(Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
-                          color: Colors.grey[100],
-                          child: Row(children: [
-                            Expanded(child: Divider(color: Colors.grey[400], thickness: 0.5, endIndent: 8)),
-                            Text(firstName, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
-                            Expanded(child: Divider(color: Colors.grey[400], thickness: 0.5, indent: 8)),
-                          ]),
-                        ));
-                      }
-                    }
-                    // グループが変わったらセクションヘッダーを挿入
-                    if (lastRoundGroup != null && roundGroup != lastRoundGroup) {
-                      final sectionName = roundGroup <= 2 ? '2回戦（SF）'
-                          : roundGroup >= 5 ? '順位決定戦'
-                          : '';
-                      if (sectionName.isNotEmpty) {
-                        widgets.add(Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
-                          color: Colors.grey[100],
-                          child: Row(children: [
-                            Expanded(child: Divider(color: Colors.grey[400], thickness: 0.5, endIndent: 8)),
-                            Text(sectionName, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
-                            Expanded(child: Divider(color: Colors.grey[400], thickness: 0.5, indent: 8)),
-                          ]),
-                        ));
-                      }
-                    }
-                    lastRoundGroup = roundGroup;
-                    widgets.add(buildMatchCard(court.matches[i], i, court.matches));
-                    if (i < court.matches.length - 1) {
-                      final nextRound = (court.matches[i + 1].data() as Map<String, dynamic>)['round'] as String? ?? '';
-                      final nextGroup = _roundTemporal[nextRound] ?? 99;
-                      if (nextGroup == roundGroup) {
-                        widgets.add(Divider(height: 1, thickness: 1, indent: 50, color: Colors.grey[200]));
-                      }
-                    }
+                // 各試合（上から順に消化）
+                ...court.matches.asMap().entries.map((entry) {
+                  final widget = buildMatchCard(entry.value, entry.key, court.matches);
+                  if (entry.key < court.matches.length - 1) {
+                    return Column(children: [widget, Divider(height: 1, thickness: 1, indent: 50, color: Colors.grey[200])]);
                   }
-                  return widgets;
-                }(),
+                  return widget;
+                }),
               ]),
             );
           }).toList());
