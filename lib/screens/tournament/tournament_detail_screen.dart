@@ -52,6 +52,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート) default: MY
   final Map<int, bool> _collapsedRounds = {}; // roundNum -> 折りたたみ状態
   final Map<String, bool> _collapsedBrackets = {}; // bracketId -> 折りたたみ状態
+  final Map<String, String?> _selectedBracketCourtFilter = {}; // bracketId -> courtFilter (null=全て, 'MY'=自分のコート, courtId=特定コート)
   Map<String, String> _entryNameCache = {}; // teamId -> teamName
 
   String get _tournamentId => widget.tournament['id'] as String? ?? '';
@@ -3034,6 +3035,81 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
+  Widget _buildBracketCourtChips(String bracketId, List<MapEntry<String, int>> courts, Set<String> myCourts) {
+    final filter = _selectedBracketCourtFilter.containsKey(bracketId) ? _selectedBracketCourtFilter[bracketId] : 'MY';
+    final sortedCourts = List<MapEntry<String, int>>.from(courts)..sort((a, b) => a.value.compareTo(b.value));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: const Text('全て'),
+                selected: filter == null,
+                selectedColor: Colors.amber.withValues(alpha: 0.15),
+                labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                  color: filter == null ? Colors.amber[800] : AppTheme.textSecondary),
+                side: BorderSide(color: filter == null ? Colors.amber : Colors.grey[300]!),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                showCheckmark: false,
+                onSelected: (_) => setState(() { _selectedBracketCourtFilter[bracketId] = null; }),
+              ),
+            ),
+            if (myCourts.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: const Text('MY'),
+                  selected: filter == 'MY',
+                  selectedColor: AppTheme.accentColor.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                    color: filter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.7)),
+                  side: BorderSide(color: filter == 'MY' ? AppTheme.accentColor : AppTheme.accentColor.withValues(alpha: 0.4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() {
+                    _selectedBracketCourtFilter[bracketId] = filter == 'MY' ? null : 'MY';
+                  }),
+                ),
+              ),
+            ...sortedCourts.map((court) {
+              final courtId = court.key;
+              final courtNum = court.value;
+              final label = '${String.fromCharCode(64 + courtNum)}';
+              final isSelected = filter == courtId;
+              final isMyCourt = myCourts.contains(courtId);
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(label),
+                    if (isMyCourt) ...[
+                      const SizedBox(width: 3),
+                      Icon(Icons.star, size: 12, color: isSelected ? Colors.amber[800] : AppTheme.accentColor),
+                    ],
+                  ]),
+                  selected: isSelected,
+                  selectedColor: Colors.amber.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.amber[800] : AppTheme.textSecondary),
+                  side: BorderSide(color: isSelected ? Colors.amber : Colors.grey[300]!),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() {
+                    _selectedBracketCourtFilter[bracketId] = isSelected ? null : courtId;
+                  }),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBracketSection(String bracketId, Map<String, dynamic> bData, bool isOrganizer, String tournamentStatus) {
     final rankRange = bData['rankRange'] as String? ?? '';
     final isMyLeague = _isMyBracket(bData);
@@ -3132,11 +3208,33 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             final firstMatch = matches.first.data() as Map<String, dynamic>;
             final courtNum = (firstMatch['courtNumber'] as num?)?.toInt();
             final courtLetter = courtNum != null ? String.fromCharCode(64 + courtNum) : courtId;
-            return (courtId: courtId, matches: matches, letter: courtLetter);
+            return (courtId: courtId, matches: matches, letter: courtLetter, courtNum: courtNum ?? 0);
           }).toList();
 
-          // コート別の試合カードを構築するヘルパー
-          Widget buildMatchCard(QueryDocumentSnapshot mDoc, int idx, List<QueryDocumentSnapshot> courtMatchList) {
+          // 自分のチームが属するコートを特定
+          final myBracketCourts = <String>{};
+          for (var court in courtInfoList) {
+            for (var mDoc in court.matches) {
+              final m = mDoc.data() as Map<String, dynamic>;
+              if (_myTeamIds.contains(m['teamAId'] ?? '') || _myTeamIds.contains(m['teamBId'] ?? '') ||
+                  _myTeamIds.contains(m['refereeTeamId'] ?? '') || _myTeamIds.contains(m['subRefereeTeamId'] ?? '')) {
+                myBracketCourts.add(court.courtId);
+                break;
+              }
+            }
+          }
+
+          // コートチップ用データ
+          final bracketCourtChipData = courtInfoList.map((c) => MapEntry(c.courtId, c.courtNum)).toList();
+          final bracketCourtFilter = _selectedBracketCourtFilter[bracketId];
+          final filteredCourtInfoList = bracketCourtFilter == 'MY'
+              ? courtInfoList.where((c) => myBracketCourts.contains(c.courtId)).toList()
+              : bracketCourtFilter != null
+                  ? courtInfoList.where((c) => c.courtId == bracketCourtFilter).toList()
+                  : courtInfoList;
+
+          // 予選と同じスタイルの試合カードを構築
+          Widget buildBracketMatchCard(QueryDocumentSnapshot mDoc, int idx, List<QueryDocumentSnapshot> courtMatchList) {
             final m = mDoc.data() as Map<String, dynamic>;
             final status = m['status'] ?? 'pending';
             final result = m['result'] as Map<String, dynamic>? ?? {};
@@ -3145,6 +3243,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             final round = m['round'] as String? ?? '';
             final roundLabel = roundLabels[round] ?? '';
             final label = m['label'] as String? ?? '';
+            final displayLabel = label.isNotEmpty ? label : (round.startsWith('final') ? roundLabel : '');
 
             final isReferee = _myTeamIds.contains(m['refereeTeamId'] ?? '') || _myTeamIds.contains(m['subRefereeTeamId'] ?? '');
             final isMyMatch = _myTeamIds.contains(m['teamAId'] ?? '') || _myTeamIds.contains(m['teamBId'] ?? '') || isReferee;
@@ -3153,31 +3252,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             final isWaiting = status == 'waiting';
             final prevDone = idx <= 0 || ((courtMatchList[idx - 1].data() as Map<String, dynamic>)['status'] == 'completed');
             final isNextToInput = !isCompleted && !isWaiting && prevDone && isMyMatch;
-            final displayLabel = label.isNotEmpty ? label : (round.startsWith('final') ? roundLabel : '');
 
-            // チーム名の表示
             String teamADisplay = (m['teamAId'] ?? '').isEmpty ? _friendlyPlaceholder(m['teamAName'] ?? '') : (m['teamAName'] ?? '');
             String teamBDisplay = (m['teamBId'] ?? '').isEmpty ? _friendlyPlaceholder(m['teamBName'] ?? '') : (m['teamBName'] ?? '');
-            final teamAIsPlaceholder = (m['teamAId'] ?? '').isEmpty;
-            final teamBIsPlaceholder = (m['teamBId'] ?? '').isEmpty;
             final isMyTeamA = _myTeamIds.contains(m['teamAId'] ?? '');
             final isMyTeamB = _myTeamIds.contains(m['teamBId'] ?? '');
             final aWon = isCompleted && result['winner'] == m['teamAId'];
             final bWon = isCompleted && result['winner'] == m['teamBId'];
-
-            // 状態に応じた色
-            final bgColor = isCompleted
-                ? Colors.grey[50]!
-                : isNextToInput
-                    ? Colors.amber.withValues(alpha: 0.06)
-                    : Colors.white;
-            final numberBg = isCompleted
-                ? Colors.green
-                : isNextToInput
-                    ? Colors.amber
-                    : isWaiting
-                        ? Colors.grey[300]!
-                        : AppTheme.primaryColor;
 
             return InkWell(
               onTap: () {
@@ -3191,143 +3272,128 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   return;
                 }
                 if (!canInput) return;
+                if (!prevDone) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: Colors.orange));
+                  return;
+                }
                 Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
                   tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
               },
               child: Container(
-                color: bgColor,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                  // 試合番号（丸い数字）
-                  Container(
-                    width: 28, height: 28,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: numberBg),
-                    alignment: Alignment.center,
-                    child: Text('$matchOrder', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
-                  ),
-                  const SizedBox(width: 10),
-                  // 試合内容
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    // ラベル行（決勝系のみ + 入力待ち）
-                    if (displayLabel.isNotEmpty || isNextToInput)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Row(children: [
-                          if (displayLabel.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(3)),
-                              child: Text(displayLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber[800])),
-                            ),
-                          if (isNextToInput) ...[
-                            if (displayLabel.isNotEmpty) const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(3)),
-                              child: const Text('入力待ち', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                            ),
-                          ],
-                        ]),
-                      ),
-                    // チーム vs チーム（1行にコンパクトに）
-                    Row(children: [
-                      Expanded(child: Text(teamADisplay,
-                        style: TextStyle(fontSize: 14,
-                          color: teamAIsPlaceholder ? AppTheme.textHint : (isMyTeamA ? Colors.red : null),
-                          fontWeight: (isMyTeamA || aWon) ? FontWeight.bold : FontWeight.normal,
-                          decoration: isCompleted && !aWon && !teamAIsPlaceholder ? TextDecoration.lineThrough : null,
-                        ),
-                        overflow: TextOverflow.ellipsis, textAlign: TextAlign.right)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: isCompleted
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                              child: Text('${result['setsA'] ?? 0}-${result['setsB'] ?? 0}',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green)),
-                            )
-                          : Text(isWaiting ? '–' : 'vs',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
-                      ),
-                      Expanded(child: Text(teamBDisplay,
-                        style: TextStyle(fontSize: 14,
-                          color: teamBIsPlaceholder ? AppTheme.textHint : (isMyTeamB ? Colors.red : null),
-                          fontWeight: (isMyTeamB || bWon) ? FontWeight.bold : FontWeight.normal,
-                          decoration: isCompleted && !bWon && !teamBIsPlaceholder ? TextDecoration.lineThrough : null,
-                        ),
-                        overflow: TextOverflow.ellipsis)),
+                color: isNextToInput ? Colors.amber.withValues(alpha: 0.06) : null,
+                child: Column(children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 14, top: 8, bottom: 2),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isNextToInput ? Colors.amber[700]! : AppTheme.textSecondary)),
+                        if (displayLabel.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                            child: Text(displayLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber[800])),
+                          ),
+                        ],
+                        if (isNextToInput) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)),
+                            child: const Text('入力待ち', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ),
+                        ],
+                      ]),
+                      Row(children: [
+                        Text("主審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                        Text(m['refereeTeamName'] ?? '未定', style: TextStyle(fontSize: 13,
+                          color: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint,
+                          fontWeight: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
+                        Text(" / 副審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                        Text(m['subRefereeTeamName'] ?? 'ー', style: TextStyle(fontSize: 13,
+                          color: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint,
+                          fontWeight: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
+                      ]),
                     ]),
-                    // 審判（コンパクトに）
-                    if ((m['refereeTeamName'] ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(children: [
+                      Expanded(flex: 3, child: Text(teamADisplay,
+                        style: TextStyle(fontSize: 16,
+                          color: isMyTeamA ? Colors.red : null,
+                          fontWeight: (isMyTeamA || aWon) ? FontWeight.bold : FontWeight.normal),
+                        textAlign: TextAlign.right)),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isCompleted ? AppTheme.success.withValues(alpha: 0.1) : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(6)),
                         child: Text(
-                          '審判: ${m['refereeTeamName']}${(m['subRefereeTeamName'] ?? '').isNotEmpty ? ' / ${m['subRefereeTeamName']}' : ''}',
-                          style: TextStyle(fontSize: 10, color: (isReferee) ? Colors.red : AppTheme.textHint,
-                            fontWeight: isReferee ? FontWeight.bold : FontWeight.normal),
-                        ),
+                          isCompleted ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (isWaiting ? '–' : 'vs'),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
+                            color: isCompleted ? AppTheme.success : AppTheme.textSecondary)),
                       ),
-                  ])),
-                  // 右端のステータスアイコン
-                  const SizedBox(width: 4),
-                  if (isCompleted)
-                    const Icon(Icons.check_circle, size: 18, color: Colors.green)
-                  else if (isNextToInput)
-                    Icon(Icons.edit, size: 18, color: Colors.amber[700])
-                  else if (isWaiting)
-                    Icon(Icons.hourglass_empty, size: 16, color: Colors.grey[400])
-                  else
-                    Icon(Icons.chevron_right, size: 18, color: AppTheme.textHint),
+                      Expanded(flex: 3, child: Text(teamBDisplay,
+                        style: TextStyle(fontSize: 16,
+                          color: isMyTeamB ? Colors.red : null,
+                          fontWeight: (isMyTeamB || bWon) ? FontWeight.bold : FontWeight.normal))),
+                      if (isCompleted)
+                        const Icon(Icons.check_circle, size: 16, color: AppTheme.success)
+                      else
+                        Icon(Icons.play_circle_outline, size: 16, color: AppTheme.textHint),
+                    ]),
+                  ),
+                  Divider(height: 1, thickness: 1, color: Colors.grey[300]),
                 ]),
               ),
             );
           }
 
-          return Column(children: courtInfoList.map((court) {
-            final completed = court.matches.where((d) => (d.data() as Map<String, dynamic>)['status'] == 'completed').length;
+          return Column(children: [
+            _buildBracketCourtChips(bracketId, bracketCourtChipData, myBracketCourts),
+            ...filteredCourtInfoList.map((court) {
+            final isMyCourt = myBracketCourts.contains(court.courtId);
 
             return Container(
-              margin: const EdgeInsets.only(bottom: 10),
+              margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!, width: 1),
+                border: Border.all(color: isMyCourt ? Colors.amber.withValues(alpha: 0.5) : Colors.grey[200]!, width: isMyCourt ? 1.5 : 1),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // コートヘッダー
+                // コートヘッダー（予選と同じスタイル）
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                    color: isMyCourt ? Colors.amber.withValues(alpha: 0.06) : Colors.grey[50],
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   ),
                   child: Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(6)),
-                      child: Text(court.letter, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
+                    Icon(Icons.emoji_events, size: 18, color: Colors.amber[700]),
                     const SizedBox(width: 8),
-                    Text('コート', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text('${court.letter}コート', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    if (isMyCourt) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)),
+                        child: const Text('MY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
                     const Spacer(),
-                    Text('$completed/${court.matches.length}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                      color: completed == court.matches.length ? Colors.green : AppTheme.textSecondary)),
-                    const SizedBox(width: 2),
-                    Text('完了', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    Text('${court.matches.length}試合', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                 ),
-                // 各試合（上から順に消化）
-                ...court.matches.asMap().entries.map((entry) {
-                  final widget = buildMatchCard(entry.value, entry.key, court.matches);
-                  if (entry.key < court.matches.length - 1) {
-                    return Column(children: [widget, Divider(height: 1, thickness: 1, indent: 50, color: Colors.grey[200])]);
-                  }
-                  return widget;
-                }),
+                // 各試合（予選と同じレイアウト）
+                ...court.matches.asMap().entries.map((entry) =>
+                  buildBracketMatchCard(entry.value, entry.key, court.matches)),
               ]),
             );
-          }).toList());
+          }).toList(),
+          ]);
         },
       ),
       const SizedBox(height: 8),
