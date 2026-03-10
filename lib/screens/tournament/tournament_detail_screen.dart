@@ -3116,29 +3116,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             courtMatchOrder[matchNum] = courtMatchCount[courtId]!;
           }
 
-          // ラウンド別にグループ化
-          final roundMatches = <String, List<QueryDocumentSnapshot>>{};
-          for (var mDoc in allMatches) {
-            final round = (mDoc.data() as Map<String, dynamic>)['round'] as String? ?? '';
-            roundMatches.putIfAbsent(round, () => []);
-            roundMatches[round]!.add(mDoc);
+          // コート別にグループ化（時間順にソート済み）
+          final courtMatches = <String, List<QueryDocumentSnapshot>>{};
+          for (var mDoc in sortedForCourt) {
+            final m = mDoc.data() as Map<String, dynamic>;
+            final courtId = m['courtId'] as String? ?? 'no_court';
+            courtMatches.putIfAbsent(courtId, () => []);
+            courtMatches[courtId]!.add(mDoc);
           }
+          final courtOrder = courtMatches.keys.toList()..sort();
 
-          // ラウンド表示順（決勝・3位決定戦を最後に）
-          const roundPriority = {
-            'qf': 0, 'sf_winner': 1, 'sf_loser': 2, 'semi': 3,
-            'round-robin': 4,
-            'final_7th': 10, 'final_5th': 11, 'final_3rd': 12, 'final_1st': 13, 'final': 14,
-          };
-          final roundOrder = roundMatches.keys.toList()..sort((a, b) {
-            final pa = roundPriority[a] ?? 5;
-            final pb = roundPriority[b] ?? 5;
-            return pa.compareTo(pb);
-          });
-
-          return Column(children: roundOrder.map((round) {
-            final matches = roundMatches[round]!;
-            final roundLabel = roundLabels[round] ?? round;
+          return Column(children: courtOrder.map((courtId) {
+            final matches = courtMatches[courtId]!;
+            final firstMatch = matches.first.data() as Map<String, dynamic>;
+            final courtNum = (firstMatch['courtNumber'] as num?)?.toInt();
+            final courtLetter = courtNum != null ? String.fromCharCode(64 + courtNum) : courtId;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
@@ -3148,42 +3140,44 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 border: Border.all(color: Colors.grey[200]!, width: 1),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // ラウンドヘッダー
+                // コートヘッダー
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.06),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.06),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.emoji_events, size: 18, color: Colors.amber),
+                    Icon(Icons.sports_volleyball, size: 18, color: AppTheme.primaryColor),
                     const SizedBox(width: 8),
-                    Text(roundLabel, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    Text('${courtLetter}コート', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const Spacer(),
                     Text('${matches.length}試合', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                 ),
-                // 各試合
+                // 各試合（コート内時間順）
                 ...matches.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final mDoc = entry.value;
                   final m = mDoc.data() as Map<String, dynamic>;
                   final status = m['status'] ?? 'pending';
                   final result = m['result'] as Map<String, dynamic>? ?? {};
-                  final courtNum = (m['courtNumber'] as num?)?.toInt();
-                  final courtLetter = courtNum != null ? String.fromCharCode(64 + courtNum) : '';
                   final matchNum = (m['matchNumber'] as num?)?.toInt() ?? 0;
                   final matchOrder = courtMatchOrder[matchNum] ?? (idx + 1);
+                  final round = m['round'] as String? ?? '';
+                  final roundLabel = roundLabels[round] ?? '';
+                  final label = m['label'] as String? ?? '';
 
                   final isReferee = _myTeamIds.contains(m['refereeTeamId'] ?? '') || _myTeamIds.contains(m['subRefereeTeamId'] ?? '');
                   final isMyMatch = _myTeamIds.contains(m['teamAId'] ?? '') || _myTeamIds.contains(m['teamBId'] ?? '') || isReferee;
                   final canInput = isOrganizer || isMyMatch;
                   final isCompleted = status == 'completed';
                   // 同一コートの前の試合が完了しているかチェック
-                  final sameCourt = allMatches.where((d) => (d.data() as Map<String, dynamic>)['courtId'] == m['courtId']).toList();
-                  final courtIdx = sameCourt.indexWhere((d) => d.id == mDoc.id);
-                  final prevDone = courtIdx <= 0 || ((sameCourt[courtIdx - 1].data() as Map<String, dynamic>)['status'] == 'completed');
+                  final prevDone = idx <= 0 || ((matches[idx - 1].data() as Map<String, dynamic>)['status'] == 'completed');
                   final isNextToInput = !isCompleted && status != 'waiting' && prevDone && isMyMatch;
+
+                  // ラウンドラベル（決勝系のみ表示）
+                  final displayLabel = label.isNotEmpty ? label : (round.startsWith('final') ? roundLabel : '');
 
                   return InkWell(
                     onTap: () {
@@ -3207,20 +3201,19 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           padding: const EdgeInsets.only(left: 14, top: 8, right: 14, bottom: 2),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Row(children: [
-                              if (courtLetter.isNotEmpty) ...[
+                              Text("第$matchOrder試合", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                                  color: isNextToInput ? Colors.amber[800] : AppTheme.textSecondary)),
+                              if (displayLabel.isNotEmpty) ...[
+                                const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                    color: Colors.amber.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                                   ),
-                                  child: Text('${courtLetter}コート', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                                  child: Text(displayLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber[800])),
                                 ),
-                                const SizedBox(width: 6),
                               ],
-                              Text("第$matchOrder試合", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
-                                  color: isNextToInput ? Colors.amber[800] : AppTheme.textSecondary)),
                               if (isNextToInput) ...[
                                 const SizedBox(width: 6),
                                 Container(
