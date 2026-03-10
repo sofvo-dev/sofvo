@@ -3094,9 +3094,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
           // コート毎の試合番号を計算（時間順にソートしてから）
           const _roundTemporal = {
-            'qf': 0, 'semi': 1, 'sf_winner': 2, 'sf_loser': 3,
+            'qf': 0, 'semi': 1, 'sf_winner': 2, 'sf_loser': 2,
             'round-robin': 4,
-            'final_7th': 5, 'final_5th': 6, 'final_3rd': 7, 'final_1st': 8, 'final': 9,
+            'final_3rd': 5, 'final_7th': 5, 'final_1st': 6, 'final_5th': 6, 'final': 7,
           };
           final sortedForCourt = List<QueryDocumentSnapshot>.from(allMatches)..sort((a, b) {
             final aM = a.data() as Map<String, dynamic>;
@@ -7026,17 +7026,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       final num = numMap[qfMatch.group(1)] ?? qfMatch.group(1)!;
       return '第${num}試合 ${qfMatch.group(2)}';
     }
-    // SF勝者①勝者 → 第5試合 勝者, SF勝者②敗者 → 第6試合 敗者
-    // SF敗者①敗者 → 第7試合 敗者, SF敗者②勝者 → 第8試合 勝者
+    // SF勝者①勝者 → 第5試合 勝者, SF勝者②勝者 → 第7試合 勝者
+    // SF敗者①敗者 → 第6試合 敗者, SF敗者②敗者 → 第8試合 敗者
     final sfFinalMatch = RegExp(r'^SF(勝者|敗者)([①②])(.+)$').firstMatch(name);
     if (sfFinalMatch != null) {
-      const numMap = {'①': '1', '②': '2'};
       final sfType = sfFinalMatch.group(1)!; // 勝者 or 敗者
-      final idx = numMap[sfFinalMatch.group(2)] ?? '1';
+      final idx = int.parse({'①': '1', '②': '2'}[sfFinalMatch.group(2)] ?? '1');
       final result = sfFinalMatch.group(3)!;
-      // SF勝者①→第5試合, SF勝者②→第6試合, SF敗者①→第7試合, SF敗者②→第8試合
-      final baseNum = sfType == '勝者' ? 4 : 6;
-      final matchNum = baseNum + int.parse(idx);
+      // クロスコート: SF勝者①→第5, SF敗者①→第6, SF勝者②→第7, SF敗者②→第8
+      final baseNum = sfType == '勝者' ? 3 : 4;
+      final matchNum = baseNum + 2 * idx;
       return '第${matchNum}試合 $result';
     }
     // SF①勝者 → 第1試合 勝者 (4チームSE)
