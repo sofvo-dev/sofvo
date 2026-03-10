@@ -754,8 +754,8 @@ export default function CreateTournamentPage() {
                     </Field>
                     {finalFormat === "順位別複数" && (
                       <Field label="区分数">
-                        <Chips options={["上・下", "上・中・下"]} value={finalTierCount === 2 ? "上・下" : "上・中・下"}
-                          onChange={(v) => setFinalTierCount(v === "上・下" ? 2 : 3)} />
+                        <Chips options={["区分なし", "上・下", "上・中・下", "上・中①・中②・下"]} value={finalTierCount === 1 ? "区分なし" : finalTierCount === 2 ? "上・下" : finalTierCount === 4 ? "上・中①・中②・下" : "上・中・下"}
+                          onChange={(v) => setFinalTierCount(v === "区分なし" ? 1 : v === "上・下" ? 2 : v === "上・中①・中②・下" ? 4 : 3)} />
                       </Field>
                     )}
                   </div>

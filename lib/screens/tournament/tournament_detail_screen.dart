@@ -6991,12 +6991,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       case 1: return ['リーグ'];
       case 2: return ['上', '下'];
       case 3: return ['上', '中', '下'];
-      case 4: return ['上', '中上', '中下', '下'];
-      case 5: return ['上', '中上', '中', '中下', '下'];
-      case 6: return ['上', '中上', '中', '中下', '下', 'エンジョイ'];
+      case 4: return ['上', '中①', '中②', '下'];
       default:
-        final names = ['上', '中上', '中', '中下', '下'];
-        for (int i = 5; i < count; i++) names.add('第${i + 1}');
+        final names = <String>['上'];
+        for (int i = 1; i < count - 1; i++) {
+          names.add('中${count > 3 ? "①②③④⑤⑥⑦⑧"[i - 1] : ""}');
+        }
+        names.add('下');
         return names;
     }
   }
@@ -7011,7 +7012,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   String _toFullLeagueName(String name) {
     const map = {
       '上': '上位リーグ', '中': '中位リーグ', '下': '下位リーグ',
-      '中上': '中上位リーグ', '中下': '中下位リーグ',
+      '中①': '中位①リーグ', '中②': '中位②リーグ',
     };
     return map[name] ?? name;
   }
@@ -7054,12 +7055,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       case 1: return ['リーグ'];
       case 2: return ['上位リーグ', '下位リーグ'];
       case 3: return ['上位リーグ', '中位リーグ', '下位リーグ'];
-      case 4: return ['上位リーグ', '中上位リーグ', '中下位リーグ', '下位リーグ'];
-      case 5: return ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
-      case 6: return ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ', 'エンジョイ'];
+      case 4: return ['上位リーグ', '中位①リーグ', '中位②リーグ', '下位リーグ'];
       default:
-        final names = ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
-        for (int i = 5; i < count; i++) names.add('第${i + 1}リーグ');
+        final names = <String>['上位リーグ'];
+        for (int i = 1; i < count - 1; i++) {
+          names.add('中位${count > 3 ? "①②③④⑤⑥⑦⑧"[i - 1] : ""}リーグ');
+        }
+        names.add('下位リーグ');
         return names;
     }
   }
@@ -7313,11 +7315,13 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
       case 1: return ['リーグ'];
       case 2: return ['上位リーグ', '下位リーグ'];
       case 3: return ['上位リーグ', '中位リーグ', '下位リーグ'];
-      case 4: return ['上位リーグ', '中上位リーグ', '中下位リーグ', '下位リーグ'];
-      case 5: return ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
+      case 4: return ['上位リーグ', '中位①リーグ', '中位②リーグ', '下位リーグ'];
       default:
-        final names = ['上位リーグ', '中上位リーグ', '中位リーグ', '中下位リーグ', '下位リーグ'];
-        for (int i = 5; i < count; i++) names.add('第${i + 1}リーグ');
+        final names = <String>['上位リーグ'];
+        for (int i = 1; i < count - 1; i++) {
+          names.add('中位${count > 3 ? "①②③④⑤⑥⑦⑧"[i - 1] : ""}リーグ');
+        }
+        names.add('下位リーグ');
         return names;
     }
   }
