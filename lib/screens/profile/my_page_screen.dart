@@ -216,10 +216,10 @@ class MyPageScreen extends StatelessWidget {
               // ━━━ ダッシュボード（スタッツ） ━━━
               SliverToBoxAdapter(
                 child: Transform.translate(
-                  offset: const Offset(0, -12),
+                  offset: const Offset(0, -8),
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
@@ -243,7 +243,7 @@ class MyPageScreen extends StatelessWidget {
               // ━━━ ポイント関連ボタン ━━━
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Row(
                     children: [
                       Expanded(
@@ -296,7 +296,7 @@ class MyPageScreen extends StatelessWidget {
 
               // ━━━ コンテンツ ━━━
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 100),
+                padding: const EdgeInsets.fromLTRB(0, 20, 0, 100),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // ━━━ 大会結果カードセクション ━━━
@@ -308,7 +308,7 @@ class MyPageScreen extends StatelessWidget {
                           MaterialPageRoute(builder: (_) => const TournamentHistoryScreen())),
                       child: _TournamentCardsRow(userId: user.uid),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
                     // ━━━ マイガジェットカードセクション ━━━
                     _buildCardSection(
@@ -319,7 +319,7 @@ class MyPageScreen extends StatelessWidget {
                           MaterialPageRoute(builder: (_) => const GadgetListScreen())),
                       child: _GadgetCardsRow(userId: user.uid),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
                     // ━━━ バッジコレクション（YAMAP風） ━━━
                     _buildCardSection(
@@ -328,9 +328,7 @@ class MyPageScreen extends StatelessWidget {
                       icon: Icons.workspace_premium_rounded,
                       child: _BadgeCollectionRow(userId: user.uid),
                     ),
-                    const SizedBox(height: 16),
-
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 24),
 
                     // ── 大会主催者メニュー（カード型） ──
                     _buildCardSection(
@@ -667,7 +665,7 @@ class MyPageScreen extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         child,
       ],
     );
