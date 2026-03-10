@@ -7131,27 +7131,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   /// 未確定チーム名のプレースホルダーをわかりやすい表記に変換
   String _friendlyPlaceholder(String name) {
-    // QF①勝者 → 第1試合 勝者
-    final qfMatch = RegExp(r'^QF([①②③④])(.+)$').firstMatch(name);
+    // 既に「第X試合」形式ならそのまま返す
+    if (RegExp(r'^第\d+試合').hasMatch(name)) return name;
+    // QF①勝者 or QF1勝者 → 第X試合 勝者
+    final qfMatch = RegExp(r'^QF([①②③④1-4])(.+)$').firstMatch(name);
     if (qfMatch != null) {
       const numMap = {'①': '1', '②': '2', '③': '3', '④': '4'};
       final num = numMap[qfMatch.group(1)] ?? qfMatch.group(1)!;
       return '第${num}試合 ${qfMatch.group(2)}';
     }
-    // SF勝者①勝者 → 第5試合 勝者, SF勝者②勝者 → 第7試合 勝者
-    // SF敗者①敗者 → 第6試合 敗者, SF敗者②敗者 → 第8試合 敗者
-    final sfFinalMatch = RegExp(r'^SF(勝者|敗者)([①②])(.+)$').firstMatch(name);
-    if (sfFinalMatch != null) {
-      final sfType = sfFinalMatch.group(1)!; // 勝者 or 敗者
-      final idx = int.parse({'①': '1', '②': '2'}[sfFinalMatch.group(2)] ?? '1');
-      final result = sfFinalMatch.group(3)!;
-      // クロスコート: SF勝者①→第5, SF敗者①→第6, SF勝者②→第7, SF敗者②→第8
-      final baseNum = sfType == '勝者' ? 3 : 4;
-      final matchNum = baseNum + 2 * idx;
-      return '第${matchNum}試合 $result';
-    }
-    // SF①勝者 → 第1試合 勝者 (4チームSE)
-    final sfMatch = RegExp(r'^SF([①②])(.+)$').firstMatch(name);
+    // SF1勝者 or SF①勝者 (4チームSE / 5-7チーム)
+    final sfMatch = RegExp(r'^SF([①②1-2])(.+)$').firstMatch(name);
     if (sfMatch != null) {
       const numMap = {'①': '1', '②': '2'};
       final num = numMap[sfMatch.group(1)] ?? sfMatch.group(1)!;
