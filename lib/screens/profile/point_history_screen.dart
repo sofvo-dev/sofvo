@@ -121,13 +121,10 @@ class PointHistoryScreen extends StatelessWidget {
     final date = (data['date'] ?? '') as String;
     final rank = data['rank'] as int?;
     final rankPoints = _safeInt(data['rankPoints']);
-    final streakBonus = _safeInt(data['streakBonus']);
-    final organizerBonus = _safeInt(data['organizerBonus']);
     final totalEarned = _safeInt(data['totalEarned']);
-    final isOrganizer = data['isOrganizer'] == true;
     final teamCount = _safeInt(data['teamCount']);
 
-    final rankNames = {1: '優勝', 2: '準優勝', 3: '3位', 4: '4位'};
+    final rankNames = {1: '優勝', 2: '準優勝', 3: '3位'};
     final rankLabel = rank != null ? rankNames[rank] ?? '参加' : '参加';
 
     return Container(
@@ -161,20 +158,12 @@ class PointHistoryScreen extends StatelessWidget {
                 const SizedBox(width: 6),
                 _buildTag('$teamCountチーム', AppTheme.textSecondary),
               ],
-              if (isOrganizer) ...[
-                const SizedBox(width: 6),
-                _buildTag('主催', AppTheme.success),
-              ],
             ],
           ),
           const Divider(height: 16),
           // ポイント内訳
           if (rankPoints > 0)
             _buildPointDetail('順位ポイント ($rankLabel)', '+$rankPoints'),
-          if (streakBonus > 0)
-            _buildPointDetail('連続参加ボーナス', '+$streakBonus'),
-          if (organizerBonus > 0)
-            _buildPointDetail('主催者ボーナス', '+$organizerBonus'),
           const SizedBox(height: 4),
           // 合計
           Row(
