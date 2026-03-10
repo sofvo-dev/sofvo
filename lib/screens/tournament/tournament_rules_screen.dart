@@ -745,8 +745,8 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
               if (_finalFormat == '順位別複数')
                 Padding(
                   padding: const EdgeInsets.only(left: 16, top: 4, bottom: 4),
-                  child: _choiceRow('区分数', [1, 2, 3], _finalTierCount, (v) => setState(() => _finalTierCount = v), _finalColor,
-                    labels: {1: '区分なし', 2: '上・下', 3: '上・中・下'}),
+                  child: _choiceRow('区分数', [1, 2, 3, 4], _finalTierCount, (v) => setState(() => _finalTierCount = v), _finalColor,
+                    labels: {1: '区分なし', 2: '上・下', 3: '上・中・下', 4: '上・中①・中②・下'}),
                 ),
               const SizedBox(height: 8),
               _formatCard('全チーム一本', '全チームで1つの\nトーナメントを実施', Icons.account_tree,

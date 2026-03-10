@@ -711,7 +711,7 @@ class PdfGenerator {
   String _toFullLeagueName(String name) {
     const map = {
       '上': '上位リーグ', '中': '中位リーグ', '下': '下位リーグ',
-      '中上': '中上位リーグ', '中下': '中下位リーグ',
+      '中①': '中位①リーグ', '中②': '中位②リーグ',
     };
     return map[name] ?? name;
   }
