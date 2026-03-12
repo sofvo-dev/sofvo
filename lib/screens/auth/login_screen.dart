@@ -26,16 +26,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    // テスト用：入力が空ならテストアカウントでログイン
-    final email = _emailController.text.trim().isEmpty
-        ? 'shusuke1027@gmail.com'
-        : _emailController.text.trim();
-    final password = _passwordController.text.isEmpty
-        ? 'a4869a'
-        : _passwordController.text;
+    if (!_formKey.currentState!.validate()) return;
 
-    // 入力がある場合のみバリデーション
-    if (_emailController.text.trim().isNotEmpty && !_formKey.currentState!.validate()) return;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     setState(() => _isLoading = true);
     try {
