@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
 
@@ -316,6 +317,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // ── プライバシーポリシー・利用規約 ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://sofvo-19d84.web.app/terms.html'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text(
+                        '利用規約',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '｜',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textHint,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text(
+                        'プライバシーポリシー',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
 
                 // ── ログインへ戻る ──
                 Row(
