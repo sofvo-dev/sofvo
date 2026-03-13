@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/profile/user_profile_screen.dart';
@@ -17,34 +18,42 @@ class PushNotificationService {
   static GlobalKey<ScaffoldMessengerState>? scaffoldMessengerKey;
 
   static Future<void> initialize() async {
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      await _saveToken();
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        await _saveToken();
 
-      _messaging.onTokenRefresh.listen((token) => _saveTokenToFirestore(token));
+        _messaging.onTokenRefresh.listen((token) => _saveTokenToFirestore(token));
 
-      // フォアグラウンドメッセージ → バナー表示
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+        // フォアグラウンドメッセージ → バナー表示
+        FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-      // バックグラウンドからのタップ → 画面遷移
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageTap);
+        // バックグラウンドからのタップ → 画面遷移
+        FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageTap);
 
-      // アプリ終了状態からの起動
-      final initialMessage = await _messaging.getInitialMessage();
-      if (initialMessage != null) {
-        _handleMessageTap(initialMessage);
+        // アプリ終了状態からの起動
+        final initialMessage = await _messaging.getInitialMessage();
+        if (initialMessage != null) {
+          _handleMessageTap(initialMessage);
+        }
       }
+    } catch (e) {
+      debugPrint('Push notification initialization failed: $e');
     }
   }
 
   static Future<void> _saveToken() async {
-    final token = await _messaging.getToken();
-    if (token != null) await _saveTokenToFirestore(token);
+    try {
+      final token = await _messaging.getToken();
+      if (token != null) await _saveTokenToFirestore(token);
+    } catch (e) {
+      debugPrint('Failed to get FCM token: $e');
+    }
   }
 
   static Future<void> _saveTokenToFirestore(String token) async {
