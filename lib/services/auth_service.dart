@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -31,17 +31,23 @@ class AuthService {
     );
   }
 
-  // Googleログイン（Web: リダイレクト / モバイル: GoogleSignIn）
+  // Googleログイン（Web: リダイレクト / Android: signInWithProvider / iOS: GoogleSignIn）
   Future<UserCredential?> signInWithGoogle() async {
     if (kIsWeb) {
       final googleProvider = GoogleAuthProvider();
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
       // モバイルブラウザではポップアップがブロックされるためリダイレクト方式を使用
-      // signInWithRedirectはページ遷移するため、戻ってきた後はauthStateChangesで検知される
       await _auth.signInWithRedirect(googleProvider);
       return null;
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      // AndroidではsignInWithProviderを使用（Chrome Custom Tabベース）
+      final googleProvider = GoogleAuthProvider();
+      googleProvider.addScope('email');
+      googleProvider.addScope('profile');
+      return await _auth.signInWithProvider(googleProvider);
     } else {
+      // iOS: ネイティブGoogleSignIn SDK
       final googleSignIn = GoogleSignIn();
       final account = await googleSignIn.signIn();
       if (account == null) return null; // ユーザーがキャンセル
@@ -55,7 +61,7 @@ class AuthService {
     }
   }
 
-  // Appleログイン（Web: リダイレクト / モバイル: sign_in_with_apple）
+  // Appleログイン（Web: リダイレクト / Android: signInWithProvider / iOS: sign_in_with_apple）
   Future<UserCredential?> signInWithApple() async {
     if (kIsWeb) {
       final provider = OAuthProvider('apple.com');
@@ -64,7 +70,14 @@ class AuthService {
       // モバイルブラウザではポップアップがブロックされるためリダイレクト方式を使用
       await _auth.signInWithRedirect(provider);
       return null;
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      // AndroidではsignInWithProviderを使用（WebベースのOAuthフロー）
+      final provider = OAuthProvider('apple.com');
+      provider.addScope('email');
+      provider.addScope('name');
+      return await _auth.signInWithProvider(provider);
     } else {
+      // iOS: ネイティブApple Sign-In
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
