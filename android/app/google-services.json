@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "584952056517-gu7su1b20velutoaacb4r2nc52rjo31c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sofvo.app",
+            "certificate_hash": "92170c142154b6e39276066426fc281ea6e83d16"
+          }
+        },
+        {
           "client_id": "584952056517-lbkbaj839elqlkqtnqtnh2ies427vdde.apps.googleusercontent.com",
           "client_type": 3
         }
