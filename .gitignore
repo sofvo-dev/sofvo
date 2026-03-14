@@ -48,3 +48,6 @@ app.*.map.json
 android/key.properties
 android/app/sofvo-release-key.jks
 *.jks
+
+# Firebase
+.firebase/
