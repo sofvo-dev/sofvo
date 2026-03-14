@@ -8,10 +8,12 @@
 
 ## Xcode ビルド & アップロード手順
 1. `cd ~/Desktop/sofvo`
-2. `git pull origin main` で最新のコードを取得
+2. `git pull origin main --rebase` で最新のコードを取得
+   - コンフリクトが出た場合: `git rebase --abort && git fetch origin main && git reset --hard origin/main`
 3. Xcodeで `ios/Runner.xcworkspace` を開く
-4. **Product → Archive**
-5. **Organizer → Distribute App → App Store Connect** でアップロード
+4. **Product → Clean Build Folder** (Shift+Command+K)
+5. **Product → Archive**
+6. **Organizer → Distribute App → App Store Connect** でアップロード
 
 ## App Store Connect
 - **Bundle ID**: com.sofvo.app
