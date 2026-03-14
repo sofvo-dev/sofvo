@@ -10,10 +10,12 @@
 1. `cd ~/Desktop/sofvo`
 2. `git pull origin main --rebase` で最新のコードを取得
    - コンフリクトが出た場合: `git rebase --abort && git fetch origin main && git reset --hard origin/main`
-3. Xcodeで `ios/Runner.xcworkspace` を開く
-4. **Product → Clean Build Folder** (Shift+Command+K)
-5. **Product → Archive**
-6. **Organizer → Distribute App → App Store Connect** でアップロード
+3. `cd ios && pod install && cd ..` でCocoaPodsの依存関係をインストール
+   - `Module 'cloud_firestore' not found` 等のエラーが出た場合はこの手順が抜けている可能性が高い
+4. Xcodeで `ios/Runner.xcworkspace` を開く（`.xcodeproj` ではなく `.xcworkspace` を使うこと）
+5. **Product → Clean Build Folder** (Shift+Command+K)
+6. **Product → Archive**
+7. **Organizer → Distribute App → App Store Connect** でアップロード
 
 ## App Store Connect
 - **Bundle ID**: com.sofvo.app
