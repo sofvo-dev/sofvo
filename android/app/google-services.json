@@ -7,42 +7,6 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:584952056517:android:8a450aa9331e839b2afeac",
-        "android_client_info": {
-          "package_name": "com.example.sofvo"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "584952056517-lbkbaj839elqlkqtnqtnh2ies427vdde.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAPJ1hZe5N4Q5FKQEVL8fNlRHDw0TpObYQ"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "584952056517-lbkbaj839elqlkqtnqtnh2ies427vdde.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "584952056517-np66kn6qkg8dag8hmv18nc09bau76gqn.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.sofvo"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:584952056517:android:ecc83e3d46f39ba02afeac",
         "android_client_info": {
           "package_name": "com.sofvo.app"
@@ -78,7 +42,7 @@
               "client_id": "584952056517-np66kn6qkg8dag8hmv18nc09bau76gqn.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.sofvo"
+                "bundle_id": "com.sofvo.app"
               }
             }
           ]
