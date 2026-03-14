@@ -37,3 +37,31 @@
   3. XServerアカウントからドメインの解約手続き
   4. 「ドメイン解約についてのご案内」メールの案内に従い、ムームードメインで移管申請
 - **参考**: https://www.xserver.ne.jp/support/faq/transfer_domain_permanent_free.php
+
+## アプリ化 進捗（2026/03/14 時点）
+
+### リリース状況
+- **iOS**: 🟡 審査待ち（App Store Connect に提出済み、結果待ち 1〜3日）
+- **Android**: ⏳ クローズドテスト中（12人オプトイン済み、1/14日目 → 3/28頃完了）
+
+### 完了済み
+- Apple Developer 登録
+- Google Play Console 登録
+- iOS ビルド & App Store Connect アップロード
+- iOS スクリーンショット & メタデータ登録
+- iOS 審査提出
+- Android クローズドテスト版公開 & テスター12人オプトイン
+- プライバシーポリシー・利用規約 公開済み
+- Firebase 設定完了
+- 署名設定（iOS / Android）完了
+
+### 残りタスク
+1. iOS 審査結果対応（数日以内）
+2. Android 14日間テスト完了待ち（3/28頃）
+3. Android 製品版申請 & 審査（3/28以降）
+4. ドメイン移管（XServer → ムームードメイン）サポート返信待ち
+
+### 想定スケジュール
+- **3月中旬〜**: iOS App Store 公開（審査通過次第）
+- **3月末〜**: Android Play Store 製品版申請
+- **4月上旬**: 両ストアで公開完了（目標）
