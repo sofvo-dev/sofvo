@@ -347,6 +347,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
     final openTime = (data['openTime'] ?? '').toString();
     final closeTime = (data['closeTime'] ?? '').toString();
     final fee = (data['fee'] ?? '').toString();
+    final timeSlots = data['timeSlots'] as Map<String, dynamic>?;
     final eatArea = (data['eatArea'] ?? '').toString();
     final floorType = (data['floorType'] ?? '').toString();
     final poleType = (data['poleType'] ?? '').toString();
@@ -400,7 +401,19 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                   ),
                   if (phone.isNotEmpty) _detailRow(Icons.phone, phone),
                   if (station.isNotEmpty) _detailRow(Icons.train, station),
-                  if (openTime.isNotEmpty || closeTime.isNotEmpty) _detailRow(Icons.access_time, '$openTime 〜 $closeTime'),
+                  if (timeSlots != null) ...[
+                    ...['am', 'pm', 'night'].map((key) {
+                      final slot = timeSlots[key] as Map<String, dynamic>?;
+                      if (slot == null) return const SizedBox.shrink();
+                      final s = (slot['start'] ?? '').toString();
+                      final e = (slot['end'] ?? '').toString();
+                      final f = (slot['fee'] ?? '').toString();
+                      final slotLabel = key == 'am' ? '午前' : key == 'pm' ? '午後' : '夜間';
+                      if (s.isEmpty && e.isEmpty) return const SizedBox.shrink();
+                      return _detailRow(Icons.access_time, '$slotLabel $s〜$e${f.isNotEmpty ? '  $f' : ''}');
+                    }),
+                  ] else if (openTime.isNotEmpty || closeTime.isNotEmpty)
+                    _detailRow(Icons.access_time, '$openTime 〜 $closeTime'),
                   if (fee.isNotEmpty) _detailRow(Icons.payments_outlined, fee),
                   if (eatArea.isNotEmpty) _detailRow(Icons.restaurant, eatArea),
 
@@ -545,8 +558,16 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
   final _courtsCtrl = TextEditingController();
   final _parkingCtrl = TextEditingController();
   final _stationCtrl = TextEditingController();
-  final _openTimeCtrl = TextEditingController(text: '8:00');
-  final _closeTimeCtrl = TextEditingController(text: '22:00');
+  // 午前/午後/夜間の時間スロット
+  final _amStartCtrl = TextEditingController(text: '09:00');
+  final _amEndCtrl = TextEditingController(text: '13:00');
+  final _pmStartCtrl = TextEditingController(text: '13:00');
+  final _pmEndCtrl = TextEditingController(text: '17:00');
+  final _nightStartCtrl = TextEditingController(text: '17:00');
+  final _nightEndCtrl = TextEditingController(text: '21:00');
+  final _amFeeCtrl = TextEditingController();
+  final _pmFeeCtrl = TextEditingController();
+  final _nightFeeCtrl = TextEditingController();
   final _feeCtrl = TextEditingController();
   final _eatAreaCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -578,8 +599,34 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
       _courtsCtrl.text = (v['courts'] ?? 0) > 0 ? '${v['courts']}' : '';
       _parkingCtrl.text = (v['parking'] ?? 0) > 0 ? '${v['parking']}' : '';
       _stationCtrl.text = (v['station'] as String?) ?? '';
-      _openTimeCtrl.text = (v['openTime'] as String?) ?? '8:00';
-      _closeTimeCtrl.text = (v['closeTime'] as String?) ?? '22:00';
+      // 時間スロットデータ読み込み
+      final slots = v['timeSlots'] as Map<String, dynamic>?;
+      if (slots != null) {
+        final am = slots['am'] as Map<String, dynamic>?;
+        final pm = slots['pm'] as Map<String, dynamic>?;
+        final night = slots['night'] as Map<String, dynamic>?;
+        if (am != null) {
+          _amStartCtrl.text = (am['start'] as String?) ?? '09:00';
+          _amEndCtrl.text = (am['end'] as String?) ?? '13:00';
+          _amFeeCtrl.text = (am['fee'] as String?) ?? '';
+        }
+        if (pm != null) {
+          _pmStartCtrl.text = (pm['start'] as String?) ?? '13:00';
+          _pmEndCtrl.text = (pm['end'] as String?) ?? '17:00';
+          _pmFeeCtrl.text = (pm['fee'] as String?) ?? '';
+        }
+        if (night != null) {
+          _nightStartCtrl.text = (night['start'] as String?) ?? '17:00';
+          _nightEndCtrl.text = (night['end'] as String?) ?? '21:00';
+          _nightFeeCtrl.text = (night['fee'] as String?) ?? '';
+        }
+      } else {
+        // 旧フォーマットからの互換
+        final open = (v['openTime'] as String?) ?? '09:00';
+        final close = (v['closeTime'] as String?) ?? '21:00';
+        _amStartCtrl.text = open;
+        _nightEndCtrl.text = close;
+      }
       _feeCtrl.text = (v['fee'] as String?) ?? '';
       _eatAreaCtrl.text = (v['eatArea'] as String?) ?? '';
       _notesCtrl.text = (v['notes'] as String?) ?? '';
@@ -694,17 +741,11 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
           const SizedBox(height: 20),
           _section('利用情報', Icons.access_time),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _label('利用開始時間'), _field(_openTimeCtrl, '8:00'),
-            ])),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _label('利用終了時間'), _field(_closeTimeCtrl, '22:00'),
-            ])),
-          ]),
-          _label('利用料金(目安)'),
-          _field(_feeCtrl, '例: 1時間¥2,000 / 終日¥15,000'),
+          _timeSlotRow('午前', _amStartCtrl, _amEndCtrl, _amFeeCtrl),
+          _timeSlotRow('午後', _pmStartCtrl, _pmEndCtrl, _pmFeeCtrl),
+          _timeSlotRow('夜間', _nightStartCtrl, _nightEndCtrl, _nightFeeCtrl),
+          _label('利用料金(その他)'),
+          _field(_feeCtrl, '例: 終日¥15,000 / 冷暖房費¥500'),
 
           const SizedBox(height: 20),
           _section('貸出備品', Icons.inventory_2),
@@ -794,8 +835,13 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
         'poleType': _poleType,
         'poleAdjustable': _poleAdjustable,
         'notes': _notesCtrl.text.trim(),
-        'openTime': _openTimeCtrl.text.trim(),
-        'closeTime': _closeTimeCtrl.text.trim(),
+        'openTime': _amStartCtrl.text.trim(),
+        'closeTime': _nightEndCtrl.text.trim(),
+        'timeSlots': {
+          'am': {'start': _amStartCtrl.text.trim(), 'end': _amEndCtrl.text.trim(), 'fee': _amFeeCtrl.text.trim()},
+          'pm': {'start': _pmStartCtrl.text.trim(), 'end': _pmEndCtrl.text.trim(), 'fee': _pmFeeCtrl.text.trim()},
+          'night': {'start': _nightStartCtrl.text.trim(), 'end': _nightEndCtrl.text.trim(), 'fee': _nightFeeCtrl.text.trim()},
+        },
         'fee': _feeCtrl.text.trim(),
         'equipments': _equipments,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -832,6 +878,62 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// 時間入力の自動フォーマット（9:00 → 09:00）
+  String _formatTime(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(trimmed);
+    if (match != null) {
+      final h = match.group(1)!.padLeft(2, '0');
+      final m = match.group(2)!;
+      return '$h:$m';
+    }
+    return trimmed;
+  }
+
+  Widget _timeField(TextEditingController ctrl, String hint) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: TextInputType.datetime,
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 14),
+      decoration: _inputDeco(hint).copyWith(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      ),
+      onChanged: (_) => setState(() {}),
+      onEditingComplete: () {
+        ctrl.text = _formatTime(ctrl.text);
+        setState(() {});
+      },
+      onTapOutside: (_) {
+        ctrl.text = _formatTime(ctrl.text);
+        FocusScope.of(context).unfocus();
+      },
+    );
+  }
+
+  Widget _timeSlotRow(String label, TextEditingController startCtrl, TextEditingController endCtrl, TextEditingController feeCtrl) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        SizedBox(width: 40, child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+        const SizedBox(width: 8),
+        Expanded(flex: 2, child: _timeField(startCtrl, '09:00')),
+        const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text('〜', style: TextStyle(fontSize: 14))),
+        Expanded(flex: 2, child: _timeField(endCtrl, '13:00')),
+        const SizedBox(width: 8),
+        Expanded(flex: 3, child: TextField(
+          controller: feeCtrl,
+          style: const TextStyle(fontSize: 14),
+          decoration: _inputDeco('料金').copyWith(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          ),
+          onChanged: (_) => setState(() {}),
+        )),
+      ]),
+    );
   }
 
   Widget _section(String title, IconData icon) {
