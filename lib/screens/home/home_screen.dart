@@ -250,7 +250,44 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (context, postSnapshot) {
         if (postSnapshot.hasError) {
           debugPrint("TIMELINE ERROR: ${postSnapshot.error}");
-          return _buildEmptyTimeline();
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cloud_off, size: 64, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  const Text('データの取得に失敗しました',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'ネットワーク接続を確認して\nもう一度お試しください',
+                    style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                        height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => setState(() {}),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('再読み込み'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
         if (!postSnapshot.hasData) {
           return const Center(
@@ -313,10 +350,31 @@ class _HomeScreenState extends State<HomeScreen>
             OutlinedButton.icon(
               onPressed: _openCreatePost,
               icon: const Icon(Icons.edit),
-              label: const Text('最初の投稿をする'),
+              label: const Text('投稿する'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primaryColor,
                 side: const BorderSide(color: AppTheme.primaryColor),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('下のメニューから「さがす」タブで仲間を見つけましょう'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.search),
+              label: const Text('さがすタブへ'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.textSecondary,
+                side: BorderSide(color: Colors.grey[300]!),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(

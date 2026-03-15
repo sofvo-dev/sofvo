@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,6 +20,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _searchIdController = TextEditingController();
   final _bioController = TextEditingController();
   String? _searchIdError;
+  Timer? _debounceTimer;
+  bool _isCheckingId = false;
+  bool? _isIdAvailable;
 
   String _selectedPrefecture = '';
   String _selectedExperience = '1年未満';
@@ -49,10 +53,44 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _nicknameController.dispose();
     _searchIdController.dispose();
     _bioController.dispose();
     super.dispose();
+  }
+
+  void _checkSearchIdAvailability(String value) {
+    _debounceTimer?.cancel();
+    final trimmed = value.trim();
+
+    if (trimmed.length < 3 || !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(trimmed)) {
+      setState(() {
+        _isIdAvailable = null;
+        _isCheckingId = false;
+      });
+      return;
+    }
+
+    setState(() => _isCheckingId = true);
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        final existing = await FirebaseFirestore.instance
+            .collection('users')
+            .where('searchId', isEqualTo: trimmed)
+            .get();
+        if (mounted) {
+          setState(() {
+            _isIdAvailable = existing.docs.isEmpty;
+            _isCheckingId = false;
+            _searchIdError = _isIdAvailable == false ? 'このユーザーIDは既に使用されています' : null;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _isCheckingId = false);
+      }
+    });
   }
 
   Future<void> _saveProfile() async {
@@ -144,7 +182,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('保存に失敗しました: $e'),
+            content: Text(() {
+              String errorMessage = '保存に失敗しました。';
+              if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+                errorMessage = 'ネットワークに接続できません。接続を確認してもう一度お試しください。';
+              } else if (e.toString().contains('permission')) {
+                errorMessage = 'アクセス権限がありません。再ログインしてお試しください。';
+              }
+              return errorMessage;
+            }()),
             backgroundColor: AppTheme.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -231,6 +277,39 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 24),
+                // ── ステップ表示 ──
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'ステップ 2/2',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: 1.0,
+                          backgroundColor: Colors.grey[200],
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
                 const Text(
                   'はじめまして！\nプロフィールを設定しましょう',
                   style: TextStyle(
@@ -298,11 +377,26 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     hintText: '例: volleyball_taro',
                     prefixIcon: const Icon(Icons.alternate_email),
                     errorText: _searchIdError,
+                    suffixIcon: _isCheckingId
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : _isIdAvailable == true
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : _isIdAvailable == false
+                                ? const Icon(Icons.cancel, color: Colors.red)
+                                : null,
                   ),
-                  onChanged: (_) {
+                  onChanged: (value) {
                     if (_searchIdError != null) {
                       setState(() => _searchIdError = null);
                     }
+                    _checkSearchIdAvailability(value);
                   },
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {

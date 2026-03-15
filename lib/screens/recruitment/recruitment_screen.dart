@@ -89,13 +89,22 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('大会読み込みエラー: $e');
       if (mounted) {
         setState(() {
           _upcoming = [];
           _past = [];
           _loading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('大会の読み込みに失敗しました。下に引いて再読み込みしてください。'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
       }
     }
   }
@@ -245,6 +254,28 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                     const Text('大会を検索してエントリーしましょう！',
                         style: TextStyle(
                             fontSize: 13, color: AppTheme.textHint)),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // MainTabScreenの「さがす」タブに切り替え
+                        // 親のIndexedStackから切り替えは難しいので、
+                        // シンプルにSnackBarで案内
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('下のメニューから「さがす」タブで大会を探せます'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.search, size: 18),
+                      label: const Text('大会を探す'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      ),
+                    ),
                   ]),
             ),
           ),
