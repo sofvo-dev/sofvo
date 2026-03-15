@@ -466,13 +466,27 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     if (templateData != null && templateData['venueId'] != null && (templateData['venueId'] as String).isNotEmpty) {
       selectedVenue = {'id': templateData['venueId'], 'name': templateData['location'], 'address': templateData['venueAddress'] ?? ''};
     }
-    String openTime = (templateData?['openTime'] ?? '8:00') as String;
-    String receptionTime = (templateData?['receptionTime'] ?? '8:30') as String;
-    String captainMeetingTime = (templateData?['captainMeetingTime'] ?? '8:45') as String;
-    String openingTime = (templateData?['openingTime'] ?? '9:00') as String;
-    String matchStartTime = (templateData?['matchStartTime'] ?? '9:15') as String;
-    String finalTime = (templateData?['finalTime'] ?? '15:00') as String;
-    String closingTime = (templateData?['closingTime'] ?? '15:30') as String;
+    String openTime = (templateData?['openTime'] ?? '') as String;
+    String receptionTime = (templateData?['receptionTime'] ?? '') as String;
+    String captainMeetingTime = (templateData?['captainMeetingTime'] ?? '') as String;
+    String openingTime = (templateData?['openingTime'] ?? '') as String;
+    String matchStartTime = (templateData?['matchStartTime'] ?? '') as String;
+    String finalTime = (templateData?['finalTime'] ?? '') as String;
+    String closingTime = (templateData?['closingTime'] ?? '') as String;
+
+    // 時間フォーマット正規化（9:00 → 09:00）
+    String _fmtTime(String t) {
+      final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(t.trim());
+      if (m != null) return '${m.group(1)!.padLeft(2, '0')}:${m.group(2)!}';
+      return t;
+    }
+    openTime = _fmtTime(openTime);
+    receptionTime = _fmtTime(receptionTime);
+    captainMeetingTime = _fmtTime(captainMeetingTime);
+    openingTime = _fmtTime(openingTime);
+    matchStartTime = _fmtTime(matchStartTime);
+    finalTime = _fmtTime(finalTime);
+    closingTime = _fmtTime(closingTime);
     Uint8List? rulesPdfBytes;
     String? rulesPdfName;
     bool isUploadingPdf = false;
@@ -629,7 +643,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     final prelimRounds = (tournamentRules?['preliminary'] as Map<String, dynamic>?)?['rounds'] ?? 1;
                     const minutesPerMatch = 10;
                     final totalPrelimMinutes = matchesPerCourt * minutesPerMatch * (prelimRounds as int);
-                    final parts = matchStartTime.split(':');
+                    final mst = matchStartTime.isNotEmpty ? matchStartTime : '09:15';
+                    final parts = mst.split(':');
                     final startH = int.tryParse(parts[0]) ?? 9;
                     final startM = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
                     final startMinutes = startH * 60 + startM;
@@ -643,6 +658,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                       receptionTime = fmt(startMinutes - 45);
                       captainMeetingTime = fmt(startMinutes - 30);
                       openingTime = fmt(startMinutes - 15);
+                      if (matchStartTime.isEmpty) matchStartTime = fmt(startMinutes);
                       finalTime = fmt(endTime);
                       closingTime = fmt(clearOutTime);
                     });
@@ -945,7 +961,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
 
   Widget _buildTimeRow(String label, String value, Function(String) onChanged, BuildContext ctx) {
     final isRequired = label.contains('*');
-    final isEmpty = value.isEmpty || value == '--:--';
+    final isEmpty = value.isEmpty || value == '--:--' || value == '';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
