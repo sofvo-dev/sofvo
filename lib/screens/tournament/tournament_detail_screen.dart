@@ -556,19 +556,32 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             const SizedBox(height: 16),
 
             // ━━━ 当日スケジュール（タイムライン形式） ━━━
-            _buildCard(
-              title: 'タイムスケジュール',
-              titleIcon: Icons.schedule,
-              child: Column(children: [
-                _buildTimelineRow(live['openTime'] as String? ?? t['openTime'] as String? ?? '8:00', '会場オープン', Icons.location_on),
-                _buildTimelineRow(live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '8:30', '受付開始', Icons.how_to_reg),
-                _buildTimelineRow(live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '8:45', 'キャプテン会議', Icons.groups),
-                _buildTimelineRow(live['openingTime'] as String? ?? t['openingTime'] as String? ?? '9:00', '開会式', Icons.campaign),
-                _buildTimelineRow(live['matchStartTime'] as String? ?? t['matchStartTime'] as String? ?? '9:15', '試合開始', Icons.sports_volleyball),
-                _buildTimelineRow(live['finalTime'] as String? ?? t['finalTime'] as String? ?? '15:00', '終了', Icons.flag),
-                _buildTimelineRow(live['closingTime'] as String? ?? t['closingTime'] as String? ?? '15:30', '完全撤退', Icons.exit_to_app, isLast: true),
-              ]),
-            ),
+            Builder(builder: (_) {
+              bool _hasTime(String? v) => v != null && v.isNotEmpty && v != '--:--';
+              final scheduleItems = <Map<String, dynamic>>[
+                {'time': live['openTime'] as String? ?? t['openTime'] as String? ?? '', 'label': '会場オープン', 'icon': Icons.location_on},
+                {'time': live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '', 'label': '受付開始', 'icon': Icons.how_to_reg},
+                {'time': live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '', 'label': 'キャプテン会議', 'icon': Icons.groups},
+                {'time': live['openingTime'] as String? ?? t['openingTime'] as String? ?? '', 'label': '開会式', 'icon': Icons.campaign},
+                {'time': live['matchStartTime'] as String? ?? t['matchStartTime'] as String? ?? '', 'label': '試合開始', 'icon': Icons.sports_volleyball},
+                {'time': live['finalTime'] as String? ?? t['finalTime'] as String? ?? '', 'label': '終了', 'icon': Icons.flag},
+                {'time': live['closingTime'] as String? ?? t['closingTime'] as String? ?? '', 'label': '完全撤退', 'icon': Icons.exit_to_app},
+              ].where((item) => _hasTime(item['time'] as String?)).toList();
+              if (scheduleItems.isEmpty) return const SizedBox.shrink();
+              return _buildCard(
+                title: 'タイムスケジュール',
+                titleIcon: Icons.schedule,
+                child: Column(children: [
+                  for (int i = 0; i < scheduleItems.length; i++)
+                    _buildTimelineRow(
+                      scheduleItems[i]['time'] as String,
+                      scheduleItems[i]['label'] as String,
+                      scheduleItems[i]['icon'] as IconData,
+                      isLast: i == scheduleItems.length - 1,
+                    ),
+                ]),
+              );
+            }),
             const SizedBox(height: 16),
 
             // ━━━ Organizer ━━━
@@ -6882,7 +6895,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget _buildTimelineRow(String time, String label, IconData icon, {bool isLast = false}) {
+  Widget _buildTimelineRow(String rawTime, String label, IconData icon, {bool isLast = false}) {
+    // 9:00 → 09:00 自動フォーマット
+    final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(rawTime.trim());
+    final time = m != null ? '${m.group(1)!.padLeft(2, '0')}:${m.group(2)!}' : rawTime;
     const double dotSize = 10;
     const double rowMinHeight = 36;
     return IntrinsicHeight(
