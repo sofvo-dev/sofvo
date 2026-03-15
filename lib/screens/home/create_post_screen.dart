@@ -35,6 +35,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<Uint8List> _imageBytes = [];
   final List<String> _imageNames = [];
   bool _isLoading = false;
+  double _uploadProgress = 0;
   String _avatarUrl = '';
   String _nickname = '';
 
@@ -154,23 +155,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
 
     setState(() => _isLoading = true);
+    _uploadProgress = 0;
 
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('ログインしてください');
 
-      // 画像をFirebase Storageに並列アップロード
-      final imageUrls = await Future.wait(
-        List.generate(_imageBytes.length, (i) {
-          final fileName = MediaService.generateFileName(_imageNames[i]);
-          return MediaService.uploadImage(
-            bytes: _imageBytes[i],
-            storagePath: 'post_images/${user.uid}',
-            fileName: fileName,
-          );
-        }),
-      );
-      if (!mounted) return;
+      // 画像をFirebase Storageに順次アップロード（進捗表示のため）
+      final imageUrls = <String>[];
+      for (int i = 0; i < _imageBytes.length; i++) {
+        final fileName = MediaService.generateFileName(_imageNames[i]);
+        final url = await MediaService.uploadImage(
+          bytes: _imageBytes[i],
+          storagePath: 'post_images/${user.uid}',
+          fileName: fileName,
+        );
+        if (!mounted) return;
+        imageUrls.add(url);
+        setState(() {
+          _uploadProgress = (i + 1) / _imageBytes.length;
+        });
+      }
 
       // 投稿をFirestoreに保存（initStateで取得済みのユーザー情報を再利用）
       final postData = <String, dynamic>{
@@ -301,13 +306,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            if (_imageBytes.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '${(_uploadProgress * 100).toInt()}%',
+                                style: const TextStyle(fontSize: 12, color: Colors.white),
+                              ),
+                            ],
+                          ],
                         )
                       : const Text('投稿する'),
                 );

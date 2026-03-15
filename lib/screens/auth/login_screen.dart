@@ -74,13 +74,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
         return; // ユーザーがキャンセル
       }
-      // デバッグ用：実際のエラー内容を表示
+      String message = 'Googleログインに失敗しました。しばらくしてからもう一度お試しください。';
+      if (errorStr.contains('network') || errorStr.contains('unavailable')) {
+        message = 'ネットワークに接続できません。接続を確認してください。';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Google: $errorStr', maxLines: 5, overflow: TextOverflow.ellipsis),
+          content: Text(message),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 10),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -389,10 +391,33 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (resetEmailController.text.isNotEmpty) {
+              final email = resetEmailController.text.trim();
+              if (email.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('メールアドレスを入力してください'),
+                    backgroundColor: AppTheme.warning,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                );
+                return;
+              }
+              if (!email.contains('@')) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('正しいメールアドレスを入力してください'),
+                    backgroundColor: AppTheme.warning,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                );
+                return;
+              }
+              if (true) {
                 try {
                   await AuthService().sendPasswordResetEmail(
-                      resetEmailController.text.trim());
+                      email);
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
