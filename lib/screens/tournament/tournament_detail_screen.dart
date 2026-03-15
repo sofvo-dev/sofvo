@@ -547,8 +547,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     _buildPointTableRow(Icons.emoji_events_outlined, '3位', '${pointTable['3位']}pt', const Color(0xFFCD7F32)),
                     _buildPointTableRow(Icons.looks_4_outlined, '4位', '${pointTable['4位']}pt', AppTheme.textSecondary),
                     _buildPointTableRow(Icons.sports_volleyball, '参加', '${pointTable['参加']}pt', AppTheme.textSecondary),
-                    const Divider(height: 16),
-                    _buildPointTableRow(Icons.volunteer_activism, '主催者', '+${pointTable['主催者']}pt', AppTheme.success),
                   ],
                 );
               }),
@@ -6981,7 +6979,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           Icon(icon, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
           SizedBox(
-            width: 90,
+            width: 110,
             child: Text(label, style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
           ),
           Expanded(

@@ -6,14 +6,15 @@ import '../config/app_theme.dart';
 class PointService {
   static final _firestore = FirebaseFirestore.instance;
 
-  /// 順位ポイントを計算
-  /// 1位: チーム数 × 0.3, 2位: × 0.2, 3位: × 0.1, それ以外: 1pt
+  /// 順位ポイントを計算（Cloud Functions と同じ係数）
+  /// 1位: チーム数 × 3.0, 2位: × 2.0, 3位: × 1.5, 4位: × 1.2, それ以外: チーム数 × 1.0
   static int calculateRankPoints(int teamCount, int rank) {
     switch (rank) {
-      case 1: return (teamCount * 0.3).round();
-      case 2: return (teamCount * 0.2).round();
-      case 3: return (teamCount * 0.1).round();
-      default: return 1;
+      case 1: return (teamCount * 3.0).round();
+      case 2: return (teamCount * 2.0).round();
+      case 3: return (teamCount * 1.5).round();
+      case 4: return (teamCount * 1.2).round();
+      default: return (teamCount * 1.0).round();
     }
   }
 
@@ -23,7 +24,8 @@ class PointService {
       '優勝': calculateRankPoints(teamCount, 1),
       '準優勝': calculateRankPoints(teamCount, 2),
       '3位': calculateRankPoints(teamCount, 3),
-      '参加': 1,
+      '4位': calculateRankPoints(teamCount, 4),
+      '参加': calculateRankPoints(teamCount, 99),
     };
   }
 
@@ -272,7 +274,7 @@ class PointService {
                 icon: Icons.emoji_events,
                 color: Colors.amber,
                 title: '順位ポイント',
-                description: '1〜3位はチーム数に応じたポイント、それ以外は1pt',
+                description: 'チーム数に応じたポイントが付与されます',
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
@@ -287,10 +289,11 @@ class PointService {
                         Expanded(child: Text('16チーム例', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.right)),
                       ]),
                       const Divider(),
-                      _pointRow('優勝', 'チーム数×0.3', '${exampleTable['優勝']}pt'),
-                      _pointRow('準優勝', 'チーム数×0.2', '${exampleTable['準優勝']}pt'),
-                      _pointRow('3位', 'チーム数×0.1', '${exampleTable['3位']}pt'),
-                      _pointRow('参加', '一律', '${exampleTable['参加']}pt'),
+                      _pointRow('優勝', 'チーム数×3.0', '${exampleTable['優勝']}pt'),
+                      _pointRow('準優勝', 'チーム数×2.0', '${exampleTable['準優勝']}pt'),
+                      _pointRow('3位', 'チーム数×1.5', '${exampleTable['3位']}pt'),
+                      _pointRow('4位', 'チーム数×1.2', '${exampleTable['4位']}pt'),
+                      _pointRow('参加', 'チーム数×1.0', '${exampleTable['参加']}pt'),
                     ],
                   ),
                 ),
