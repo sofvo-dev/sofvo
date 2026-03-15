@@ -101,6 +101,8 @@ class _AuthGateState extends State<AuthGate> {
   bool _processedReferral = false;
   // ストリームをキャッシュしてビルド毎の再サブスクライブを防止
   late final Stream<User?> _authStream;
+  // 初回の認証状態チェックが完了したかどうか
+  bool _initialAuthCheckDone = false;
 
   @override
   void initState() {
@@ -257,8 +259,12 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: _authStream,
+      // 永続化された認証状態を初期値として使用し、
+      // アプリ更新後にnullが一瞬emitされてログアウトされるのを防止
+      initialData: FirebaseAuth.instance.currentUser,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(
@@ -267,6 +273,21 @@ class _AuthGateState extends State<AuthGate> {
             ),
           );
         }
+        // 初回のnull emitを無視: Firebase Authが永続化状態をロード中の可能性がある
+        if (!snapshot.hasData && !_initialAuthCheckDone) {
+          _initialAuthCheckDone = true;
+          // currentUserが存在する場合はロード中として扱う
+          if (FirebaseAuth.instance.currentUser != null) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            );
+          }
+        }
+        _initialAuthCheckDone = true;
         if (!snapshot.hasData) {
           // 未ログイン時はpendingTournamentIdを保持したままログイン画面へ
           _navigatedToTournament = false;
