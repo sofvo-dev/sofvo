@@ -6896,9 +6896,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   Widget _buildTimelineRow(String rawTime, String label, IconData icon, {bool isLast = false}) {
-    // 9:00 → 09:00 自動フォーマット
-    final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(rawTime.trim());
-    final time = m != null ? '${m.group(1)!.padLeft(2, '0')}:${m.group(2)!}' : rawTime;
+    // 09:00 → 9:00 表示用（先頭ゼロ除去）
+    final time = rawTime.trim().startsWith('0') ? rawTime.trim().substring(1) : rawTime.trim();
     const double dotSize = 10;
     const double rowMinHeight = 36;
     return IntrinsicHeight(

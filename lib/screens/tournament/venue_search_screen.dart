@@ -405,15 +405,17 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                     ...['am', 'pm', 'night'].map((key) {
                       final slot = timeSlots[key] as Map<String, dynamic>?;
                       if (slot == null) return const SizedBox.shrink();
-                      final s = (slot['start'] ?? '').toString();
-                      final e = (slot['end'] ?? '').toString();
+                      String dsp(String v) => v.startsWith('0') ? v.substring(1) : v;
+                      final s = dsp((slot['start'] ?? '').toString());
+                      final e = dsp((slot['end'] ?? '').toString());
                       final f = (slot['fee'] ?? '').toString();
                       final slotLabel = key == 'am' ? '午前' : key == 'pm' ? '午後' : '夜間';
                       if (s.isEmpty && e.isEmpty) return const SizedBox.shrink();
                       return _detailRow(Icons.access_time, '$slotLabel $s〜$e${f.isNotEmpty ? '  $f' : ''}');
                     }),
-                  ] else if (openTime.isNotEmpty || closeTime.isNotEmpty)
-                    _detailRow(Icons.access_time, '$openTime 〜 $closeTime'),
+                  ] else if (openTime.isNotEmpty || closeTime.isNotEmpty) ...[
+                    _detailRow(Icons.access_time, '${openTime.startsWith('0') ? openTime.substring(1) : openTime} 〜 ${closeTime.startsWith('0') ? closeTime.substring(1) : closeTime}'),
+                  ],
                   if (fee.isNotEmpty) _detailRow(Icons.payments_outlined, fee),
                   if (eatArea.isNotEmpty) _detailRow(Icons.restaurant, eatArea),
 
