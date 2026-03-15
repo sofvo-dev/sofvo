@@ -63,13 +63,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           errorStr.contains('cancelled')) {
         return;
       }
+      String message = 'Apple登録に失敗しました';
+      if (errorStr.contains('operation-not-allowed')) {
+        message = 'Apple登録は現在ご利用いただけません。\nメールアドレスまたはGoogleで登録してください。';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Apple: $errorStr',
-              maxLines: 5, overflow: TextOverflow.ellipsis),
+          content: Text(message),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 10),
+          duration: const Duration(seconds: 5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );

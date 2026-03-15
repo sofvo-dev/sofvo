@@ -99,6 +99,14 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _navigatedToTournament = false;
   bool _processedReferral = false;
+  // ストリームをキャッシュしてビルド毎の再サブスクライブを防止
+  late final Stream<User?> _authStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStream = AuthService().authStateChanges;
+  }
 
   /// 招待リンクの大会へ自動遷移
   Future<void> _navigateToInvitedTournament() async {
@@ -247,8 +255,8 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: AuthService().authStateChanges,
+    return StreamBuilder<User?>(
+      stream: _authStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(

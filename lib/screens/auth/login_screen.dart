@@ -101,13 +101,16 @@ class _LoginScreenState extends State<LoginScreen> {
       if (errorStr.contains('popup-closed-by-user') || errorStr.contains('cancelled')) {
         return; // ユーザーがキャンセル
       }
-      // デバッグ用：実際のエラー内容を表示
+      String message = 'Appleログインに失敗しました';
+      if (errorStr.contains('operation-not-allowed')) {
+        message = 'Appleログインは現在ご利用いただけません。\nメールアドレスまたはGoogleでログインしてください。';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Apple: $errorStr', maxLines: 5, overflow: TextOverflow.ellipsis),
+          content: Text(message),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 10),
+          duration: const Duration(seconds: 5),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
