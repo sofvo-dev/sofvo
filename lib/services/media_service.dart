@@ -1,5 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:sofvo/config/app_theme.dart';
 
 /// メディアファイルの圧縮設定とアップロードを一元管理するサービス
 class MediaService {
@@ -40,6 +44,40 @@ class MediaService {
   /// タイムスタンプ付きファイル名を生成
   static String generateFileName(String originalName) {
     return '${DateTime.now().millisecondsSinceEpoch}_$originalName';
+  }
+
+  /// 画像を円形にクロップするUIを表示し、クロップ後のバイトデータを返す
+  /// filePath: 元画像のファイルパス
+  /// 戻り値: クロップ後のバイトデータ（キャンセル時はnull）
+  static Future<Uint8List?> cropIconImage(
+    String filePath,
+    BuildContext context,
+  ) async {
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: filePath,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressQuality: avatarQuality,
+      maxWidth: avatarSize,
+      maxHeight: avatarSize,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: '画像を切り抜き',
+          toolbarColor: AppTheme.primaryColor,
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: AppTheme.accentColor,
+          cropStyle: CropStyle.circle,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: '画像を切り抜き',
+          cropStyle: CropStyle.circle,
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
+    if (cropped == null) return null;
+    return File(cropped.path).readAsBytes();
   }
 
   /// ファイルサイズを人間が読める形式に変換

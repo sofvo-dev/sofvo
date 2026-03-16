@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
+import '../../services/media_service.dart';
 import 'chat_screen.dart';
 
 class CreateGroupChatScreen extends StatefulWidget {
@@ -55,14 +56,13 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
   Future<void> _pickGroupIcon() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 70,
-      maxWidth: 512,
-      maxHeight: 512,
     );
     if (picked == null || !mounted) return;
 
-    final bytes = await picked.readAsBytes();
-    if (!mounted) return;
+    // クロップUIを表示
+    final bytes = await MediaService.cropIconImage(picked.path, context);
+    if (bytes == null || !mounted) return;
+
     setState(() {
       _pickedImageBytes = bytes;
       _pickedImageName = picked.name;
