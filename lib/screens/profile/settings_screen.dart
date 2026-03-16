@@ -21,6 +21,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _tournamentNotification = true;
   bool _followNotification = true;
   String _searchId = '';
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() {
           _searchId = (data?['searchId'] as String?) ?? '';
+          _isAdmin = data?['isAdmin'] == true;
           if (settings != null) {
             _pushNotification = settings['push'] ?? true;
             _emailNotification = settings['email'] ?? false;
@@ -114,6 +116,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: Colors.grey[400], size: 22),
                   onTap: () => _showChangePasswordDialog(),
                 ),
+                if (_isAdmin) ...[
+                  _buildDivider(),
+                  _buildInfoTile(
+                    Icons.shield_outlined,
+                    '権限',
+                    '管理者',
+                  ),
+                ],
               ],
             ),
           ),
