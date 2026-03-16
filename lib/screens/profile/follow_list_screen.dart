@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import 'user_profile_screen.dart';
@@ -25,6 +26,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
   String _searchQuery = '';
   _SortType _sortType = _SortType.dateDesc;
   final _searchController = TextEditingController();
+  bool _isAdmin = false;
 
   // キャッシュ: uid -> userData
   final Map<String, Map<String, dynamic>> _userCache = {};
@@ -73,6 +75,13 @@ class _FollowListScreenState extends State<FollowListScreen> {
         }
       }
       await Future.wait(futures);
+
+      // Admin判定
+      final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      if (currentUid.isNotEmpty) {
+        final myDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
+        _isAdmin = myDoc.data()?['isAdmin'] == true;
+      }
     } catch (_) {}
 
     if (mounted) setState(() => _loading = false);
@@ -287,13 +296,73 @@ class _FollowListScreenState extends State<FollowListScreen> {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: AppTheme.textHint),
+                if (_isAdmin)
+                  IconButton(
+                    icon: const Icon(Icons.person_remove, size: 20, color: AppTheme.error),
+                    onPressed: () => _confirmRemoveFollow(uid, nickname.toString()),
+                  )
+                else
+                  Icon(Icons.chevron_right, color: AppTheme.textHint),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  void _confirmRemoveFollow(String targetUid, String targetName) {
+    final action = widget.isFollowers ? 'フォロワーから削除' : 'フォロー解除';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(action, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Text('「$targetName」を${action}しますか？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _removeFollow(targetUid);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _removeFollow(String targetUid) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      if (widget.isFollowers) {
+        // フォロワーから削除: targetUid が widget.userId をフォローしている関係を削除
+        await firestore.collection('users').doc(widget.userId).collection('followers').doc(targetUid).delete();
+        await firestore.collection('users').doc(targetUid).collection('following').doc(widget.userId).delete();
+        await firestore.collection('users').doc(widget.userId).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
+        await firestore.collection('users').doc(targetUid).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
+      } else {
+        // フォロー解除: widget.userId が targetUid をフォローしている関係を削除
+        await firestore.collection('users').doc(widget.userId).collection('following').doc(targetUid).delete();
+        await firestore.collection('users').doc(targetUid).collection('followers').doc(widget.userId).delete();
+        await firestore.collection('users').doc(widget.userId).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
+        await firestore.collection('users').doc(targetUid).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
+      }
+      _userCache.remove(targetUid);
+      _followDocs = _followDocs?.where((d) => d.id != targetUid).toList();
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('削除しました'), backgroundColor: AppTheme.success));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
+      }
+    }
   }
 
   Widget _buildEmpty() {

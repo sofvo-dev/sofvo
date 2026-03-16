@@ -7,6 +7,7 @@ import '../../config/app_theme.dart';
 import '../chat/chat_screen.dart';
 import '../tournament/tournament_detail_screen.dart';
 import 'follow_list_screen.dart';
+import 'my_page_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -19,6 +20,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final _firestore = FirebaseFirestore.instance;
   bool _isFollowing = false;
   bool _isLoading = true;
+  bool _isAdmin = false;
   Map<String, dynamic> _userData = {};
   int _followingCount = 0;
   int _followersCount = 0;
@@ -42,10 +44,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         .collection('users').doc(widget.userId).collection('followers').get();
 
     bool isFollowing = false;
+    bool isAdmin = false;
     if (!_isMyProfile) {
       final followDoc = await _firestore
           .collection('users').doc(_currentUid).collection('following').doc(widget.userId).get();
       isFollowing = followDoc.exists;
+    }
+    if (_currentUid.isNotEmpty) {
+      final myDoc = await _firestore.collection('users').doc(_currentUid).get();
+      isAdmin = myDoc.data()?['isAdmin'] == true;
     }
 
     if (mounted) {
@@ -54,6 +61,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _followingCount = followingSnap.docs.length;
         _followersCount = followersSnap.docs.length;
         _isFollowing = isFollowing;
+        _isAdmin = isAdmin;
         _isLoading = false;
       });
     }
@@ -134,6 +142,40 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             const SizedBox(height: 8),
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
+            if (_isAdmin) ...[
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
+                title: const Text('プロフィールを編集（管理者）'),
+                subtitle: const Text('このユーザーのプロフィール情報を編集します', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ProfileEditScreen(userData: _userData, targetUserId: widget.userId),
+                  )).then((_) => _loadUserData());
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.person_remove_outlined, color: AppTheme.warning),
+                title: const Text('フォロワー管理（管理者）'),
+                subtitle: const Text('このユーザーのフォロー/フォロワーを管理します', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAdminFollowManagement();
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: AppTheme.error),
+                title: const Text('アカウント削除（管理者）'),
+                subtitle: const Text('このユーザーのアカウントを完全に削除します', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmAdminDelete();
+                },
+              ),
+              const Divider(height: 1),
+            ],
             ListTile(
               leading: const Icon(Icons.block, color: AppTheme.error),
               title: const Text('このユーザーをブロック'),
@@ -276,6 +318,111 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _isFollowing = true;
         _followersCount++;
       });
+    }
+  }
+
+  // ── 管理者機能 ──
+
+  void _showAdminFollowManagement() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            const Text('フォロー/フォロワー管理', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.people_outline, color: AppTheme.primaryColor),
+              title: const Text('フォロワー一覧'),
+              subtitle: Text('$_followersCount人'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => FollowListScreen(userId: widget.userId, title: 'フォロワー（管理）', isFollowers: true),
+                ));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_add_alt, color: AppTheme.primaryColor),
+              title: const Text('フォロー中一覧'),
+              subtitle: Text('$_followingCount人'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => FollowListScreen(userId: widget.userId, title: 'フォロー中（管理）', isFollowers: false),
+                ));
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmAdminDelete() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('アカウント削除', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.error)),
+        content: Text('「${_safeString(_userData['nickname'])}」のアカウントを完全に削除しますか？\n\nこの操作は取り消せません。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _deleteUserAccount();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteUserAccount() async {
+    try {
+      final uid = widget.userId;
+      final userRef = _firestore.collection('users').doc(uid);
+
+      // フォロワーのfollowingから削除
+      final followersSnap = await userRef.collection('followers').get();
+      for (final doc in followersSnap.docs) {
+        await _firestore.collection('users').doc(doc.id).collection('following').doc(uid).delete().catchError((_) {});
+        await _firestore.collection('users').doc(doc.id).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
+      }
+
+      // フォロー先のfollowersから削除
+      final followingSnap = await userRef.collection('following').get();
+      for (final doc in followingSnap.docs) {
+        await _firestore.collection('users').doc(doc.id).collection('followers').doc(uid).delete().catchError((_) {});
+        await _firestore.collection('users').doc(doc.id).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
+      }
+
+      // サブコレクション削除
+      for (final doc in followersSnap.docs) { await doc.reference.delete(); }
+      for (final doc in followingSnap.docs) { await doc.reference.delete(); }
+
+      // ユーザードキュメント削除
+      await userRef.delete();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('アカウントを削除しました'), backgroundColor: AppTheme.success));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('削除に失敗しました: $e'), backgroundColor: AppTheme.error));
+      }
     }
   }
 

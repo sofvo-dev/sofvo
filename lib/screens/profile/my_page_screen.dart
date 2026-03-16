@@ -1338,7 +1338,8 @@ class _RankingPreview extends StatelessWidget {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 class ProfileEditScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
-  const ProfileEditScreen({super.key, required this.userData});
+  final String? targetUserId; // admin用: 他人のプロフィールを編集する場合
+  const ProfileEditScreen({super.key, required this.userData, this.targetUserId});
 
   @override
   State<ProfileEditScreen> createState() => _ProfileEditScreenState();
@@ -1823,7 +1824,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = widget.targetUserId ?? FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
         final updateData = <String, dynamic>{
           'nickname': _nicknameCtrl.text.trim(),
