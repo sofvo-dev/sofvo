@@ -75,8 +75,15 @@ class MediaService {
         ),
         WebUiSettings(
           context: context,
-          presentStyle: WebPresentStyle.dialog,
-          size: const CropperSize(width: 400, height: 400),
+          presentStyle: WebPresentStyle.page,
+          boundary: const CroppieBoundary(width: 350, height: 350),
+          viewPort: const CroppieViewPort(
+            width: 280,
+            height: 280,
+            type: CroppieViewPortType.circle,
+          ),
+          enableZoom: true,
+          showZoomer: true,
           translations: const WebTranslations(
             title: '画像を切り抜き',
             rotateLeftTooltip: '左に回転',
