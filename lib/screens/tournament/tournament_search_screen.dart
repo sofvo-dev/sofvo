@@ -40,8 +40,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   DateTimeRange? _filterDateRange;
   bool _showPastTournaments = false;
 
-  // ── Organizer avatar cache ──
+  // ── Organizer avatar/name cache ──
   final Map<String, String> _organizerAvatarCache = {};
+  final Map<String, String> _organizerNameCache = {};
 
   // ── Debounce timer for search ──
   Timer? _debounceTimer;
@@ -979,26 +980,24 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                   const SizedBox(height: 6),
                   // 主催者
                   if (organizerId.isNotEmpty) ...[
-                    Row(children: [
-                      FutureBuilder<String>(
-                        future: _getOrganizerAvatar(organizerId),
-                        builder: (context, snap) {
-                          final url = snap.data ?? '';
-                          if (url.isNotEmpty) {
-                            return CircleAvatar(radius: 9, backgroundImage: NetworkImage(url));
-                          }
-                          return CircleAvatar(
+                    FutureBuilder<List<String>>(
+                      future: Future.wait([_getOrganizerAvatar(organizerId), _getOrganizerName(organizerId, organizerName)]),
+                      builder: (context, snap) {
+                        final url = snap.data?[0] ?? '';
+                        final displayName = snap.data?[1] ?? organizerName;
+                        return Row(children: [
+                      url.isNotEmpty
+                          ? CircleAvatar(radius: 9, backgroundImage: NetworkImage(url))
+                          : CircleAvatar(
                             radius: 9,
                             backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
                             child: Text(
-                              organizerName.isNotEmpty ? organizerName[0] : '?',
+                              displayName.isNotEmpty ? displayName[0] : '?',
                               style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                             ),
-                          );
-                        },
-                      ),
+                          ),
                       const SizedBox(width: 5),
-                      Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      Text(displayName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       if (!isFollowing) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -1007,7 +1006,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                           child: Text('未フォロー', style: TextStyle(fontSize: 9, color: AppTheme.textHint)),
                         ),
                       ],
-                    ]),
+                    ]);
+                      },
+                    ),
                     const SizedBox(height: 4),
                   ],
                   // 会場
@@ -1316,26 +1317,24 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               ]),
               const SizedBox(height: 6),
               // 主催者
-              Row(children: [
-                FutureBuilder<String>(
-                  future: _getOrganizerAvatar(organizerId),
-                  builder: (context, snap) {
-                    final url = snap.data ?? '';
-                    if (url.isNotEmpty) {
-                      return CircleAvatar(radius: 9, backgroundImage: NetworkImage(url));
-                    }
-                    return CircleAvatar(
+              FutureBuilder<List<String>>(
+                future: Future.wait([_getOrganizerAvatar(organizerId), _getOrganizerName(organizerId, organizerName)]),
+                builder: (context, snap) {
+                  final url = snap.data?[0] ?? '';
+                  final displayName = snap.data?[1] ?? organizerName;
+                  return Row(children: [
+                url.isNotEmpty
+                    ? CircleAvatar(radius: 9, backgroundImage: NetworkImage(url))
+                    : CircleAvatar(
                       radius: 9,
                       backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
                       child: Text(
-                        organizerName.isNotEmpty ? organizerName[0] : '?',
+                        displayName.isNotEmpty ? displayName[0] : '?',
                         style: const TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                       ),
-                    );
-                  },
-                ),
+                    ),
                 const SizedBox(width: 5),
-                Text(organizerName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(displayName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                 if (!isFollowing) ...[
                   const SizedBox(width: 6),
                   Container(
@@ -1344,7 +1343,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                     child: Text('未フォロー', style: TextStyle(fontSize: 9, color: AppTheme.textHint)),
                   ),
                 ],
-              ]),
+              ]);
+                },
+              ),
               const SizedBox(height: 4),
               // 会場
               Row(children: [
@@ -1412,14 +1413,31 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Future<String> _getOrganizerAvatar(String uid) async {
     if (uid.isEmpty) return '';
     if (_organizerAvatarCache.containsKey(uid)) return _organizerAvatarCache[uid]!;
+    await _fetchOrganizerData(uid);
+    return _organizerAvatarCache[uid] ?? '';
+  }
+
+  Future<String> _getOrganizerName(String uid, String fallback) async {
+    if (uid.isEmpty) return fallback;
+    if (_organizerNameCache.containsKey(uid)) {
+      final cached = _organizerNameCache[uid]!;
+      return cached.isNotEmpty ? cached : fallback;
+    }
+    await _fetchOrganizerData(uid);
+    final name = _organizerNameCache[uid] ?? '';
+    return name.isNotEmpty ? name : fallback;
+  }
+
+  Future<void> _fetchOrganizerData(String uid) async {
+    if (_organizerAvatarCache.containsKey(uid)) return;
     try {
       final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      final url = (doc.data()?['avatarUrl'] ?? '').toString();
-      _organizerAvatarCache[uid] = url;
-      return url;
+      final data = doc.data();
+      _organizerAvatarCache[uid] = (data?['avatarUrl'] ?? '').toString();
+      _organizerNameCache[uid] = (data?['nickname'] ?? '').toString();
     } catch (_) {
       _organizerAvatarCache[uid] = '';
-      return '';
+      _organizerNameCache[uid] = '';
     }
   }
 
