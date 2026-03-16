@@ -1818,3 +1818,82 @@ exports.onTournamentStatusChange = functions.firestore
 
     return null;
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// フォロワー/フォロイング数の再計算（一括修正）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.recalcFollowCounts = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+    const db = admin.firestore();
+    const usersSnap = await db.collection("users").get();
+    let updated = 0;
+
+    for (const userDoc of usersSnap.docs) {
+      const uid = userDoc.id;
+      const data = userDoc.data();
+
+      // サブコレクションの実際のドキュメント数をカウント
+      const followersSnap = await db.collection("users").doc(uid).collection("followers").get();
+      const followingSnap = await db.collection("users").doc(uid).collection("following").get();
+
+      // 存在しないユーザーを指すドキュメントを除外してカウント
+      let validFollowers = 0;
+      const followerDeleteBatch = db.batch();
+      let hasFollowerDeletes = false;
+      for (const fDoc of followersSnap.docs) {
+        const followerRef = db.collection("users").doc(fDoc.id);
+        const followerUser = await followerRef.get();
+        if (followerUser.exists) {
+          validFollowers++;
+        } else {
+          // 削除済みユーザーのフォロワードキュメントを削除
+          followerDeleteBatch.delete(fDoc.ref);
+          hasFollowerDeletes = true;
+        }
+      }
+
+      let validFollowing = 0;
+      const followingDeleteBatch = db.batch();
+      let hasFollowingDeletes = false;
+      for (const fDoc of followingSnap.docs) {
+        const followingRef = db.collection("users").doc(fDoc.id);
+        const followingUser = await followingRef.get();
+        if (followingUser.exists) {
+          validFollowing++;
+        } else {
+          // 削除済みユーザーのフォローイングドキュメントを削除
+          followingDeleteBatch.delete(fDoc.ref);
+          hasFollowingDeletes = true;
+        }
+      }
+
+      // 削除済みユーザーのドキュメントをクリーンアップ
+      if (hasFollowerDeletes) await followerDeleteBatch.commit();
+      if (hasFollowingDeletes) await followingDeleteBatch.commit();
+
+      // カウントが一致しない場合のみ更新
+      const currentFollowers = data.followersCount || 0;
+      const currentFollowing = data.followingCount || 0;
+
+      if (currentFollowers !== validFollowers || currentFollowing !== validFollowing) {
+        await db.collection("users").doc(uid).update({
+          followersCount: validFollowers,
+          followingCount: validFollowing,
+        });
+        updated++;
+        console.log(`[RecalcFollow] ${uid}: followers ${currentFollowers}->${validFollowers}, following ${currentFollowing}->${validFollowing}`);
+      }
+    }
+
+    res.json({ success: true, totalUsers: usersSnap.size, updated });
+  } catch (e) {
+    console.error("RecalcFollow error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
