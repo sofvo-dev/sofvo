@@ -600,7 +600,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 builder: (context, userSnap) {
                   final userData = userSnap.data?.data() as Map<String, dynamic>? ?? {};
                   final avatarUrl = (userData['avatarUrl'] ?? '') as String;
-                  final organizerName = live['organizerName'] as String? ?? t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者';
+                  final userNickname = (userData['nickname'] as String?) ?? '';
+                  final organizerName = userNickname.isNotEmpty
+                      ? userNickname
+                      : live['organizerName'] as String? ?? t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者';
                   return _buildCard(
                 child: Row(children: [
                   avatarUrl.isNotEmpty
