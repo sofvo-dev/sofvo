@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -74,10 +73,15 @@ class MediaService {
           aspectRatioLockEnabled: true,
           resetAspectRatioEnabled: false,
         ),
+        WebUiSettings(
+          context: context,
+          presentStyle: WebPresentStyle.dialog,
+          size: const CropperSize(width: 400, height: 400),
+        ),
       ],
     );
     if (cropped == null) return null;
-    return File(cropped.path).readAsBytes();
+    return cropped.readAsBytes();
   }
 
   /// ファイルサイズを人間が読める形式に変換
