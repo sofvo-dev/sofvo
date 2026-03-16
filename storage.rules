@@ -6,61 +6,61 @@ service firebase.storage {
       allow read: if request.auth != null;
     }
 
-    // アバター: 自分のファイルのみアップロード可能（5MB以下、画像のみ）
+    // アバター: avatars/{uid}.{ext}
     match /avatars/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // チャット画像
-    match /chat_images/{fileName} {
+    // チャット画像: chat_images/{chatId}/{fileName}
+    match /chat_images/{chatId}/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // チャットファイル
-    match /chat_files/{fileName} {
+    // チャットファイル: chat_files/{chatId}/{fileName}
+    match /chat_files/{chatId}/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 20 * 1024 * 1024;
     }
 
-    // チャットアイコン
-    match /chat_icons/{fileName} {
+    // チャットアイコン: chat_icons/{chatId}/{fileName}
+    match /chat_icons/{chatId}/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // グループアイコン
+    // グループアイコン: group_icons/{fileName}
     match /group_icons/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // チャットアルバム
-    match /chat_albums/{allPaths=**} {
+    // チャットアルバム: chat_albums/{chatId}/{fileName}
+    match /chat_albums/{chatId}/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // 大会ルールPDF
+    // 大会ルールPDF: tournament_rules/{uid}/{fileName}
     match /tournament_rules/{userId}/{fileName} {
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // 大会対戦表
+    // 大会対戦表: tournament_board/{tournamentId}/{fileName}
     match /tournament_board/{tournamentId}/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // 大会写真
-    match /tournament_photos/{allPaths=**} {
+    // 大会写真: tournament_photos/{tournamentId}/{fileName}
+    match /tournament_photos/{tournamentId}/{fileName} {
       allow write: if request.auth != null
                    && request.resource.size < 10 * 1024 * 1024;
     }
