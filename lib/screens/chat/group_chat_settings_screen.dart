@@ -95,7 +95,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
       if (picked == null || !mounted) return;
 
       // クロップUIを表示
-      final bytes = await MediaService.cropIconImage(picked.path, context);
+      final bytes = await MediaService.cropIconImage(picked, context);
       if (bytes == null || !mounted) return;
 
       _showLoadingDialog('アイコンを更新中...');

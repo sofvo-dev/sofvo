@@ -1,8 +1,11 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sofvo/config/app_theme.dart';
+import 'package:sofvo/widgets/web_image_cropper.dart';
 
 /// メディアファイルの圧縮設定とアップロードを一元管理するサービス
 class MediaService {
@@ -46,14 +49,27 @@ class MediaService {
   }
 
   /// 画像を円形にクロップするUIを表示し、クロップ後のバイトデータを返す
-  /// filePath: 元画像のファイルパス
+  /// picked: image_pickerで取得したXFile
   /// 戻り値: クロップ後のバイトデータ（キャンセル時はnull）
   static Future<Uint8List?> cropIconImage(
-    String filePath,
+    XFile picked,
     BuildContext context,
   ) async {
+    // Web環境: image_cropperのcropper.jsがblob URLを読み込めないため
+    // 純Flutter製のクロッパーを使用
+    if (kIsWeb) {
+      final imageBytes = await picked.readAsBytes();
+      if (!context.mounted) return null;
+      return WebImageCropperDialog.show(
+        context,
+        imageBytes: imageBytes,
+        outputSize: avatarSize,
+      );
+    }
+
+    // ネイティブ環境: image_cropperを使用
     final cropped = await ImageCropper().cropImage(
-      sourcePath: filePath,
+      sourcePath: picked.path,
       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       compressQuality: avatarQuality,
       maxWidth: avatarSize,
@@ -72,18 +88,6 @@ class MediaService {
           cropStyle: CropStyle.circle,
           aspectRatioLockEnabled: true,
           resetAspectRatioEnabled: false,
-        ),
-        WebUiSettings(
-          context: context,
-          presentStyle: WebPresentStyle.page,
-          size: const CropperSize(width: 350, height: 350),
-          translations: const WebTranslations(
-            title: '画像を切り抜き',
-            rotateLeftTooltip: '左に回転',
-            rotateRightTooltip: '右に回転',
-            cancelButton: 'キャンセル',
-            cropButton: '切り抜き',
-          ),
         ),
       ],
     );
