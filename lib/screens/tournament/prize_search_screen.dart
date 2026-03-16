@@ -1514,7 +1514,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           const SizedBox(height: 24),
 
           // ── 保存ボタン ──
-          SizedBox(width: double.infinity, child: ElevatedButton(
+          ElevatedButton(
             onPressed: canSave && !_saving ? _savePrize : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
@@ -1524,7 +1524,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
             ),
             child: Text(_isEditing ? '景品を更新する' : '景品を登録する',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          )),
+          ),
           const SizedBox(height: 32),
         ],
       ),
