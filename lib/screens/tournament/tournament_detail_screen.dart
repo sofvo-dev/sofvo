@@ -2912,8 +2912,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           final isNextToInput = !isCompleted && prevDone && isMyMatch;
           return InkWell(
             onTap: () {
-              if (tournamentStatus == '終了') {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("大会は終了しました。得点の変更はできません"), backgroundColor: Colors.orange));
+              if (tournamentStatus != '開催中') {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: Colors.orange));
                 return;
               }
               if (isCompleted && !isOrganizer) {
@@ -3276,8 +3276,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
             return InkWell(
               onTap: () {
-                if (tournamentStatus == '終了') {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("大会は終了しました。得点の変更はできません"), backgroundColor: Colors.orange));
+                if (tournamentStatus != '開催中') {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: Colors.orange));
                   return;
                 }
                 if (isWaiting) return;
