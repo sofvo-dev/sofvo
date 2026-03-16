@@ -144,30 +144,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             const SizedBox(height: 16),
             if (_isAdmin) ...[
               ListTile(
-                leading: const Icon(Icons.edit_outlined, color: AppTheme.primaryColor),
-                title: const Text('プロフィールを編集（管理者）'),
-                subtitle: const Text('このユーザーのプロフィール情報を編集します', style: TextStyle(fontSize: 12)),
+                leading: const Icon(Icons.shield_outlined, color: AppTheme.error),
+                title: const Text('マイページとして表示'),
+                subtitle: const Text('このユーザーのマイページを操作できます', style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ProfileEditScreen(userData: _userData, targetUserId: widget.userId),
+                    builder: (_) => MyPageScreen(targetUserId: widget.userId),
                   )).then((_) => _loadUserData());
                 },
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.person_remove_outlined, color: AppTheme.warning),
-                title: const Text('フォロワー管理（管理者）'),
-                subtitle: const Text('このユーザーのフォロー/フォロワーを管理します', style: TextStyle(fontSize: 12)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showAdminFollowManagement();
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
                 leading: const Icon(Icons.delete_outline, color: AppTheme.error),
-                title: const Text('アカウント削除（管理者）'),
+                title: const Text('アカウント削除'),
                 subtitle: const Text('このユーザーのアカウントを完全に削除します', style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -322,48 +312,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   // ── 管理者機能 ──
-
-  void _showAdminFollowManagement() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 16),
-            const Text('フォロー/フォロワー管理', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.people_outline, color: AppTheme.primaryColor),
-              title: const Text('フォロワー一覧'),
-              subtitle: Text('$_followersCount人'),
-              onTap: () {
-                Navigator.pop(ctx);
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => FollowListScreen(userId: widget.userId, title: 'フォロワー（管理）', isFollowers: true),
-                ));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_add_alt, color: AppTheme.primaryColor),
-              title: const Text('フォロー中一覧'),
-              subtitle: Text('$_followingCount人'),
-              onTap: () {
-                Navigator.pop(ctx);
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => FollowListScreen(userId: widget.userId, title: 'フォロー中（管理）', isFollowers: false),
-                ));
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _confirmAdminDelete() {
     showDialog(
