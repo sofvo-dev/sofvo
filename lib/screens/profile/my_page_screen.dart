@@ -25,7 +25,8 @@ import 'user_profile_screen.dart';
 import '../../services/point_service.dart';
 
 class MyPageScreen extends StatelessWidget {
-  const MyPageScreen({super.key});
+  final String? targetUserId; // 管理者用: 他人のマイページを表示
+  const MyPageScreen({super.key, this.targetUserId});
 
   String _safeString(dynamic value) {
     if (value is String) return value;
@@ -42,8 +43,10 @@ class MyPageScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final viewingUid = targetUserId ?? user?.uid;
+    final isAdminViewing = targetUserId != null;
 
-    if (user == null) {
+    if (viewingUid == null) {
       return const Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         body: Center(child: Text('ログインしてください')),
@@ -54,7 +57,7 @@ class MyPageScreen extends StatelessWidget {
       backgroundColor: AppTheme.backgroundColor,
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('users').doc(user.uid).snapshots(),
+            .collection('users').doc(viewingUid).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(
@@ -105,18 +108,28 @@ class MyPageScreen extends StatelessWidget {
                           // ── トップバー ──
                           Row(
                             children: [
-                              const Text('マイページ',
-                                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+                              if (isAdminViewing)
+                                GestureDetector(
+                                  onTap: () => Navigator.pop(context),
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: Icon(Icons.arrow_back, size: 22, color: Colors.white),
+                                  ),
+                                ),
+                              Text(isAdminViewing ? '$nickname（管理）' : 'マイページ',
+                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                               const Spacer(),
-                              GestureDetector(
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FollowSearchScreen())),
-                                child: const Icon(Icons.person_add_outlined, size: 24, color: Colors.white),
-                              ),
-                              const SizedBox(width: 12),
-                              GestureDetector(
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                                child: const Icon(Icons.settings_outlined, size: 24, color: Colors.white),
-                              ),
+                              if (!isAdminViewing) ...[
+                                GestureDetector(
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FollowSearchScreen())),
+                                  child: const Icon(Icons.person_add_outlined, size: 24, color: Colors.white),
+                                ),
+                                const SizedBox(width: 12),
+                                GestureDetector(
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+                                  child: const Icon(Icons.settings_outlined, size: 24, color: Colors.white),
+                                ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -125,7 +138,7 @@ class MyPageScreen extends StatelessWidget {
                             children: [
                               GestureDetector(
                                 onTap: () => Navigator.push(context,
-                                    MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data))),
+                                    MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data, targetUserId: isAdminViewing ? viewingUid : null))),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
@@ -168,7 +181,7 @@ class MyPageScreen extends StatelessWidget {
                               ),
                               OutlinedButton(
                                 onPressed: () => Navigator.push(context,
-                                    MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data))),
+                                    MaterialPageRoute(builder: (_) => ProfileEditScreen(userData: data, targetUserId: isAdminViewing ? viewingUid : null))),
                                 style: OutlinedButton.styleFrom(
                                   minimumSize: const Size(0, 32),
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -196,14 +209,14 @@ class MyPageScreen extends StatelessWidget {
                               _buildFollowCount(context, '$followingCount', 'フォロー', () {
                                 Navigator.push(context, MaterialPageRoute(
                                   builder: (_) => FollowListScreen(
-                                      userId: user.uid, title: 'フォロー中', isFollowers: false)));
+                                      userId: viewingUid, title: 'フォロー中', isFollowers: false)));
                               }),
                               Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
                                   color: Colors.white.withValues(alpha: 0.25)),
                               _buildFollowCount(context, '$followersCount', 'フォロワー', () {
                                 Navigator.push(context, MaterialPageRoute(
                                   builder: (_) => FollowListScreen(
-                                      userId: user.uid, title: 'フォロワー', isFollowers: true)));
+                                      userId: viewingUid, title: 'フォロワー', isFollowers: true)));
                               }),
                             ],
                           ),
@@ -307,7 +320,7 @@ class MyPageScreen extends StatelessWidget {
                       icon: Icons.emoji_events_rounded,
                       seeAllTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const TournamentHistoryScreen())),
-                      child: _TournamentCardsRow(userId: user.uid),
+                      child: _TournamentCardsRow(userId: viewingUid),
                     ),
                     const SizedBox(height: 24),
 
@@ -318,7 +331,7 @@ class MyPageScreen extends StatelessWidget {
                       icon: Icons.devices_other_rounded,
                       seeAllTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const GadgetListScreen())),
-                      child: _GadgetCardsRow(userId: user.uid),
+                      child: _GadgetCardsRow(userId: viewingUid),
                     ),
                     const SizedBox(height: 24),
 
@@ -327,7 +340,7 @@ class MyPageScreen extends StatelessWidget {
                       context: context,
                       title: 'バッジコレクション',
                       icon: Icons.workspace_premium_rounded,
-                      child: _BadgeCollectionRow(userId: user.uid),
+                      child: _BadgeCollectionRow(userId: viewingUid),
                     ),
                     const SizedBox(height: 24),
 
@@ -432,7 +445,7 @@ class MyPageScreen extends StatelessWidget {
                               width: double.infinity,
                               child: ElevatedButton.icon(
                                 onPressed: () {
-                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=${user.uid}';
+                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
                                   Share.share(
                                     'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl',
                                   );
@@ -461,7 +474,7 @@ class MyPageScreen extends StatelessWidget {
                       icon: Icons.leaderboard_rounded,
                       seeAllTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const RankingScreen())),
-                      child: _RankingPreview(currentUid: user.uid),
+                      child: _RankingPreview(currentUid: viewingUid),
                     ),
                   ]),
                 ),
