@@ -77,6 +77,13 @@ class MediaService {
           context: context,
           presentStyle: WebPresentStyle.dialog,
           size: const CropperSize(width: 400, height: 400),
+          translations: const WebTranslations(
+            title: '画像を切り抜き',
+            rotateLeftTooltip: '左に回転',
+            rotateRightTooltip: '右に回転',
+            cancelButton: 'キャンセル',
+            cropButton: '切り抜き',
+          ),
         ),
       ],
     );
