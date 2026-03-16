@@ -118,10 +118,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 if (_isAdmin) ...[
                   _buildDivider(),
-                  _buildInfoTile(
-                    Icons.shield_outlined,
-                    '権限',
-                    '管理者',
+                  ListTile(
+                    leading: const Icon(Icons.shield_outlined, color: AppTheme.error, size: 22),
+                    title: const Text('権限', style: TextStyle(fontSize: 15)),
+                    trailing: const Text('特別権限', style: TextStyle(fontSize: 14, color: AppTheme.error, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ],
