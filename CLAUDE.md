@@ -81,3 +81,13 @@ firebase deploy --only hosting    # Hosting のデプロイ
 - **3月中旬〜**: iOS App Store 公開（審査通過次第）
 - **3月末〜**: Android Play Store 製品版申請
 - **4月上旬**: 両ストアで公開完了（目標）
+
+## スーパーアドミン（最高権限）設定手順
+1. [Firebase Console](https://console.firebase.google.com/) を開く
+2. プロジェクト **sofvo-19d84** を選択
+3. 左メニューの **Firestore Database** をクリック
+4. `users` コレクション → 対象ユーザーの **UID** のドキュメントを開く
+5. **フィールドを追加** → 名前: `isAdmin`、型: `boolean`、値: `true`
+- UIDがわからない場合: Firebase Console の **Authentication → Users** タブでメールアドレスから検索
+- `isAdmin: true` を持つユーザーは全大会で主催者権限を持ち、トラブル時に介入可能
+- 設定画面のアカウント情報に「権限: 管理者」と表示される（本人のみ）
