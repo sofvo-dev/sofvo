@@ -38,21 +38,45 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final userDoc = await _firestore.collection('users').doc(widget.userId).get();
     final userData = userDoc.data() ?? {};
 
+    // フォロー/フォロワーのサブコレクションを検証し、孤立ドキュメントを削除
     final followingSnap = await _firestore
         .collection('users').doc(widget.userId).collection('following').get();
     final followersSnap = await _firestore
         .collection('users').doc(widget.userId).collection('followers').get();
 
-    final actualFollowing = followingSnap.docs.length;
-    final actualFollowers = followersSnap.docs.length;
+    int validFollowing = 0;
+    for (final doc in followingSnap.docs) {
+      // 相手のfollowersサブコレクションに自分が存在するか確認
+      final reverseDoc = await _firestore
+          .collection('users').doc(doc.id).collection('followers').doc(widget.userId).get();
+      if (reverseDoc.exists) {
+        validFollowing++;
+      } else {
+        // 孤立したfollowingドキュメントを削除
+        await doc.reference.delete();
+      }
+    }
+
+    int validFollowers = 0;
+    for (final doc in followersSnap.docs) {
+      // 相手のfollowingサブコレクションに自分が存在するか確認
+      final reverseDoc = await _firestore
+          .collection('users').doc(doc.id).collection('following').doc(widget.userId).get();
+      if (reverseDoc.exists) {
+        validFollowers++;
+      } else {
+        // 孤立したfollowerドキュメントを削除
+        await doc.reference.delete();
+      }
+    }
+
+    // ドキュメントのカウントフィールドも正しい値に更新
     final storedFollowing = _safeInt(userData['followingCount']);
     final storedFollowers = _safeInt(userData['followersCount']);
-
-    // ドキュメントのカウントとサブコレクションの実数がズレていたら修正
-    if (storedFollowing != actualFollowing || storedFollowers != actualFollowers) {
+    if (storedFollowing != validFollowing || storedFollowers != validFollowers) {
       await _firestore.collection('users').doc(widget.userId).update({
-        'followingCount': actualFollowing,
-        'followersCount': actualFollowers,
+        'followingCount': validFollowing,
+        'followersCount': validFollowers,
       });
     }
 
@@ -71,8 +95,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (mounted) {
       setState(() {
         _userData = userData;
-        _followingCount = followingSnap.docs.length;
-        _followersCount = followersSnap.docs.length;
+        _followingCount = validFollowing;
+        _followersCount = validFollowers;
         _isFollowing = isFollowing;
         _isAdmin = isAdmin;
         _isLoading = false;
