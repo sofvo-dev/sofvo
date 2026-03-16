@@ -148,7 +148,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       _refereeConfirmed = matchData['refereeConfirmed'] ?? false;
       _coachAConfirmed = matchData['confirmedByA'] ?? false;
       _coachBConfirmed = matchData['confirmedByB'] ?? false;
-      _readOnly = widget.tournamentStatus == '終了' || (isAlreadyCompleted && !widget.isOrganizer);
+      _readOnly = widget.tournamentStatus != '開催中' || (isAlreadyCompleted && !widget.isOrganizer);
     });
 
     _checkMatchEnd();
@@ -316,8 +316,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
                 const Icon(Icons.lock, size: 18, color: Colors.orange),
                 const SizedBox(width: 8),
                 Expanded(child: Text(
-                    widget.tournamentStatus == '終了'
-                        ? '大会は終了しました。得点の変更はできません'
+                    widget.tournamentStatus != '開催中'
+                        ? '得点入力は大会が「開催中」の場合のみ可能です'
                         : 'この試合は確定済みです。編集は大会運営者のみ可能です',
                     style: const TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w600))),
               ]),
