@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/media_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
@@ -1430,18 +1431,18 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 80,
       );
       if (picked == null || !mounted) return;
+
+      // クロップUIを表示
+      final bytes = await MediaService.cropIconImage(picked.path, context);
+      if (bytes == null || !mounted) return;
 
       setState(() => _isUploadingAvatar = true);
 
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
-      final bytes = await picked.readAsBytes();
       final fileName = picked.name;
       final ext = fileName.contains('.') ? fileName.split('.').last : 'jpg';
 

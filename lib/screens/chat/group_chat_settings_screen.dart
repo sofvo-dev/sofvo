@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
+import '../../services/media_service.dart';
 import '../profile/user_profile_screen.dart';
 
 class GroupChatSettingsScreen extends StatefulWidget {
@@ -90,15 +91,14 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 70,
-        maxWidth: 512,
-        maxHeight: 512,
       );
       if (picked == null || !mounted) return;
 
-      _showLoadingDialog('アイコンを更新中...');
+      // クロップUIを表示
+      final bytes = await MediaService.cropIconImage(picked.path, context);
+      if (bytes == null || !mounted) return;
 
-      final bytes = await picked.readAsBytes();
+      _showLoadingDialog('アイコンを更新中...');
       final fileName =
           'group_icon_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final ref = _storage
