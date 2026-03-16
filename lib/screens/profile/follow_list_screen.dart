@@ -54,13 +54,14 @@ class _FollowListScreenState extends State<FollowListScreen> {
 
       _followDocs = snap.docs;
 
-      // ユーザー情報を一括取得
+      // ユーザー情報を一括取得（削除済みユーザーは除外）
       final futures = <Future>[];
       for (final doc in snap.docs) {
         final uid = doc.id;
         if (!_userCache.containsKey(uid)) {
           futures.add(
             FirebaseFirestore.instance.collection('users').doc(uid).get().then((userSnap) {
+              if (!userSnap.exists) return; // 削除済みユーザーをスキップ
               final data = userSnap.data() ?? {};
               data['uid'] = uid;
               // createdAt をフォロードキュメントから取得

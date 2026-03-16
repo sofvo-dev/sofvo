@@ -5405,6 +5405,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
                           );
                         }
+                        return FutureBuilder<List<DocumentSnapshot>>(
+                          future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
+                          builder: (context, userSnaps) {
+                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+                            final activeIndexes = <int>[];
+                            for (int i = 0; i < followings.length; i++) {
+                              if (userSnaps.data![i].exists) activeIndexes.add(i);
+                            }
+                            if (activeIndexes.isEmpty) {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                                child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
+                              );
+                            }
                         return Container(
                           constraints: const BoxConstraints(maxHeight: 250),
                           decoration: BoxDecoration(
@@ -5413,13 +5428,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           ),
                           child: ListView.builder(
                             shrinkWrap: true,
-                            itemCount: followings.length,
+                            itemCount: activeIndexes.length,
                             itemBuilder: (context, index) {
-                              final fDoc = followings[index];
-                              final fData = fDoc.data() as Map<String, dynamic>;
+                              final fDoc = followings[activeIndexes[index]];
+                              final userData = userSnaps.data![activeIndexes[index]].data() as Map<String, dynamic>? ?? {};
                               final fUid = fDoc.id;
-                              final fName = fData['nickname'] ?? fData['userName'] ?? '名前なし';
-                              final fAvatar = fData['avatarUrl'] ?? '';
+                              final fName = userData['nickname'] ?? '名前なし';
+                              final fAvatar = userData['avatarUrl'] ?? '';
                               final isSelected = selectedMembers.containsKey(fUid);
 
                               return ListTile(
@@ -5443,6 +5458,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                               );
                             },
                           ),
+                        );
+                          },
                         );
                       },
                     ),
@@ -5614,6 +5631,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
                           );
                         }
+                        return FutureBuilder<List<DocumentSnapshot>>(
+                          future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
+                          builder: (context, userSnaps) {
+                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+                            final activeIndexes = <int>[];
+                            for (int i = 0; i < followings.length; i++) {
+                              if (userSnaps.data![i].exists) activeIndexes.add(i);
+                            }
+                            if (activeIndexes.isEmpty) {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                                child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
+                              );
+                            }
                         return Container(
                           constraints: const BoxConstraints(maxHeight: 250),
                           decoration: BoxDecoration(
@@ -5622,13 +5654,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           ),
                           child: ListView.builder(
                             shrinkWrap: true,
-                            itemCount: followings.length,
+                            itemCount: activeIndexes.length,
                             itemBuilder: (context, index) {
-                              final fDoc = followings[index];
-                              final fData = fDoc.data() as Map<String, dynamic>;
+                              final fDoc = followings[activeIndexes[index]];
+                              final userData = userSnaps.data![activeIndexes[index]].data() as Map<String, dynamic>? ?? {};
                               final fUid = fDoc.id;
-                              final fName = fData['nickname'] ?? fData['userName'] ?? '名前なし';
-                              final fAvatar = fData['avatarUrl'] ?? '';
+                              final fName = userData['nickname'] ?? '名前なし';
+                              final fAvatar = userData['avatarUrl'] ?? '';
                               final isSelected = selectedMembers.containsKey(fUid);
 
                               return ListTile(
@@ -5652,6 +5684,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                               );
                             },
                           ),
+                        );
+                          },
                         );
                       },
                     ),
