@@ -101,3 +101,51 @@ firebase deploy --only hosting    # Hosting のデプロイ
 - UIDがわからない場合: Firebase Console の **Authentication → Users** タブでメールアドレスから検索
 - `isAdmin: true` を持つユーザーは全大会で主催者権限を持ち、トラブル時に介入可能
 - 設定画面のアカウント情報に「権限: 管理者」と表示される（本人のみ）
+
+## 新規登録フロー（2026/03/17 決定）
+
+### メール登録の場合
+```
+新規登録（メール + パスワード入力）
+  ↓
+仮登録メール配信（Firebase 自動）
+  ↓
+メールのURLクリック → Web版に戻る
+  ↓
+プロフィール設定（ユーザー名など）
+  ↓
+本登録完了メール（Cloud Functions で送信）
+  ↓
+アプリ/Web版の案内
+```
+
+### Google/Apple 登録の場合
+```
+サインイン（メール確認不要）
+  ↓
+プロフィール設定（ユーザー名など）
+  ↓
+本登録完了メール（Cloud Functions で送信）
+  ↓
+アプリ/Web版の案内
+```
+
+### 実装メモ
+- メール登録: Firebase の `sendEmailVerification()` で仮登録メール自動送信
+- 本登録完了メール: Cloud Functions の `onUpdate` トリガーでプロフィール保存時に送信
+- 現在アプリ未公開のため、案内はWeb版（`https://sofvo-19d84.web.app`）へ誘導
+
+## 認証・セッション管理のバグ（2026/03/17 報告）
+
+### 報告された問題
+1. **アカウント切り替えができない**: ログアウト後に別アカウントでログインできない（キャッシュ残留）
+2. **LINEで招待リンクを開くと送信者のアカウントにログインされる**
+
+### 原因
+1. `signOut()` が Firebase Auth のみサインアウト → Google OAuth セッションが残る
+2. LINEアプリ内ブラウザで `localStorage`（`Persistence.LOCAL`）が共有される
+
+### 修正方針
+- **`lib/services/auth_service.dart` の `signOut()`**: Google OAuth / Firestore キャッシュもクリアする
+- **招待リンク**: LINEアプリ内ブラウザ検出 → 外部ブラウザで開くよう促す
+- **優先度**: signOut修正 = 高、招待リンク対策 = 中
