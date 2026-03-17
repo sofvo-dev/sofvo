@@ -23,6 +23,11 @@ service cloud.firestore {
       allow update: if isOwner(userId);
       allow delete: if isOwner(userId);
 
+      // 個人情報（メール、性別、生年月日、FCMトークン等）— 本人のみアクセス可
+      match /private/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // フォロー
       match /following/{followId} {
         allow read: if isAuthenticated();

@@ -15,6 +15,7 @@ import 'screens/auth/register_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
 import 'screens/tournament/tournament_detail_screen.dart';
+import 'services/in_app_browser.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -34,7 +35,13 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   if (kIsWeb) {
-    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+    // LINEなどのアプリ内ブラウザではセッション永続化を無効にして
+    // 他のユーザーにセッションが漏洩するのを防ぐ
+    if (isInAppBrowser()) {
+      await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
+    } else {
+      await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+    }
   }
 
   // Web URLパラメータ or パスから招待リンクの大会IDを取得
@@ -108,6 +115,35 @@ class _AuthGateState extends State<AuthGate> {
   void initState() {
     super.initState();
     _authStream = AuthService().authStateChanges;
+    // LINEなどのアプリ内ブラウザで開いた場合、外部ブラウザで開くよう促す
+    if (kIsWeb && isInAppBrowser()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showInAppBrowserWarning();
+      });
+    }
+  }
+
+  void _showInAppBrowserWarning() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('外部ブラウザで開いてください',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'アプリ内ブラウザではログイン情報が正しく動作しない場合があります。\n\n'
+          '右上のメニュー「…」から「ブラウザで開く」を選択してください。',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('このまま続ける'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 招待リンクの大会へ自動遷移

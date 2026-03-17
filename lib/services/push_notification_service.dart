@@ -60,10 +60,14 @@ class PushNotificationService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    await _firestore.collection('users').doc(uid).update({
+    // FCMトークンはprivateサブコレクションに保存（他ユーザーからアクセス不可）
+    await _firestore
+        .collection('users').doc(uid)
+        .collection('private').doc('info')
+        .set({
       'fcmToken': token,
       'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
   }
 
   /// フォアグラウンドでの通知 → SnackBarバナーで表示
@@ -194,8 +198,11 @@ class PushNotificationService {
   static Future<void> removeToken() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    await _firestore.collection('users').doc(uid).update({
+    await _firestore
+        .collection('users').doc(uid)
+        .collection('private').doc('info')
+        .set({
       'fcmToken': FieldValue.delete(),
-    });
+    }, SetOptions(merge: true));
   }
 }
