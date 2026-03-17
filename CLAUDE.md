@@ -6,6 +6,16 @@
 - **ユーザー名**: shusuke
 - **Mac**: MacBook-Pro-2
 
+## ローカルデータを最新にする手順
+```bash
+cd ~/Desktop/sofvo
+git stash
+git pull origin main --rebase
+git stash pop
+```
+- 必ず `cd` でプロジェクトディレクトリに移動してから実行すること
+- `git stash` で未コミットの変更を退避してからpullし、`git stash pop` で戻す
+
 ## Xcode ビルド & アップロード手順
 1. `cd ~/Desktop/sofvo`
 2. `git pull origin main --rebase` で最新のコードを取得
