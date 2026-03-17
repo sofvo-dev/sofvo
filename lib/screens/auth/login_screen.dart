@@ -37,13 +37,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       String message = 'ログインに失敗しました';
-      if (e.toString().contains('user-not-found')) {
-        message = 'アカウントが見つかりません';
-      } else if (e.toString().contains('wrong-password')) {
-        message = 'パスワードが正しくありません';
-      } else if (e.toString().contains('invalid-email')) {
+      if (e.toString().contains('invalid-email')) {
         message = 'メールアドレスの形式が正しくありません';
-      } else if (e.toString().contains('invalid-credential')) {
+      } else if (e.toString().contains('user-not-found') ||
+          e.toString().contains('wrong-password') ||
+          e.toString().contains('invalid-credential')) {
+        // ユーザー列挙攻撃を防ぐため、アカウント有無を区別しない統一メッセージ
         message = 'メールアドレスまたはパスワードが正しくありません';
       }
       ScaffoldMessenger.of(context).showSnackBar(

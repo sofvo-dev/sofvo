@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import '../../main.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
 
@@ -507,6 +508,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: () async {
               await AuthService().signOut();
+              // グローバルの招待/紹介パラメータをクリア（前ユーザーの状態が残らないように）
+              pendingTournamentId = null;
+              pendingCheckInTournamentId = null;
+              pendingReferrerUserId = null;
               if (ctx.mounted) {
                 Navigator.pop(ctx);
                 Navigator.of(context).pushAndRemoveUntil(

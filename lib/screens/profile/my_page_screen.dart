@@ -1403,16 +1403,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _selectedExperience =
         _experiences.contains(rawExp) ? rawExp : '1年未満';
 
-    // 性別
+    // 性別・生年月日: まずメインドキュメントのフォールバック値を使用
     final rawGender = _str(d['gender']);
     _selectedGender = _genders.contains(rawGender) ? rawGender : '未設定';
-
-    // 生年月日
     if (d['birthDate'] is Timestamp) {
       _birthDate = (d['birthDate'] as Timestamp).toDate();
     } else if (d['birthDate'] is String && (d['birthDate'] as String).isNotEmpty) {
       _birthDate = DateTime.tryParse(d['birthDate']);
     }
+    // privateサブコレクションから最新値を非同期ロード
+    _loadPrivateData();
 
     final rawArea = d['area'];
     String areaStr = '';
@@ -1429,6 +1429,25 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         orElse: () => '東京都',
       );
     }
+  }
+
+  Future<void> _loadPrivateData() async {
+    final uid = widget.targetUserId ?? FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final privateDoc = await FirebaseFirestore.instance
+          .collection('users').doc(uid).collection('private').doc('info').get();
+      if (privateDoc.exists && mounted) {
+        final pd = privateDoc.data()!;
+        setState(() {
+          final g = pd['gender'] is String ? pd['gender'] as String : '';
+          if (_genders.contains(g)) _selectedGender = g;
+          if (pd['birthDate'] is Timestamp) {
+            _birthDate = (pd['birthDate'] as Timestamp).toDate();
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   String _str(dynamic v) => v is String ? v : (v?.toString() ?? '');
@@ -1845,7 +1864,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           'experience': _selectedExperience,
           'area': _selectedArea,
           'avatarUrl': _avatarUrl,
-          'gender': _selectedGender,
         };
 
         // ユーザーIDは初回のみ設定可
@@ -1853,13 +1871,21 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           updateData['searchId'] = newId;
         }
 
-        // 生年月日
-        if (_birthDate != null) {
-          updateData['birthDate'] = Timestamp.fromDate(_birthDate!);
-        }
-
         final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
         await userRef.update(updateData);
+
+        // 個人情報はprivateサブコレクションに保存
+        final privateData = <String, dynamic>{
+          'gender': _selectedGender,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (_birthDate != null) {
+          privateData['birthDate'] = Timestamp.fromDate(_birthDate!);
+        }
+        await userRef.collection('private').doc('info').set(
+          privateData,
+          SetOptions(merge: true),
+        );
 
         // フォロワー・フォロー先のサブコレクションに保存された名前・アバターを同期
         final newNickname = _nicknameCtrl.text.trim();

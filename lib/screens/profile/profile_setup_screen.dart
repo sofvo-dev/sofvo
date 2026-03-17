@@ -129,19 +129,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         return;
       }
 
-      await FirebaseFirestore.instance
+      final userRef = FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid)
-          .set({
+          .doc(user.uid);
+      await userRef.set({
         'uid': user.uid,
-        'email': user.email,
         'nickname': _nicknameController.text.trim(),
         'bio': _bioController.text.trim(),
         'avatarUrl': '',
         'area': _selectedPrefecture,
         'experience': _selectedExperience,
-        'gender': _selectedGender,
-        'birthDate': _birthDate != null ? Timestamp.fromDate(_birthDate!) : null,
         'searchId': searchId,
         'totalPoints': 0,
         'seasonPoints': 0,
@@ -165,6 +162,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'profileCompleted': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 個人情報はprivateサブコレクションに保存（本人のみ読み書き可能）
+      await userRef.collection('private').doc('info').set({
+        'email': user.email,
+        'gender': _selectedGender,
+        'birthDate': _birthDate != null ? Timestamp.fromDate(_birthDate!) : null,
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
       // 友達紹介リンクからの登録 → 自動相互フォロー

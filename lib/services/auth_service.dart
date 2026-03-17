@@ -92,7 +92,8 @@ class AuthService {
 
       final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
-        accessToken: appleCredential.authorizationCode,
+        // Apple Sign-In ではaccessTokenは提供されないため、rawNonceのみ使用
+        // authorizationCode はサーバーサイド用でaccessTokenではない
       );
       return await _auth.signInWithCredential(oauthCredential);
     }
@@ -114,7 +115,7 @@ class AuthService {
     await user.updatePassword(newPassword);
   }
 
-  // アカウント削除（再認証 → Firestoreデータ削除 → Auth削除）
+  // アカウント削除（再認証 → Firestoreデータ全削除 → Auth削除）
   Future<void> deleteAccount(String password) async {
     final user = _auth.currentUser;
     if (user == null || user.email == null) {
@@ -128,23 +129,105 @@ class AuthService {
     );
     await user.reauthenticateWithCredential(credential);
 
-    // Firestoreのユーザーデータを削除
     final uid = user.uid;
     final firestore = FirebaseFirestore.instance;
-    await firestore.collection('users').doc(uid).delete();
+    final userRef = firestore.collection('users').doc(uid);
 
-    // 投稿を削除
+    // ── サブコレクションの削除 ──
+    final subcollections = [
+      'following', 'followers', 'notifications', 'bookmarks',
+      'blockedUsers', 'gadgets', 'gadgetCategories', 'pointHistory',
+      'hiddenPosts', 'private',
+    ];
+    for (final sub in subcollections) {
+      final docs = await userRef.collection(sub).get();
+      if (docs.docs.isNotEmpty) {
+        final batch = firestore.batch();
+        for (final doc in docs.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+    }
+
+    // ── 他ユーザーのフォロー/フォロワーから自分を削除 ──
+    // 自分をフォローしているユーザーのfollowingから削除
+    final myFollowers = await userRef.collection('followers').get();
+    for (final followerDoc in myFollowers.docs) {
+      try {
+        await firestore
+            .collection('users')
+            .doc(followerDoc.id)
+            .collection('following')
+            .doc(uid)
+            .delete();
+        await firestore.collection('users').doc(followerDoc.id).update({
+          'followingCount': FieldValue.increment(-1),
+        });
+      } catch (_) {}
+    }
+    // 自分がフォローしているユーザーのfollowersから削除
+    final myFollowing = await userRef.collection('following').get();
+    for (final followingDoc in myFollowing.docs) {
+      try {
+        await firestore
+            .collection('users')
+            .doc(followingDoc.id)
+            .collection('followers')
+            .doc(uid)
+            .delete();
+        await firestore.collection('users').doc(followingDoc.id).update({
+          'followersCount': FieldValue.increment(-1),
+        });
+      } catch (_) {}
+    }
+
+    // ── 投稿を削除 ──
     final posts = await firestore
         .collection('posts')
         .where('userId', isEqualTo: uid)
         .get();
-    final batch = firestore.batch();
-    for (final doc in posts.docs) {
-      batch.delete(doc.reference);
+    for (final postDoc in posts.docs) {
+      // 投稿のサブコレクション（likes, comments）も削除
+      for (final postSub in ['likes', 'comments']) {
+        final subDocs = await postDoc.reference.collection(postSub).get();
+        if (subDocs.docs.isNotEmpty) {
+          final batch = firestore.batch();
+          for (final doc in subDocs.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
+        }
+      }
+      await postDoc.reference.delete();
     }
-    await batch.commit();
 
-    // Firebase Authアカウントを削除
+    // ── 自分のコメントを他の投稿から削除 ──
+    final myComments = await firestore
+        .collectionGroup('comments')
+        .where('userId', isEqualTo: uid)
+        .get();
+    for (final commentDoc in myComments.docs) {
+      try {
+        await commentDoc.reference.delete();
+      } catch (_) {}
+    }
+
+    // ── 自分のいいねを他の投稿から削除 ──
+    final myLikes = await firestore
+        .collectionGroup('likes')
+        .where(FieldPath.documentId, isEqualTo: uid)
+        .get();
+    for (final likeDoc in myLikes.docs) {
+      try {
+        await likeDoc.reference.delete();
+      } catch (_) {}
+    }
+
+    // ── ユーザードキュメントを削除 ──
+    await userRef.delete();
+
+    // ── Firebase Authアカウントを削除 ──
     await user.delete();
   }
 
@@ -153,8 +236,43 @@ class AuthService {
     await _auth.sendPasswordResetEmail(email: email);
   }
 
-  // ログアウト
+  // ログアウト（OAuth セッション・キャッシュ・FCMトークンも完全にクリア）
   Future<void> signOut() async {
+    final uid = _auth.currentUser?.uid;
+
+    // FCMトークンをFirestoreから削除（ログアウト後にプッシュ通知が届かないように）
+    if (uid != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users').doc(uid)
+            .collection('private').doc('info')
+            .set({
+          'fcmToken': FieldValue.delete(),
+          'fcmTokenUpdatedAt': FieldValue.delete(),
+        }, SetOptions(merge: true));
+      } catch (_) {
+        // トークン削除失敗はログアウトをブロックしない
+      }
+    }
+
+    // Google OAuthセッションをクリア（アカウント切り替えを可能にする）
+    try {
+      final googleSignIn = GoogleSignIn();
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+      }
+    } catch (_) {
+      // Google Sign-In未使用の場合は無視
+    }
+
+    // Firebase Auth サインアウト
     await _auth.signOut();
+
+    // Firestoreローカルキャッシュをクリア（前ユーザーのデータ残留を防止）
+    try {
+      await FirebaseFirestore.instance.clearPersistence();
+    } catch (_) {
+      // クリア失敗はログアウトをブロックしない
+    }
   }
 }
