@@ -16,16 +16,85 @@ git stash pop
 - 必ず `cd` でプロジェクトディレクトリに移動してから実行すること
 - `git stash` で未コミットの変更を退避してからpullし、`git stash pop` で戻す
 
-## Xcode ビルド & アップロード手順
-1. `cd ~/Desktop/sofvo`
-2. `git pull origin main --rebase` で最新のコードを取得
-   - コンフリクトが出た場合: `git rebase --abort && git fetch origin main && git reset --hard origin/main`
-3. `cd ios && pod install && cd ..` でCocoaPodsの依存関係をインストール
-   - `Module 'cloud_firestore' not found` 等のエラーが出た場合はこの手順が抜けている可能性が高い
-4. Xcodeで `ios/Runner.xcworkspace` を開く（`.xcodeproj` ではなく `.xcworkspace` を使うこと）
-5. **Product → Clean Build Folder** (Shift+Command+K)
-6. **Product → Archive**
-7. **Organizer → Distribute App → App Store Connect** でアップロード
+## iOS ビルド & App Store Connect アップロード手順
+
+### 前提
+- **Xcode**: `ios/Runner.xcworkspace` を使う（`.xcodeproj` ではない）
+- **署名**: Automatically manage signing → Team: SHUSUKE NAKAMURA
+- **Bundle ID**: com.sofvo.app
+
+### 手順
+
+#### Step 1: コード最新化
+```bash
+cd ~/Desktop/sofvo
+git pull origin main --rebase
+```
+- コンフリクト時: `git rebase --abort && git fetch origin main && git reset --hard origin/main`
+
+#### Step 2: Flutter クリーン & 依存関係取得
+```bash
+flutter clean
+flutter pub get
+```
+
+#### Step 3: CocoaPods インストール
+```bash
+cd ios
+rm -rf Pods Podfile.lock
+pod install --repo-update
+cd ..
+```
+- `Module 'cloud_firestore' not found` → この手順が抜けている可能性大
+
+#### Step 4: Xcode でビルド & Archive
+1. `open ios/Runner.xcworkspace` でXcodeを開く
+2. 上部のデバイスを **「Any iOS Device (arm64)」** に変更
+3. **Product → Clean Build Folder** (Shift+Cmd+K)
+4. **Product → Archive** (アーカイブ作成、数分かかる)
+
+#### Step 5: App Store Connect にアップロード
+1. Archive完了後 **Organizer** が自動で開く（開かない場合: Window → Organizer）
+2. 最新のArchiveを選択 → **Distribute App**
+3. **App Store Connect** → **Upload**
+4. オプションはデフォルトのまま **Next** → **Upload**
+5. アップロード完了まで待つ（数分）
+
+#### Step 6: App Store Connect で審査提出
+1. [App Store Connect](https://appstoreconnect.apple.com/) にログイン
+2. アプリ「Sofvo」→ 新しいビルドが処理完了するまで待つ（5〜30分）
+3. バージョンページでアップロードしたビルドを選択
+4. 審査に関する情報を確認（テストアカウント、審査メモ）
+5. **審査に提出** をクリック
+
+### バージョン番号の更新（必要な場合）
+同じバージョンで再提出する場合、ビルド番号だけ上げればOK:
+```bash
+# pubspec.yaml の version を変更（例: 1.0.0+6 → 1.0.0+7）
+# "+" の後の数字がビルド番号
+```
+
+### トラブルシュート
+
+#### 「Command PhaseScriptExecution failed with a nonzero exit code」
+最も多いビルドエラー。以下で解決:
+```bash
+cd ~/Desktop/sofvo
+flutter clean
+flutter pub get
+cd ios && rm -rf Pods Podfile.lock && pod install --repo-update && cd ..
+# → Xcodeで Clean Build Folder → Archive
+```
+それでもダメな場合:
+```bash
+rm -rf ~/Library/Developer/Xcode/DerivedData
+```
+
+#### 「Module 'xxx' not found」
+`pod install` が未実行。Step 3を実行する。
+
+#### Archiveがグレーアウト
+デバイスが「Any iOS Device (arm64)」になっていない。シミュレータ選択中はArchiveできない。
 
 ## App Store Connect
 - **Bundle ID**: com.sofvo.app
