@@ -108,7 +108,7 @@ class _AuthGateState extends State<AuthGate> {
   bool _navigatedToTournament = false;
   bool _processedReferral = false;
   // ストリームをキャッシュしてビルド毎の再サブスクライブを防止
-  late final Stream<User?> _authStream;
+  late Stream<User?> _authStream;
   // 初回の認証状態チェックが完了したかどうか
   bool _initialAuthCheckDone = false;
 
@@ -120,6 +120,16 @@ class _AuthGateState extends State<AuthGate> {
     if (kIsWeb && isInAppBrowser()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showInAppBrowserWarning();
+      });
+    }
+  }
+
+  /// ログイン/登録成功時にStreamBuilderを再構築して画面遷移を確実にする
+  /// （iOS SafariでidTokenChangesが発火しないケースへの対策）
+  void _onAuthSuccess() {
+    if (mounted) {
+      setState(() {
+        _authStream = AuthService().authStateChanges;
       });
     }
   }
@@ -330,9 +340,9 @@ class _AuthGateState extends State<AuthGate> {
           _navigatedToTournament = false;
           // 紹介リンクからのアクセスは新規登録画面を表示
           if (pendingReferrerUserId != null) {
-            return const RegisterScreen();
+            return RegisterScreen(onAuthSuccess: _onAuthSuccess);
           }
-          return const LoginScreen();
+          return LoginScreen(onAuthSuccess: _onAuthSuccess);
         }
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
