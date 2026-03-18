@@ -24,7 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _showTermsRequiredSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('利用規約とプライバシーポリシーに同意してください'),
+        content: const Text('利用規約（EULA）とプライバシーポリシーに同意してください'),
         backgroundColor: AppTheme.error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -283,7 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // ── 利用規約同意チェックボックス ──
+                // ── 利用規約（EULA）同意チェックボックス ──
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -316,7 +316,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     mode: LaunchMode.externalApplication,
                                   ),
                                   child: const Text(
-                                    '利用規約',
+                                    '利用規約（EULA）',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: AppTheme.primaryColor,

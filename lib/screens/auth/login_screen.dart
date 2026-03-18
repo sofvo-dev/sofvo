@@ -70,21 +70,34 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('利用規約への同意',
+        title: const Text('利用規約（EULA）への同意',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('続行するには、以下に同意してください。',
+            const Text('続行するには、利用規約（EULA）とプライバシーポリシーに同意してください。',
                 style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: const Text(
+                '当サービスは不適切なコンテンツおよび迷惑行為に対してゼロトレランスポリシーを適用しています。',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
             const SizedBox(height: 12),
             GestureDetector(
               onTap: () => launchUrl(
                 Uri.parse('https://sofvo-19d84.web.app/terms.html'),
                 mode: LaunchMode.externalApplication,
               ),
-              child: const Text('利用規約を見る',
+              child: const Text('利用規約（EULA）を見る',
                   style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.primaryColor,

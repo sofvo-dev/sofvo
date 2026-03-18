@@ -1,11 +1,7 @@
-import 'dart:convert';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   // シングルトンパターン: アプリ更新時にセッションが切れないようにする
@@ -94,21 +90,7 @@ class AuthService {
     }
   }
 
-  /// SHA256ハッシュ用のランダムnonce文字列を生成
-  String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
-  }
-
-  /// nonce文字列をSHA256でハッシュ化
-  String _sha256ofString(String input) {
-    final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  // Appleログイン（Web: リダイレクト / Android: signInWithProvider / iOS/iPad: sign_in_with_apple）
+  // Appleログイン（Web: リダイレクト / iOS・Android: signInWithProvider）
   Future<UserCredential?> signInWithApple() async {
     if (kIsWeb) {
       final provider = OAuthProvider('apple.com');
@@ -117,30 +99,14 @@ class AuthService {
       // モバイルブラウザではポップアップがブロックされるためリダイレクト方式を使用
       await _auth.signInWithRedirect(provider);
       return null;
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      // AndroidではsignInWithProviderを使用（WebベースのOAuthフロー）
+    } else {
+      // iOS / iPadOS / Android: Firebase の signInWithProvider を使用
+      // Firebase SDK がネイティブ Apple Sign-In フローを内部的に処理するため、
+      // 手動の nonce 管理が不要で、iPad を含む全デバイスで安定動作する
       final provider = OAuthProvider('apple.com');
       provider.addScope('email');
       provider.addScope('name');
       return await _auth.signInWithProvider(provider);
-    } else {
-      // iOS / iPadOS: ネイティブApple Sign-In（nonce付き）
-      final rawNonce = _generateNonce();
-      final nonce = _sha256ofString(rawNonce);
-
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: nonce,
-      );
-
-      final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-      );
-      return await _auth.signInWithCredential(oauthCredential);
     }
   }
 
