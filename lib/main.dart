@@ -334,10 +334,6 @@ class _AuthGateState extends State<AuthGate> {
           }
           return const LoginScreen();
         }
-        // メール認証チェック（Google/Appleは不要）
-        if (!AuthService().isEmailVerified) {
-          return const EmailVerificationScreen();
-        }
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
               .collection('users')
@@ -356,6 +352,11 @@ class _AuthGateState extends State<AuthGate> {
             if (!userSnapshot.hasData ||
                 !userSnapshot.data!.exists ||
                 userSnapshot.data!.get('profileCompleted') != true) {
+              // 新規ユーザー: プロフィール未設定 → メール認証を先にチェック
+              // （既存ユーザーはprofileCompleted=trueなのでここを通らない）
+              if (!AuthService().isEmailVerified) {
+                return const EmailVerificationScreen();
+              }
               return const ProfileSetupScreen();
             }
             BookmarkNotificationService.checkAndNotify(snapshot.data!.uid);
