@@ -319,6 +319,126 @@ class _CommentScreenState extends State<CommentScreen> {
     );
   }
 
+  void _showCommentOptionsSheet(String commentId, Map<String, dynamic> data) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Icon(Icons.flag_outlined, color: AppTheme.warning),
+                title: const Text('このコメントを報告'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _reportComment(commentId, data);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.close, color: AppTheme.textSecondary),
+                title: const Text('キャンセル'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _reportComment(String commentId, Map<String, dynamic> data) async {
+    final uid = _currentUser?.uid;
+    if (uid == null) return;
+
+    final reasons = [
+      'スパム・迷惑行為',
+      '不適切なコンテンツ',
+      'なりすまし',
+      'ハラスメント',
+      'その他',
+    ];
+
+    final selectedReason = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('報告の理由を選択',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              ...reasons.map((reason) => ListTile(
+                    title: Text(reason),
+                    onTap: () => Navigator.pop(ctx, reason),
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selectedReason == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('reports').add({
+        'commentId': commentId,
+        'postId': widget.postId,
+        'reporterId': uid,
+        'targetUserId': data['userId'],
+        'reason': selectedReason,
+        'type': 'comment',
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('報告を受け付けました。ご協力ありがとうございます。')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('報告に失敗しました: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildCommentItem(
       String commentId, Map<String, dynamic> data, bool isMyComment) {
     final nickname = (data['userNickname'] as String?) ?? '名無し';
@@ -361,15 +481,20 @@ class _CommentScreenState extends State<CommentScreen> {
                             fontSize: 12,
                             color: AppTheme.textHint)),
                     const Spacer(),
-                    if (isMyComment)
-                      GestureDetector(
-                        onTap: () => _showDeleteDialog(commentId),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.more_horiz,
-                              size: 18, color: AppTheme.textSecondary),
-                        ),
+                    GestureDetector(
+                      onTap: () {
+                        if (isMyComment) {
+                          _showDeleteDialog(commentId);
+                        } else {
+                          _showCommentOptionsSheet(commentId, data);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(Icons.more_horiz,
+                            size: 18, color: AppTheme.textSecondary),
                       ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),

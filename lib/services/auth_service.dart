@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
@@ -91,7 +94,21 @@ class AuthService {
     }
   }
 
-  // Appleログイン（Web: リダイレクト / Android: signInWithProvider / iOS: sign_in_with_apple）
+  /// SHA256ハッシュ用のランダムnonce文字列を生成
+  String _generateNonce([int length = 32]) {
+    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+  }
+
+  /// nonce文字列をSHA256でハッシュ化
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  // Appleログイン（Web: リダイレクト / Android: signInWithProvider / iOS/iPad: sign_in_with_apple）
   Future<UserCredential?> signInWithApple() async {
     if (kIsWeb) {
       final provider = OAuthProvider('apple.com');
@@ -107,18 +124,21 @@ class AuthService {
       provider.addScope('name');
       return await _auth.signInWithProvider(provider);
     } else {
-      // iOS: ネイティブApple Sign-In
+      // iOS / iPadOS: ネイティブApple Sign-In（nonce付き）
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        nonce: nonce,
       );
 
       final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
-        // Apple Sign-In ではaccessTokenは提供されないため、rawNonceのみ使用
-        // authorizationCode はサーバーサイド用でaccessTokenではない
+        rawNonce: rawNonce,
       );
       return await _auth.signInWithCredential(oauthCredential);
     }
