@@ -102,9 +102,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       String message = 'アカウント作成に失敗しました';
       if (e.toString().contains('email-already-in-use')) {
-        message = 'このメールアドレスは既に登録されています';
+        // ユーザー列挙を防ぐため、登録済みかどうかを明示しない
+        message = 'アカウントの作成に失敗しました。別のメールアドレスをお試しください';
       } else if (e.toString().contains('weak-password')) {
-        message = 'パスワードが弱すぎます（6文字以上）';
+        message = 'パスワードが弱すぎます（8文字以上で英数字を含めてください）';
       } else if (e.toString().contains('invalid-email')) {
         message = 'メールアドレスの形式が正しくありません';
       }

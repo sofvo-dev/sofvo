@@ -27,13 +27,38 @@ class AuthService {
     );
   }
 
-  // メール＆パスワードで新規登録
+  // メール＆パスワードで新規登録（確認メールを自動送信）
   Future<UserCredential> registerWithEmail(
       String email, String password) async {
-    return await _auth.createUserWithEmailAndPassword(
+    final result = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
+    // メール確認リンクを送信
+    if (result.user != null && !result.user!.emailVerified) {
+      await result.user!.sendEmailVerification();
+    }
+    return result;
+  }
+
+  // メール確認済みかどうか（Google/Appleは常にtrue扱い）
+  bool get isEmailVerified {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    // Google/Appleログインはメール確認不要
+    final providers = user.providerData.map((p) => p.providerId).toList();
+    if (providers.contains('google.com') || providers.contains('apple.com')) {
+      return true;
+    }
+    return user.emailVerified;
+  }
+
+  // 確認メールを再送信
+  Future<void> resendVerificationEmail() async {
+    final user = _auth.currentUser;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
+    }
   }
 
   // Googleログイン（Web: リダイレクト / Android: signInWithProvider / iOS: GoogleSignIn）

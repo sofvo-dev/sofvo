@@ -6,9 +6,10 @@ service firebase.storage {
       allow read: if request.auth != null;
     }
 
-    // アバター: avatars/{uid}.{ext}
+    // アバター: avatars/{uid}.{ext} — 自分のUIDで始まるファイルのみ書き込み可
     match /avatars/{fileName} {
       allow write: if request.auth != null
+                   && fileName.matches(request.auth.uid + '\\..+')
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }

@@ -12,6 +12,7 @@ import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/auth/email_verification_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
 import 'screens/tournament/tournament_detail_screen.dart';
@@ -332,6 +333,10 @@ class _AuthGateState extends State<AuthGate> {
             return const RegisterScreen();
           }
           return const LoginScreen();
+        }
+        // メール認証チェック（Google/Appleは不要）
+        if (!AuthService().isEmailVerified) {
+          return const EmailVerificationScreen();
         }
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
