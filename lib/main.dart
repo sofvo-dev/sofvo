@@ -111,6 +111,8 @@ class _AuthGateState extends State<AuthGate> {
   late Stream<User?> _authStream;
   // 初回の認証状態チェックが完了したかどうか
   bool _initialAuthCheckDone = false;
+  // ログイン成功時にStreamBuilderを完全に再マウントするためのキー
+  int _authRebuildKey = 0;
 
   @override
   void initState() {
@@ -129,6 +131,7 @@ class _AuthGateState extends State<AuthGate> {
   void _onAuthSuccess() {
     if (mounted) {
       setState(() {
+        _authRebuildKey++;
         _authStream = AuthService().authStateChanges;
       });
     }
@@ -305,6 +308,9 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
+      // keyを変えることでStreamBuilderを完全に再マウントし、
+      // initialDataが再評価されてログイン済みユーザーを即座に反映する
+      key: ValueKey(_authRebuildKey),
       stream: _authStream,
       // 永続化された認証状態を初期値として使用し、
       // アプリ更新後にnullが一瞬emitされてログアウトされるのを防止
