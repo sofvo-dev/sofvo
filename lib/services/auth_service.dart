@@ -15,8 +15,8 @@ class AuthService {
   // 現在のユーザー
   User? get currentUser => _auth.currentUser;
 
-  // 認証状態の変化を監視
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  // 認証状態の変化を監視（idTokenChangesはWeb Safariでもログイン後に確実に発火する）
+  Stream<User?> get authStateChanges => _auth.idTokenChanges();
 
   // メール＆パスワードでログイン
   Future<UserCredential> signInWithEmail(
