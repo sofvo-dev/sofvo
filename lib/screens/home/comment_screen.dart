@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../services/content_filter_service.dart';
 
 class CommentScreen extends StatefulWidget {
   final String postId;
@@ -33,6 +34,20 @@ class _CommentScreenState extends State<CommentScreen> {
   Future<void> _sendComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty || _currentUser == null) return;
+
+    if (ContentFilterService.containsProhibitedContent(text)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('不適切な表現が含まれています。内容を修正してください。'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+      return;
+    }
 
     _commentController.clear();
     setState(() => _isSending = true);

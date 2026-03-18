@@ -1214,11 +1214,61 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _reportPost(String postId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+
+    final reasons = [
+      'スパム・迷惑行為',
+      '不適切なコンテンツ',
+      'なりすまし',
+      'ハラスメント',
+      'その他',
+    ];
+
+    final selectedReason = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('報告の理由を選択',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              ...reasons.map((reason) => ListTile(
+                    title: Text(reason),
+                    onTap: () => Navigator.pop(ctx, reason),
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selectedReason == null) return;
+
     try {
       await FirebaseFirestore.instance.collection('reports').add({
         'postId': postId,
         'reporterId': uid,
+        'reason': selectedReason,
         'type': 'post',
+        'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
       if (mounted) {
