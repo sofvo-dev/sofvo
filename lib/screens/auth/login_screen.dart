@@ -5,7 +5,8 @@ import '../../services/auth_service.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final VoidCallback? onAuthSuccess;
+  const LoginScreen({super.key, this.onAuthSuccess});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -34,6 +35,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       await AuthService().signInWithEmail(email, password);
+      // ログイン成功 → 親に通知して画面遷移を確実にする
+      widget.onAuthSuccess?.call();
     } catch (e) {
       if (!mounted) return;
       String message = 'ログインに失敗しました';
@@ -63,8 +66,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       final result = await AuthService().signInWithGoogle();
-      if (result == null && mounted) {
-        // ユーザーがキャンセルした場合は何もしない
+      if (result != null) {
+        widget.onAuthSuccess?.call();
       }
     } catch (e) {
       if (!mounted) return;
@@ -94,7 +97,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithApple() async {
     setState(() => _isLoading = true);
     try {
-      await AuthService().signInWithApple();
+      final appleResult = await AuthService().signInWithApple();
+      if (appleResult != null) {
+        widget.onAuthSuccess?.call();
+      }
     } catch (e) {
       if (!mounted) return;
       debugPrint('Apple Sign-In error: $e');
@@ -326,7 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (context) =>
-                                  const RegisterScreen(),
+                                  RegisterScreen(onAuthSuccess: widget.onAuthSuccess),
                             ),
                           );
                         },

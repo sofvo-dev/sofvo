@@ -4,7 +4,8 @@ import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final VoidCallback? onAuthSuccess;
+  const RegisterScreen({super.key, this.onAuthSuccess});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -23,10 +24,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
     try {
       final result = await AuthService().signInWithGoogle();
-      if (result == null && mounted) {
-        // ユーザーがキャンセルした場合は何もしない
+      if (result != null) {
+        widget.onAuthSuccess?.call();
+        if (mounted) Navigator.pop(context);
       }
-      if (mounted && result != null) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       debugPrint('Google Sign-In error: $e');
@@ -53,7 +54,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _registerWithApple() async {
     setState(() => _isLoading = true);
     try {
-      await AuthService().signInWithApple();
+      final appleResult = await AuthService().signInWithApple();
+      if (appleResult != null) {
+        widget.onAuthSuccess?.call();
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -97,6 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.trim(),
         _passwordController.text,
       );
+      widget.onAuthSuccess?.call();
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
