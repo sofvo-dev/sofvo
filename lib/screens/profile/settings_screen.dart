@@ -220,7 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   leading: Icon(Icons.description_outlined,
                       color: AppTheme.primaryColor, size: 22),
-                  title: const Text('利用規約',
+                  title: const Text('利用規約（EULA）',
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.open_in_new,
                       color: Colors.grey[400], size: 18),
