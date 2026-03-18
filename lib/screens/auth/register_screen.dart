@@ -84,7 +84,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       debugPrint('Apple Sign-In error: $e');
       final errorStr = e.toString();
       if (errorStr.contains('popup-closed-by-user') ||
-          errorStr.contains('cancelled')) {
+          errorStr.contains('cancelled') ||
+          errorStr.contains('AuthorizationErrorCode.canceled') ||
+          errorStr.contains('error 1001')) {
         return;
       }
       String message = 'Apple登録に失敗しました';
@@ -93,7 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 5),
