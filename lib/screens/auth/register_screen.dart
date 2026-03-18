@@ -19,8 +19,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _agreedToTerms = false;
+
+  void _showTermsRequiredSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('利用規約とプライバシーポリシーに同意してください'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
 
   Future<void> _registerWithGoogle() async {
+    if (!_agreedToTerms) {
+      _showTermsRequiredSnackBar();
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final result = await AuthService().signInWithGoogle();
@@ -52,6 +68,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _registerWithApple() async {
+    if (!_agreedToTerms) {
+      _showTermsRequiredSnackBar();
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final appleResult = await AuthService().signInWithApple();
@@ -259,11 +279,87 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // ── 利用規約同意チェックボックス ──
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: _agreedToTerms,
+                        onChanged: (v) =>
+                            setState(() => _agreedToTerms = v ?? false),
+                        activeColor: AppTheme.primaryColor,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(
+                            () => _agreedToTerms = !_agreedToTerms),
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: ''),
+                              WidgetSpan(
+                                child: GestureDetector(
+                                  onTap: () => launchUrl(
+                                    Uri.parse(
+                                        'https://sofvo-19d84.web.app/terms.html'),
+                                    mode: LaunchMode.externalApplication,
+                                  ),
+                                  child: const Text(
+                                    '利用規約',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.primaryColor,
+                                      decoration:
+                                          TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const TextSpan(text: 'および'),
+                              WidgetSpan(
+                                child: GestureDetector(
+                                  onTap: () => launchUrl(
+                                    Uri.parse(
+                                        'https://sofvo-19d84.web.app/privacy.html'),
+                                    mode: LaunchMode.externalApplication,
+                                  ),
+                                  child: const Text(
+                                    'プライバシーポリシー',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.primaryColor,
+                                      decoration:
+                                          TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const TextSpan(text: 'に同意します'),
+                            ],
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
 
                 // ── 登録ボタン ──
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
+                  onPressed: _isLoading || !_agreedToTerms ? null : _register,
                   child: _isLoading
                       ? const SizedBox(
                           height: 22,
@@ -326,49 +422,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // ── プライバシーポリシー・利用規約 ──
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextButton(
-                      onPressed: () => launchUrl(
-                        Uri.parse('https://sofvo-19d84.web.app/terms.html'),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                      child: const Text(
-                        '利用規約',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '｜',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textHint,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => launchUrl(
-                        Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                      child: const Text(
-                        'プライバシーポリシー',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
 
                 // ── ログインへ戻る ──
                 Row(

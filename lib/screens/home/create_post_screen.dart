@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import '../../services/media_service.dart';
+import '../../services/content_filter_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String? badgeName;
@@ -151,6 +152,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty && _imageBytes.isEmpty) {
       _showSnackBar('テキストまたは画像を追加してください');
+      return;
+    }
+
+    if (ContentFilterService.containsProhibitedContent(text)) {
+      _showSnackBar('不適切な表現が含まれています。内容を修正してください。', isError: true);
       return;
     }
 
