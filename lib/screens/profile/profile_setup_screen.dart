@@ -292,7 +292,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'ステップ 2/2',
+                        '最終ステップ',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
