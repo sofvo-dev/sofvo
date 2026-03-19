@@ -1928,13 +1928,16 @@ exports.sendWelcomeEmail = functions.firestore
       return null;
     }
 
+    const smtpHost = process.env.SMTP_HOST || functions.config().smtp?.host || "sv16626.xserver.jp";
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: smtpHost,
+      port: 465,
+      secure: true,
       auth: { user: smtpUser, pass: smtpPass },
     });
 
     const mailOptions = {
-      from: `Sofvo <${smtpUser}>`,
+      from: `Sofvo <info@sofvo.com>`,
       to: email,
       subject: "Sofvoへようこそ！登録が完了しました",
       html: `
