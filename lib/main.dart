@@ -22,6 +22,10 @@ import 'services/in_app_browser.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
+/// 認証状態の変化を一時的に無視するフラグ
+/// （未登録アカウントのチェック中に画面がちらつくのを防止）
+bool suppressAuthStateChange = false;
+
 /// 招待リンクで渡された大会ID（?t=xxx）
 String? pendingTournamentId;
 
@@ -123,6 +127,7 @@ class _AuthGateState extends State<AuthGate> {
   StreamSubscription<User?>? _authSubscription;
   bool _isInitialLoading = true;
 
+
   @override
   void initState() {
     super.initState();
@@ -133,7 +138,7 @@ class _AuthGateState extends State<AuthGate> {
     }
     // ストリームで認証状態の変化を監視
     _authSubscription = AuthService().authStateChanges.listen((user) {
-      if (mounted) {
+      if (mounted && !suppressAuthStateChange) {
         setState(() {
           _currentUser = user;
           _isInitialLoading = false;
