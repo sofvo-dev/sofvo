@@ -218,3 +218,24 @@ firebase deploy --only hosting    # Hosting のデプロイ
 - **`lib/services/auth_service.dart` の `signOut()`**: Google OAuth / Firestore キャッシュもクリアする
 - **招待リンク**: LINEアプリ内ブラウザ検出 → 外部ブラウザで開くよう促す
 - **優先度**: signOut修正 = 高、招待リンク対策 = 中
+
+## TODO: Google認証画面のドメイン表示を sofvo.com に変更（ドメイン移管完了後）
+
+### 概要
+Google OAuth認証画面に `sofvo-19d84.firebaseapp.com` と表示される → `sofvo.com` に変更したい。
+**ドメイン移管（XServer → ムームードメイン）完了後に対応する。**
+
+### 手順
+1. **Firebase Hosting にカスタムドメインを追加**
+   - Firebase Console → Hosting → 「カスタムドメインを追加」→ `sofvo.com` を設定（DNS設定が必要）
+2. **Firebase Auth の承認済みドメインに追加**
+   - Firebase Console → Authentication → Settings → 「承認済みドメイン」→ `sofvo.com` を追加
+3. **Google Cloud Console で OAuth リダイレクトURIを更新**
+   - APIとサービス → 認証情報 → OAuth 2.0 クライアントID
+   - 承認済みリダイレクトURIに `https://sofvo.com/__/auth/handler` を追加
+4. **Firebase の `authDomain` を変更**
+   - `lib/firebase_options.dart` の `authDomain` を `sofvo-19d84.firebaseapp.com` → `sofvo.com` に変更
+
+### 前提条件
+- [ ] ドメイン移管完了（XServer → ムームードメイン）
+- [ ] DNS設定完了
