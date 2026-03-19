@@ -1941,23 +1941,33 @@ exports.sendWelcomeEmail = functions.firestore
       to: email,
       subject: "Sofvoへようこそ！登録が完了しました",
       html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-          <h2 style="color: #333;">${nickname}さん、Sofvoへようこそ！</h2>
-          <p style="color: #555; line-height: 1.8;">
-            アカウント登録が完了しました。<br>
-            Sofvoでバレーボール大会を見つけたり、仲間とつながりましょう！
-          </p>
-          <div style="margin: 32px 0; text-align: center;">
-            <a href="https://sofvo-19d84.web.app"
-               style="background-color: #4CAF50; color: white; padding: 12px 32px;
-                      text-decoration: none; border-radius: 8px; font-weight: bold;">
-              Sofvoを開く
-            </a>
-          </div>
-          <p style="color: #999; font-size: 12px;">
-            このメールに心当たりがない場合は、このメールを無視してください。
-          </p>
-        </div>
+<div style="background-color:#f7f7f7;padding:40px 0;font-family:'Helvetica Neue',Arial,sans-serif">
+  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+    <div style="background:linear-gradient(135deg,#1B3A5C,#2E5C8A);padding:32px;text-align:center">
+      <h1 style="margin:0;font-size:32px;letter-spacing:3px">
+        <span style="color:#ffffff;font-weight:900">Sof</span><span style="color:#C4A962;font-weight:900">vo</span>
+      </h1>
+      <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:13px;letter-spacing:1px">ソフトバレーボール マッチングアプリ</p>
+    </div>
+    <div style="padding:32px">
+      <h2 style="color:#1B3A5C;font-size:18px;margin:0 0 16px">${nickname}さん、ようこそ！</h2>
+      <p style="color:#6B6B6B;font-size:14px;line-height:1.8;margin:0 0 24px">
+        Sofvo へのご登録ありがとうございます。<br>
+        アカウントの登録が完了しました。<br>
+        さっそく大会を探したり、仲間とつながりましょう！
+      </p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="https://sofvo-19d84.web.app" style="background-color:#1B3A5C;color:#ffffff;text-decoration:none;padding:14px 48px;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block">Sofvo を開く</a>
+      </div>
+      <p style="color:#B0B0B0;font-size:12px;line-height:1.6;margin:24px 0 0;border-top:1px solid #eee;padding-top:16px">
+        このメールに心当たりがない場合は、このメールを無視してください。
+      </p>
+    </div>
+    <div style="background:#f7f7f7;padding:16px;text-align:center">
+      <p style="color:#B0B0B0;font-size:11px;margin:0">&copy; 2026 Sofvo. All rights reserved.</p>
+    </div>
+  </div>
+</div>
       `,
     };
 
