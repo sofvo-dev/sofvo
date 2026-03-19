@@ -13,7 +13,6 @@ import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
-import 'screens/auth/email_verification_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
 import 'screens/tournament/tournament_detail_screen.dart';
