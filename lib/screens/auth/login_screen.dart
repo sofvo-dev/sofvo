@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
-import '../../main.dart' show scaffoldMessengerKey, suppressAuthStateChange;
+import '../../main.dart' show navigatorKey, scaffoldMessengerKey, suppressAuthStateChange;
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -63,6 +63,30 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showUnregisteredSnackBar(String provider) {
+    scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text('この${provider}アカウントは未登録です。'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        action: SnackBarAction(
+          label: '新規登録へ',
+          textColor: Colors.white,
+          onPressed: () {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    RegisterScreen(onAuthSuccess: widget.onAuthSuccess),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _loginWithGoogle() async {
     setState(() => _isLoading = true);
     // 認証状態の変化を一時停止（未登録チェック中の画面ちらつき防止）
@@ -76,15 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
           await result.user?.delete();
           suppressAuthStateChange = false;
           // グローバルキーでSnackBarを表示（LoginScreenがunmountされても確実に表示）
-          scaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(
-              content: const Text('このGoogleアカウントは未登録です。\n新規登録から登録してください。'),
-              backgroundColor: AppTheme.error,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          );
+          _showUnregisteredSnackBar('Google');
           return;
         }
         suppressAuthStateChange = false;
@@ -126,15 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (appleResult.additionalUserInfo?.isNewUser == true) {
           await appleResult.user?.delete();
           suppressAuthStateChange = false;
-          scaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(
-              content: const Text('このAppleアカウントは未登録です。\n新規登録から登録してください。'),
-              backgroundColor: AppTheme.error,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          );
+          _showUnregisteredSnackBar('Apple');
           return;
         }
         suppressAuthStateChange = false;
