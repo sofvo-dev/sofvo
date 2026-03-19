@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -43,6 +43,16 @@ void main() async {
       await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
     } else {
       await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+    }
+  }
+
+  // Web: signInWithRedirect のリダイレクト結果を取得
+  // これがないとリダイレクト後にログイン状態にならない
+  if (kIsWeb) {
+    try {
+      await FirebaseAuth.instance.getRedirectResult();
+    } catch (e) {
+      debugPrint('getRedirectResult error: $e');
     }
   }
 
