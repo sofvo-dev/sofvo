@@ -1921,26 +1921,34 @@ exports.sendWelcomeEmail = functions.firestore
 
     const nickname = data.nickname || "ユーザー";
 
-    const smtpUser = process.env.SMTP_USER || functions.config().smtp?.user;
-    const smtpPass = process.env.SMTP_PASS || functions.config().smtp?.pass;
-    if (!smtpUser || !smtpPass) {
-      console.error("[WelcomeEmail] SMTP credentials not configured");
-      return null;
+    try {
+      await sendWelcomeMailTo(email, nickname);
+      console.log(`[WelcomeEmail] Sent to ${email}`);
+    } catch (e) {
+      console.error("[WelcomeEmail] Send failed:", e.message);
     }
+    return null;
+  });
 
-    const smtpHost = process.env.SMTP_HOST || functions.config().smtp?.host || "sv16626.xserver.jp";
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: 465,
-      secure: true,
-      auth: { user: smtpUser, pass: smtpPass },
-    });
+// ── ウェルカムメール送信の共通関数 ──
+async function sendWelcomeMailTo(email, nickname) {
+  const smtpUser = process.env.SMTP_USER || functions.config().smtp?.user;
+  const smtpPass = process.env.SMTP_PASS || functions.config().smtp?.pass;
+  if (!smtpUser || !smtpPass) throw new Error("SMTP credentials not configured");
 
-    const mailOptions = {
-      from: `Sofvo <info@sofvo.com>`,
-      to: email,
-      subject: "Sofvoへようこそ！登録が完了しました",
-      html: `
+  const smtpHost = process.env.SMTP_HOST || functions.config().smtp?.host || "sv16626.xserver.jp";
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: 465,
+    secure: true,
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+
+  await transporter.sendMail({
+    from: `Sofvo <info@sofvo.com>`,
+    to: email,
+    subject: "Sofvoへようこそ！登録が完了しました",
+    html: `
 <div style="background-color:#f7f7f7;padding:40px 0;font-family:'Helvetica Neue',Arial,sans-serif">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
     <div style="background:linear-gradient(135deg,#1B3A5C,#2E5C8A);padding:32px;text-align:center">
@@ -1984,14 +1992,28 @@ exports.sendWelcomeEmail = functions.firestore
     </div>
   </div>
 </div>
-      `,
-    };
-
-    try {
-      await transporter.sendMail(mailOptions);
-      console.log(`[WelcomeEmail] Sent to ${email}`);
-    } catch (e) {
-      console.error("[WelcomeEmail] Send failed:", e.message);
-    }
-    return null;
+    `,
   });
+}
+
+// ── テスト送信用（管理者のみ） ──
+exports.testWelcomeEmail = functions.https.onCall(async (data, context) => {
+  // 認証チェック
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  }
+  // 管理者チェック
+  const callerDoc = await admin.firestore().collection("users").doc(context.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data().isAdmin !== true) {
+    throw new functions.https.HttpsError("permission-denied", "管理者権限が必要です");
+  }
+
+  const email = data.email;
+  const nickname = data.nickname || "テストユーザー";
+  if (!email) {
+    throw new functions.https.HttpsError("invalid-argument", "email が必要です");
+  }
+
+  await sendWelcomeMailTo(email, nickname);
+  return { success: true, message: `${email} に送信しました` };
+});
