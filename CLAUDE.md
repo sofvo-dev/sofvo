@@ -239,3 +239,24 @@ Google OAuth認証画面に `sofvo-19d84.firebaseapp.com` と表示される →
 ### 前提条件
 - [ ] ドメイン移管完了（XServer → ムームードメイン）
 - [ ] DNS設定完了
+
+## ウェルカムメール テスト送信（2026/03/19 追加）
+
+### 概要
+`testWelcomeEmail` Cloud Function を追加。管理者が任意のメールアドレスにウェルカムメールをテスト送信できる。
+
+### 使い方
+```bash
+firebase deploy --only functions
+firebase functions:shell
+> testWelcomeEmail({email: "shusuke1027@gmail.com", nickname: "Shusuke"})
+```
+
+### パラメータ
+- `email`（必須）: 送信先メールアドレス
+- `nickname`（任意）: メール内の宛名（デフォルト: テストユーザー）
+
+### 備考
+- 管理者権限（`isAdmin: true`）が必要
+- ウェルカムメールのHTMLテンプレートは `sendWelcomeMailTo()` 共通関数に集約済み
+- メール内に「詳しくはこちら」→ Welcome LP（`/welcome`）へのリンクあり
