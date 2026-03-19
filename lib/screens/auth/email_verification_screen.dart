@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/app_theme.dart';
+import '../../main.dart';
 import '../../services/auth_service.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
@@ -93,7 +94,15 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         title: const Text('メール確認'),
         actions: [
           TextButton(
-            onPressed: () => AuthService().signOut(),
+            onPressed: () {
+              // タイマーを先にキャンセル（signOut後にreloadが走るのを防ぐ）
+              _checkTimer?.cancel();
+              // グローバルの招待/紹介パラメータをクリア（前ユーザーの状態が残らないように）
+              pendingTournamentId = null;
+              pendingCheckInTournamentId = null;
+              pendingReferrerUserId = null;
+              AuthService().signOut();
+            },
             child: const Text('ログアウト'),
           ),
         ],

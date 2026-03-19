@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -283,8 +283,8 @@ class AuthService {
           'fcmToken': FieldValue.delete(),
           'fcmTokenUpdatedAt': FieldValue.delete(),
         }, SetOptions(merge: true));
-      } catch (_) {
-        // トークン削除失敗はログアウトをブロックしない
+      } catch (e) {
+        debugPrint('signOut: FCMトークン削除失敗: $e');
       }
     }
 
@@ -294,18 +294,19 @@ class AuthService {
       if (await googleSignIn.isSignedIn()) {
         await googleSignIn.signOut();
       }
-    } catch (_) {
-      // Google Sign-In未使用の場合は無視
+    } catch (e) {
+      debugPrint('signOut: Google Sign-Out失敗: $e');
     }
-
-    // Firebase Auth サインアウト
-    await _auth.signOut();
 
     // Firestoreローカルキャッシュをクリア（前ユーザーのデータ残留を防止）
+    // Firebase Auth signOut の前に実行（認証コンテキストがある状態でクリアする）
     try {
       await FirebaseFirestore.instance.clearPersistence();
-    } catch (_) {
-      // クリア失敗はログアウトをブロックしない
+    } catch (e) {
+      debugPrint('signOut: Firestoreキャッシュクリア失敗: $e');
     }
+
+    // Firebase Auth サインアウト（最後に実行 → authStateChanges が発火して画面遷移）
+    await _auth.signOut();
   }
 }

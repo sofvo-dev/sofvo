@@ -319,6 +319,7 @@ class _AuthGateState extends State<AuthGate> {
     // 未ログイン
     if (_currentUser == null) {
       _navigatedToTournament = false;
+      _processedReferral = false;
       if (pendingReferrerUserId != null) {
         return RegisterScreen(onAuthSuccess: _onAuthSuccess);
       }

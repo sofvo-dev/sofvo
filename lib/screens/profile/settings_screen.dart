@@ -507,18 +507,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await AuthService().signOut();
               // グローバルの招待/紹介パラメータをクリア（前ユーザーの状態が残らないように）
               pendingTournamentId = null;
               pendingCheckInTournamentId = null;
               pendingReferrerUserId = null;
+              await AuthService().signOut();
+              // signOut後はAuthGateがauthStateChangesで検知して
+              // 自動的にLoginScreenに遷移するため、ダイアログを閉じるだけでOK
               if (ctx.mounted) {
                 Navigator.pop(ctx);
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
               }
             },
             style: ElevatedButton.styleFrom(
