@@ -513,9 +513,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               pendingReferrerUserId = null;
               await AuthService().signOut();
               // signOut後はAuthGateがauthStateChangesで検知して
-              // 自動的にLoginScreenに遷移するため、ダイアログを閉じるだけでOK
+              // 自動的にLoginScreenに遷移する。
+              // ナビゲーションスタック上のSettingsScreen等を全て除去して
+              // AuthGate（ルート）を表示させる。
               if (ctx.mounted) {
-                Navigator.pop(ctx);
+                Navigator.of(ctx).popUntil((route) => route.isFirst);
               }
             },
             style: ElevatedButton.styleFrom(
