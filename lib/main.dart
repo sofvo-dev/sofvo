@@ -140,12 +140,6 @@ class _AuthGateState extends State<AuthGate> {
         });
       }
     });
-    // LINEなどのアプリ内ブラウザで開いた場合、外部ブラウザで開くよう促す
-    if (kIsWeb && isInAppBrowser()) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showInAppBrowserWarning();
-      });
-    }
   }
 
   @override
@@ -163,28 +157,6 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
-  void _showInAppBrowserWarning() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('外部ブラウザで開いてください',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: const Text(
-          'アプリ内ブラウザではログイン情報が正しく動作しない場合があります。\n\n'
-          '右上のメニュー「…」から「ブラウザで開く」を選択してください。',
-          style: TextStyle(height: 1.5),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('このまま続ける'),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// 招待リンクの大会へ自動遷移
   Future<void> _navigateToInvitedTournament() async {
