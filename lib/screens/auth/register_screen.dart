@@ -40,6 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onTap: () => launchUrl(
                 Uri.parse('https://sofvo-19d84.web.app/terms.html'),
                 mode: LaunchMode.externalApplication,
+                webOnlyWindowName: '_blank',
               ),
               child: const Text(
                 '利用規約（EULA）',
@@ -54,6 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onTap: () => launchUrl(
                 Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
                 mode: LaunchMode.externalApplication,
+                webOnlyWindowName: '_blank',
               ),
               child: const Text(
                 'プライバシーポリシー',
@@ -405,6 +407,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: () => launchUrl(
                         Uri.parse('https://sofvo-19d84.web.app/terms.html'),
                         mode: LaunchMode.externalApplication,
+                        webOnlyWindowName: '_blank',
                       ),
                       child: const Text(
                         '利用規約',
@@ -426,6 +429,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: () => launchUrl(
                         Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
                         mode: LaunchMode.externalApplication,
+                        webOnlyWindowName: '_blank',
                       ),
                       child: const Text(
                         'プライバシーポリシー',
