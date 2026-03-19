@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -107,17 +108,28 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _navigatedToTournament = false;
   bool _processedReferral = false;
-  // ストリームをキャッシュしてビルド毎の再サブスクライブを防止
-  late Stream<User?> _authStream;
-  // 初回の認証状態チェックが完了したかどうか
-  bool _initialAuthCheckDone = false;
-  // ログイン成功時にStreamBuilderを完全に再マウントするためのキー
-  int _authRebuildKey = 0;
+  // 現在の認証ユーザー（StreamBuilderを使わず手動で管理）
+  User? _currentUser;
+  StreamSubscription<User?>? _authSubscription;
+  bool _isInitialLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _authStream = AuthService().authStateChanges;
+    _currentUser = FirebaseAuth.instance.currentUser;
+    // 永続化された認証状態がある場合は初期ロード完了
+    if (_currentUser != null) {
+      _isInitialLoading = false;
+    }
+    // ストリームで認証状態の変化を監視
+    _authSubscription = AuthService().authStateChanges.listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _isInitialLoading = false;
+        });
+      }
+    });
     // LINEなどのアプリ内ブラウザで開いた場合、外部ブラウザで開くよう促す
     if (kIsWeb && isInAppBrowser()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -126,13 +138,17 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
-  /// ログイン/登録成功時にStreamBuilderを再構築して画面遷移を確実にする
-  /// （iOS SafariでidTokenChangesが発火しないケースへの対策）
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// ログイン/登録成功時に即座に画面を切り替える
   void _onAuthSuccess() {
     if (mounted) {
       setState(() {
-        _authRebuildKey++;
-        _authStream = AuthService().authStateChanges;
+        _currentUser = FirebaseAuth.instance.currentUser;
       });
     }
   }
@@ -307,17 +323,34 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      // keyを変えることでStreamBuilderを完全に再マウントし、
-      // initialDataが再評価されてログイン済みユーザーを即座に反映する
-      key: ValueKey(_authRebuildKey),
-      stream: _authStream,
-      // 永続化された認証状態を初期値として使用し、
-      // アプリ更新後にnullが一瞬emitされてログアウトされるのを防止
-      initialData: FirebaseAuth.instance.currentUser,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
+    // 初期ロード中（ストリームの最初のイベント待ち）
+    if (_isInitialLoading && _currentUser == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppTheme.primaryColor,
+          ),
+        ),
+      );
+    }
+
+    // 未ログイン
+    if (_currentUser == null) {
+      _navigatedToTournament = false;
+      if (pendingReferrerUserId != null) {
+        return RegisterScreen(onAuthSuccess: _onAuthSuccess);
+      }
+      return LoginScreen(onAuthSuccess: _onAuthSuccess);
+    }
+
+    // ログイン済み → プロフィール確認
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .get(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(
@@ -326,74 +359,32 @@ class _AuthGateState extends State<AuthGate> {
             ),
           );
         }
-        // 初回のnull emitを無視: Firebase Authが永続化状態をロード中の可能性がある
-        if (!snapshot.hasData && !_initialAuthCheckDone) {
-          _initialAuthCheckDone = true;
-          // currentUserが存在する場合はロード中として扱う
-          if (FirebaseAuth.instance.currentUser != null) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-            );
+        if (!userSnapshot.hasData ||
+            !userSnapshot.data!.exists ||
+            userSnapshot.data!.get('profileCompleted') != true) {
+          // 新規ユーザー: プロフィール未設定 → メール認証を先にチェック
+          if (!AuthService().isEmailVerified) {
+            return const EmailVerificationScreen();
           }
+          return const ProfileSetupScreen();
         }
-        _initialAuthCheckDone = true;
-        if (!snapshot.hasData) {
-          // 未ログイン時はpendingTournamentIdを保持したままログイン画面へ
-          _navigatedToTournament = false;
-          // 紹介リンクからのアクセスは新規登録画面を表示
-          if (pendingReferrerUserId != null) {
-            return RegisterScreen(onAuthSuccess: _onAuthSuccess);
-          }
-          return LoginScreen(onAuthSuccess: _onAuthSuccess);
+        BookmarkNotificationService.checkAndNotify(_currentUser!.uid);
+        PushNotificationService.initialize();
+
+        // 招待リンクがあれば大会詳細へ自動遷移
+        if (pendingTournamentId != null) {
+          _navigateToInvitedTournament();
         }
-        return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('users')
-              .doc(snapshot.data!.uid)
-              .get(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(
-                  child: CircularProgressIndicator(
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              );
-            }
-            if (!userSnapshot.hasData ||
-                !userSnapshot.data!.exists ||
-                userSnapshot.data!.get('profileCompleted') != true) {
-              // 新規ユーザー: プロフィール未設定 → メール認証を先にチェック
-              // （既存ユーザーはprofileCompleted=trueなのでここを通らない）
-              if (!AuthService().isEmailVerified) {
-                return const EmailVerificationScreen();
-              }
-              return const ProfileSetupScreen();
-            }
-            BookmarkNotificationService.checkAndNotify(snapshot.data!.uid);
-            PushNotificationService.initialize();
+        // セルフチェックインリンク
+        if (pendingCheckInTournamentId != null) {
+          _handlePendingCheckIn();
+        }
+        // 紹介リンク（既存ユーザー向け）
+        if (pendingReferrerUserId != null) {
+          _handlePendingReferral(_currentUser!.uid);
+        }
 
-            // 招待リンクがあれば大会詳細へ自動遷移
-            if (pendingTournamentId != null) {
-              _navigateToInvitedTournament();
-            }
-            // セルフチェックインリンク
-            if (pendingCheckInTournamentId != null) {
-              _handlePendingCheckIn();
-            }
-            // 紹介リンク（既存ユーザー向け）
-            if (pendingReferrerUserId != null) {
-              _handlePendingReferral(snapshot.data!.uid);
-            }
-
-            return const MainTabScreen();
-          },
-        );
+        return const MainTabScreen();
       },
     );
   }
