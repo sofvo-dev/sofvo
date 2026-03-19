@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
-import '../../main.dart' show navigatorKey, scaffoldMessengerKey, suppressAuthStateChange;
+import '../../main.dart' show scaffoldMessengerKey, suppressAuthStateChange;
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -66,23 +66,11 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showUnregisteredSnackBar(String provider) {
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
-        content: Text('この${provider}アカウントは未登録です。'),
+        content: Text('この${provider}アカウントは未登録です。\n下の「新規登録」ボタンから登録してください。'),
         backgroundColor: AppTheme.error,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        action: SnackBarAction(
-          label: '新規登録へ',
-          textColor: Colors.white,
-          onPressed: () {
-            navigatorKey.currentState?.push(
-              MaterialPageRoute(
-                builder: (context) =>
-                    RegisterScreen(onAuthSuccess: widget.onAuthSuccess),
-              ),
-            );
-          },
-        ),
       ),
     );
   }
@@ -366,37 +354,40 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  // ── 新規登録リンク ──
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'アカウントをお持ちでない方は',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondary,
+                  // ── 新規登録ボタン ──
+                  Text(
+                    'アカウントをお持ちでない方',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              RegisterScreen(onAuthSuccess: widget.onAuthSuccess),
                         ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.accentColor,
+                      side: BorderSide(color: AppTheme.accentColor, width: 1.5),
+                      minimumSize: const Size(double.infinity, 52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  RegisterScreen(onAuthSuccess: widget.onAuthSuccess),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          '新規登録',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.accentColor,
-                          ),
-                        ),
+                    ),
+                    child: const Text(
+                      '新規登録',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 40),
                 ],
