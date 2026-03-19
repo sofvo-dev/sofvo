@@ -67,6 +67,22 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final result = await AuthService().signInWithGoogle();
       if (result != null) {
+        // 未登録のGoogleアカウントでログインしようとした場合は拒否
+        if (result.additionalUserInfo?.isNewUser == true) {
+          // 自動作成されたアカウントを削除
+          await result.user?.delete();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('このGoogleアカウントは未登録です。\n新規登録から登録してください。'),
+              backgroundColor: AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+          return;
+        }
         widget.onAuthSuccess?.call();
       }
     } catch (e) {
@@ -99,6 +115,21 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final appleResult = await AuthService().signInWithApple();
       if (appleResult != null) {
+        // 未登録のAppleアカウントでログインしようとした場合は拒否
+        if (appleResult.additionalUserInfo?.isNewUser == true) {
+          await appleResult.user?.delete();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('このAppleアカウントは未登録です。\n新規登録から登録してください。'),
+              backgroundColor: AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+          return;
+        }
         widget.onAuthSuccess?.call();
       }
     } catch (e) {
