@@ -36,25 +36,6 @@ class AuthService {
     return result;
   }
 
-  // メール確認済みかどうか（Google/Appleは常にtrue扱い）
-  bool get isEmailVerified {
-    final user = _auth.currentUser;
-    if (user == null) return false;
-    // Google/Appleログインはメール確認不要
-    final providers = user.providerData.map((p) => p.providerId).toList();
-    if (providers.contains('google.com') || providers.contains('apple.com')) {
-      return true;
-    }
-    return user.emailVerified;
-  }
-
-  // 確認メールを再送信
-  Future<void> resendVerificationEmail() async {
-    final user = _auth.currentUser;
-    if (user != null && !user.emailVerified) {
-      await user.sendEmailVerification();
-    }
-  }
 
   // Googleログイン（Web: ポップアップ優先→リダイレクトフォールバック / Android: signInWithProvider / iOS: GoogleSignIn）
   Future<UserCredential?> signInWithGoogle() async {
