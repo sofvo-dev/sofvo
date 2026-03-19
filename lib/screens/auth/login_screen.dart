@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
-import '../../main.dart' show scaffoldMessengerKey;
+import '../../main.dart' show scaffoldMessengerKey, suppressAuthStateChange;
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -65,6 +65,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loginWithGoogle() async {
     setState(() => _isLoading = true);
+    // 認証状態の変化を一時停止（未登録チェック中の画面ちらつき防止）
+    suppressAuthStateChange = true;
     try {
       final result = await AuthService().signInWithGoogle();
       if (result != null) {
@@ -72,6 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (result.additionalUserInfo?.isNewUser == true) {
           // 自動作成されたアカウントを削除
           await result.user?.delete();
+          suppressAuthStateChange = false;
           // グローバルキーでSnackBarを表示（LoginScreenがunmountされても確実に表示）
           scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
@@ -84,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
           );
           return;
         }
+        suppressAuthStateChange = false;
         widget.onAuthSuccess?.call();
       }
     } catch (e) {
@@ -107,18 +111,21 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } finally {
+      suppressAuthStateChange = false;
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _loginWithApple() async {
     setState(() => _isLoading = true);
+    suppressAuthStateChange = true;
     try {
       final appleResult = await AuthService().signInWithApple();
       if (appleResult != null) {
         // 未登録のAppleアカウントでログインしようとした場合は拒否
         if (appleResult.additionalUserInfo?.isNewUser == true) {
           await appleResult.user?.delete();
+          suppressAuthStateChange = false;
           scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
               content: const Text('このAppleアカウントは未登録です。\n新規登録から登録してください。'),
@@ -130,6 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
           );
           return;
         }
+        suppressAuthStateChange = false;
         widget.onAuthSuccess?.call();
       }
     } catch (e) {
@@ -157,6 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } finally {
+      suppressAuthStateChange = false;
       if (mounted) setState(() => _isLoading = false);
     }
   }
