@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/url_bottom_sheet.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback? onAuthSuccess;
@@ -37,10 +37,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 12),
             GestureDetector(
-              onTap: () => launchUrl(
-                Uri.parse('https://sofvo-19d84.web.app/terms.html'),
-                mode: LaunchMode.platformDefault,
-                webOnlyWindowName: '_blank',
+              onTap: () => showUrlBottomSheet(
+                context,
+                '利用規約（EULA）',
+                'https://sofvo-19d84.web.app/terms.html',
               ),
               child: const Text(
                 '利用規約（EULA）',
@@ -52,10 +52,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 4),
             GestureDetector(
-              onTap: () => launchUrl(
-                Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
-                mode: LaunchMode.platformDefault,
-                webOnlyWindowName: '_blank',
+              onTap: () => showUrlBottomSheet(
+                context,
+                'プライバシーポリシー',
+                'https://sofvo-19d84.web.app/privacy.html',
               ),
               child: const Text(
                 'プライバシーポリシー',
@@ -404,10 +404,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     TextButton(
-                      onPressed: () => launchUrl(
-                        Uri.parse('https://sofvo-19d84.web.app/terms.html'),
-                        mode: LaunchMode.platformDefault,
-                        webOnlyWindowName: '_blank',
+                      onPressed: () => showUrlBottomSheet(
+                        context,
+                        '利用規約（EULA）',
+                        'https://sofvo-19d84.web.app/terms.html',
                       ),
                       child: const Text(
                         '利用規約',
@@ -426,10 +426,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => launchUrl(
-                        Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
-                        mode: LaunchMode.platformDefault,
-                        webOnlyWindowName: '_blank',
+                      onPressed: () => showUrlBottomSheet(
+                        context,
+                        'プライバシーポリシー',
+                        'https://sofvo-19d84.web.app/privacy.html',
                       ),
                       child: const Text(
                         'プライバシーポリシー',
