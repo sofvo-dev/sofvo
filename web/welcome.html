@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sofvo へようこそ</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      background: #f7f7f7;
+      color: #1A1A1A;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── ヘッダー ── */
+    .hero {
+      background: linear-gradient(135deg, #1B3A5C, #2E5C8A);
+      padding: 64px 24px;
+      text-align: center;
+    }
+    .hero-logo {
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+    }
+    .hero-logo .sof { color: #ffffff; }
+    .hero-logo .vo { color: #C4A962; }
+    .hero-subtitle {
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
+    .hero-welcome {
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 700;
+      margin-top: 32px;
+    }
+    .hero-desc {
+      color: rgba(255,255,255,0.8);
+      font-size: 15px;
+      margin-top: 12px;
+      line-height: 1.8;
+    }
+
+    /* ── セクション共通 ── */
+    .section {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1B3A5C;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    /* ── 機能カード ── */
+    .features {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .feature-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .feature-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: rgba(27, 58, 92, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+    .feature-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1B3A5C;
+      margin-bottom: 6px;
+    }
+    .feature-desc {
+      font-size: 14px;
+      color: #6B6B6B;
+      line-height: 1.7;
+    }
+
+    /* ── エントリーの流れ ── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      position: relative;
+      padding-bottom: 32px;
+    }
+    .step:last-child { padding-bottom: 0; }
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1B3A5C;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .step:not(:last-child) .step-number::after {
+      content: '';
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: calc(100% + 16px);
+      background: rgba(27, 58, 92, 0.15);
+    }
+    .step-content { padding-top: 6px; }
+    .step-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1A1A1A;
+      margin-bottom: 4px;
+    }
+    .step-desc {
+      font-size: 14px;
+      color: #6B6B6B;
+      line-height: 1.7;
+    }
+
+    /* ── CTA ── */
+    .cta {
+      background: linear-gradient(135deg, #1B3A5C, #2E5C8A);
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .cta-text {
+      color: rgba(255,255,255,0.9);
+      font-size: 16px;
+      margin-bottom: 24px;
+      line-height: 1.8;
+    }
+    .cta-button {
+      display: inline-block;
+      background: #C4A962;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px 48px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      transition: opacity 0.2s;
+    }
+    .cta-button:hover { opacity: 0.9; }
+
+    /* ── フッター ── */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      color: #B0B0B0;
+      font-size: 12px;
+    }
+
+    /* ── 区切り背景 ── */
+    .bg-white { background: #ffffff; }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <div class="hero">
+    <div class="hero-logo"><span class="sof">Sof</span><span class="vo">vo</span></div>
+    <div class="hero-subtitle">ソフトバレーボール マッチングアプリ</div>
+    <div class="hero-welcome">登録が完了しました！</div>
+    <div class="hero-desc">Sofvo でできることをご紹介します</div>
+  </div>
+
+  <!-- できること -->
+  <div class="section">
+    <div class="section-title">Sofvo でできること</div>
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F3D0;</div>
+        <div>
+          <div class="feature-title">大会をさがす</div>
+          <div class="feature-desc">お近くのソフトバレーボール大会を検索できます。地域・日程・レベルで絞り込んで、気になる大会を見つけましょう。</div>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4AC;</div>
+        <div>
+          <div class="feature-title">タイムライン</div>
+          <div class="feature-desc">他のプレイヤーの投稿をチェックしたり、自分の活動を共有できます。大会の感想や練習の様子を発信しましょう。</div>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F91D;</div>
+        <div>
+          <div class="feature-title">仲間とつながる</div>
+          <div class="feature-desc">フォロー機能で仲間とつながれます。友達招待リンクを送って、一緒に Sofvo を楽しみましょう。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- エントリーの流れ -->
+  <div class="bg-white">
+    <div class="section">
+      <div class="section-title">エントリーの流れ</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <div class="step-title">大会をさがす</div>
+            <div class="step-desc">ホーム画面から大会一覧を開き、地域や日程で気になる大会を見つけます。</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <div class="step-title">大会詳細を確認</div>
+            <div class="step-desc">開催日時・場所・参加条件・費用などの詳細情報を確認します。</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <div class="step-title">エントリーする</div>
+            <div class="step-desc">「エントリー」ボタンをタップして、チーム名やメンバー情報を入力します。</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <div class="step-title">当日参加！</div>
+            <div class="step-desc">大会当日は会場でチェックインして、試合を楽しみましょう。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="cta-text">さっそく Sofvo を使ってみましょう！</div>
+    <a href="https://sofvo-19d84.web.app" class="cta-button">Sofvo を開く</a>
+  </div>
+
+  <!-- フッター -->
+  <div class="footer">
+    &copy; 2026 Sofvo. All rights reserved.
+  </div>
+
+</body>
+</html>
