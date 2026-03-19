@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 // v3: totalResults対応 + CI自動デプロイ
 
 admin.initializeApp();
@@ -1897,3 +1898,71 @@ exports.recalcFollowCounts = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 登録完了メール送信（プロフィール設定完了時）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.sendWelcomeEmail = functions.firestore
+  .document("users/{uid}")
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    if (!data.profileCompleted) return null;
+
+    const uid = context.params.uid;
+    let email;
+    try {
+      const userRecord = await admin.auth().getUser(uid);
+      email = userRecord.email;
+    } catch (e) {
+      console.error("[WelcomeEmail] Failed to get user:", e.message);
+      return null;
+    }
+    if (!email) return null;
+
+    const nickname = data.nickname || "ユーザー";
+
+    const smtpUser = process.env.SMTP_USER || functions.config().smtp?.user;
+    const smtpPass = process.env.SMTP_PASS || functions.config().smtp?.pass;
+    if (!smtpUser || !smtpPass) {
+      console.error("[WelcomeEmail] SMTP credentials not configured");
+      return null;
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    const mailOptions = {
+      from: `Sofvo <${smtpUser}>`,
+      to: email,
+      subject: "Sofvoへようこそ！登録が完了しました",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #333;">${nickname}さん、Sofvoへようこそ！</h2>
+          <p style="color: #555; line-height: 1.8;">
+            アカウント登録が完了しました。<br>
+            Sofvoでバレーボール大会を見つけたり、仲間とつながりましょう！
+          </p>
+          <div style="margin: 32px 0; text-align: center;">
+            <a href="https://sofvo-19d84.web.app"
+               style="background-color: #4CAF50; color: white; padding: 12px 32px;
+                      text-decoration: none; border-radius: 8px; font-weight: bold;">
+              Sofvoを開く
+            </a>
+          </div>
+          <p style="color: #999; font-size: 12px;">
+            このメールに心当たりがない場合は、このメールを無視してください。
+          </p>
+        </div>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`[WelcomeEmail] Sent to ${email}`);
+    } catch (e) {
+      console.error("[WelcomeEmail] Send failed:", e.message);
+    }
+    return null;
+  });

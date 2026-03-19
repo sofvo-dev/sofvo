@@ -345,10 +345,7 @@ class _AuthGateState extends State<AuthGate> {
         if (!userSnapshot.hasData ||
             !userSnapshot.data!.exists ||
             userSnapshot.data!.get('profileCompleted') != true) {
-          // 新規ユーザー: プロフィール未設定 → メール認証を先にチェック
-          if (!AuthService().isEmailVerified) {
-            return const EmailVerificationScreen();
-          }
+          // 新規ユーザー: プロフィール未設定 → 直接プロフィール設定へ
           return const ProfileSetupScreen();
         }
         BookmarkNotificationService.checkAndNotify(_currentUser!.uid);

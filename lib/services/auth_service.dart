@@ -26,17 +26,13 @@ class AuthService {
     );
   }
 
-  // メール＆パスワードで新規登録（確認メールを自動送信）
+  // メール＆パスワードで新規登録
   Future<UserCredential> registerWithEmail(
       String email, String password) async {
     final result = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
-    // メール確認リンクを送信
-    if (result.user != null && !result.user!.emailVerified) {
-      await result.user!.sendEmailVerification();
-    }
     return result;
   }
 
