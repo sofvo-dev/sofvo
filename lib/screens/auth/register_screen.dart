@@ -39,7 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             GestureDetector(
               onTap: () => launchUrl(
                 Uri.parse('https://sofvo-19d84.web.app/terms.html'),
-                mode: LaunchMode.externalApplication,
+                mode: LaunchMode.platformDefault,
                 webOnlyWindowName: '_blank',
               ),
               child: const Text(
@@ -54,7 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             GestureDetector(
               onTap: () => launchUrl(
                 Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
-                mode: LaunchMode.externalApplication,
+                mode: LaunchMode.platformDefault,
                 webOnlyWindowName: '_blank',
               ),
               child: const Text(
@@ -406,7 +406,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextButton(
                       onPressed: () => launchUrl(
                         Uri.parse('https://sofvo-19d84.web.app/terms.html'),
-                        mode: LaunchMode.externalApplication,
+                        mode: LaunchMode.platformDefault,
                         webOnlyWindowName: '_blank',
                       ),
                       child: const Text(
@@ -428,7 +428,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextButton(
                       onPressed: () => launchUrl(
                         Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
-                        mode: LaunchMode.externalApplication,
+                        mode: LaunchMode.platformDefault,
                         webOnlyWindowName: '_blank',
                       ),
                       child: const Text(
