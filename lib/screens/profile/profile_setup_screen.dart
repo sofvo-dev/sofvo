@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../main.dart' show pendingReferrerUserId;
 import '../../services/notification_service.dart';
-import '../home/main_tab_screen.dart';
+import '../onboarding/onboarding_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -179,7 +179,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => MainTabScreen()),
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
           (route) => false,
         );
       }
