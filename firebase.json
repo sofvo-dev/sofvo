@@ -85,6 +85,10 @@
     ],
     "rewrites": [
       {
+        "source": "/auth-action",
+        "destination": "/auth-action.html"
+      },
+      {
         "source": "/invite",
         "destination": "/invite.html"
       },

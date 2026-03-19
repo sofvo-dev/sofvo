@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sofvo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1B3A5C;
+      --primary-light: #2E5C8A;
+      --primary-dark: #0F2440;
+      --accent: #C4A962;
+      --bg: #F7F7F7;
+      --surface: #FFFFFF;
+      --text: #1A1A1A;
+      --text-secondary: #6B6B6B;
+      --text-hint: #B0B0B0;
+      --success: #2E7D32;
+      --error: #D32F2F;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 460px;
+      background: var(--surface);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      padding: 32px;
+      text-align: center;
+    }
+
+    .logo {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 3px;
+    }
+
+    .logo-sof { color: #ffffff; }
+    .logo-vo { color: var(--accent); }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 12px;
+      margin-top: 6px;
+      letter-spacing: 1px;
+    }
+
+    .content {
+      padding: 32px;
+    }
+
+    .content h2 {
+      color: var(--primary);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .content p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .email-display {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 24px;
+      word-break: break-all;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 14px 48px 14px 16px;
+      border: 2px solid #E0E0E0;
+      border-radius: 10px;
+      font-size: 16px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .input-group input:focus {
+      border-color: var(--primary);
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-hint);
+      font-size: 20px;
+      padding: 4px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary:disabled {
+      background: #B0B0B0;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* 結果メッセージ */
+    .result {
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    .result-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 28px;
+    }
+
+    .result-icon.success {
+      background: #E8F5E9;
+      color: var(--success);
+    }
+
+    .result-icon.error {
+      background: #FFEBEE;
+      color: var(--error);
+    }
+
+    .result h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .result p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .btn-link {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 32px;
+      background: var(--primary);
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      transition: background 0.2s;
+    }
+
+    .btn-link:hover {
+      background: var(--primary-dark);
+    }
+
+    .footer {
+      background: var(--bg);
+      padding: 14px;
+      text-align: center;
+    }
+
+    .footer p {
+      color: var(--text-hint);
+      font-size: 11px;
+    }
+
+    /* ローディング */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2.5px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ヘッダー -->
+    <div class="header">
+      <div class="logo"><span class="logo-sof">Sof</span><span class="logo-vo">vo</span></div>
+      <div class="subtitle">ソフトバレーボール マッチングアプリ</div>
+    </div>
+
+    <!-- ローディング -->
+    <div class="content" id="loading-view">
+      <div class="result">
+        <div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(27,58,92,0.2);border-top-color:var(--primary);margin:0 auto 16px"></div>
+        <p>読み込み中...</p>
+      </div>
+    </div>
+
+    <!-- メール確認 -->
+    <div class="content hidden" id="verify-email-view">
+      <div class="result" id="verify-result"></div>
+    </div>
+
+    <!-- パスワードリセット -->
+    <div class="content hidden" id="reset-password-view">
+      <h2>パスワードの再設定</h2>
+      <p>新しいパスワードを入力してください。</p>
+      <div class="email-display" id="reset-email"></div>
+      <div class="input-group">
+        <label for="new-password">新しいパスワード</label>
+        <div class="input-wrapper">
+          <input type="password" id="new-password" placeholder="6文字以上" minlength="6">
+          <button type="button" class="toggle-password" onclick="togglePassword('new-password', this)">👁</button>
+        </div>
+      </div>
+      <div class="input-group">
+        <label for="confirm-password">パスワードの確認</label>
+        <div class="input-wrapper">
+          <input type="password" id="confirm-password" placeholder="もう一度入力">
+          <button type="button" class="toggle-password" onclick="togglePassword('confirm-password', this)">👁</button>
+        </div>
+      </div>
+      <button class="btn-primary" id="reset-btn" onclick="handleResetPassword()">パスワードを変更する</button>
+    </div>
+
+    <!-- パスワードリセット結果 -->
+    <div class="content hidden" id="reset-result-view">
+      <div class="result" id="reset-result"></div>
+    </div>
+
+    <!-- エラー -->
+    <div class="content hidden" id="error-view">
+      <div class="result">
+        <div class="result-icon error">!</div>
+        <h3>エラーが発生しました</h3>
+        <p id="error-message">無効なリンクです。リンクの有効期限が切れている可能性があります。</p>
+        <a href="https://sofvo-19d84.web.app" class="btn-link">Sofvo に戻る</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>&copy; 2026 Sofvo. All rights reserved.</p>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script>
+    // Firebase 初期化
+    firebase.initializeApp({
+      apiKey: "AIzaSyDH1x3nYMBLpN_ZWZqHT8d5n3RMJcr6VIk",
+      authDomain: "sofvo-19d84.firebaseapp.com",
+      projectId: "sofvo-19d84",
+    });
+
+    const auth = firebase.auth();
+
+    // URLパラメータ取得
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    const oobCode = params.get('oobCode');
+
+    function showView(id) {
+      document.querySelectorAll('.content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🔒';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁';
+      }
+    }
+
+    // メール確認処理
+    async function handleVerifyEmail() {
+      try {
+        await auth.applyActionCode(oobCode);
+        document.getElementById('verify-result').innerHTML = `
+          <div class="result-icon success">✓</div>
+          <h3>メールアドレスが確認されました</h3>
+          <p>ご登録ありがとうございます。<br>アプリに戻ってプロフィールを設定してください。</p>
+          <a href="https://sofvo-19d84.web.app" class="btn-link">Sofvo を開く</a>
+        `;
+        showView('verify-email-view');
+      } catch (e) {
+        showError('このリンクは無効か、既に使用済みです。');
+      }
+    }
+
+    // パスワードリセットフォーム表示
+    async function handleResetPasswordForm() {
+      try {
+        const email = await auth.verifyPasswordResetCode(oobCode);
+        document.getElementById('reset-email').textContent = email;
+        showView('reset-password-view');
+      } catch (e) {
+        showError('このリンクは無効か、有効期限が切れています。\nもう一度パスワードリセットをお試しください。');
+      }
+    }
+
+    // パスワード変更実行
+    async function handleResetPassword() {
+      const newPassword = document.getElementById('new-password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
+      const btn = document.getElementById('reset-btn');
+
+      if (newPassword.length < 6) {
+        alert('パスワードは6文字以上で入力してください。');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        alert('パスワードが一致しません。');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+
+      try {
+        await auth.confirmPasswordReset(oobCode, newPassword);
+        document.getElementById('reset-result').innerHTML = `
+          <div class="result-icon success">✓</div>
+          <h3>パスワードが変更されました</h3>
+          <p>新しいパスワードでログインしてください。</p>
+          <a href="https://sofvo-19d84.web.app" class="btn-link">Sofvo を開く</a>
+        `;
+        showView('reset-result-view');
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'パスワードを変更する';
+        let msg = 'パスワードの変更に失敗しました。';
+        if (e.code === 'auth/weak-password') {
+          msg = 'パスワードが簡単すぎます。より強力なパスワードを設定してください。';
+        } else if (e.code === 'auth/expired-action-code') {
+          msg = 'リンクの有効期限が切れています。もう一度パスワードリセットをお試しください。';
+        }
+        alert(msg);
+      }
+    }
+
+    // エラー表示
+    function showError(message) {
+      document.getElementById('error-message').textContent = message;
+      showView('error-view');
+    }
+
+    // Enterキーでパスワード変更
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !document.getElementById('reset-password-view').classList.contains('hidden')) {
+        handleResetPassword();
+      }
+    });
+
+    // メイン処理
+    (async function() {
+      if (!oobCode) {
+        showError('無効なリンクです。');
+        return;
+      }
+      switch (mode) {
+        case 'verifyEmail':
+          await handleVerifyEmail();
+          break;
+        case 'resetPassword':
+          await handleResetPasswordForm();
+          break;
+        case 'recoverEmail':
+          try {
+            await auth.checkActionCode(oobCode);
+            await auth.applyActionCode(oobCode);
+            document.getElementById('verify-result').innerHTML = `
+              <div class="result-icon success">✓</div>
+              <h3>メールアドレスが復元されました</h3>
+              <p>セキュリティのため、パスワードの変更もおすすめします。</p>
+              <a href="https://sofvo-19d84.web.app" class="btn-link">Sofvo を開く</a>
+            `;
+            showView('verify-email-view');
+          } catch (e) {
+            showError('メールアドレスの復元に失敗しました。');
+          }
+          break;
+        default:
+          showError('無効なリンクです。');
+      }
+    })();
+  </script>
+</body>
+</html>
