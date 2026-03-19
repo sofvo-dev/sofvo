@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../main.dart' show scaffoldMessengerKey;
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -71,8 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if (result.additionalUserInfo?.isNewUser == true) {
           // 自動作成されたアカウントを削除
           await result.user?.delete();
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
+          // グローバルキーでSnackBarを表示（LoginScreenがunmountされても確実に表示）
+          scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
               content: const Text('このGoogleアカウントは未登録です。\n新規登録から登録してください。'),
               backgroundColor: AppTheme.error,
@@ -118,8 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // 未登録のAppleアカウントでログインしようとした場合は拒否
         if (appleResult.additionalUserInfo?.isNewUser == true) {
           await appleResult.user?.delete();
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
+          scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
               content: const Text('このAppleアカウントは未登録です。\n新規登録から登録してください。'),
               backgroundColor: AppTheme.error,
