@@ -1953,9 +1953,38 @@ exports.sendWelcomeEmail = functions.firestore
       <h2 style="color:#1B3A5C;font-size:18px;margin:0 0 16px">${nickname}さん、ようこそ！</h2>
       <p style="color:#6B6B6B;font-size:14px;line-height:1.8;margin:0 0 24px">
         Sofvo へのご登録ありがとうございます。<br>
-        アカウントの登録が完了しました。<br>
-        さっそく大会を探したり、仲間とつながりましょう！
+        アカウントの登録が完了しました。
       </p>
+      <h3 style="color:#1B3A5C;font-size:15px;margin:0 0 16px">Sofvo でできること</h3>
+      <table style="width:100%;border-collapse:collapse;margin:0 0 24px">
+        <tr>
+          <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;width:36px">
+            <span style="font-size:20px">&#x1F3D0;</span>
+          </td>
+          <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0">
+            <strong style="color:#1B3A5C;font-size:14px">大会をさがす</strong>
+            <p style="color:#6B6B6B;font-size:13px;margin:4px 0 0;line-height:1.6">お近くのソフトバレーボール大会を検索して、気になる大会にエントリーできます。</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;width:36px">
+            <span style="font-size:20px">&#x1F4AC;</span>
+          </td>
+          <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0">
+            <strong style="color:#1B3A5C;font-size:14px">タイムライン</strong>
+            <p style="color:#6B6B6B;font-size:13px;margin:4px 0 0;line-height:1.6">他のプレイヤーの投稿をチェックしたり、自分の活動を共有できます。</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;vertical-align:top;width:36px">
+            <span style="font-size:20px">&#x1F91D;</span>
+          </td>
+          <td style="padding:12px 16px">
+            <strong style="color:#1B3A5C;font-size:14px">仲間とつながる</strong>
+            <p style="color:#6B6B6B;font-size:13px;margin:4px 0 0;line-height:1.6">友達をフォローして、大会やイベントの情報を共有しましょう。</p>
+          </td>
+        </tr>
+      </table>
       <div style="text-align:center;margin:32px 0">
         <a href="https://sofvo-19d84.web.app" style="background-color:#1B3A5C;color:#ffffff;text-decoration:none;padding:14px 48px;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block">Sofvo を開く</a>
       </div>
