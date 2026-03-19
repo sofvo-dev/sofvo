@@ -19,24 +19,69 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _agreedToTerms = false;
 
-  void _showTermsRequiredSnackBar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('利用規約（EULA）とプライバシーポリシーに同意してください'),
-        backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  /// Google/Apple登録時に利用規約への同意をポップアップで確認
+  Future<bool> _confirmTermsAgreement() async {
+    final agreed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('利用規約への同意',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '続行すると、以下に同意したものとみなされます。',
+              style: TextStyle(height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () => launchUrl(
+                Uri.parse('https://sofvo-19d84.web.app/terms.html'),
+                mode: LaunchMode.externalApplication,
+              ),
+              child: const Text(
+                '利用規約（EULA）',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () => launchUrl(
+                Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
+                mode: LaunchMode.externalApplication,
+              ),
+              child: const Text(
+                'プライバシーポリシー',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('同意して続行'),
+          ),
+        ],
       ),
     );
+    return agreed == true;
   }
 
   Future<void> _registerWithGoogle() async {
-    if (!_agreedToTerms) {
-      _showTermsRequiredSnackBar();
-      return;
-    }
+    if (!await _confirmTermsAgreement()) return;
     setState(() => _isLoading = true);
     try {
       final result = await AuthService().signInWithGoogle();
@@ -68,10 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _registerWithApple() async {
-    if (!_agreedToTerms) {
-      _showTermsRequiredSnackBar();
-      return;
-    }
+    if (!await _confirmTermsAgreement()) return;
     setState(() => _isLoading = true);
     try {
       final appleResult = await AuthService().signInWithApple();
@@ -84,9 +126,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       debugPrint('Apple Sign-In error: $e');
       final errorStr = e.toString();
       if (errorStr.contains('popup-closed-by-user') ||
-          errorStr.contains('cancelled') ||
-          errorStr.contains('AuthorizationErrorCode.canceled') ||
-          errorStr.contains('error 1001')) {
+          errorStr.contains('cancelled')) {
         return;
       }
       String message = 'Apple登録に失敗しました';
@@ -95,7 +135,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
+          content: Text(message),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 5),
@@ -281,87 +321,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
-
-                // ── 利用規約（EULA）同意チェックボックス ──
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Checkbox(
-                        value: _agreedToTerms,
-                        onChanged: (v) =>
-                            setState(() => _agreedToTerms = v ?? false),
-                        activeColor: AppTheme.primaryColor,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(
-                            () => _agreedToTerms = !_agreedToTerms),
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              const TextSpan(text: ''),
-                              WidgetSpan(
-                                child: GestureDetector(
-                                  onTap: () => launchUrl(
-                                    Uri.parse(
-                                        'https://sofvo-19d84.web.app/terms.html'),
-                                    mode: LaunchMode.externalApplication,
-                                  ),
-                                  child: const Text(
-                                    '利用規約（EULA）',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
-                                      decoration:
-                                          TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const TextSpan(text: 'および'),
-                              WidgetSpan(
-                                child: GestureDetector(
-                                  onTap: () => launchUrl(
-                                    Uri.parse(
-                                        'https://sofvo-19d84.web.app/privacy.html'),
-                                    mode: LaunchMode.externalApplication,
-                                  ),
-                                  child: const Text(
-                                    'プライバシーポリシー',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
-                                      decoration:
-                                          TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const TextSpan(text: 'に同意します'),
-                            ],
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
 
                 // ── 登録ボタン ──
                 ElevatedButton(
-                  onPressed: _isLoading || !_agreedToTerms ? null : _register,
+                  onPressed: _isLoading ? null : _register,
                   child: _isLoading
                       ? const SizedBox(
                           height: 22,
@@ -424,6 +388,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // ── プライバシーポリシー・利用規約 ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://sofvo-19d84.web.app/terms.html'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text(
+                        '利用規約',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '｜',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textHint,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://sofvo-19d84.web.app/privacy.html'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text(
+                        'プライバシーポリシー',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
 
                 // ── ログインへ戻る ──
                 Row(
