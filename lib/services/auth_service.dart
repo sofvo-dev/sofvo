@@ -60,15 +60,27 @@ class AuthService {
     }
   }
 
-  // Googleログイン（Web: リダイレクト / Android: signInWithProvider / iOS: GoogleSignIn）
+  // Googleログイン（Web: ポップアップ優先→リダイレクトフォールバック / Android: signInWithProvider / iOS: GoogleSignIn）
   Future<UserCredential?> signInWithGoogle() async {
     if (kIsWeb) {
       final googleProvider = GoogleAuthProvider();
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
-      // モバイルブラウザではポップアップがブロックされるためリダイレクト方式を使用
-      await _auth.signInWithRedirect(googleProvider);
-      return null;
+      // ポップアップを優先（リダイレクト方式はiOS Safariで ITP により失敗しやすい）
+      // ポップアップがブロックされた場合のみリダイレクトにフォールバック
+      try {
+        return await _auth.signInWithPopup(googleProvider);
+      } catch (e) {
+        final errorStr = e.toString();
+        if (errorStr.contains('popup-blocked') ||
+            errorStr.contains('popup-closed-by-user') ||
+            errorStr.contains('cancelled-popup-request')) {
+          // ポップアップがブロックされた場合はリダイレクト方式にフォールバック
+          await _auth.signInWithRedirect(googleProvider);
+          return null;
+        }
+        rethrow;
+      }
     } else if (defaultTargetPlatform == TargetPlatform.android) {
       // AndroidではsignInWithProviderを使用（Chrome Custom Tabベース）
       final googleProvider = GoogleAuthProvider();
@@ -90,15 +102,25 @@ class AuthService {
     }
   }
 
-  // Appleログイン（Web: リダイレクト / iOS・Android: signInWithProvider）
+  // Appleログイン（Web: ポップアップ優先→リダイレクトフォールバック / iOS・Android: signInWithProvider）
   Future<UserCredential?> signInWithApple() async {
     if (kIsWeb) {
       final provider = OAuthProvider('apple.com');
       provider.addScope('email');
       provider.addScope('name');
-      // モバイルブラウザではポップアップがブロックされるためリダイレクト方式を使用
-      await _auth.signInWithRedirect(provider);
-      return null;
+      // ポップアップを優先（リダイレクト方式はiOS Safariで ITP により失敗しやすい）
+      try {
+        return await _auth.signInWithPopup(provider);
+      } catch (e) {
+        final errorStr = e.toString();
+        if (errorStr.contains('popup-blocked') ||
+            errorStr.contains('popup-closed-by-user') ||
+            errorStr.contains('cancelled-popup-request')) {
+          await _auth.signInWithRedirect(provider);
+          return null;
+        }
+        rethrow;
+      }
     } else {
       // iOS / iPadOS / Android: Firebase の signInWithProvider を使用
       // Firebase SDK がネイティブ Apple Sign-In フローを内部的に処理するため、
