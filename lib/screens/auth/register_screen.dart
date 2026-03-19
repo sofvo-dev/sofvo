@@ -86,8 +86,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final result = await AuthService().signInWithGoogle();
       if (result != null) {
+        // 認証成功 → AuthGateのauthStateChangesが発火してプロフィール画面に遷移する
+        // RegisterScreenをpopしてAuthGateのルートに戻す
         widget.onAuthSuccess?.call();
-        if (mounted) Navigator.pop(context);
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -119,8 +123,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final appleResult = await AuthService().signInWithApple();
       if (appleResult != null) {
         widget.onAuthSuccess?.call();
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       }
-      if (mounted) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       debugPrint('Apple Sign-In error: $e');
@@ -164,7 +170,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _passwordController.text,
       );
       widget.onAuthSuccess?.call();
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } catch (e) {
       if (!mounted) return;
       String message = 'アカウント作成に失敗しました';
