@@ -51,3 +51,6 @@ android/app/sofvo-release-key.jks
 
 # Firebase
 .firebase/
+
+# Environment variables (secrets)
+functions/.env
