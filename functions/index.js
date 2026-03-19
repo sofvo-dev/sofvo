@@ -1902,6 +1902,8 @@ exports.recalcFollowCounts = functions.https.onRequest(async (req, res) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 登録完了メール送信（プロフィール設定完了時）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ── onCreate: ドキュメント作成時に profileCompleted: true なら送信 ──
 exports.sendWelcomeEmail = functions.firestore
   .document("users/{uid}")
   .onCreate(async (snap, context) => {
@@ -1923,7 +1925,44 @@ exports.sendWelcomeEmail = functions.firestore
 
     try {
       await sendWelcomeMailTo(email, nickname);
-      console.log(`[WelcomeEmail] Sent to ${email}`);
+      await snap.ref.update({ welcomeEmailSent: true });
+      console.log(`[WelcomeEmail] Sent to ${email} (onCreate)`);
+    } catch (e) {
+      console.error("[WelcomeEmail] Send failed:", e.message);
+    }
+    return null;
+  });
+
+// ── onUpdate: profileCompleted が false→true に変わったら送信 ──
+exports.sendWelcomeEmailOnUpdate = functions.firestore
+  .document("users/{uid}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    // profileCompleted が false/未設定 → true に変わった時だけ
+    if (before.profileCompleted || !after.profileCompleted) return null;
+    // 既にウェルカムメール送信済みならスキップ
+    if (after.welcomeEmailSent) return null;
+
+    const uid = context.params.uid;
+    let email;
+    try {
+      const userRecord = await admin.auth().getUser(uid);
+      email = userRecord.email;
+    } catch (e) {
+      console.error("[WelcomeEmail] Failed to get user:", e.message);
+      return null;
+    }
+    if (!email) return null;
+
+    const nickname = after.nickname || "ユーザー";
+
+    try {
+      await sendWelcomeMailTo(email, nickname);
+      // 重複送信防止フラグ
+      await change.after.ref.update({ welcomeEmailSent: true });
+      console.log(`[WelcomeEmail] Sent to ${email} (onUpdate)`);
     } catch (e) {
       console.error("[WelcomeEmail] Send failed:", e.message);
     }
