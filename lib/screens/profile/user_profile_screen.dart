@@ -948,6 +948,9 @@ class _GadgetCardsRow extends StatelessWidget {
           .collection('users').doc(userId).collection('gadgets')
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildEmptyCard('ガジェットを読み込めませんでした', Icons.devices_other_outlined);
+        }
         if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
