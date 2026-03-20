@@ -57,8 +57,8 @@ class _HomeScreenState extends State<HomeScreen>
           .collection('users').doc(uid).get(),
     ]);
     if (!mounted) return;
-    final followSnap = results[0];
-    final hiddenSnap = results[1];
+    final followSnap = results[0] as QuerySnapshot;
+    final hiddenSnap = results[1] as QuerySnapshot;
     final userDoc = results[2] as DocumentSnapshot;
     setState(() {
       _followingIds = [uid, ...followSnap.docs.map((d) => d.id)];
