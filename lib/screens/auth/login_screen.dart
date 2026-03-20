@@ -162,16 +162,16 @@ class _LoginScreenState extends State<LoginScreen> {
           errorStr.contains('error 1001')) {
         return; // ユーザーがキャンセル
       }
-      String message = 'Appleログインに失敗しました。もう一度お試しください。';
+      String message = 'Appleログインに失敗しました。\n$errorStr';
       if (errorStr.contains('operation-not-allowed')) {
         message = 'Appleログインは現在ご利用いただけません。\nメールアドレスまたはGoogleでログインしてください。';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
+          content: Text(message, maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 8),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
