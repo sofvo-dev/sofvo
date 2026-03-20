@@ -1665,14 +1665,23 @@ class _HomeScreenState extends State<HomeScreen>
     ],
   };
 
+  static const _noticeTypeOptions = [
+    {'value': 'info', 'label': 'お知らせ', 'icon': Icons.info_outline, 'color': 0xFF1B3A5C},
+    {'value': 'release', 'label': 'リリース', 'icon': Icons.campaign, 'color': 0xFFC4A962},
+    {'value': 'update', 'label': 'アップデート', 'icon': Icons.update, 'color': 0xFF1565C0},
+    {'value': 'maintenance', 'label': 'メンテナンス', 'icon': Icons.build, 'color': 0xFFF9A825},
+  ];
+
   Future<void> _showCreateNoticeDialog() async {
     final titleController = TextEditingController();
     final bodyController = TextEditingController();
     String selectedType = 'info';
     int selectedTemplateIndex = 0;
 
-    final result = await showDialog<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final templates = _noticeTemplates[selectedType] ?? _noticeTemplates['info']!;
@@ -1684,106 +1693,205 @@ class _HomeScreenState extends State<HomeScreen>
             bodyController.text = t['body'] ?? '';
           }
 
-          return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('お知らせを配信',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('種類', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _noticeTypeChip('info', 'お知らせ', Icons.info_outline, AppTheme.primaryColor, selectedType, (v) {
-                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
-                      applyTemplate(0);
-                    }),
-                    _noticeTypeChip('release', 'リリース', Icons.campaign, AppTheme.accentColor, selectedType, (v) {
-                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
-                      applyTemplate(0);
-                    }),
-                    _noticeTypeChip('update', '更新', Icons.update, AppTheme.info, selectedType, (v) {
-                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
-                      applyTemplate(0);
-                    }),
-                    _noticeTypeChip('maintenance', 'メンテ', Icons.build, AppTheme.warning, selectedType, (v) {
-                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
-                      applyTemplate(0);
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text('テンプレート', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: List.generate(templates.length, (i) {
-                    final isSelected = i == selectedTemplateIndex;
-                    return ChoiceChip(
-                      label: Text(templates[i]['label']!),
-                      selected: isSelected,
-                      selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      onSelected: (_) => setDialogState(() => applyTemplate(i)),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    );
-                  }),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: titleController,
-                  decoration: InputDecoration(
-                    labelText: 'タイトル',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  maxLength: 50,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: bodyController,
-                  decoration: InputDecoration(
-                    labelText: '本文',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  maxLines: 4,
-                  maxLength: 500,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.trim().isEmpty || bodyController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('タイトルと本文を入力してください'), behavior: SnackBarBehavior.floating),
-                  );
-                  return;
-                }
-                Navigator.pop(ctx, true);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: const Text('配信する'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ドラッグハンドル
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // ヘッダー
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text('お知らせを配信',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 16),
+                  // コンテンツ
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 種類（2x2グリッド）
+                          Text('種類', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                          const SizedBox(height: 10),
+                          GridView.count(
+                            crossAxisCount: 2,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                            childAspectRatio: 2.8,
+                            children: _noticeTypeOptions.map((opt) {
+                              final value = opt['value'] as String;
+                              final label = opt['label'] as String;
+                              final icon = opt['icon'] as IconData;
+                              final color = Color(opt['color'] as int);
+                              final isSelected = value == selectedType;
+                              return GestureDetector(
+                                onTap: () {
+                                  setDialogState(() { selectedType = value; selectedTemplateIndex = 0; });
+                                  applyTemplate(0);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? color.withValues(alpha: 0.1) : AppTheme.backgroundColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isSelected ? color : Colors.transparent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(icon, size: 18, color: isSelected ? color : AppTheme.textSecondary),
+                                      const SizedBox(width: 6),
+                                      Text(label, style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                        color: isSelected ? color : AppTheme.textSecondary,
+                                      )),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 20),
+                          // テンプレート（ドロップダウン）
+                          if (templates.length > 1) ...[
+                            Text('テンプレート', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppTheme.backgroundColor,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<int>(
+                                  value: selectedTemplateIndex,
+                                  isExpanded: true,
+                                  borderRadius: BorderRadius.circular(12),
+                                  icon: const Icon(Icons.expand_more, color: AppTheme.textSecondary),
+                                  items: List.generate(templates.length, (i) => DropdownMenuItem(
+                                    value: i,
+                                    child: Text(templates[i]['label']!, style: const TextStyle(fontSize: 14)),
+                                  )),
+                                  onChanged: (i) {
+                                    if (i != null) setDialogState(() => applyTemplate(i));
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          // タイトル
+                          TextField(
+                            controller: titleController,
+                            decoration: InputDecoration(
+                              hintText: 'タイトルを入力',
+                              hintStyle: TextStyle(color: AppTheme.textHint),
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              counterText: '',
+                            ),
+                            maxLength: 50,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 12),
+                          // 本文
+                          TextField(
+                            controller: bodyController,
+                            decoration: InputDecoration(
+                              hintText: '本文を入力',
+                              hintStyle: TextStyle(color: AppTheme.textHint),
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              counterStyle: TextStyle(color: AppTheme.textHint, fontSize: 11),
+                            ),
+                            maxLines: 5,
+                            maxLength: 500,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 20),
+                          // 配信ボタン
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (titleController.text.trim().isEmpty || bodyController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    const SnackBar(content: Text('タイトルと本文を入力してください'), behavior: SnackBarBehavior.floating),
+                                  );
+                                  return;
+                                }
+                                Navigator.pop(ctx, true);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              child: const Text('配信する', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        );
+          );
         },
       ),
     );
@@ -1803,29 +1911,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Widget _noticeTypeChip(String value, String label, IconData icon, Color color, String selected, ValueChanged<String> onSelect) {
-    final isSelected = value == selected;
-    return ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: isSelected ? Colors.white : color),
-          const SizedBox(width: 4),
-          Text(label),
-        ],
-      ),
-      selected: isSelected,
-      selectedColor: color,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : AppTheme.textPrimary,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-      onSelected: (_) => onSelect(value),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-    );
-  }
 
   Future<void> _markAnnouncementsAsRead() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
