@@ -209,6 +209,13 @@ service cloud.firestore {
       allow read: if false; // 管理者のみ（Cloud Functions経由）
     }
 
+    // ━━━ お知らせ ━━━
+    match /notices/{noticeId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // ━━━ メンバー募集 ━━━
     match /recruitments/{recruitId} {
       allow read: if isAuthenticated();
