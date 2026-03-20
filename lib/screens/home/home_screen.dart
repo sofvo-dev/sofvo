@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
 import '../tournament/tournament_detail_screen.dart';
+import '../tournament/post_event_action_screen.dart';
 import '../follow/follow_search_screen.dart';
 import 'create_post_screen.dart';
 import 'comment_screen.dart';
@@ -201,9 +202,11 @@ class _HomeScreenState extends State<HomeScreen>
                 indicatorColor: AppTheme.primaryColor,
                 indicatorWeight: 3,
                 dividerColor: Colors.grey[200],
-                tabs: const [
-                  Tab(text: 'タイムライン'),
-                  Tab(text: 'お知らせ'),
+                tabs: [
+                  const Tab(text: 'タイムライン'),
+                  Tab(
+                    child: _buildNoticeTabLabel(),
+                  ),
                 ],
               ),
             ]),
@@ -1367,83 +1370,331 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildNoticeTabLabel() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const Text('お知らせ');
+    return StreamBuilder<int>(
+      stream: NotificationService.unreadAnnouncementCountStream(uid),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('お知らせ'),
+            if (count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppTheme.error,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildNoticeTab() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('notices')
           .orderBy('createdAt', descending: true)
-          .limit(30)
+          .limit(20)
           .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
+      builder: (context, noticesSnap) {
+        // ユーザー個人の大会・システム通知
+        if (uid == null) {
+          return _buildNoticeList(noticesSnap, null);
         }
-        if (!snapshot.hasData) {
-          return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryColor));
-        }
-
-        final docs = snapshot.data?.docs ?? [];
-
-        if (docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                Text('お知らせはありません',
-                    style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>? ?? {};
-            final type = data['type'] ?? 'info';
-            final title = data['title'] ?? '';
-            final body = data['body'] ?? '';
-            final createdAt = data['createdAt'] as Timestamp?;
-            final timeText = _formatTime(createdAt);
-
-            IconData icon;
-            Color color;
-            switch (type) {
-              case 'release':
-                icon = Icons.campaign;
-                color = AppTheme.accentColor;
-                break;
-              case 'update':
-                icon = Icons.update;
-                color = AppTheme.info;
-                break;
-              case 'maintenance':
-                icon = Icons.build;
-                color = AppTheme.warning;
-                break;
-              default:
-                icon = Icons.info_outline;
-                color = AppTheme.primaryColor;
-            }
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _buildOfficialNotice(
-                icon: icon,
-                color: color,
-                title: title,
-                body: body,
-                time: timeText,
-              ),
-            );
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('notifications')
+              .where('type', whereIn: NotificationService.announcementTypes)
+              .orderBy('createdAt', descending: true)
+              .limit(30)
+              .snapshots(),
+          builder: (context, personalSnap) {
+            return _buildNoticeList(noticesSnap, personalSnap);
           },
         );
       },
     );
+  }
+
+  Widget _buildNoticeList(
+    AsyncSnapshot<QuerySnapshot> noticesSnap,
+    AsyncSnapshot<QuerySnapshot>? personalSnap,
+  ) {
+    if (noticesSnap.hasError || (personalSnap?.hasError ?? false)) {
+      return Center(
+          child: Text('読み込みに失敗しました',
+              style: TextStyle(color: AppTheme.textSecondary)));
+    }
+    if (!noticesSnap.hasData || (personalSnap != null && !personalSnap.hasData)) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor));
+    }
+
+    // 統合リストを構築
+    final items = <_NoticeItem>[];
+
+    // グローバルお知らせ
+    for (final doc in noticesSnap.data?.docs ?? []) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final type = data['type'] ?? 'info';
+      final createdAt = data['createdAt'] as Timestamp?;
+
+      IconData icon;
+      Color color;
+      switch (type) {
+        case 'release':
+          icon = Icons.campaign;
+          color = AppTheme.accentColor;
+          break;
+        case 'update':
+          icon = Icons.update;
+          color = AppTheme.info;
+          break;
+        case 'maintenance':
+          icon = Icons.build;
+          color = AppTheme.warning;
+          break;
+        default:
+          icon = Icons.info_outline;
+          color = AppTheme.primaryColor;
+      }
+
+      items.add(_NoticeItem(
+        icon: icon,
+        color: color,
+        title: data['title'] ?? '',
+        body: data['body'] ?? '',
+        time: _formatTime(createdAt),
+        createdAt: createdAt,
+        isRead: true, // グローバルお知らせは既読管理なし
+      ));
+    }
+
+    // 個人の大会・システム通知
+    for (final doc in personalSnap?.data?.docs ?? []) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final type = data['type'] ?? '';
+      final createdAt = data['createdAt'] as Timestamp?;
+      final bool isRead = data['read'] ?? true;
+
+      IconData icon;
+      Color color;
+      String title;
+      String body;
+
+      switch (type) {
+        case 'tournament_announcement':
+          icon = Icons.campaign;
+          color = AppTheme.accentColor;
+          title = '大会お知らせ';
+          body = data['message'] ?? '';
+          break;
+        case 'tournament_end':
+          icon = Icons.emoji_events;
+          color = AppTheme.accentColor;
+          title = '大会終了';
+          body = data['message'] ?? '';
+          break;
+        case 'waitlist_available':
+          icon = Icons.how_to_reg;
+          color = AppTheme.success;
+          title = 'キャンセル待ち';
+          body = data['message'] ?? '';
+          break;
+        case 'points_earned':
+          icon = Icons.star_rounded;
+          color = AppTheme.accentColor;
+          title = 'ポイント獲得';
+          body = data['message'] ?? '';
+          break;
+        default:
+          icon = Icons.info_outline;
+          color = AppTheme.primaryColor;
+          title = 'お知らせ';
+          body = data['message'] ?? '';
+      }
+
+      items.add(_NoticeItem(
+        icon: icon,
+        color: color,
+        title: title,
+        body: body,
+        time: _formatTime(createdAt),
+        createdAt: createdAt,
+        isRead: isRead,
+        data: data,
+        docId: doc.id,
+      ));
+    }
+
+    // 日時で降順ソート
+    items.sort((a, b) {
+      final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+      final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+      return bTime.compareTo(aTime);
+    });
+
+    if (items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text('お知らせはありません',
+                style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+          ],
+        ),
+      );
+    }
+
+    // 開いた時点で個人お知らせを既読に
+    _markAnnouncementsAsRead();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _buildOfficialNotice(
+            icon: item.icon,
+            color: item.color,
+            title: item.title,
+            body: item.body,
+            time: item.time,
+            isRead: item.isRead,
+            onTap: item.data != null ? () => _onAnnouncementTap(item.data!) : null,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _markAnnouncementsAsRead() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final unread = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .where('read', isEqualTo: false)
+        .where('type', whereIn: NotificationService.announcementTypes)
+        .get();
+    if (unread.docs.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in unread.docs) {
+      batch.update(doc.reference, {'read': true});
+    }
+    await batch.commit();
+  }
+
+  Future<void> _onAnnouncementTap(Map<String, dynamic> data) async {
+    final type = data['type'] ?? '';
+    final tournamentId = data['tournamentId'] as String?;
+
+    if (type == 'tournament_end' &&
+        tournamentId != null &&
+        tournamentId.isNotEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('tournaments')
+            .doc(tournamentId)
+            .get();
+        if (!doc.exists || !mounted) return;
+        final tData = doc.data() ?? {};
+        final tournamentName =
+            (tData['title'] ?? tData['name'] ?? '') as String;
+
+        String? myResult;
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          final entries = await FirebaseFirestore.instance
+              .collection('tournaments')
+              .doc(tournamentId)
+              .collection('entries')
+              .get();
+          for (final entry in entries.docs) {
+            final memberUids = entry.data()['memberUids'] as List?;
+            if (memberUids != null && memberUids.contains(uid)) {
+              final rank = entry.data()['finalRank'];
+              if (rank is int) {
+                if (rank == 1) myResult = '優勝';
+                else if (rank == 2) myResult = '準優勝';
+                else if (rank == 3) myResult = '3位';
+                else myResult = '$rank位';
+              }
+              break;
+            }
+          }
+        }
+
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PostEventActionScreen(
+              tournamentId: tournamentId,
+              tournamentName: tournamentName,
+              result: myResult,
+            ),
+          ),
+        );
+      } catch (e) {
+        debugPrint('ふりかえり画面遷移に失敗: $e');
+      }
+      return;
+    }
+
+    if ((type == 'tournament_announcement' ||
+            type == 'waitlist_available' ||
+            type == 'points_earned') &&
+        tournamentId != null &&
+        tournamentId.isNotEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('tournaments')
+            .doc(tournamentId)
+            .get();
+        if (!doc.exists || !mounted) return;
+        final tData = doc.data() ?? {};
+        tData['id'] = doc.id;
+        tData['name'] = tData['title'] ?? tData['name'] ?? '';
+        final initialTab =
+            type == 'tournament_announcement' ? 'board' : null;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TournamentDetailScreen(
+              tournament: tData,
+              initialTab: initialTab,
+            ),
+          ),
+        );
+      } catch (e) {
+        debugPrint('大会遷移に失敗: $e');
+      }
+    }
   }
 
   Widget _buildOfficialNotice({
@@ -1452,49 +1703,58 @@ class _HomeScreenState extends State<HomeScreen>
     required String title,
     required String body,
     required String time,
+    bool isRead = true,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 22),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isRead ? Colors.white : AppTheme.primaryColor.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isRead ? Colors.grey[200]! : AppTheme.primaryColor.withValues(alpha: 0.2),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: AppTheme.textPrimary)),
-                const SizedBox(height: 4),
-                Text(body,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary)),
-                const SizedBox(height: 6),
-                Text(time,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textHint)),
-              ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 22),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(body,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary)),
+                  const SizedBox(height: 6),
+                  Text(time,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textHint)),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              const Icon(Icons.chevron_right, color: AppTheme.textHint, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -1667,4 +1927,29 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
     super.build(context);
     return widget.child;
   }
+}
+
+/// お知らせタブで使う統合アイテム
+class _NoticeItem {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String body;
+  final String time;
+  final Timestamp? createdAt;
+  final bool isRead;
+  final Map<String, dynamic>? data;
+  final String? docId;
+
+  _NoticeItem({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.body,
+    required this.time,
+    this.createdAt,
+    this.isRead = true,
+    this.data,
+    this.docId,
+  });
 }
