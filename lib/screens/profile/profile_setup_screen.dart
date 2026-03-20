@@ -184,12 +184,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         await _processReferral(user.uid, nickname);
       }
 
-      // profileCompleted: true の書き込みによりAuthGateのStreamBuilderが
-      // MainTabScreenに切り替えてこのWidgetをunmountする場合がある。
-      // 事前に保存したnavigator参照を使うことで確実にOnboardingScreenへ遷移する。
-      navigator.pushAndRemoveUntil(
+      // pushAndRemoveUntilではなくpushを使用する。
+      // pushAndRemoveUntilを使うとAuthGateがウィジェットツリーから消え、
+      // ログアウトやアカウント削除時に認証状態の変化を検知できなくなる。
+      // pushならAuthGateが残り、OnboardingScreen完了後にpopで戻れる。
+      navigator.push(
         MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-        (route) => false,
       );
     } catch (e) {
       if (mounted) {

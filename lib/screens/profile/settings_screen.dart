@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../../main.dart';
 import '../../services/auth_service.dart';
-import '../auth/login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -662,12 +661,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       );
+                      // pushAndRemoveUntil(LoginScreen)ではなくpopUntilを使用。
+                      // deleteAccount()でFirebase Authユーザーが削除されると
+                      // AuthGateが認証状態の変化を検知してLoginScreenを自動表示する。
+                      // AuthGateをウィジェットツリーに残すことで、
+                      // 再ログイン時も正しくonAuthSuccessが動作する。
                       if (mounted) {
-                        Navigator.of(this.context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                              builder: (_) => const LoginScreen()),
-                          (route) => false,
-                        );
+                        Navigator.of(this.context).popUntil((route) => route.isFirst);
                       }
                     }
                   } catch (e) {
