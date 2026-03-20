@@ -548,136 +548,164 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final provider = authService.signInProvider;
     final isPasswordUser = provider == 'password';
 
+    bool isDeleting = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('アカウント削除',
-            style:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'アカウントを完全に削除しますか？\n\n'
-              '・すべての投稿が削除されます\n'
-              '・チーム情報が削除されます\n'
-              '・この操作は取り消せません',
-              style: TextStyle(height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            if (isPasswordUser)
-              TextField(
-                controller: passwordCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: '確認のためパスワードを入力',
-                  filled: true,
-                  fillColor: AppTheme.backgroundColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              )
-            else
-              Text(
-                provider == 'google.com'
-                    ? '削除するにはGoogleアカウントで再認証します'
-                    : '削除するにはApple IDで再認証します',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13,
-                ),
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          if (isDeleting) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              content: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: 16),
+                  CircularProgressIndicator(),
+                  SizedBox(height: 24),
+                  Text('アカウントを削除しています...',
+                      style: TextStyle(fontSize: 15)),
+                  SizedBox(height: 8),
+                  Text('しばらくお待ちください',
+                      style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  SizedBox(height: 16),
+                ],
               ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('キャンセル',
-                style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (isPasswordUser && passwordCtrl.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('パスワードを入力してください'),
-                    backgroundColor: AppTheme.warning,
-                  ),
-                );
-                return;
-              }
-              try {
-                await authService.deleteAccount(
-                    isPasswordUser ? passwordCtrl.text : null);
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  await showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (ctx) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      title: const Text('アカウント削除完了',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold)),
-                      content: const Text(
-                        'アカウントが正常に削除されました。\nご利用ありがとうございました。',
-                        style: TextStyle(height: 1.5),
+            );
+          }
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: const Text('アカウント削除',
+                style:
+                    TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'アカウントを完全に削除しますか？\n\n'
+                  '・すべての投稿が削除されます\n'
+                  '・チーム情報が削除されます\n'
+                  '・この操作は取り消せません',
+                  style: TextStyle(height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                if (isPasswordUser)
+                  TextField(
+                    controller: passwordCtrl,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: '確認のためパスワードを入力',
+                      filled: true,
+                      fillColor: AppTheme.backgroundColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
                       ),
-                      actions: [
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('OK'),
-                        ),
-                      ],
                     ),
-                  );
-                  if (mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  }
-                }
-              } catch (e) {
-                debugPrint('アカウント削除エラー: $e');
-                if (mounted) {
-                  String message = 'アカウント削除に失敗しました';
-                  final errorStr = e.toString();
-                  if (errorStr.contains('wrong-password') ||
-                      errorStr.contains('invalid-credential')) {
-                    message = 'パスワードが正しくありません';
-                  } else if (errorStr.contains('popup-closed-by-user') ||
-                      errorStr.contains('cancelled-popup-request') ||
-                      errorStr.contains('キャンセル')) {
-                    message = '認証がキャンセルされました';
-                  } else if (errorStr.contains('popup-blocked')) {
-                    message = 'ポップアップがブロックされました。ポップアップを許可してください';
-                  } else {
-                    message = 'エラー: $errorStr';
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: AppTheme.error,
+                  )
+                else
+                  Text(
+                    provider == 'google.com'
+                        ? '削除するにはGoogleアカウントで再認証します'
+                        : '削除するにはApple IDで再認証します',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 13,
                     ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              minimumSize: const Size(100, 40),
+                  ),
+              ],
             ),
-            child: const Text('削除する'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('キャンセル',
+                    style: TextStyle(color: AppTheme.textSecondary)),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (isPasswordUser && passwordCtrl.text.isEmpty) {
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(
+                        content: Text('パスワードを入力してください'),
+                        backgroundColor: AppTheme.warning,
+                      ),
+                    );
+                    return;
+                  }
+                  setDialogState(() => isDeleting = true);
+                  try {
+                    await authService.deleteAccount(
+                        isPasswordUser ? passwordCtrl.text : null);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      await showDialog(
+                        context: this.context,
+                        barrierDismissible: false,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          title: const Text('アカウント削除完了',
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold)),
+                          content: const Text(
+                            'アカウントが正常に削除されました。\nご利用ありがとうございました。',
+                            style: TextStyle(height: 1.5),
+                          ),
+                          actions: [
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (mounted) {
+                        Navigator.of(this.context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                              builder: (_) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    setDialogState(() => isDeleting = false);
+                    debugPrint('アカウント削除エラー: $e');
+                    if (mounted) {
+                      String message = 'アカウント削除に失敗しました';
+                      final errorStr = e.toString();
+                      if (errorStr.contains('wrong-password') ||
+                          errorStr.contains('invalid-credential')) {
+                        message = 'パスワードが正しくありません';
+                      } else if (errorStr.contains('popup-closed-by-user') ||
+                          errorStr.contains('cancelled-popup-request') ||
+                          errorStr.contains('キャンセル')) {
+                        message = '認証がキャンセルされました';
+                      } else if (errorStr.contains('popup-blocked')) {
+                        message = 'ポップアップがブロックされました。ポップアップを許可してください';
+                      } else {
+                        message = 'エラー: $errorStr';
+                      }
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        SnackBar(
+                          content: Text(message),
+                          backgroundColor: AppTheme.error,
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.error,
+                  minimumSize: const Size(100, 40),
+                ),
+                child: const Text('削除する'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
