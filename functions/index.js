@@ -2127,6 +2127,171 @@ async function sendAccountDeletedMailTo(email, nickname) {
   });
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 大会作成時にフォロワーへ通知
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onTournamentCreate = functions.firestore
+  .document("tournaments/{tournamentId}")
+  .onCreate(async (snap, context) => {
+    const db = admin.firestore();
+    const data = snap.data();
+    const organizerId = data.organizerId || "";
+    const tournamentName = data.title || "";
+    const tournamentId = context.params.tournamentId;
+
+    if (!organizerId || !tournamentName) return null;
+
+    // 主催者のフォロワー一覧を取得
+    const followersSnap = await db
+      .collection("users").doc(organizerId)
+      .collection("followers").get();
+
+    if (followersSnap.empty) return null;
+
+    // 主催者のアバター取得
+    const userDoc = await db.collection("users").doc(organizerId).get();
+    const userData = userDoc.data() || {};
+    const organizerName = userData.nickname || userData.displayName || "";
+    const organizerAvatar = userData.avatarUrl || "";
+
+    // フォロワーに通知を送信（バッチ上限500件ずつ）
+    const followerIds = followersSnap.docs.map((d) => d.id);
+    const batchSize = 450;
+    for (let i = 0; i < followerIds.length; i += batchSize) {
+      const batch = db.batch();
+      const chunk = followerIds.slice(i, i + batchSize);
+      for (const followerId of chunk) {
+        const ref = db.collection("users").doc(followerId)
+          .collection("notifications").doc();
+        batch.set(ref, {
+          type: "tournament_created",
+          senderId: organizerId,
+          senderName: organizerName,
+          senderAvatar: organizerAvatar,
+          message: `${organizerName}さんが「${tournamentName}」の募集を開始しました`,
+          tournamentId: tournamentId,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+
+    console.log(`[TournamentCreated] Notified ${followerIds.length} followers of ${organizerName}'s tournament: ${tournamentName}`);
+    return null;
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 保存した大会の締切接近 & 残り枠通知（毎日9時に実行）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.checkBookmarkAlerts = functions.pubsub
+  .schedule("0 9 * * *")
+  .timeZone("Asia/Tokyo")
+  .onRun(async () => {
+    const db = admin.firestore();
+
+    // 募集中の大会を取得
+    const tournamentsSnap = await db.collection("tournaments")
+      .where("status", "==", "募集中")
+      .get();
+
+    if (tournamentsSnap.empty) return null;
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
+
+    for (const tDoc of tournamentsSnap.docs) {
+      const t = tDoc.data();
+      const tournamentId = tDoc.id;
+      const tournamentName = t.title || "";
+      const deadline = t.deadline || "";
+      const maxTeams = t.maxTeams || 0;
+      const currentTeams = t.currentTeams || 0;
+      const remaining = maxTeams - currentTeams;
+
+      // 締切日までの残り日数を計算
+      let daysLeft = -1;
+      if (deadline) {
+        const deadlineDate = new Date(deadline.replace(/\//g, "-"));
+        const diffMs = deadlineDate.getTime() - now.getTime();
+        daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      }
+
+      const shouldNotifyDeadline = daysLeft >= 0 && daysLeft <= 3;
+      const shouldNotifySlots = remaining > 0 && remaining <= 2;
+
+      if (!shouldNotifyDeadline && !shouldNotifySlots) continue;
+
+      // この大会をブックマークしているユーザーを検索
+      const usersSnap = await db.collectionGroup("bookmarks")
+        .where("targetId", "==", tournamentId)
+        .where("type", "==", "tournament")
+        .get();
+
+      if (usersSnap.empty) continue;
+
+      const batch = db.batch();
+      let count = 0;
+
+      for (const bDoc of usersSnap.docs) {
+        // パスから userId を取得: users/{uid}/bookmarks/{docId}
+        const userId = bDoc.ref.parent.parent.id;
+        const alerts = bDoc.data().alerts || [];
+
+        // 締切通知（まだ送っていない場合）
+        if (shouldNotifyDeadline && !alerts.includes("deadline")) {
+          const ref = db.collection("users").doc(userId)
+            .collection("notifications").doc();
+          const msg = daysLeft === 0
+            ? `「${tournamentName}」のエントリー締切は本日です！`
+            : `「${tournamentName}」のエントリー締切まであと${daysLeft}日です`;
+          batch.set(ref, {
+            type: "deadline_approaching",
+            senderId: "system",
+            senderName: "システム",
+            senderAvatar: "",
+            message: msg,
+            tournamentId: tournamentId,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          // alerts に deadline を追加して二重送信防止
+          batch.update(bDoc.ref, {
+            alerts: admin.firestore.FieldValue.arrayUnion("deadline"),
+          });
+          count++;
+        }
+
+        // 残り枠通知（まだ送っていない場合）
+        if (shouldNotifySlots && !alerts.includes("slots")) {
+          const ref = db.collection("users").doc(userId)
+            .collection("notifications").doc();
+          batch.set(ref, {
+            type: "slots_low",
+            senderId: "system",
+            senderName: "システム",
+            senderAvatar: "",
+            message: `「${tournamentName}」の残り枠があと${remaining}チームです！`,
+            tournamentId: tournamentId,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          batch.update(bDoc.ref, {
+            alerts: admin.firestore.FieldValue.arrayUnion("slots"),
+          });
+          count++;
+        }
+      }
+
+      if (count > 0) {
+        await batch.commit();
+        console.log(`[BookmarkAlerts] ${tournamentName}: sent ${count} notifications`);
+      }
+    }
+
+    return null;
+  });
+
 // ── テスト送信用（管理者のみ） ──
 exports.testWelcomeEmail = functions.https.onRequest(async (req, res) => {
   try {
