@@ -308,25 +308,33 @@ class AuthService {
     }
 
     // ── 自分のコメントを他の投稿から削除 ──
-    final myComments = await firestore
-        .collectionGroup('comments')
-        .where('userId', isEqualTo: uid)
-        .get();
-    for (final commentDoc in myComments.docs) {
-      try {
-        await commentDoc.reference.delete();
-      } catch (_) {}
+    try {
+      final myComments = await firestore
+          .collectionGroup('comments')
+          .where('userId', isEqualTo: uid)
+          .get();
+      for (final commentDoc in myComments.docs) {
+        try {
+          await commentDoc.reference.delete();
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('コメント削除スキップ（インデックス未作成の可能性）: $e');
     }
 
     // ── 自分のいいねを他の投稿から削除 ──
-    final myLikes = await firestore
-        .collectionGroup('likes')
-        .where(FieldPath.documentId, isEqualTo: uid)
-        .get();
-    for (final likeDoc in myLikes.docs) {
-      try {
-        await likeDoc.reference.delete();
-      } catch (_) {}
+    try {
+      final myLikes = await firestore
+          .collectionGroup('likes')
+          .where(FieldPath.documentId, isEqualTo: uid)
+          .get();
+      for (final likeDoc in myLikes.docs) {
+        try {
+          await likeDoc.reference.delete();
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('いいね削除スキップ（インデックス未作成の可能性）: $e');
     }
 
     // ── ユーザードキュメントを削除 ──
