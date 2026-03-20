@@ -611,13 +611,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 }
               } catch (e) {
+                debugPrint('アカウント削除エラー: $e');
                 if (mounted) {
                   String message = 'アカウント削除に失敗しました';
-                  if (e.toString().contains('wrong-password') ||
-                      e.toString().contains('invalid-credential')) {
+                  final errorStr = e.toString();
+                  if (errorStr.contains('wrong-password') ||
+                      errorStr.contains('invalid-credential')) {
                     message = 'パスワードが正しくありません';
-                  } else if (e.toString().contains('キャンセル')) {
+                  } else if (errorStr.contains('popup-closed-by-user') ||
+                      errorStr.contains('cancelled-popup-request') ||
+                      errorStr.contains('キャンセル')) {
                     message = '認証がキャンセルされました';
+                  } else if (errorStr.contains('popup-blocked')) {
+                    message = 'ポップアップがブロックされました。ポップアップを許可してください';
+                  } else {
+                    message = 'エラー: $errorStr';
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
