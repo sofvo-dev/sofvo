@@ -511,6 +511,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               pendingTournamentId = null;
               pendingCheckInTournamentId = null;
               pendingReferrerUserId = null;
+              // suppressAuthStateChange をリセット（登録フローで残っている場合に備える）
+              suppressAuthStateChange = false;
               await AuthService().signOut();
               // signOut後はAuthGateがauthStateChangesで検知して
               // 自動的にLoginScreenに遷移する。
