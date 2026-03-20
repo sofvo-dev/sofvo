@@ -339,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen>
                     color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
             Text(
-              'フォロー中のユーザーの投稿がここに表示されます。\n「さがす」タブで仲間を見つけてフォローしましょう！',
+              'フォロー中のユーザーの投稿がここに表示されます。\nまずは投稿してみましょう！',
               style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
@@ -365,13 +365,13 @@ class _HomeScreenState extends State<HomeScreen>
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('下のメニューから「さがす」タブで仲間を見つけましょう'),
+                    content: Text('下のメニューから「さがす」タブで大会を探せます'),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
               },
               icon: const Icon(Icons.search),
-              label: const Text('さがすタブへ'),
+              label: const Text('大会をさがす'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textSecondary,
                 side: BorderSide(color: Colors.grey[300]!),
