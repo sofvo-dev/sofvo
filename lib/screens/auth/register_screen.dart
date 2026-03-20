@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../config/app_theme.dart';
+import '../../main.dart' show suppressAuthStateChange;
 import '../../services/auth_service.dart';
 import '../../widgets/url_bottom_sheet.dart';
 
@@ -113,6 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _registerWithGoogle() async {
     if (!await _confirmTermsAgreement()) return;
     setState(() => _isLoading = true);
+    suppressAuthStateChange = true;
     try {
       final result = await AuthService().signInWithGoogle();
       if (result != null) {
@@ -122,15 +124,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           final proceed = await _showExistingAccountDialog();
           if (!proceed) {
             await AuthService().signOut();
+            suppressAuthStateChange = false;
             return;
           }
         }
+        suppressAuthStateChange = false;
         widget.onAuthSuccess?.call();
         if (mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
+      } else {
+        suppressAuthStateChange = false;
       }
     } catch (e) {
+      suppressAuthStateChange = false;
       if (!mounted) return;
       debugPrint('Google Sign-In error: $e');
       final errorStr = e.toString();
@@ -156,6 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _registerWithApple() async {
     if (!await _confirmTermsAgreement()) return;
     setState(() => _isLoading = true);
+    suppressAuthStateChange = true;
     try {
       final appleResult = await AuthService().signInWithApple();
       if (appleResult != null) {
@@ -164,15 +172,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           final proceed = await _showExistingAccountDialog();
           if (!proceed) {
             await AuthService().signOut();
+            suppressAuthStateChange = false;
             return;
           }
         }
+        suppressAuthStateChange = false;
         widget.onAuthSuccess?.call();
         if (mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
+      } else {
+        suppressAuthStateChange = false;
       }
     } on SignInWithAppleAuthorizationException catch (e) {
+      suppressAuthStateChange = false;
       if (e.code == AuthorizationErrorCode.canceled) return;
       if (!mounted) return;
       debugPrint('Apple Sign-In authorization error: $e');
@@ -186,6 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } catch (e) {
+      suppressAuthStateChange = false;
       if (!mounted) return;
       debugPrint('Apple Sign-In error: $e');
       final errorStr = e.toString();
