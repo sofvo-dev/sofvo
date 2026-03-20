@@ -179,7 +179,14 @@ class AuthService {
     // プロバイダに応じた再認証
     final provider = signInProvider;
     if (provider == 'google.com') {
-      if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
+      if (kIsWeb) {
+        // Web: signInWithPopupでクレデンシャルを取得→再認証
+        final googleProvider = GoogleAuthProvider();
+        final result = await _auth.signInWithPopup(googleProvider);
+        if (result.credential != null) {
+          await user.reauthenticateWithCredential(result.credential!);
+        }
+      } else if (defaultTargetPlatform == TargetPlatform.android) {
         final googleProvider = GoogleAuthProvider();
         await user.reauthenticateWithProvider(googleProvider);
       } else {
