@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../config/app_theme.dart';
-import '../home/main_tab_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -74,10 +73,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _finish() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainTabScreen()),
-      (route) => false,
-    );
+    // pushAndRemoveUntilではなくpopUntilを使用する。
+    // AuthGateがウィジェットツリーに残っている必要があるため、
+    // ルートまで戻る。AuthGateのStreamBuilderがprofileCompleted==trueを
+    // 検知してMainTabScreenを表示する。
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _onPageChanged(int index) {
