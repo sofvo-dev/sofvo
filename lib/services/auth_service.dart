@@ -131,10 +131,14 @@ class AuthService {
         nonce: hashedNonce,
       );
 
+      final idToken = appleCredential.identityToken;
+      if (idToken == null) {
+        throw Exception('Apple Sign In: identityToken が取得できませんでした。もう一度お試しください。');
+      }
+
       final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
+        idToken: idToken,
         rawNonce: rawNonce,
-        accessToken: appleCredential.authorizationCode,
       );
 
       return await _auth.signInWithCredential(oauthCredential);
@@ -215,10 +219,13 @@ class AuthService {
           ],
           nonce: hashedNonce,
         );
+        final idToken = appleCredential.identityToken;
+        if (idToken == null) {
+          throw Exception('Apple再認証: identityToken が取得できませんでした。');
+        }
         final oauthCredential = OAuthProvider('apple.com').credential(
-          idToken: appleCredential.identityToken,
+          idToken: idToken,
           rawNonce: rawNonce,
-          accessToken: appleCredential.authorizationCode,
         );
         await user.reauthenticateWithCredential(oauthCredential);
       }
