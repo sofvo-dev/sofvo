@@ -1604,6 +1604,21 @@ class _HomeScreenState extends State<HomeScreen>
                 color = AppTheme.accentColor;
                 title = 'ポイント獲得';
                 break;
+              case 'tournament_created':
+                icon = Icons.sports_volleyball;
+                color = AppTheme.primaryColor;
+                title = '募集開始';
+                break;
+              case 'deadline_approaching':
+                icon = Icons.schedule;
+                color = AppTheme.warning;
+                title = '締切間近';
+                break;
+              case 'slots_low':
+                icon = Icons.group;
+                color = AppTheme.error;
+                title = '残りわずか';
+                break;
               default:
                 icon = Icons.info_outline;
                 color = AppTheme.primaryColor;

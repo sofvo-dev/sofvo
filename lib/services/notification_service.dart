@@ -12,6 +12,9 @@ class NotificationService {
     'tournament_end',
     'waitlist_available',
     'points_earned',
+    'tournament_created',
+    'deadline_approaching',
+    'slots_low',
   ];
 
   static Future<void> sendLikeNotification({
