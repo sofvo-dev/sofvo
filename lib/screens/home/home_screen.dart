@@ -368,7 +368,7 @@ class _HomeScreenState extends State<HomeScreen>
                     MaterialPageRoute(builder: (_) => const FollowSearchScreen()));
               },
               icon: const Icon(Icons.person_search),
-              label: const Text('仲間をさがす'),
+              label: const Text('友達をさがす'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textSecondary,
                 side: BorderSide(color: Colors.grey[300]!),
