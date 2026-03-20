@@ -209,7 +209,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 2,
                     ),
