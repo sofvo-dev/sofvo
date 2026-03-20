@@ -521,6 +521,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (ctx.mounted) {
                 Navigator.of(ctx).popUntil((route) => route.isFirst);
               }
+              scaffoldMessengerKey.currentState?.showSnackBar(
+                SnackBar(
+                  content: const Text('ログアウトしました'),
+                  backgroundColor: const Color(0xFF2E7D32),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.error,
