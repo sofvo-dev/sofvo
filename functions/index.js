@@ -1971,16 +1971,13 @@ exports.sendWelcomeEmailOnUpdate = functions.firestore
 
 // ── ウェルカムメール送信の共通関数 ──
 async function sendWelcomeMailTo(email, nickname) {
-  const smtpUser = process.env.SMTP_USER || functions.config().smtp?.user;
-  const smtpPass = process.env.SMTP_PASS || functions.config().smtp?.pass;
-  if (!smtpUser || !smtpPass) throw new Error("SMTP credentials not configured");
+  const gmailUser = process.env.GMAIL_USER || functions.config().gmail?.user;
+  const gmailPass = process.env.GMAIL_PASS || functions.config().gmail?.pass;
+  if (!gmailUser || !gmailPass) throw new Error("Gmail credentials not configured");
 
-  const smtpHost = process.env.SMTP_HOST || functions.config().smtp?.host || "sv16626.xserver.jp";
   const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: 465,
-    secure: true,
-    auth: { user: smtpUser, pass: smtpPass },
+    service: "gmail",
+    auth: { user: gmailUser, pass: gmailPass },
   });
 
   await transporter.sendMail({
