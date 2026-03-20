@@ -604,11 +604,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     isPasswordUser ? passwordCtrl.text : null);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                        builder: (_) => const LoginScreen()),
-                    (route) => false,
+                  await showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      title: const Text('アカウント削除完了',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold)),
+                      content: const Text(
+                        'アカウントが正常に削除されました。\nご利用ありがとうございました。',
+                        style: TextStyle(height: 1.5),
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
                   );
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                          builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  }
                 }
               } catch (e) {
                 debugPrint('アカウント削除エラー: $e');
