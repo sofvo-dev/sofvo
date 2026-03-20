@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen>
   late TabController _tabController;
   final Set<String> _hiddenPostIds = {};
   List<String>? _followingIds;
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -41,19 +42,23 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadInitialData() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    // 並列でフォローリストと非表示投稿を取得
+    // 並列でフォローリスト・非表示投稿・ユーザー情報を取得
     final results = await Future.wait([
       FirebaseFirestore.instance
           .collection('users').doc(uid).collection('following').get(),
       FirebaseFirestore.instance
           .collection('users').doc(uid).collection('hiddenPosts').get(),
+      FirebaseFirestore.instance
+          .collection('users').doc(uid).get(),
     ]);
     if (!mounted) return;
     final followSnap = results[0];
     final hiddenSnap = results[1];
+    final userDoc = results[2] as DocumentSnapshot;
     setState(() {
       _followingIds = [uid, ...followSnap.docs.map((d) => d.id)];
       _hiddenPostIds.addAll(hiddenSnap.docs.map((d) => d.id));
+      _isAdmin = (userDoc.data() as Map<String, dynamic>?)?['isAdmin'] == true;
     });
   }
 
@@ -1407,7 +1412,9 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildNoticeTab() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    return StreamBuilder<QuerySnapshot>(
+    return Stack(
+      children: [
+        StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('notices')
           .orderBy('createdAt', descending: true)
@@ -1432,6 +1439,136 @@ class _HomeScreenState extends State<HomeScreen>
           },
         );
       },
+    ),
+        if (_isAdmin)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton.extended(
+              heroTag: 'admin_notice',
+              onPressed: _showCreateNoticeDialog,
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.campaign, size: 20),
+              label: const Text('配信'),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showCreateNoticeDialog() async {
+    final titleController = TextEditingController();
+    final bodyController = TextEditingController();
+    String selectedType = 'info';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('お知らせを配信',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('種類', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _noticeTypeChip('info', 'お知らせ', Icons.info_outline, AppTheme.primaryColor, selectedType, (v) => setDialogState(() => selectedType = v)),
+                    _noticeTypeChip('release', 'リリース', Icons.campaign, AppTheme.accentColor, selectedType, (v) => setDialogState(() => selectedType = v)),
+                    _noticeTypeChip('update', '更新', Icons.update, AppTheme.info, selectedType, (v) => setDialogState(() => selectedType = v)),
+                    _noticeTypeChip('maintenance', 'メンテ', Icons.build, AppTheme.warning, selectedType, (v) => setDialogState(() => selectedType = v)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: titleController,
+                  decoration: InputDecoration(
+                    labelText: 'タイトル',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  maxLength: 50,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: bodyController,
+                  decoration: InputDecoration(
+                    labelText: '本文',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  maxLines: 4,
+                  maxLength: 500,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.trim().isEmpty || bodyController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('タイトルと本文を入力してください'), behavior: SnackBarBehavior.floating),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('配信する'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await FirebaseFirestore.instance.collection('notices').add({
+        'type': selectedType,
+        'title': titleController.text.trim(),
+        'body': bodyController.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('お知らせを配信しました'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
+  }
+
+  Widget _noticeTypeChip(String value, String label, IconData icon, Color color, String selected, ValueChanged<String> onSelect) {
+    final isSelected = value == selected;
+    return ChoiceChip(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: isSelected ? Colors.white : color),
+          const SizedBox(width: 4),
+          Text(label),
+        ],
+      ),
+      selected: isSelected,
+      selectedColor: color,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : AppTheme.textPrimary,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      onSelected: (_) => onSelect(value),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
     );
   }
 
