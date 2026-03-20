@@ -22,8 +22,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
+  late TabController _noticeSubTabController;
   final Set<String> _hiddenPostIds = {};
   List<String>? _followingIds;
   bool _isAdmin = false;
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen>
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) setState(() {});
     });
+    _noticeSubTabController = TabController(length: 2, vsync: this);
     _loadInitialData();
   }
 
@@ -68,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _noticeSubTabController.dispose();
     super.dispose();
   }
 
@@ -1415,36 +1418,40 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildNoticeTab() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-
     return Stack(
       children: [
-        StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('notices')
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .snapshots(),
-      builder: (context, noticesSnap) {
-        // ユーザー個人の大会・システム通知
-        if (uid == null) {
-          return _buildNoticeList(noticesSnap, null);
-        }
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('notifications')
-              .where('type', whereIn: NotificationService.announcementTypes)
-              .orderBy('createdAt', descending: true)
-              .limit(30)
-              .snapshots(),
-          builder: (context, personalSnap) {
-            return _buildNoticeList(noticesSnap, personalSnap);
-          },
-        );
-      },
-    ),
+        Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+              ),
+              child: TabBar(
+                controller: _noticeSubTabController,
+                labelColor: AppTheme.primaryColor,
+                unselectedLabelColor: AppTheme.textSecondary,
+                indicatorColor: AppTheme.primaryColor,
+                indicatorWeight: 2.5,
+                labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                unselectedLabelStyle: const TextStyle(fontSize: 13),
+                tabs: const [
+                  Tab(text: '運営'),
+                  Tab(text: 'あなた宛'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _noticeSubTabController,
+                children: [
+                  _buildOfficialNotices(),
+                  _buildPersonalNotices(),
+                ],
+              ),
+            ),
+          ],
+        ),
         if (_isAdmin)
           Positioned(
             bottom: 16,
@@ -1459,6 +1466,164 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildOfficialNotices() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notices')
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
+        }
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+        }
+        final docs = snap.data!.docs;
+        if (docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                Text('運営からのお知らせはありません', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+              ],
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>? ?? {};
+            final type = data['type'] ?? 'info';
+            IconData icon;
+            Color color;
+            switch (type) {
+              case 'release':
+                icon = Icons.campaign;
+                color = AppTheme.accentColor;
+                break;
+              case 'update':
+                icon = Icons.update;
+                color = AppTheme.info;
+                break;
+              case 'maintenance':
+                icon = Icons.build;
+                color = AppTheme.warning;
+                break;
+              default:
+                icon = Icons.info_outline;
+                color = AppTheme.primaryColor;
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildOfficialNotice(
+                icon: icon,
+                color: color,
+                title: data['title'] ?? '',
+                body: data['body'] ?? '',
+                time: _formatTime(data['createdAt'] as Timestamp?),
+                isRead: true,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPersonalNotices() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return Center(child: Text('ログインしてください', style: TextStyle(color: AppTheme.textSecondary)));
+    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .where('type', whereIn: NotificationService.announcementTypes)
+          .orderBy('createdAt', descending: true)
+          .limit(30)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
+        }
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+        }
+        final docs = snap.data!.docs;
+        if (docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.notifications_none, size: 64, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                Text('あなた宛の通知はありません', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+              ],
+            ),
+          );
+        }
+        _markAnnouncementsAsRead();
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>? ?? {};
+            final type = data['type'] ?? '';
+            final bool isRead = data['read'] ?? true;
+            IconData icon;
+            Color color;
+            String title;
+            switch (type) {
+              case 'tournament_announcement':
+                icon = Icons.campaign;
+                color = AppTheme.accentColor;
+                title = '大会お知らせ';
+                break;
+              case 'tournament_end':
+                icon = Icons.emoji_events;
+                color = AppTheme.accentColor;
+                title = '大会終了';
+                break;
+              case 'waitlist_available':
+                icon = Icons.how_to_reg;
+                color = AppTheme.success;
+                title = 'キャンセル待ち';
+                break;
+              case 'points_earned':
+                icon = Icons.star_rounded;
+                color = AppTheme.accentColor;
+                title = 'ポイント獲得';
+                break;
+              default:
+                icon = Icons.info_outline;
+                color = AppTheme.primaryColor;
+                title = 'お知らせ';
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildOfficialNotice(
+                icon: icon,
+                color: color,
+                title: title,
+                body: data['message'] ?? '',
+                time: _formatTime(data['createdAt'] as Timestamp?),
+                isRead: isRead,
+                onTap: () => _onAnnouncementTap(data),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1644,162 +1809,6 @@ class _HomeScreenState extends State<HomeScreen>
       onSelected: (_) => onSelect(value),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,
-    );
-  }
-
-  Widget _buildNoticeList(
-    AsyncSnapshot<QuerySnapshot> noticesSnap,
-    AsyncSnapshot<QuerySnapshot>? personalSnap,
-  ) {
-    if (noticesSnap.hasError || (personalSnap?.hasError ?? false)) {
-      return Center(
-          child: Text('読み込みに失敗しました',
-              style: TextStyle(color: AppTheme.textSecondary)));
-    }
-    if (!noticesSnap.hasData || (personalSnap != null && !personalSnap.hasData)) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryColor));
-    }
-
-    // 統合リストを構築
-    final items = <_NoticeItem>[];
-
-    // グローバルお知らせ
-    for (final doc in noticesSnap.data?.docs ?? []) {
-      final data = doc.data() as Map<String, dynamic>? ?? {};
-      final type = data['type'] ?? 'info';
-      final createdAt = data['createdAt'] as Timestamp?;
-
-      IconData icon;
-      Color color;
-      switch (type) {
-        case 'release':
-          icon = Icons.campaign;
-          color = AppTheme.accentColor;
-          break;
-        case 'update':
-          icon = Icons.update;
-          color = AppTheme.info;
-          break;
-        case 'maintenance':
-          icon = Icons.build;
-          color = AppTheme.warning;
-          break;
-        default:
-          icon = Icons.info_outline;
-          color = AppTheme.primaryColor;
-      }
-
-      items.add(_NoticeItem(
-        icon: icon,
-        color: color,
-        title: data['title'] ?? '',
-        body: data['body'] ?? '',
-        time: _formatTime(createdAt),
-        createdAt: createdAt,
-        isRead: true, // グローバルお知らせは既読管理なし
-      ));
-    }
-
-    // 個人の大会・システム通知
-    for (final doc in personalSnap?.data?.docs ?? []) {
-      final data = doc.data() as Map<String, dynamic>? ?? {};
-      final type = data['type'] ?? '';
-      final createdAt = data['createdAt'] as Timestamp?;
-      final bool isRead = data['read'] ?? true;
-
-      IconData icon;
-      Color color;
-      String title;
-      String body;
-
-      switch (type) {
-        case 'tournament_announcement':
-          icon = Icons.campaign;
-          color = AppTheme.accentColor;
-          title = '大会お知らせ';
-          body = data['message'] ?? '';
-          break;
-        case 'tournament_end':
-          icon = Icons.emoji_events;
-          color = AppTheme.accentColor;
-          title = '大会終了';
-          body = data['message'] ?? '';
-          break;
-        case 'waitlist_available':
-          icon = Icons.how_to_reg;
-          color = AppTheme.success;
-          title = 'キャンセル待ち';
-          body = data['message'] ?? '';
-          break;
-        case 'points_earned':
-          icon = Icons.star_rounded;
-          color = AppTheme.accentColor;
-          title = 'ポイント獲得';
-          body = data['message'] ?? '';
-          break;
-        default:
-          icon = Icons.info_outline;
-          color = AppTheme.primaryColor;
-          title = 'お知らせ';
-          body = data['message'] ?? '';
-      }
-
-      items.add(_NoticeItem(
-        icon: icon,
-        color: color,
-        title: title,
-        body: body,
-        time: _formatTime(createdAt),
-        createdAt: createdAt,
-        isRead: isRead,
-        data: data,
-        docId: doc.id,
-      ));
-    }
-
-    // 日時で降順ソート
-    items.sort((a, b) {
-      final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
-      final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
-      return bTime.compareTo(aTime);
-    });
-
-    if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('お知らせはありません',
-                style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
-          ],
-        ),
-      );
-    }
-
-    // 開いた時点で個人お知らせを既読に
-    _markAnnouncementsAsRead();
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _buildOfficialNotice(
-            icon: item.icon,
-            color: item.color,
-            title: item.title,
-            body: item.body,
-            time: item.time,
-            isRead: item.isRead,
-            onTap: item.data != null ? () => _onAnnouncementTap(item.data!) : null,
-          ),
-        );
-      },
     );
   }
 
@@ -2139,29 +2148,4 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
     super.build(context);
     return widget.child;
   }
-}
-
-/// お知らせタブで使う統合アイテム
-class _NoticeItem {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String body;
-  final String time;
-  final Timestamp? createdAt;
-  final bool isRead;
-  final Map<String, dynamic>? data;
-  final String? docId;
-
-  _NoticeItem({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.body,
-    required this.time,
-    this.createdAt,
-    this.isRead = true,
-    this.data,
-    this.docId,
-  });
 }
