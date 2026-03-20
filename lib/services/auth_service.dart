@@ -157,19 +157,78 @@ class AuthService {
     await user.updatePassword(newPassword);
   }
 
-  // アカウント削除（再認証 → Firestoreデータ全削除 → Auth削除）
-  Future<void> deleteAccount(String password) async {
+  /// ログインプロバイダを返す ('password', 'google.com', 'apple.com')
+  String get signInProvider {
     final user = _auth.currentUser;
-    if (user == null || user.email == null) {
+    if (user == null) return 'password';
+    for (final info in user.providerData) {
+      if (info.providerId == 'google.com') return 'google.com';
+      if (info.providerId == 'apple.com') return 'apple.com';
+    }
+    return 'password';
+  }
+
+  // アカウント削除（再認証 → Firestoreデータ全削除 → Auth削除）
+  // password: メール認証の場合のみ必要。Google/Appleの場合はnullでOK。
+  Future<void> deleteAccount([String? password]) async {
+    final user = _auth.currentUser;
+    if (user == null) {
       throw Exception('ユーザーが見つかりません');
     }
 
-    // 再認証
-    final credential = EmailAuthProvider.credential(
-      email: user.email!,
-      password: password,
-    );
-    await user.reauthenticateWithCredential(credential);
+    // プロバイダに応じた再認証
+    final provider = signInProvider;
+    if (provider == 'google.com') {
+      if (kIsWeb) {
+        final googleProvider = GoogleAuthProvider();
+        await user.reauthenticateWithPopup(googleProvider);
+      } else if (defaultTargetPlatform == TargetPlatform.android) {
+        final googleProvider = GoogleAuthProvider();
+        await user.reauthenticateWithProvider(googleProvider);
+      } else {
+        // iOS: ネイティブ GoogleSignIn
+        final googleSignIn = GoogleSignIn();
+        final account = await googleSignIn.signIn();
+        if (account == null) throw Exception('Google認証がキャンセルされました');
+        final authentication = await account.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: authentication.accessToken,
+          idToken: authentication.idToken,
+        );
+        await user.reauthenticateWithCredential(credential);
+      }
+    } else if (provider == 'apple.com') {
+      if (kIsWeb) {
+        final appleProvider = OAuthProvider('apple.com');
+        await user.reauthenticateWithPopup(appleProvider);
+      } else {
+        final rawNonce = _generateNonce();
+        final hashedNonce = _sha256ofString(rawNonce);
+        final appleCredential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
+          nonce: hashedNonce,
+        );
+        final oauthCredential = OAuthProvider('apple.com').credential(
+          idToken: appleCredential.identityToken,
+          rawNonce: rawNonce,
+          accessToken: appleCredential.authorizationCode,
+        );
+        await user.reauthenticateWithCredential(oauthCredential);
+      }
+    } else {
+      // メール/パスワード認証
+      if (password == null || password.isEmpty || user.email == null) {
+        throw Exception('パスワードを入力してください');
+      }
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+    }
 
     final uid = user.uid;
     final firestore = FirebaseFirestore.instance;
