@@ -378,15 +378,16 @@ class AuthService {
       debugPrint('signOut: Google Sign-Out失敗: $e');
     }
 
+    // Firebase Auth サインアウト（authStateChanges が発火して画面遷移）
+    await _auth.signOut();
+
     // Firestoreローカルキャッシュをクリア（前ユーザーのデータ残留を防止）
-    // Firebase Auth signOut の前に実行（認証コンテキストがある状態でクリアする）
+    // signOut後に実行: アクティブなSnapshotリスナーが解除された後にクリアする
     try {
+      await FirebaseFirestore.instance.terminate();
       await FirebaseFirestore.instance.clearPersistence();
     } catch (e) {
       debugPrint('signOut: Firestoreキャッシュクリア失敗: $e');
     }
-
-    // Firebase Auth サインアウト（最後に実行 → authStateChanges が発火して画面遷移）
-    await _auth.signOut();
   }
 }
