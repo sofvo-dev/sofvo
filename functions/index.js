@@ -2033,23 +2033,19 @@ async function sendWelcomeMailTo(email, nickname) {
 }
 
 // ── テスト送信用（管理者のみ） ──
-exports.testWelcomeEmail = functions.https.onCall(async (data, context) => {
-  // 認証チェック
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
-  }
-  // 管理者チェック
-  const callerDoc = await admin.firestore().collection("users").doc(context.auth.uid).get();
-  if (!callerDoc.exists || callerDoc.data().isAdmin !== true) {
-    throw new functions.https.HttpsError("permission-denied", "管理者権限が必要です");
-  }
+exports.testWelcomeEmail = functions.https.onRequest(async (req, res) => {
+  try {
+    const email = req.body.email || req.query.email;
+    const nickname = req.body.nickname || req.query.nickname || "テストユーザー";
+    if (!email) {
+      res.status(400).json({ error: "email が必要です" });
+      return;
+    }
 
-  const email = data.email;
-  const nickname = data.nickname || "テストユーザー";
-  if (!email) {
-    throw new functions.https.HttpsError("invalid-argument", "email が必要です");
+    await sendWelcomeMailTo(email, nickname);
+    res.json({ success: true, message: `${email} に送信しました` });
+  } catch (e) {
+    console.error("[testWelcomeEmail] Error:", e.message);
+    res.status(500).json({ error: e.message });
   }
-
-  await sendWelcomeMailTo(email, nickname);
-  return { success: true, message: `${email} に送信しました` };
 });
