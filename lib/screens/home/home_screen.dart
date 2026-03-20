@@ -348,17 +348,17 @@ class _HomeScreenState extends State<HomeScreen>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
+            ElevatedButton.icon(
               onPressed: _openCreatePost,
-              icon: const Icon(Icons.edit),
+              icon: const Icon(Icons.edit, size: 18),
               label: const Text('投稿する'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryColor,
-                side: const BorderSide(color: AppTheme.primaryColor),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(24)),
               ),
             ),
             const SizedBox(height: 12),
@@ -367,15 +367,15 @@ class _HomeScreenState extends State<HomeScreen>
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const FollowSearchScreen()));
               },
-              icon: const Icon(Icons.person_search),
+              icon: const Icon(Icons.person_search, size: 18),
               label: const Text('友達をさがす'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.textSecondary,
-                side: BorderSide(color: Colors.grey[300]!),
+                foregroundColor: AppTheme.primaryColor,
+                side: const BorderSide(color: AppTheme.primaryColor),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(24)),
               ),
             ),
           ],

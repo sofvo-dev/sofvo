@@ -593,7 +593,12 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
             },
             icon: const Icon(Icons.add),
             label: const Text('ガジェットを登録'),
-            style: ElevatedButton.styleFrom(minimumSize: const Size(200, 48)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            ),
           ),
         ],
       ),
