@@ -179,10 +179,7 @@ class AuthService {
     // プロバイダに応じた再認証
     final provider = signInProvider;
     if (provider == 'google.com') {
-      if (kIsWeb) {
-        final googleProvider = GoogleAuthProvider();
-        await user.reauthenticateWithPopup(googleProvider);
-      } else if (defaultTargetPlatform == TargetPlatform.android) {
+      if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
         final googleProvider = GoogleAuthProvider();
         await user.reauthenticateWithProvider(googleProvider);
       } else {
@@ -200,7 +197,7 @@ class AuthService {
     } else if (provider == 'apple.com') {
       if (kIsWeb) {
         final appleProvider = OAuthProvider('apple.com');
-        await user.reauthenticateWithPopup(appleProvider);
+        await user.reauthenticateWithProvider(appleProvider);
       } else {
         final rawNonce = _generateNonce();
         final hashedNonce = _sha256ofString(rawNonce);
