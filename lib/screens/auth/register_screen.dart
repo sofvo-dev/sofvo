@@ -83,14 +83,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return agreed == true;
   }
 
+  /// 既存アカウントが見つかった場合の確認ダイアログ
+  Future<bool> _showExistingAccountDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('既に登録済みです',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'このアカウントは既に登録されています。\nそのままログインしますか？',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('ログインする'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
   Future<void> _registerWithGoogle() async {
     if (!await _confirmTermsAgreement()) return;
     setState(() => _isLoading = true);
     try {
       final result = await AuthService().signInWithGoogle();
       if (result != null) {
-        // 認証成功 → AuthGateのauthStateChangesが発火してプロフィール画面に遷移する
-        // RegisterScreenをpopしてAuthGateのルートに戻す
+        final isNewUser = result.additionalUserInfo?.isNewUser ?? true;
+        if (!isNewUser && mounted) {
+          // 既存アカウント → 確認ダイアログ
+          final proceed = await _showExistingAccountDialog();
+          if (!proceed) {
+            await AuthService().signOut();
+            return;
+          }
+        }
         widget.onAuthSuccess?.call();
         if (mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
@@ -125,6 +159,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final appleResult = await AuthService().signInWithApple();
       if (appleResult != null) {
+        final isNewUser = appleResult.additionalUserInfo?.isNewUser ?? true;
+        if (!isNewUser && mounted) {
+          final proceed = await _showExistingAccountDialog();
+          if (!proceed) {
+            await AuthService().signOut();
+            return;
+          }
+        }
         widget.onAuthSuccess?.call();
         if (mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
@@ -193,8 +235,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       String message = 'アカウント作成に失敗しました';
       if (e.toString().contains('email-already-in-use')) {
-        // ユーザー列挙を防ぐため、登録済みかどうかを明示しない
-        message = 'アカウントの作成に失敗しました。別のメールアドレスをお試しください';
+        message = 'このメールアドレスは既に登録済みです。ログイン画面からお試しください';
       } else if (e.toString().contains('weak-password')) {
         message = 'パスワードが弱すぎます（8文字以上で英数字を含めてください）';
       } else if (e.toString().contains('invalid-email')) {
