@@ -2032,6 +2032,101 @@ async function sendWelcomeMailTo(email, nickname) {
   });
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// アカウント削除完了メール送信
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+exports.sendAccountDeletedEmail = functions.firestore
+  .document("users/{uid}")
+  .onDelete(async (snap, context) => {
+    const data = snap.data();
+    const uid = context.params.uid;
+
+    // Firestoreドキュメント削除時点ではAuth userはまだ存在する
+    // （deleteAccount()ではuserRef.delete()の後にuser.delete()を呼ぶため）
+    let email;
+    try {
+      const authUser = await admin.auth().getUser(uid);
+      email = authUser.email;
+    } catch (e) {
+      // Auth userが既に削除済み or 存在しない場合はスキップ
+      console.log(`[DeleteEmail] Auth user not found for ${uid}, skipping`);
+      return null;
+    }
+
+    if (!email) return null;
+
+    const nickname = data.nickname || "ユーザー";
+
+    try {
+      await sendAccountDeletedMailTo(email, nickname);
+      console.log(`[DeleteEmail] Sent to ${email}`);
+    } catch (e) {
+      console.error("[DeleteEmail] Send failed:", e.message);
+    }
+    return null;
+  });
+
+// ── アカウント削除メール送信の共通関数 ──
+async function sendAccountDeletedMailTo(email, nickname) {
+  const gmailUser = process.env.GMAIL_USER || functions.config().gmail?.user;
+  const gmailPass = process.env.GMAIL_PASS || functions.config().gmail?.pass;
+  if (!gmailUser || !gmailPass) throw new Error("Gmail credentials not configured");
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: gmailUser, pass: gmailPass },
+  });
+
+  await transporter.sendMail({
+    from: `Sofvo <info@sofvo.com>`,
+    to: email,
+    subject: "アカウント削除が完了しました - Sofvo",
+    html: `
+<div style="background-color:#f7f7f7;padding:40px 0;font-family:'Helvetica Neue',Arial,sans-serif">
+  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+    <div style="background:linear-gradient(135deg,#1B3A5C,#2E5C8A);padding:32px;text-align:center">
+      <h1 style="margin:0;font-size:32px;letter-spacing:3px">
+        <span style="color:#ffffff;font-weight:900">Sof</span><span style="color:#C4A962;font-weight:900">vo</span>
+      </h1>
+      <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:13px;letter-spacing:1px">ソフトバレーボール マッチングアプリ</p>
+    </div>
+    <div style="padding:32px">
+      <h2 style="color:#1B3A5C;font-size:18px;margin:0 0 16px">${nickname}さん</h2>
+      <p style="color:#6B6B6B;font-size:14px;line-height:1.8;margin:0 0 24px">
+        Sofvo のアカウント削除が完了しました。<br>
+        ご利用いただきありがとうございました。
+      </p>
+      <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:0 0 24px">
+        <p style="color:#6B6B6B;font-size:13px;line-height:1.8;margin:0">
+          <strong style="color:#1B3A5C">削除された情報：</strong><br>
+          ・プロフィール情報<br>
+          ・投稿・コメント・いいね<br>
+          ・フォロー・フォロワー情報<br>
+          ・大会のエントリー情報
+        </p>
+      </div>
+      <p style="color:#6B6B6B;font-size:14px;line-height:1.8;margin:0 0 24px">
+        またいつでもお戻りいただけます。<br>
+        新しいアカウントで再登録が可能です。
+      </p>
+      <div style="text-align:center;margin:0 0 8px">
+        <a href="https://sofvo-19d84.web.app" style="background-color:#1B3A5C;color:#ffffff;text-decoration:none;padding:14px 48px;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block">Sofvo を開く</a>
+      </div>
+      <p style="color:#B0B0B0;font-size:12px;line-height:1.6;margin:24px 0 0;border-top:1px solid #eee;padding-top:16px">
+        このメールに心当たりがない場合は、このメールを無視してください。<br>
+        ご不明な点がございましたら、お気軽にお問い合わせください。
+      </p>
+    </div>
+    <div style="background:#f7f7f7;padding:16px;text-align:center">
+      <p style="color:#B0B0B0;font-size:11px;margin:0">&copy; 2026 Sofvo. All rights reserved.</p>
+    </div>
+  </div>
+</div>
+    `,
+  });
+}
+
 // ── テスト送信用（管理者のみ） ──
 exports.testWelcomeEmail = functions.https.onRequest(async (req, res) => {
   try {
