@@ -1444,6 +1444,7 @@ class _HomeScreenState extends State<HomeScreen>
             Expanded(
               child: TabBarView(
                 controller: _noticeSubTabController,
+                physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _buildOfficialNotices(),
                   _buildPersonalNotices(),
