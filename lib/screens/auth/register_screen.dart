@@ -236,19 +236,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    suppressAuthStateChange = true;
     try {
       await AuthService().registerWithEmail(
         _emailController.text.trim(),
         _passwordController.text,
       );
-      suppressAuthStateChange = false;
-      widget.onAuthSuccess?.call();
+      // suppressAuthStateChangeは使わない。
+      // registerWithEmail完了時にauth stream listenerが自然に発火し、
+      // AuthGateの_currentUserが自動的に更新される。
+      // suppressを使うとイベントが消費されるが処理されず、
+      // 解除後に再配信されないため_currentUserがnullのままになるリスクがある。
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
-      suppressAuthStateChange = false;
       if (!mounted) return;
       String message = 'アカウント作成に失敗しました';
       if (e.toString().contains('email-already-in-use')) {
