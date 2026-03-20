@@ -1457,15 +1457,49 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  static const _noticeTemplates = <String, List<Map<String, String>>>{
+    'info': [
+      {'label': '自由入力', 'title': '', 'body': ''},
+      {'label': 'イベント告知', 'title': 'イベントのお知らせ', 'body': '下記の日程でイベントを開催します。\n\n日時: \n場所: \n内容: \n\n皆様のご参加をお待ちしております！'},
+      {'label': 'ルール変更', 'title': 'ルール変更のお知らせ', 'body': '以下のルールが変更されました。\n\n【変更点】\n・\n\n【適用日】\n\nご不明点があればお問い合わせください。'},
+    ],
+    'release': [
+      {'label': '自由入力', 'title': '', 'body': ''},
+      {'label': '新機能リリース', 'title': '新機能リリースのお知らせ', 'body': '新しい機能が追加されました！\n\n【新機能】\n・\n\nぜひお試しください！'},
+      {'label': '正式リリース', 'title': 'Sofvo 正式リリースのお知らせ', 'body': 'ソフトバレーボール マッチングアプリ「Sofvo」をご利用いただきありがとうございます。大会検索・メンバー募集・チャットなどの機能をお楽しみください。'},
+    ],
+    'update': [
+      {'label': '自由入力', 'title': '', 'body': ''},
+      {'label': 'アップデート', 'title': 'バージョン アップデート', 'body': '以下の機能が改善されました。\n\n【改善点】\n・\n\nアプリを最新版に更新してご利用ください。'},
+      {'label': '不具合修正', 'title': '不具合修正のお知らせ', 'body': '以下の不具合を修正しました。\n\n【修正内容】\n・\n\nご不便をおかけして申し訳ございませんでした。'},
+    ],
+    'maintenance': [
+      {'label': '自由入力', 'title': '', 'body': ''},
+      {'label': '定期メンテナンス', 'title': 'メンテナンスのお知らせ', 'body': '下記の日時にメンテナンスを実施します。\n\n日時: 月 日（ ） 00:00 〜 00:00\n\nメンテナンス中はサービスをご利用いただけません。ご迷惑をおかけしますが、ご了承ください。'},
+      {'label': '緊急メンテナンス', 'title': '緊急メンテナンスのお知らせ', 'body': '現在、緊急メンテナンスを実施中です。\n\n復旧予定: 月 日（ ） 00:00\n\nご不便をおかけして申し訳ございません。復旧次第お知らせいたします。'},
+    ],
+  };
+
   Future<void> _showCreateNoticeDialog() async {
     final titleController = TextEditingController();
     final bodyController = TextEditingController();
     String selectedType = 'info';
+    int selectedTemplateIndex = 0;
 
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) {
+          final templates = _noticeTemplates[selectedType] ?? _noticeTemplates['info']!;
+
+          void applyTemplate(int index) {
+            selectedTemplateIndex = index;
+            final t = templates[index];
+            titleController.text = t['title'] ?? '';
+            bodyController.text = t['body'] ?? '';
+          }
+
+          return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('お知らせを配信',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -1479,11 +1513,46 @@ class _HomeScreenState extends State<HomeScreen>
                 Wrap(
                   spacing: 8,
                   children: [
-                    _noticeTypeChip('info', 'お知らせ', Icons.info_outline, AppTheme.primaryColor, selectedType, (v) => setDialogState(() => selectedType = v)),
-                    _noticeTypeChip('release', 'リリース', Icons.campaign, AppTheme.accentColor, selectedType, (v) => setDialogState(() => selectedType = v)),
-                    _noticeTypeChip('update', '更新', Icons.update, AppTheme.info, selectedType, (v) => setDialogState(() => selectedType = v)),
-                    _noticeTypeChip('maintenance', 'メンテ', Icons.build, AppTheme.warning, selectedType, (v) => setDialogState(() => selectedType = v)),
+                    _noticeTypeChip('info', 'お知らせ', Icons.info_outline, AppTheme.primaryColor, selectedType, (v) {
+                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
+                      applyTemplate(0);
+                    }),
+                    _noticeTypeChip('release', 'リリース', Icons.campaign, AppTheme.accentColor, selectedType, (v) {
+                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
+                      applyTemplate(0);
+                    }),
+                    _noticeTypeChip('update', '更新', Icons.update, AppTheme.info, selectedType, (v) {
+                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
+                      applyTemplate(0);
+                    }),
+                    _noticeTypeChip('maintenance', 'メンテ', Icons.build, AppTheme.warning, selectedType, (v) {
+                      setDialogState(() { selectedType = v; selectedTemplateIndex = 0; });
+                      applyTemplate(0);
+                    }),
                   ],
+                ),
+                const SizedBox(height: 16),
+                const Text('テンプレート', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: List.generate(templates.length, (i) {
+                    final isSelected = i == selectedTemplateIndex;
+                    return ChoiceChip(
+                      label: Text(templates[i]['label']!),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      labelStyle: TextStyle(
+                        color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      onSelected: (_) => setDialogState(() => applyTemplate(i)),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -1529,7 +1598,8 @@ class _HomeScreenState extends State<HomeScreen>
               child: const Text('配信する'),
             ),
           ],
-        ),
+        );
+        },
       ),
     );
 
