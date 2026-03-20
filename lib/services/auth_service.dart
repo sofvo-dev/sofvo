@@ -380,14 +380,5 @@ class AuthService {
 
     // Firebase Auth サインアウト（authStateChanges が発火して画面遷移）
     await _auth.signOut();
-
-    // Firestoreローカルキャッシュをクリア（前ユーザーのデータ残留を防止）
-    // signOut後に実行: アクティブなSnapshotリスナーが解除された後にクリアする
-    try {
-      await FirebaseFirestore.instance.terminate();
-      await FirebaseFirestore.instance.clearPersistence();
-    } catch (e) {
-      debugPrint('signOut: Firestoreキャッシュクリア失敗: $e');
-    }
   }
 }
