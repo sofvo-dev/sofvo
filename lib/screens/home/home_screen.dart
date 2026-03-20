@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
 import '../tournament/tournament_detail_screen.dart';
+import '../follow/follow_search_screen.dart';
 import 'create_post_screen.dart';
 import 'comment_screen.dart';
 
@@ -339,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen>
                     color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
             Text(
-              'フォロー中のユーザーの投稿がここに表示されます。\nまずは投稿してみましょう！',
+              'フォロー中のユーザーの投稿がここに表示されます。\n仲間を見つけてフォローしましょう！',
               style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
@@ -363,15 +364,11 @@ class _HomeScreenState extends State<HomeScreen>
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('下のメニューから「さがす」タブで大会を探せます'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const FollowSearchScreen()));
               },
-              icon: const Icon(Icons.search),
-              label: const Text('大会をさがす'),
+              icon: const Icon(Icons.person_search),
+              label: const Text('仲間をさがす'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textSecondary,
                 side: BorderSide(color: Colors.grey[300]!),
