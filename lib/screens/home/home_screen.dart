@@ -36,6 +36,9 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       animationDuration: const Duration(milliseconds: 200),
     );
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) setState(() {});
+    });
     _loadInitialData();
   }
 
@@ -227,12 +230,14 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ]),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'home_create_post',
-        onPressed: _openCreatePost,
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.edit, color: Colors.white),
-      ),
+      floatingActionButton: _tabController.index == 0
+          ? FloatingActionButton(
+              heroTag: 'home_create_post',
+              onPressed: _openCreatePost,
+              backgroundColor: AppTheme.primaryColor,
+              child: const Icon(Icons.edit, color: Colors.white),
+            )
+          : null,
     );
   }
 
