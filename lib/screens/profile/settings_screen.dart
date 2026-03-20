@@ -533,6 +533,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showDeleteAccountDialog() {
     final passwordCtrl = TextEditingController();
+    final authService = AuthService();
+    final provider = authService.signInProvider;
+    final isPasswordUser = provider == 'password';
 
     showDialog(
       context: context,
@@ -553,19 +556,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(height: 1.5),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: passwordCtrl,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: '確認のためパスワードを入力',
-                filled: true,
-                fillColor: AppTheme.backgroundColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+            if (isPasswordUser)
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: '確認のためパスワードを入力',
+                  filled: true,
+                  fillColor: AppTheme.backgroundColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              )
+            else
+              Text(
+                provider == 'google.com'
+                    ? '削除するにはGoogleアカウントで再認証します'
+                    : '削除するにはApple IDで再認証します',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
                 ),
               ),
-            ),
           ],
         ),
         actions: [
@@ -576,7 +590,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (passwordCtrl.text.isEmpty) {
+              if (isPasswordUser && passwordCtrl.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('パスワードを入力してください'),
@@ -586,7 +600,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return;
               }
               try {
-                await AuthService().deleteAccount(passwordCtrl.text);
+                await authService.deleteAccount(
+                    isPasswordUser ? passwordCtrl.text : null);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
@@ -601,6 +616,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (e.toString().contains('wrong-password') ||
                       e.toString().contains('invalid-credential')) {
                     message = 'パスワードが正しくありません';
+                  } else if (e.toString().contains('キャンセル')) {
+                    message = '認証がキャンセルされました';
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
