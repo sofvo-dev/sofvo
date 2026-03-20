@@ -583,21 +583,24 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
           Text('右下の＋ボタンから登録できます',
               style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const GadgetRegisterScreen()),
-              );
-              if (result == true) setState(() {});
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('ガジェットを登録'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GadgetRegisterScreen()),
+                );
+                if (result == true) setState(() {});
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('ガジェットを登録'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 52),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
         ],
