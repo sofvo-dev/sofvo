@@ -330,12 +330,12 @@ class _AuthGateState extends State<AuthGate> {
       return LoginScreen(onAuthSuccess: _onAuthSuccess);
     }
 
-    // ログイン済み → プロフィール確認
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance
+    // ログイン済み → プロフィール確認（リアルタイム監視）
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
           .collection('users')
           .doc(_currentUser!.uid)
-          .get(),
+          .snapshots(),
       builder: (context, userSnapshot) {
         if (userSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
