@@ -158,6 +158,18 @@ class _AuthGateState extends State<AuthGate> {
       setState(() {
         _currentUser = FirebaseAuth.instance.currentUser;
       });
+      // ログインメッセージを表示
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: const Text('ログインしました'),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      });
     }
   }
 
