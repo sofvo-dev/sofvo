@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
-import '../tournament/tournament_detail_screen.dart';
-import '../tournament/post_event_action_screen.dart';
+import '../../services/notification_service.dart';
 import '../profile/user_profile_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -29,6 +28,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         .doc(_currentUser!.uid)
         .collection('notifications')
         .where('read', isEqualTo: false)
+        .where('type', whereIn: NotificationService.actionTypes)
         .get();
     final batch = FirebaseFirestore.instance.batch();
     for (final doc in unread.docs) {
@@ -63,6 +63,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             .collection('users')
             .doc(_currentUser!.uid)
             .collection('notifications')
+            .where('type', whereIn: NotificationService.actionTypes)
             .orderBy('createdAt', descending: true)
             .limit(50)
             .snapshots(),
@@ -111,93 +112,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Future<void> _onNotificationTap(Map<String, dynamic> data) async {
     final type = data['type'] ?? '';
-    final tournamentId = data['tournamentId'] as String?;
     final senderId = data['senderId'] as String?;
-
-    // 大会終了通知 → ふりかえりアクション画面
-    if (type == 'tournament_end' &&
-        tournamentId != null &&
-        tournamentId.isNotEmpty) {
-      try {
-        final doc = await FirebaseFirestore.instance
-            .collection('tournaments')
-            .doc(tournamentId)
-            .get();
-        if (!doc.exists || !mounted) return;
-        final tData = doc.data() ?? {};
-        final tournamentName = (tData['title'] ?? tData['name'] ?? '') as String;
-
-        // 参加者の順位を取得
-        String? myResult;
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-          final entries = await FirebaseFirestore.instance
-              .collection('tournaments').doc(tournamentId)
-              .collection('entries').get();
-          for (final entry in entries.docs) {
-            final memberUids = entry.data()['memberUids'] as List?;
-            if (memberUids != null && memberUids.contains(uid)) {
-              final rank = entry.data()['finalRank'];
-              if (rank is int) {
-                if (rank == 1) myResult = '優勝';
-                else if (rank == 2) myResult = '準優勝';
-                else if (rank == 3) myResult = '3位';
-                else myResult = '$rank位';
-              }
-              break;
-            }
-          }
-        }
-
-        if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PostEventActionScreen(
-              tournamentId: tournamentId,
-              tournamentName: tournamentName,
-              result: myResult,
-            ),
-          ),
-        );
-      } catch (e) {
-        debugPrint('ふりかえり画面遷移に失敗: $e');
-      }
-      return;
-    }
-
-    // 大会関連通知 → 大会詳細へ遷移
-    if ((type == 'tournament_announcement' ||
-            type == 'waitlist_available' ||
-            type == 'points_earned') &&
-        tournamentId != null &&
-        tournamentId.isNotEmpty) {
-      try {
-        final doc = await FirebaseFirestore.instance
-            .collection('tournaments')
-            .doc(tournamentId)
-            .get();
-        if (!doc.exists || !mounted) return;
-        final tData = doc.data() ?? {};
-        tData['id'] = doc.id;
-        // Firestoreの'title'を'name'にマッピング（TournamentDetailScreenが'name'を期待）
-        tData['name'] = tData['title'] ?? tData['name'] ?? '';
-        // 掲示板の通知は掲示板タブを開く
-        final initialTab = type == 'tournament_announcement' ? 'board' : null;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TournamentDetailScreen(
-              tournament: tData,
-              initialTab: initialTab,
-            ),
-          ),
-        );
-      } catch (e) {
-        debugPrint('大会遷移に失敗: $e');
-      }
-      return;
-    }
 
     // フォロー通知 → ユーザープロフィールへ遷移
     if (type == 'follow' && senderId != null && senderId.isNotEmpty) {
@@ -234,22 +149,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
         break;
       case 'follow':
         icon = Icons.person_add;
-        iconColor = AppTheme.accentColor;
-        break;
-      case 'tournament_announcement':
-        icon = Icons.campaign;
-        iconColor = AppTheme.accentColor;
-        break;
-      case 'tournament_end':
-        icon = Icons.emoji_events;
-        iconColor = AppTheme.accentColor;
-        break;
-      case 'waitlist_available':
-        icon = Icons.how_to_reg;
-        iconColor = AppTheme.success;
-        break;
-      case 'points_earned':
-        icon = Icons.star_rounded;
         iconColor = AppTheme.accentColor;
         break;
       default:
@@ -312,10 +211,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               ),
             ],
           ),
-          title: type == 'points_earned'
-              ? Text(message,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))
-              : RichText(
+          title: RichText(
                   text: TextSpan(
                     style: const TextStyle(
                         fontSize: 14, color: AppTheme.textPrimary),

@@ -3,6 +3,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class NotificationService {
   static final _firestore = FirebaseFirestore.instance;
 
+  /// 通知（ベルアイコン）に表示する対人アクション系タイプ
+  static const actionTypes = ['like', 'comment', 'follow'];
+
+  /// お知らせタブに表示する大会・システム系タイプ
+  static const announcementTypes = [
+    'tournament_announcement',
+    'tournament_end',
+    'waitlist_available',
+    'points_earned',
+  ];
+
   static Future<void> sendLikeNotification({
     required String postOwnerId,
     required String senderId,
@@ -283,12 +294,26 @@ class NotificationService {
     });
   }
 
+  /// 通知（ベルアイコン）の未読数 — 対人アクションのみ
   static Stream<int> unreadCountStream(String userId) {
     return _firestore
         .collection('users')
         .doc(userId)
         .collection('notifications')
         .where('read', isEqualTo: false)
+        .where('type', whereIn: actionTypes)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  /// お知らせタブの未読数 — 大会・システム系のみ
+  static Stream<int> unreadAnnouncementCountStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .where('read', isEqualTo: false)
+        .where('type', whereIn: announcementTypes)
         .snapshots()
         .map((snap) => snap.docs.length);
   }
