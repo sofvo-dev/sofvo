@@ -129,13 +129,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         return;
       }
 
+      // ※ profileCompleted: true をFirestoreに書くと、AuthGateのStreamBuilderが
+      //   即座に反応してMainTabScreenに切り替わり、このWidgetがunmountされる。
+      //   そのため、Navigator参照を事前に保存しておく。
+      final navigator = Navigator.of(context);
+      final nickname = _nicknameController.text.trim();
+      final bio = _bioController.text.trim();
+
       final userRef = FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid);
       await userRef.set({
         'uid': user.uid,
-        'nickname': _nicknameController.text.trim(),
-        'bio': _bioController.text.trim(),
+        'nickname': nickname,
+        'bio': bio,
         'avatarUrl': '',
         'area': _selectedPrefecture,
         'experience': _selectedExperience,
@@ -174,15 +181,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
       // 友達紹介リンクからの登録 → 自動相互フォロー
       if (pendingReferrerUserId != null && pendingReferrerUserId != user.uid) {
-        await _processReferral(user.uid, _nicknameController.text.trim());
+        await _processReferral(user.uid, nickname);
       }
 
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-          (route) => false,
-        );
-      }
+      // profileCompleted: true の書き込みによりAuthGateのStreamBuilderが
+      // MainTabScreenに切り替えてこのWidgetをunmountする場合がある。
+      // 事前に保存したnavigator参照を使うことで確実にOnboardingScreenへ遷移する。
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+        (route) => false,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
