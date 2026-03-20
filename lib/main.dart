@@ -155,9 +155,15 @@ class _AuthGateState extends State<AuthGate> {
   /// ログイン/登録成功時に即座に画面を切り替える
   void _onAuthSuccess() {
     if (mounted) {
-      setState(() {
-        _currentUser = FirebaseAuth.instance.currentUser;
-      });
+      final user = FirebaseAuth.instance.currentUser;
+      // currentUserがnullの場合は_currentUserを更新しない。
+      // suppressAuthStateChange解除直後にcurrentUserがnullの場合、
+      // stream listenerが正しいユーザーを後から設定するのを待つ。
+      if (user != null) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
       // ログインメッセージを表示
       WidgetsBinding.instance.addPostFrameCallback((_) {
         scaffoldMessengerKey.currentState?.showSnackBar(
