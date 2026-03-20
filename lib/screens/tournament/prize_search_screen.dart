@@ -220,15 +220,24 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                   const SizedBox(height: 12),
                   const Text('景品が見つかりません', style: TextStyle(color: AppTheme.textSecondary)),
                   const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push<bool>(context,
-                        MaterialPageRoute(builder: (_) => const PrizeRegisterScreen()));
-                      if (result == true) setState(() {});
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('景品を登録する'),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final result = await Navigator.push<bool>(context,
+                          MaterialPageRoute(builder: (_) => const PrizeRegisterScreen()));
+                        if (result == true) setState(() {});
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('景品を登録する'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 52),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      ),
+                    ),
                   ),
                 ]));
               }
