@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../config/app_theme.dart';
 import '../../main.dart' show suppressAuthStateChange;
 import '../../services/auth_service.dart';
@@ -184,27 +183,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else {
         suppressAuthStateChange = false;
       }
-    } on SignInWithAppleAuthorizationException catch (e) {
-      suppressAuthStateChange = false;
-      if (e.code == AuthorizationErrorCode.canceled) return;
-      if (!mounted) return;
-      debugPrint('Apple Sign-In authorization error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Apple登録に失敗しました'),
-          backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
     } catch (e) {
       suppressAuthStateChange = false;
       if (!mounted) return;
       debugPrint('Apple Sign-In error: $e');
       final errorStr = e.toString();
+      // ユーザーがキャンセルした場合はエラー表示しない
       if (errorStr.contains('popup-closed-by-user') ||
-          errorStr.contains('cancelled')) {
+          errorStr.contains('cancelled') ||
+          errorStr.contains('canceled') ||
+          errorStr.contains('error 1001') ||
+          errorStr.contains('web-context-cancelled')) {
         return;
       }
       String message = 'Apple登録に失敗しました。\n$errorStr';

@@ -1,12 +1,7 @@
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   // シングルトンパターン: アプリ更新時にセッションが切れないようにする
@@ -84,26 +79,13 @@ class AuthService {
     }
   }
 
-  /// セキュアなランダムnonce文字列を生成
-  String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
-  }
-
-  /// nonceのSHA256ハッシュを返す
-  String _sha256ofString(String input) {
-    final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  // Appleログイン（Web: ポップアップ優先→リダイレクトフォールバック / iOS・iPadOS: ネイティブ sign_in_with_apple）
+  // Appleログイン（Web: ポップアップ優先→リダイレクトフォールバック / iOS・iPadOS・Android: signInWithProvider）
   Future<UserCredential?> signInWithApple() async {
+    final provider = OAuthProvider('apple.com');
+    provider.addScope('email');
+    provider.addScope('name');
+
     if (kIsWeb) {
-      final provider = OAuthProvider('apple.com');
-      provider.addScope('email');
-      provider.addScope('name');
       // ポップアップを優先（リダイレクト方式はiOS Safariで ITP により失敗しやすい）
       try {
         return await _auth.signInWithPopup(provider);
@@ -118,30 +100,12 @@ class AuthService {
         rethrow;
       }
     } else {
-      // iOS / iPadOS: sign_in_with_apple パッケージでネイティブ認証フローを使用
-      // signInWithProvider は iPad で不安定なため、ネイティブ SDK を直接利用する
-      final rawNonce = _generateNonce();
-      final hashedNonce = _sha256ofString(rawNonce);
-
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: hashedNonce,
-      );
-
-      final idToken = appleCredential.identityToken;
-      if (idToken == null) {
-        throw Exception('Apple Sign In: identityToken が取得できませんでした。もう一度お試しください。');
-      }
-
-      final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: idToken,
-        rawNonce: rawNonce,
-      );
-
-      return await _auth.signInWithCredential(oauthCredential);
+      // iOS / iPadOS / Android: Firebase の signInWithProvider を使用
+      // Firebase SDK が ASAuthorizationController の presentationContextProvider を
+      // 内部で適切に処理するため、iPad（Scene-based lifecycle）でも安定動作する
+      // 注: sign_in_with_apple パッケージは presentationContextProvider を設定しないため
+      //     iPad で認証ダイアログが表示されずエラーになる問題があった
+      return await _auth.signInWithProvider(provider);
     }
   }
 
@@ -206,29 +170,10 @@ class AuthService {
         await user.reauthenticateWithCredential(credential);
       }
     } else if (provider == 'apple.com') {
-      if (kIsWeb) {
-        final appleProvider = OAuthProvider('apple.com');
-        await user.reauthenticateWithProvider(appleProvider);
-      } else {
-        final rawNonce = _generateNonce();
-        final hashedNonce = _sha256ofString(rawNonce);
-        final appleCredential = await SignInWithApple.getAppleIDCredential(
-          scopes: [
-            AppleIDAuthorizationScopes.email,
-            AppleIDAuthorizationScopes.fullName,
-          ],
-          nonce: hashedNonce,
-        );
-        final idToken = appleCredential.identityToken;
-        if (idToken == null) {
-          throw Exception('Apple再認証: identityToken が取得できませんでした。');
-        }
-        final oauthCredential = OAuthProvider('apple.com').credential(
-          idToken: idToken,
-          rawNonce: rawNonce,
-        );
-        await user.reauthenticateWithCredential(oauthCredential);
-      }
+      // Web / iOS / iPadOS 共通: reauthenticateWithProvider を使用
+      // Firebase SDK が presentationContextProvider を適切に処理するため iPad でも安定動作
+      final appleProvider = OAuthProvider('apple.com');
+      await user.reauthenticateWithProvider(appleProvider);
     } else {
       // メール/パスワード認証
       if (password == null || password.isEmpty || user.email == null) {

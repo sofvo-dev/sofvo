@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../services/auth_service.dart';
 import '../../main.dart' show scaffoldMessengerKey, suppressAuthStateChange;
 import 'register_screen.dart';
@@ -137,30 +136,17 @@ class _LoginScreenState extends State<LoginScreen> {
         suppressAuthStateChange = false;
         widget.onAuthSuccess?.call();
       }
-    } on SignInWithAppleAuthorizationException catch (e) {
-      // ネイティブ Apple Sign-In のキャンセル
-      if (e.code == AuthorizationErrorCode.canceled) return;
-      if (!mounted) return;
-      debugPrint('Apple Sign-In authorization error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Appleログインに失敗しました。もう一度お試しください。',
-              maxLines: 3, overflow: TextOverflow.ellipsis),
-          backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       debugPrint('Apple Sign-In error: $e');
       final errorStr = e.toString();
+      // ユーザーがキャンセルした場合はエラー表示しない
       if (errorStr.contains('popup-closed-by-user') ||
           errorStr.contains('cancelled') ||
-          errorStr.contains('AuthorizationErrorCode.canceled') ||
-          errorStr.contains('error 1001')) {
-        return; // ユーザーがキャンセル
+          errorStr.contains('canceled') ||
+          errorStr.contains('error 1001') ||
+          errorStr.contains('web-context-cancelled')) {
+        return;
       }
       String message = 'Appleログインに失敗しました。\n$errorStr';
       if (errorStr.contains('operation-not-allowed')) {
