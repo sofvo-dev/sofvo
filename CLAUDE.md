@@ -1,5 +1,13 @@
 # Sofvo プロジェクト設定メモ
 
+## 開発ルール
+
+### クロスプラットフォーム統一ルール
+- **修正・実装は必ず Android / iPhone / iPad / Web の全プラットフォームで同じ動作になるようにすること**
+- プラットフォーム分岐は「Web vs ネイティブ」の2分岐に留める。Android / iOS / iPad で別々のコードパスを作らない
+- 認証は Firebase Auth の `signInWithProvider` / `reauthenticateWithProvider`（ネイティブ）と `signInWithPopup`（Web）に統一済み
+- ネイティブ固有のSDK（`google_sign_in`, `sign_in_with_apple` 等）は使わない。`firebase_auth` に統一する
+
 ## Mac ローカル環境
 - **プロジェクトパス**: `~/Desktop/sofvo`
 - **Xcodeワークスペース (iOS)**: `~/Desktop/sofvo/ios/Runner.xcworkspace`
