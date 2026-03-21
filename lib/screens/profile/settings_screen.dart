@@ -305,9 +305,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildInfoTile(IconData icon, String title, String value) {
     return ListTile(
       leading: Icon(icon, color: AppTheme.primaryColor, size: 22),
-      title:
-          Text(title, style: const TextStyle(fontSize: 15)),
-      trailing: Text(
+      title: Text(title, style: const TextStyle(fontSize: 15)),
+      subtitle: Text(
         value,
         style: const TextStyle(
           fontSize: 14,
