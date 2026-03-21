@@ -170,10 +170,21 @@ class AuthService {
         await user.reauthenticateWithCredential(credential);
       }
     } else if (provider == 'apple.com') {
-      // Web / iOS / iPadOS 共通: reauthenticateWithProvider を使用
-      // Firebase SDK が presentationContextProvider を適切に処理するため iPad でも安定動作
-      final appleProvider = OAuthProvider('apple.com');
-      await user.reauthenticateWithProvider(appleProvider);
+      if (kIsWeb) {
+        // Web: reauthenticateWithProvider は未実装のため、signInWithPopup で再認証
+        final appleProvider = OAuthProvider('apple.com');
+        appleProvider.addScope('email');
+        appleProvider.addScope('name');
+        final result = await _auth.signInWithPopup(appleProvider);
+        if (result.credential != null) {
+          await user.reauthenticateWithCredential(result.credential!);
+        }
+      } else {
+        // iOS / iPadOS: reauthenticateWithProvider を使用
+        // Firebase SDK が presentationContextProvider を適切に処理するため iPad でも安定動作
+        final appleProvider = OAuthProvider('apple.com');
+        await user.reauthenticateWithProvider(appleProvider);
+      }
     } else {
       // メール/パスワード認証
       if (password == null || password.isEmpty || user.email == null) {
