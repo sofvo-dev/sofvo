@@ -379,6 +379,41 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
+  Future<void> _followOrganizer() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final organizerId = widget.tournament['organizerId'] as String? ?? '';
+    if (organizerId.isEmpty || organizerId == uid) return;
+
+    final myRef = _firestore.collection('users').doc(uid);
+    final targetRef = _firestore.collection('users').doc(organizerId);
+
+    // 既にフォロー済みかチェック
+    final existing = await myRef.collection('following').doc(organizerId).get();
+    if (existing.exists) {
+      setState(() => _isFollowing = true);
+      return;
+    }
+
+    final targetDoc = await targetRef.get();
+    final targetNickname = (targetDoc.data()?['nickname'] as String?) ?? '主催者';
+    final myDoc = await myRef.get();
+    final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+
+    await myRef.collection('following').doc(organizerId).set({
+      'nickname': targetNickname,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await targetRef.collection('followers').doc(uid).set({
+      'nickname': myNickname,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await myRef.update({'followingCount': FieldValue.increment(1)});
+    await targetRef.update({'followersCount': FieldValue.increment(1)});
+
+    if (mounted) setState(() => _isFollowing = true);
+  }
+
   Widget _buildFollowBanner() {
     return Container(
       width: double.infinity,
@@ -390,11 +425,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           const SizedBox(width: 10),
           Expanded(child: Text('大会主催者をフォローするとエントリーできます', style: TextStyle(fontSize: 13, color: AppTheme.warning))),
           TextButton(
-            onPressed: () {
-              setState(() => _isFollowing = true);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('大会主催者をフォローしました！'), backgroundColor: AppTheme.success),
-              );
+            onPressed: () async {
+              await _followOrganizer();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('大会主催者をフォローしました！'), backgroundColor: AppTheme.success),
+                );
+              }
             },
             child: const Text('フォローする', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -6428,11 +6465,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               : SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() => _isFollowing = true);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('大会主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
-                      );
+                    onPressed: () async {
+                      await _followOrganizer();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('大会主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.person_add, size: 18),
                     label: const Text('フォローしてエントリー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
