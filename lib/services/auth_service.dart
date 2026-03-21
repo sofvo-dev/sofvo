@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 class AuthService {
   // シングルトンパターン: アプリ更新時にセッションが切れないようにする
@@ -37,12 +36,13 @@ class AuthService {
   }
 
 
-  // Googleログイン（Web: ポップアップ優先→リダイレクトフォールバック / Android: signInWithProvider / iOS: GoogleSignIn）
+  // Googleログイン（Web: ポップアップ優先→リダイレクトフォールバック / Android・iOS・iPadOS: signInWithProvider）
   Future<UserCredential?> signInWithGoogle() async {
+    final googleProvider = GoogleAuthProvider();
+    googleProvider.addScope('email');
+    googleProvider.addScope('profile');
+
     if (kIsWeb) {
-      final googleProvider = GoogleAuthProvider();
-      googleProvider.addScope('email');
-      googleProvider.addScope('profile');
       // ポップアップを優先（リダイレクト方式はiOS Safariで ITP により失敗しやすい）
       // ポップアップがブロックされた場合のみリダイレクトにフォールバック
       try {
@@ -52,30 +52,15 @@ class AuthService {
         if (errorStr.contains('popup-blocked') ||
             errorStr.contains('popup-closed-by-user') ||
             errorStr.contains('cancelled-popup-request')) {
-          // ポップアップがブロックされた場合はリダイレクト方式にフォールバック
           await _auth.signInWithRedirect(googleProvider);
           return null;
         }
         rethrow;
       }
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      // AndroidではsignInWithProviderを使用（Chrome Custom Tabベース）
-      final googleProvider = GoogleAuthProvider();
-      googleProvider.addScope('email');
-      googleProvider.addScope('profile');
-      return await _auth.signInWithProvider(googleProvider);
     } else {
-      // iOS: ネイティブGoogleSignIn SDK
-      final googleSignIn = GoogleSignIn();
-      final account = await googleSignIn.signIn();
-      if (account == null) return null; // ユーザーがキャンセル
-
-      final authentication = await account.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: authentication.accessToken,
-        idToken: authentication.idToken,
-      );
-      return await _auth.signInWithCredential(credential);
+      // Android / iOS / iPadOS: signInWithProvider を使用
+      // 全ネイティブプラットフォームで統一した認証フロー
+      return await _auth.signInWithProvider(googleProvider);
     }
   }
 
@@ -145,33 +130,22 @@ class AuthService {
     }
 
     // プロバイダに応じた再認証
+    // Web: reauthenticateWithProvider は未実装のため signInWithPopup → reauthenticateWithCredential
+    // Android / iOS / iPadOS: reauthenticateWithProvider（全ネイティブプラットフォーム統一）
     final provider = signInProvider;
     if (provider == 'google.com') {
       if (kIsWeb) {
-        // Web: signInWithPopupでクレデンシャルを取得→再認証
         final googleProvider = GoogleAuthProvider();
         final result = await _auth.signInWithPopup(googleProvider);
         if (result.credential != null) {
           await user.reauthenticateWithCredential(result.credential!);
         }
-      } else if (defaultTargetPlatform == TargetPlatform.android) {
+      } else {
         final googleProvider = GoogleAuthProvider();
         await user.reauthenticateWithProvider(googleProvider);
-      } else {
-        // iOS: ネイティブ GoogleSignIn
-        final googleSignIn = GoogleSignIn();
-        final account = await googleSignIn.signIn();
-        if (account == null) throw Exception('Google認証がキャンセルされました');
-        final authentication = await account.authentication;
-        final credential = GoogleAuthProvider.credential(
-          accessToken: authentication.accessToken,
-          idToken: authentication.idToken,
-        );
-        await user.reauthenticateWithCredential(credential);
       }
     } else if (provider == 'apple.com') {
       if (kIsWeb) {
-        // Web: reauthenticateWithProvider は未実装のため、signInWithPopup で再認証
         final appleProvider = OAuthProvider('apple.com');
         appleProvider.addScope('email');
         appleProvider.addScope('name');
@@ -180,8 +154,6 @@ class AuthService {
           await user.reauthenticateWithCredential(result.credential!);
         }
       } else {
-        // iOS / iPadOS: reauthenticateWithProvider を使用
-        // Firebase SDK が presentationContextProvider を適切に処理するため iPad でも安定動作
         final appleProvider = OAuthProvider('apple.com');
         await user.reauthenticateWithProvider(appleProvider);
       }
@@ -331,17 +303,9 @@ class AuthService {
       }
     }
 
-    // Google OAuthセッションをクリア（アカウント切り替えを可能にする）
-    try {
-      final googleSignIn = GoogleSignIn();
-      if (await googleSignIn.isSignedIn()) {
-        await googleSignIn.signOut();
-      }
-    } catch (e) {
-      debugPrint('signOut: Google Sign-Out失敗: $e');
-    }
-
     // Firebase Auth サインアウト（authStateChanges が発火して画面遷移）
+    // signInWithProvider を使用しているため、Firebase Auth の signOut だけで
+    // OAuth セッションも含め完全にクリアされる
     await _auth.signOut();
   }
 }
