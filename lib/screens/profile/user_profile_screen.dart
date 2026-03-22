@@ -22,8 +22,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _isLoading = true;
   bool _isAdmin = false;
   Map<String, dynamic> _userData = {};
-  int _followingCount = 0;
-  int _followersCount = 0;
 
   String get _currentUid => FirebaseAuth.instance.currentUser?.uid ?? '';
   bool get _isMyProfile => widget.userId == _currentUid;
@@ -38,24 +36,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       final userDoc = await _firestore.collection('users').doc(widget.userId).get();
       final userData = userDoc.data() ?? {};
-
-      // サブコレクションの実数を取得（非正規化カウンターとのズレを防ぐ）
-      final followingSnap = await _firestore
-          .collection('users').doc(widget.userId).collection('following').get();
-      final followersSnap = await _firestore
-          .collection('users').doc(widget.userId).collection('followers').get();
-      final followingCount = followingSnap.docs.length;
-      final followersCount = followersSnap.docs.length;
-
-      // Firestoreのカウンターも実数に合わせて補正
-      final storedFollowing = _safeInt(userData['followingCount']);
-      final storedFollowers = _safeInt(userData['followersCount']);
-      if (storedFollowing != followingCount || storedFollowers != followersCount) {
-        _firestore.collection('users').doc(widget.userId).update({
-          'followingCount': followingCount,
-          'followersCount': followersCount,
-        }).catchError((_) {});
-      }
 
       bool isFollowing = false;
       bool isAdmin = false;
@@ -72,8 +52,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (mounted) {
         setState(() {
           _userData = userData;
-          _followingCount = followingCount;
-          _followersCount = followersCount;
           _isFollowing = isFollowing;
           _isAdmin = isAdmin;
           _isLoading = false;
@@ -308,7 +286,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       await targetRef.update({'followersCount': FieldValue.increment(-1)});
       setState(() {
         _isFollowing = false;
-        _followersCount--;
       });
     } else {
       final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
@@ -327,7 +304,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       await targetRef.update({'followersCount': FieldValue.increment(1)});
       setState(() {
         _isFollowing = true;
-        _followersCount++;
       });
     }
   }
@@ -519,23 +495,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ],
                       const SizedBox(height: 12),
                       // ── フォロー / フォロワー ──
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildFollowCount('$_followingCount', 'フォロー', () {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => FollowListScreen(
-                                  userId: widget.userId, title: 'フォロー中', isFollowers: false)));
-                          }),
-                          Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
-                              color: Colors.white.withValues(alpha: 0.25)),
-                          _buildFollowCount('$_followersCount', 'フォロワー', () {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => FollowListScreen(
-                                  userId: widget.userId, title: 'フォロワー', isFollowers: true)));
-                          }),
-                        ],
-                      ),
+                      _FollowCounts(userId: widget.userId),
                       // ── フォロー / メッセージ ボタン ──
                       if (!_isMyProfile) ...[
                         const SizedBox(height: 12),
@@ -684,21 +644,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
       ),
       child: Text(text, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w500)),
-    );
-  }
-
-  // ── フォロー数 ──
-  Widget _buildFollowCount(String count, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
-        ],
-      ),
     );
   }
 
@@ -914,6 +859,83 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           ),
         );
       },
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// フォロー / フォロワー カウント（サブコレクション実数）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _FollowCounts extends StatefulWidget {
+  final String userId;
+  const _FollowCounts({required this.userId});
+
+  @override
+  State<_FollowCounts> createState() => _FollowCountsState();
+}
+
+class _FollowCountsState extends State<_FollowCounts> {
+  int _followingCount = 0;
+  int _followersCount = 0;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCounts();
+  }
+
+  Future<void> _fetchCounts() async {
+    try {
+      final ref = FirebaseFirestore.instance.collection('users').doc(widget.userId);
+      final results = await Future.wait([
+        ref.collection('following').get(),
+        ref.collection('followers').get(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _followingCount = results[0].docs.length;
+          _followersCount = results[1].docs.length;
+          _loaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildCount('$_followingCount', 'フォロー', () {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => FollowListScreen(
+                userId: widget.userId, title: 'フォロー中', isFollowers: false)));
+        }),
+        Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
+            color: Colors.white.withValues(alpha: 0.25)),
+        _buildCount('$_followersCount', 'フォロワー', () {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => FollowListScreen(
+                userId: widget.userId, title: 'フォロワー', isFollowers: true)));
+        }),
+      ],
+    );
+  }
+
+  Widget _buildCount(String count, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(count, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
+        ],
+      ),
     );
   }
 }
