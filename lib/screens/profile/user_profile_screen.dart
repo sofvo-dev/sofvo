@@ -39,8 +39,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final userDoc = await _firestore.collection('users').doc(widget.userId).get();
       final userData = userDoc.data() ?? {};
 
-      final followingCount = _safeInt(userData['followingCount']);
-      final followersCount = _safeInt(userData['followersCount']);
+      // サブコレクションの実数を取得（非正規化カウンターとのズレを防ぐ）
+      final followingSnap = await _firestore
+          .collection('users').doc(widget.userId).collection('following').get();
+      final followersSnap = await _firestore
+          .collection('users').doc(widget.userId).collection('followers').get();
+      final followingCount = followingSnap.docs.length;
+      final followersCount = followersSnap.docs.length;
+
+      // Firestoreのカウンターも実数に合わせて補正
+      final storedFollowing = _safeInt(userData['followingCount']);
+      final storedFollowers = _safeInt(userData['followersCount']);
+      if (storedFollowing != followingCount || storedFollowers != followersCount) {
+        _firestore.collection('users').doc(widget.userId).update({
+          'followingCount': followingCount,
+          'followersCount': followersCount,
+        }).catchError((_) {});
+      }
 
       bool isFollowing = false;
       bool isAdmin = false;
