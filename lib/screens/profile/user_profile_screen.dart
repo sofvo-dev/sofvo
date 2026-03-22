@@ -35,72 +35,41 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _loadUserData() async {
-    final userDoc = await _firestore.collection('users').doc(widget.userId).get();
-    final userData = userDoc.data() ?? {};
+    try {
+      final userDoc = await _firestore.collection('users').doc(widget.userId).get();
+      final userData = userDoc.data() ?? {};
 
-    // フォロー/フォロワーのサブコレクションを検証し、孤立ドキュメントを削除
-    final followingSnap = await _firestore
-        .collection('users').doc(widget.userId).collection('following').get();
-    final followersSnap = await _firestore
-        .collection('users').doc(widget.userId).collection('followers').get();
+      final followingCount = _safeInt(userData['followingCount']);
+      final followersCount = _safeInt(userData['followersCount']);
 
-    int validFollowing = 0;
-    for (final doc in followingSnap.docs) {
-      // 相手のfollowersサブコレクションに自分が存在するか確認
-      final reverseDoc = await _firestore
-          .collection('users').doc(doc.id).collection('followers').doc(widget.userId).get();
-      if (reverseDoc.exists) {
-        validFollowing++;
-      } else {
-        // 孤立したfollowingドキュメントを削除
-        await doc.reference.delete();
+      bool isFollowing = false;
+      bool isAdmin = false;
+      if (!_isMyProfile && _currentUid.isNotEmpty) {
+        final followDoc = await _firestore
+            .collection('users').doc(_currentUid).collection('following').doc(widget.userId).get();
+        isFollowing = followDoc.exists;
       }
-    }
-
-    int validFollowers = 0;
-    for (final doc in followersSnap.docs) {
-      // 相手のfollowingサブコレクションに自分が存在するか確認
-      final reverseDoc = await _firestore
-          .collection('users').doc(doc.id).collection('following').doc(widget.userId).get();
-      if (reverseDoc.exists) {
-        validFollowers++;
-      } else {
-        // 孤立したfollowerドキュメントを削除
-        await doc.reference.delete();
+      if (_currentUid.isNotEmpty) {
+        final myDoc = await _firestore.collection('users').doc(_currentUid).get();
+        isAdmin = myDoc.data()?['isAdmin'] == true;
       }
-    }
 
-    // ドキュメントのカウントフィールドも正しい値に更新
-    final storedFollowing = _safeInt(userData['followingCount']);
-    final storedFollowers = _safeInt(userData['followersCount']);
-    if (storedFollowing != validFollowing || storedFollowers != validFollowers) {
-      await _firestore.collection('users').doc(widget.userId).update({
-        'followingCount': validFollowing,
-        'followersCount': validFollowers,
-      });
-    }
-
-    bool isFollowing = false;
-    bool isAdmin = false;
-    if (!_isMyProfile) {
-      final followDoc = await _firestore
-          .collection('users').doc(_currentUid).collection('following').doc(widget.userId).get();
-      isFollowing = followDoc.exists;
-    }
-    if (_currentUid.isNotEmpty) {
-      final myDoc = await _firestore.collection('users').doc(_currentUid).get();
-      isAdmin = myDoc.data()?['isAdmin'] == true;
-    }
-
-    if (mounted) {
-      setState(() {
-        _userData = userData;
-        _followingCount = validFollowing;
-        _followersCount = validFollowers;
-        _isFollowing = isFollowing;
-        _isAdmin = isAdmin;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _userData = userData;
+          _followingCount = followingCount;
+          _followersCount = followersCount;
+          _isFollowing = isFollowing;
+          _isAdmin = isAdmin;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
