@@ -912,13 +912,13 @@ class _GadgetCardsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
           .collection('users').doc(userId).collection('gadgets')
-          .snapshots(),
+          .get(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _buildEmptyCard('ガジェットを読み込めませんでした', Icons.devices_other_outlined);
+          return _buildEmptyCard('ガジェットがまだありません', Icons.devices_other_outlined);
         }
         if (!snapshot.hasData) {
           return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
