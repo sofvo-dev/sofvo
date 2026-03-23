@@ -203,7 +203,7 @@ class MyPageScreen extends StatelessWidget {
                           ],
                           const SizedBox(height: 12),
                           // ── フォロー / フォロワー（横一列コンパクト） ──
-                          _FollowCounts(userId: viewingUid),
+                          _FollowCounts(userId: viewingUid, followingCount: followingCount, followersCount: followersCount),
                         ],
                       ),
                     ),
@@ -686,58 +686,28 @@ class MyPageScreen extends StatelessWidget {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // フォロー / フォロワー カウント（サブコレクション実数）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-class _FollowCounts extends StatefulWidget {
+class _FollowCounts extends StatelessWidget {
   final String userId;
-  const _FollowCounts({required this.userId});
-
-  @override
-  State<_FollowCounts> createState() => _FollowCountsState();
-}
-
-class _FollowCountsState extends State<_FollowCounts> {
-  int _followingCount = 0;
-  int _followersCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchCounts();
-  }
-
-  Future<void> _fetchCounts() async {
-    try {
-      final ref = FirebaseFirestore.instance.collection('users').doc(widget.userId);
-      final results = await Future.wait([
-        ref.collection('following').get(),
-        ref.collection('followers').get(),
-      ]);
-      if (mounted) {
-        setState(() {
-          _followingCount = results[0].docs.length;
-          _followersCount = results[1].docs.length;
-        });
-      }
-    } catch (_) {}
-  }
+  final int followingCount;
+  final int followersCount;
+  const _FollowCounts({required this.userId, required this.followingCount, required this.followersCount});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildCount('$_followingCount', 'フォロー', () async {
-          await Navigator.push(context, MaterialPageRoute(
+        _buildCount('$followingCount', 'フォロー', () {
+          Navigator.push(context, MaterialPageRoute(
             builder: (_) => FollowListScreen(
-                userId: widget.userId, title: 'フォロー中', isFollowers: false)));
-          _fetchCounts();
+                userId: userId, title: 'フォロー中', isFollowers: false)));
         }),
         Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
             color: Colors.white.withValues(alpha: 0.25)),
-        _buildCount('$_followersCount', 'フォロワー', () async {
-          await Navigator.push(context, MaterialPageRoute(
+        _buildCount('$followersCount', 'フォロワー', () {
+          Navigator.push(context, MaterialPageRoute(
             builder: (_) => FollowListScreen(
-                userId: widget.userId, title: 'フォロワー', isFollowers: true)));
-          _fetchCounts();
+                userId: userId, title: 'フォロワー', isFollowers: true)));
         }),
       ],
     );
