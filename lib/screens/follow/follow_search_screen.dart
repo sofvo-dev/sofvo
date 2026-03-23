@@ -134,46 +134,68 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     final myRef = FirebaseFirestore.instance.collection('users').doc(myUid);
     final targetRef = FirebaseFirestore.instance.collection('users').doc(targetUid);
 
-    if (_followingIds.contains(targetUid)) {
-      // フォロー解除
-      await myRef.collection('following').doc(targetUid).delete();
-      await targetRef.collection('followers').doc(myUid).delete();
-      await myRef.update({'followingCount': FieldValue.increment(-1)});
-      await targetRef.update({'followersCount': FieldValue.increment(-1)});
+    final wasFollowing = _followingIds.contains(targetUid);
 
-      setState(() => _followingIds.remove(targetUid));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('$targetNameさんのフォローを解除しました'),
-            backgroundColor: AppTheme.textSecondary));
+    // UI即時更新
+    setState(() {
+      if (wasFollowing) {
+        _followingIds.remove(targetUid);
+      } else {
+        _followingIds.add(targetUid);
       }
-    } else {
-      // フォロー
-      await myRef.collection('following').doc(targetUid).set({
-        'nickname': targetName,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      await targetRef.collection('followers').doc(myUid).set({
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      await myRef.update({'followingCount': FieldValue.increment(1)});
-      await targetRef.update({'followersCount': FieldValue.increment(1)});
+    });
 
-      // フォロー通知
-      final myDoc = await myRef.get();
-      final myData = myDoc.data() ?? {};
-      NotificationService.sendFollowNotification(
-        targetUserId: targetUid,
-        senderId: myUid,
-        senderName: myData['nickname'] ?? '不明',
-        senderAvatar: myData['avatarUrl'] ?? '',
-      );
+    try {
+      if (wasFollowing) {
+        // フォロー解除
+        await myRef.collection('following').doc(targetUid).delete();
+        await targetRef.collection('followers').doc(myUid).delete();
+        await myRef.update({'followingCount': FieldValue.increment(-1)});
+        await targetRef.update({'followersCount': FieldValue.increment(-1)});
 
-      setState(() => _followingIds.add(targetUid));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('$targetNameさんのフォローを解除しました'),
+              backgroundColor: AppTheme.textSecondary));
+        }
+      } else {
+        // フォロー
+        await myRef.collection('following').doc(targetUid).set({
+          'nickname': targetName,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await targetRef.collection('followers').doc(myUid).set({
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await myRef.update({'followingCount': FieldValue.increment(1)});
+        await targetRef.update({'followersCount': FieldValue.increment(1)});
+
+        // フォロー通知
+        final myDoc = await myRef.get();
+        final myData = myDoc.data() ?? {};
+        NotificationService.sendFollowNotification(
+          targetUserId: targetUid,
+          senderId: myUid,
+          senderName: myData['nickname'] ?? '不明',
+          senderAvatar: myData['avatarUrl'] ?? '',
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('$targetNameさんをフォローしました！'),
+              backgroundColor: AppTheme.success));
+        }
+      }
+    } catch (e) {
+      // エラー時はUIを元に戻す
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('$targetNameさんをフォローしました！'),
-            backgroundColor: AppTheme.success));
+        setState(() {
+          if (wasFollowing) {
+            _followingIds.add(targetUid);
+          } else {
+            _followingIds.remove(targetUid);
+          }
+        });
       }
     }
   }
