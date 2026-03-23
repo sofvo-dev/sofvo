@@ -725,17 +725,19 @@ class _FollowCountsState extends State<_FollowCounts> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildCount('$_followingCount', 'フォロー', () {
-          Navigator.push(context, MaterialPageRoute(
+        _buildCount('$_followingCount', 'フォロー', () async {
+          await Navigator.push(context, MaterialPageRoute(
             builder: (_) => FollowListScreen(
                 userId: widget.userId, title: 'フォロー中', isFollowers: false)));
+          _fetchCounts();
         }),
         Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
             color: Colors.white.withValues(alpha: 0.25)),
-        _buildCount('$_followersCount', 'フォロワー', () {
-          Navigator.push(context, MaterialPageRoute(
+        _buildCount('$_followersCount', 'フォロワー', () async {
+          await Navigator.push(context, MaterialPageRoute(
             builder: (_) => FollowListScreen(
                 userId: widget.userId, title: 'フォロワー', isFollowers: true)));
+          _fetchCounts();
         }),
       ],
     );
