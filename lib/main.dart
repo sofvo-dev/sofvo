@@ -344,7 +344,14 @@ class _AuthGateState extends State<AuthGate> {
       _navigatedToTournament = false;
       _processedReferral = false;
       if (pendingReferrerUserId != null) {
-        return RegisterScreen(onAuthSuccess: _onAuthSuccess);
+        return RegisterScreen(
+          onAuthSuccess: _onAuthSuccess,
+          onSwitchToLogin: () {
+            setState(() {
+              pendingReferrerUserId = null;
+            });
+          },
+        );
       }
       return LoginScreen(onAuthSuccess: _onAuthSuccess);
     }

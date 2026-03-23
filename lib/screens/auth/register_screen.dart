@@ -6,7 +6,8 @@ import '../../widgets/url_bottom_sheet.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback? onAuthSuccess;
-  const RegisterScreen({super.key, this.onAuthSuccess});
+  final VoidCallback? onSwitchToLogin;
+  const RegisterScreen({super.key, this.onAuthSuccess, this.onSwitchToLogin});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -518,7 +519,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        if (widget.onSwitchToLogin != null) {
+                          widget.onSwitchToLogin!();
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
                       child: Text(
                         'ログイン',
                         style: TextStyle(
