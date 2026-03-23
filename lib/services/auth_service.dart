@@ -98,8 +98,13 @@ class AuthService {
       nonce: nonce,
     );
 
+    final idToken = appleCredential.identityToken;
+    if (idToken == null) {
+      throw Exception('Apple Sign-In: identityToken が取得できませんでした');
+    }
+
     return OAuthProvider('apple.com').credential(
-      idToken: appleCredential.identityToken,
+      idToken: idToken,
       rawNonce: rawNonce,
     );
   }
