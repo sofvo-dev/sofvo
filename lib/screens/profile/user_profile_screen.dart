@@ -298,11 +298,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         myAvatarUrl = (myData['avatarUrl'] as String?) ?? '';
       }
 
-      // サブコレクション書き込み（カウント更新はCloud Functionが自動処理）
       final batch = _firestore.batch();
       if (wasFollowing) {
         batch.delete(myRef.collection('following').doc(widget.userId));
         batch.delete(targetRef.collection('followers').doc(_currentUid));
+        batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
+        batch.update(targetRef, {'followersCount': FieldValue.increment(-1)});
       } else {
         final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
         batch.set(myRef.collection('following').doc(widget.userId), {
@@ -313,6 +314,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           'nickname': myNickname,
           'createdAt': FieldValue.serverTimestamp(),
         });
+        batch.update(myRef, {'followingCount': FieldValue.increment(1)});
+        batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
       }
       await batch.commit();
 
