@@ -276,35 +276,42 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _toggleFollow() async {
     if (_isMyProfile) return;
 
-    final myRef = _firestore.collection('users').doc(_currentUid);
-    final targetRef = _firestore.collection('users').doc(widget.userId);
+    final wasFollowing = _isFollowing;
+    setState(() {
+      _isFollowing = !_isFollowing;
+    });
 
-    if (_isFollowing) {
-      await myRef.collection('following').doc(widget.userId).delete();
-      await targetRef.collection('followers').doc(_currentUid).delete();
-      await myRef.update({'followingCount': FieldValue.increment(-1)});
-      await targetRef.update({'followersCount': FieldValue.increment(-1)});
-      setState(() {
-        _isFollowing = false;
-      });
-    } else {
-      final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
-      final myDoc = await myRef.get();
-      final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+    try {
+      final myRef = _firestore.collection('users').doc(_currentUid);
+      final targetRef = _firestore.collection('users').doc(widget.userId);
 
-      await myRef.collection('following').doc(widget.userId).set({
-        'nickname': targetNickname,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      await targetRef.collection('followers').doc(_currentUid).set({
-        'nickname': myNickname,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      await myRef.update({'followingCount': FieldValue.increment(1)});
-      await targetRef.update({'followersCount': FieldValue.increment(1)});
-      setState(() {
-        _isFollowing = true;
-      });
+      if (wasFollowing) {
+        await myRef.collection('following').doc(widget.userId).delete();
+        await targetRef.collection('followers').doc(_currentUid).delete();
+        await myRef.update({'followingCount': FieldValue.increment(-1)});
+        await targetRef.update({'followersCount': FieldValue.increment(-1)});
+      } else {
+        final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
+        final myDoc = await myRef.get();
+        final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+
+        await myRef.collection('following').doc(widget.userId).set({
+          'nickname': targetNickname,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await targetRef.collection('followers').doc(_currentUid).set({
+          'nickname': myNickname,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await myRef.update({'followingCount': FieldValue.increment(1)});
+        await targetRef.update({'followersCount': FieldValue.increment(1)});
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isFollowing = wasFollowing;
+        });
+      }
     }
   }
 
