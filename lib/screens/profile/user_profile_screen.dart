@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import '../../services/notification_service.dart';
 import '../chat/chat_screen.dart';
 import '../tournament/tournament_detail_screen.dart';
 import 'follow_list_screen.dart';
@@ -284,18 +285,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       final myRef = _firestore.collection('users').doc(_currentUid);
       final targetRef = _firestore.collection('users').doc(widget.userId);
-      final batch = _firestore.batch();
 
       if (wasFollowing) {
+        final batch = _firestore.batch();
         batch.delete(myRef.collection('following').doc(widget.userId));
         batch.delete(targetRef.collection('followers').doc(_currentUid));
         batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
         batch.update(targetRef, {'followersCount': FieldValue.increment(-1)});
+        await batch.commit();
       } else {
         final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
         final myDoc = await myRef.get();
         final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
 
+        final batch = _firestore.batch();
         batch.set(myRef.collection('following').doc(widget.userId), {
           'nickname': targetNickname,
           'createdAt': FieldValue.serverTimestamp(),
@@ -306,9 +309,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         });
         batch.update(myRef, {'followingCount': FieldValue.increment(1)});
         batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
+        await batch.commit();
       }
-      await batch.commit();
+      // フォロー通知を送信（バッチ外で非同期実行）
+      if (!wasFollowing) {
+        final myDoc = await myRef.get();
+        final myData = myDoc.data() ?? {};
+        NotificationService.sendFollowNotification(
+          targetUserId: widget.userId,
+          senderId: _currentUid,
+          senderName: myData['nickname'] ?? '不明',
+          senderAvatar: myData['avatarUrl'] ?? '',
+        );
+      }
     } catch (e) {
+      debugPrint('フォロー切替エラー: $e');
       if (mounted) {
         setState(() {
           _isFollowing = wasFollowing;

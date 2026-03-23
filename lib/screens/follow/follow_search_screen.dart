@@ -146,10 +146,9 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     });
 
     try {
-      final batch = FirebaseFirestore.instance.batch();
-
       if (wasFollowing) {
         // フォロー解除
+        final batch = FirebaseFirestore.instance.batch();
         batch.delete(myRef.collection('following').doc(targetUid));
         batch.delete(targetRef.collection('followers').doc(myUid));
         batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
@@ -162,7 +161,11 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
               backgroundColor: AppTheme.textSecondary));
         }
       } else {
-        // フォロー
+        // フォロー — 通知用に自分の情報を先に取得
+        final myDoc = await myRef.get();
+        final myData = myDoc.data() ?? {};
+
+        final batch = FirebaseFirestore.instance.batch();
         batch.set(myRef.collection('following').doc(targetUid), {
           'nickname': targetName,
           'createdAt': FieldValue.serverTimestamp(),
@@ -175,8 +178,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         await batch.commit();
 
         // フォロー通知
-        final myDoc = await myRef.get();
-        final myData = myDoc.data() ?? {};
         NotificationService.sendFollowNotification(
           targetUserId: targetUid,
           senderId: myUid,
@@ -191,6 +192,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         }
       }
     } catch (e) {
+      debugPrint('フォロー切替エラー: $e');
       // エラー時はUIを元に戻す
       if (mounted) {
         setState(() {
