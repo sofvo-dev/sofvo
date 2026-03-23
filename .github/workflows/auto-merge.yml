@@ -65,8 +65,8 @@ jobs:
             echo "pc_site=false" >> $GITHUB_OUTPUT
           fi
 
-          # Flutter = pc-site以外のソースファイルが変更された場合
-          if echo "$CHANGED" | grep -qvE '^(pc-site/|\.github/)'; then
+          # Flutter = pc-site/、.github/、firestore.*、storage.rules、functions/ 以外のファイルが変更された場合
+          if echo "$CHANGED" | grep -qvE '^(pc-site/|\.github/|functions/|firestore\.|storage\.rules)'; then
             echo "flutter=true" >> $GITHUB_OUTPUT
           else
             echo "flutter=false" >> $GITHUB_OUTPUT
