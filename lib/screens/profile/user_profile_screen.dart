@@ -20,6 +20,7 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final _firestore = FirebaseFirestore.instance;
   bool _isFollowing = false;
+  bool _isFollowToggling = false;
   bool _isLoading = true;
   bool _isAdmin = false;
   Map<String, dynamic> _userData = {};
@@ -275,30 +276,36 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _toggleFollow() async {
-    if (_isMyProfile) return;
+    if (_isMyProfile || _isFollowToggling) return;
 
     final wasFollowing = _isFollowing;
     setState(() {
       _isFollowing = !_isFollowing;
+      _isFollowToggling = true;
     });
 
     try {
       final myRef = _firestore.collection('users').doc(_currentUid);
       final targetRef = _firestore.collection('users').doc(widget.userId);
 
+      // フォロー時は通知用に自分の情報を先に取得
+      String myNickname = 'ユーザー';
+      String myAvatarUrl = '';
+      if (!wasFollowing) {
+        final myDoc = await myRef.get();
+        final myData = myDoc.data() ?? {};
+        myNickname = (myData['nickname'] as String?) ?? 'ユーザー';
+        myAvatarUrl = (myData['avatarUrl'] as String?) ?? '';
+      }
+
+      final batch = _firestore.batch();
       if (wasFollowing) {
-        final batch = _firestore.batch();
         batch.delete(myRef.collection('following').doc(widget.userId));
         batch.delete(targetRef.collection('followers').doc(_currentUid));
         batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
         batch.update(targetRef, {'followersCount': FieldValue.increment(-1)});
-        await batch.commit();
       } else {
         final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
-        final myDoc = await myRef.get();
-        final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
-
-        final batch = _firestore.batch();
         batch.set(myRef.collection('following').doc(widget.userId), {
           'nickname': targetNickname,
           'createdAt': FieldValue.serverTimestamp(),
@@ -309,17 +316,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         });
         batch.update(myRef, {'followingCount': FieldValue.increment(1)});
         batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
-        await batch.commit();
       }
-      // フォロー通知を送信（バッチ外で非同期実行）
+      await batch.commit();
+
+      // フォロー通知を送信（バッチ成功後）
       if (!wasFollowing) {
-        final myDoc = await myRef.get();
-        final myData = myDoc.data() ?? {};
         NotificationService.sendFollowNotification(
           targetUserId: widget.userId,
           senderId: _currentUid,
-          senderName: myData['nickname'] ?? '不明',
-          senderAvatar: myData['avatarUrl'] ?? '',
+          senderName: myNickname,
+          senderAvatar: myAvatarUrl,
         );
       }
     } catch (e) {
@@ -327,6 +333,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (mounted) {
         setState(() {
           _isFollowing = wasFollowing;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('フォロー操作に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFollowToggling = false;
         });
       }
     }
