@@ -114,19 +114,20 @@ rm -rf ~/Library/Developer/Xcode/DerivedData
 - **Firebase CLI**: `npm install -g firebase-tools --force` でインストール/更新
 - **Node**: v25.6.1 / npm 11.9.0（Mac環境）
 
-### Firebase デプロイコマンド
+### Firebase デプロイ（CI で自動化済み）
+- **`main` ブランチへの push 時に GitHub Actions で全リソースが自動デプロイされる**
+- ワークフロー: `.github/workflows/firebase-deploy.yml`
+- 対象: Functions, Firestore rules/indexes, Storage rules, Hosting（Web ビルド含む）
+- **手動デプロイは不要。コードを `main` に push すれば自動でデプロイされる**
+- シークレット: `FIREBASE_SERVICE_ACCOUNT`（GitHub リポジトリの Secrets に設定済み）
+
+手動デプロイが必要な場合（緊急時のみ）:
 ```bash
 firebase deploy --only storage    # Storage rules のデプロイ
 firebase deploy --only firestore  # Firestore rules のデプロイ
 firebase deploy --only functions  # Cloud Functions のデプロイ
 firebase deploy --only hosting    # Hosting のデプロイ
 ```
-
-### トラブルシュート（2026/03/16）
-- `No targets in firebase.json match '--only storage'` エラー
-  - **原因**: `git pull origin main` をしておらず、ローカルに `storage.rules` ファイルがなかった
-  - **対処**: `git pull origin main` で最新コードを取得してから再デプロイで解決
-  - **教訓**: デプロイ前に必ず `git pull origin main` で最新化すること
 
 ## ドメイン移管（sofvo.com: XServer → ムームードメイン）
 - **現在のレジストラ**: XServer（サーバーID: xs228659）
