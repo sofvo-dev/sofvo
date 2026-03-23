@@ -177,19 +177,24 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
             onPressed: () async {
               final newName = controller.text.trim();
               if (newName.isEmpty) return;
-              await _firestore
-                  .collection('chats')
-                  .doc(widget.chatId)
-                  .update({'name': newName});
+              final oldName = _groupName;
               if (ctx.mounted) Navigator.pop(ctx);
-              if (mounted) {
-                setState(() => _groupName = newName);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('グループ名を更新しました'),
-                    backgroundColor: AppTheme.success,
-                  ),
-                );
+              setState(() => _groupName = newName);
+              try {
+                await _firestore
+                    .collection('chats')
+                    .doc(widget.chatId)
+                    .update({'name': newName});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('グループ名を更新しました'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) setState(() => _groupName = oldName);
               }
             },
             style: ElevatedButton.styleFrom(

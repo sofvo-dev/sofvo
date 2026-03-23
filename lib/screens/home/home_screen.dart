@@ -1308,11 +1308,12 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _hidePost(String postId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+    // UI即時更新
+    setState(() => _hiddenPostIds.add(postId));
     try {
       await FirebaseFirestore.instance
           .collection('users').doc(uid).collection('hiddenPosts').doc(postId)
           .set({'hiddenAt': FieldValue.serverTimestamp()});
-      setState(() => _hiddenPostIds.add(postId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('この投稿を非表示にしました')),
@@ -1320,6 +1321,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _hiddenPostIds.remove(postId));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('非表示に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
