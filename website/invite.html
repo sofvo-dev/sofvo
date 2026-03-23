@@ -471,18 +471,7 @@
 
   <div class="bottom-spacer"></div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <script>
-    // Firebase初期化
-    firebase.initializeApp({
-      apiKey: "AIzaSyD_Um0UkiMw3evn6Sq8n66b4t1Ojxvp2L4",
-      authDomain: "sofvo-19d84.firebaseapp.com",
-      projectId: "sofvo-19d84",
-    });
-
-    const db = firebase.firestore();
     const params = new URLSearchParams(window.location.search);
     const refUserId = params.get('ref');
 
@@ -494,17 +483,17 @@
     document.getElementById('ctaBtn').href = appUrl;
     document.getElementById('bottomCtaBtn').href = appUrl;
 
-    // 紹介者情報を取得して表示
+    // Cloud Function経由で紹介者の公開プロフィールを取得
     if (refUserId) {
-      db.collection('users').doc(refUserId).get().then(function(doc) {
-        if (doc.exists) {
-          const data = doc.data();
+      fetch('https://us-central1-sofvo-19d84.cloudfunctions.net/getPublicProfile?uid=' + encodeURIComponent(refUserId))
+        .then(function(res) { return res.ok ? res.json() : Promise.reject(res.status); })
+        .then(function(data) {
           const nickname = data.nickname || '名前なし';
           const avatarUrl = data.avatarUrl || '';
 
           document.getElementById('referrerName').textContent = nickname + ' さん';
 
-          const avatarEl = document.getElementById('referrerAvatar');
+          var avatarEl = document.getElementById('referrerAvatar');
           if (avatarUrl) {
             avatarEl.innerHTML = '<img src="' + avatarUrl + '" alt="' + nickname + '">';
           } else {
@@ -512,10 +501,10 @@
           }
 
           document.getElementById('referrerCard').classList.add('show');
-        }
-      }).catch(function(err) {
-        console.log('紹介者情報の取得に失敗:', err);
-      });
+        })
+        .catch(function(err) {
+          console.log('紹介者情報の取得に失敗:', err);
+        });
     }
   </script>
 
