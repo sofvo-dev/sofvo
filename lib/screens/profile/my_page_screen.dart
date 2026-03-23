@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -432,6 +433,7 @@ class MyPageScreen extends StatelessWidget {
                                   final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
                                   Share.share(
                                     'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl',
+                                    subject: 'Sofvo - ソフトバレーボールアプリ',
                                   );
                                 },
                                 icon: const Icon(Icons.share, size: 18),
@@ -440,6 +442,30 @@ class MyPageScreen extends StatelessWidget {
                                   backgroundColor: AppTheme.accentColor,
                                   foregroundColor: Colors.white,
                                   minimumSize: const Size(double.infinity, 48),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
+                                  Clipboard.setData(ClipboardData(text: referralUrl));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('リンクをコピーしました'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.copy, size: 18),
+                                label: const Text('リンクをコピー', style: TextStyle(fontSize: 14)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.accentColor,
+                                  side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.4)),
+                                  minimumSize: const Size(double.infinity, 40),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
                               ),
