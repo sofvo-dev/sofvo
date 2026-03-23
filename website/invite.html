@@ -351,9 +351,46 @@
     .bottom-spacer {
       height: 80px;
     }
+
+    /* ── アプリ内ブラウザ警告バナー ── */
+    .inapp-banner {
+      display: none;
+      background: linear-gradient(135deg, #FF6B35, #E85D26);
+      color: var(--white);
+      padding: 16px 20px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 300;
+      box-shadow: 0 2px 12px rgba(232,93,38,0.3);
+    }
+    .inapp-banner.show { display: block; }
+    .inapp-banner p {
+      font-size: 13px;
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+    .inapp-banner-btn {
+      display: inline-block;
+      background: var(--white);
+      color: #E85D26;
+      padding: 10px 24px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
+
+  <!-- アプリ内ブラウザ警告 -->
+  <div class="inapp-banner" id="inappBanner">
+    <p>このブラウザでは正常に動作しない場合があります</p>
+    <button class="inapp-banner-btn" id="openExternalBtn">外部ブラウザで開く</button>
+  </div>
 
   <!-- ヘッダー -->
   <div class="header">
@@ -472,24 +509,62 @@
   <div class="bottom-spacer"></div>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const refUserId = params.get('ref');
+    var params = new URLSearchParams(window.location.search);
+    var refUserId = params.get('ref');
+
+    // ── アプリ内ブラウザ検出 ──
+    var ua = navigator.userAgent.toLowerCase();
+    var isLine = ua.indexOf('line/') !== -1;
+    var isFacebook = ua.indexOf('fbav/') !== -1 || ua.indexOf('fban/') !== -1;
+    var isInstagram = ua.indexOf('instagram') !== -1;
+    var isInAppBrowser = isLine || isFacebook || isInstagram;
+
+    var currentUrl = window.location.href;
+
+    if (isInAppBrowser) {
+      document.getElementById('inappBanner').classList.add('show');
+
+      document.getElementById('openExternalBtn').addEventListener('click', function() {
+        // Android: intent:// で外部ブラウザを起動
+        if (ua.indexOf('android') !== -1) {
+          var intentUrl = 'intent://' + currentUrl.replace(/^https?:\/\//, '') +
+            '#Intent;scheme=https;package=com.android.chrome;end';
+          window.location.href = intentUrl;
+        } else {
+          // iOS: Safari で開くよう案内（自動では開けない）
+          // window.open は同じアプリ内ブラウザで開くため、
+          // ユーザーにメニューからの操作を案内
+          var banner = document.getElementById('inappBanner');
+          banner.querySelector('p').textContent =
+            '右上の「…」メニューから「ブラウザで開く」を選んでください';
+          banner.querySelector('button').style.display = 'none';
+        }
+      });
+    }
 
     // アプリURLを生成（紹介コード付き）
-    const appBaseUrl = window.location.origin + '/app/';
-    const appUrl = refUserId ? appBaseUrl + '?ref=' + encodeURIComponent(refUserId) : appBaseUrl;
+    var appBaseUrl = window.location.origin + '/app/';
+    var appUrl = refUserId ? appBaseUrl + '?ref=' + encodeURIComponent(refUserId) : appBaseUrl;
 
     // CTAボタンのリンク設定
     document.getElementById('ctaBtn').href = appUrl;
     document.getElementById('bottomCtaBtn').href = appUrl;
+
+    // アプリ内ブラウザの場合、CTAもintent://に差し替え（Android）
+    if (isInAppBrowser && ua.indexOf('android') !== -1) {
+      var appIntentUrl = 'intent://' + appUrl.replace(/^https?:\/\//, '') +
+        '#Intent;scheme=https;package=com.android.chrome;end';
+      document.getElementById('ctaBtn').href = appIntentUrl;
+      document.getElementById('bottomCtaBtn').href = appIntentUrl;
+    }
 
     // Cloud Function経由で紹介者の公開プロフィールを取得
     if (refUserId) {
       fetch('https://us-central1-sofvo-19d84.cloudfunctions.net/getPublicProfile?uid=' + encodeURIComponent(refUserId))
         .then(function(res) { return res.ok ? res.json() : Promise.reject(res.status); })
         .then(function(data) {
-          const nickname = data.nickname || '名前なし';
-          const avatarUrl = data.avatarUrl || '';
+          var nickname = data.nickname || '名前なし';
+          var avatarUrl = data.avatarUrl || '';
 
           document.getElementById('referrerName').textContent = nickname + ' さん';
 
