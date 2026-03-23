@@ -146,12 +146,15 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     });
 
     try {
+      final batch = FirebaseFirestore.instance.batch();
+
       if (wasFollowing) {
         // フォロー解除
-        await myRef.collection('following').doc(targetUid).delete();
-        await targetRef.collection('followers').doc(myUid).delete();
-        await myRef.update({'followingCount': FieldValue.increment(-1)});
-        await targetRef.update({'followersCount': FieldValue.increment(-1)});
+        batch.delete(myRef.collection('following').doc(targetUid));
+        batch.delete(targetRef.collection('followers').doc(myUid));
+        batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
+        batch.update(targetRef, {'followersCount': FieldValue.increment(-1)});
+        await batch.commit();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -160,15 +163,16 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         }
       } else {
         // フォロー
-        await myRef.collection('following').doc(targetUid).set({
+        batch.set(myRef.collection('following').doc(targetUid), {
           'nickname': targetName,
           'createdAt': FieldValue.serverTimestamp(),
         });
-        await targetRef.collection('followers').doc(myUid).set({
+        batch.set(targetRef.collection('followers').doc(myUid), {
           'createdAt': FieldValue.serverTimestamp(),
         });
-        await myRef.update({'followingCount': FieldValue.increment(1)});
-        await targetRef.update({'followersCount': FieldValue.increment(1)});
+        batch.update(myRef, {'followingCount': FieldValue.increment(1)});
+        batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
+        await batch.commit();
 
         // フォロー通知
         final myDoc = await myRef.get();

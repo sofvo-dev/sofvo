@@ -404,16 +404,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       final myDoc = await myRef.get();
       final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
 
-      await myRef.collection('following').doc(organizerId).set({
+      final batch = _firestore.batch();
+      batch.set(myRef.collection('following').doc(organizerId), {
         'nickname': targetNickname,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      await targetRef.collection('followers').doc(uid).set({
+      batch.set(targetRef.collection('followers').doc(uid), {
         'nickname': myNickname,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      await myRef.update({'followingCount': FieldValue.increment(1)});
-      await targetRef.update({'followersCount': FieldValue.increment(1)});
+      batch.update(myRef, {'followingCount': FieldValue.increment(1)});
+      batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
+      await batch.commit();
     } catch (e) {
       if (mounted) setState(() => _isFollowing = false);
     }

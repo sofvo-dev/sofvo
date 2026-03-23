@@ -284,28 +284,30 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       final myRef = _firestore.collection('users').doc(_currentUid);
       final targetRef = _firestore.collection('users').doc(widget.userId);
+      final batch = _firestore.batch();
 
       if (wasFollowing) {
-        await myRef.collection('following').doc(widget.userId).delete();
-        await targetRef.collection('followers').doc(_currentUid).delete();
-        await myRef.update({'followingCount': FieldValue.increment(-1)});
-        await targetRef.update({'followersCount': FieldValue.increment(-1)});
+        batch.delete(myRef.collection('following').doc(widget.userId));
+        batch.delete(targetRef.collection('followers').doc(_currentUid));
+        batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
+        batch.update(targetRef, {'followersCount': FieldValue.increment(-1)});
       } else {
         final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
         final myDoc = await myRef.get();
         final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
 
-        await myRef.collection('following').doc(widget.userId).set({
+        batch.set(myRef.collection('following').doc(widget.userId), {
           'nickname': targetNickname,
           'createdAt': FieldValue.serverTimestamp(),
         });
-        await targetRef.collection('followers').doc(_currentUid).set({
+        batch.set(targetRef.collection('followers').doc(_currentUid), {
           'nickname': myNickname,
           'createdAt': FieldValue.serverTimestamp(),
         });
-        await myRef.update({'followingCount': FieldValue.increment(1)});
-        await targetRef.update({'followersCount': FieldValue.increment(1)});
+        batch.update(myRef, {'followingCount': FieldValue.increment(1)});
+        batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
       }
+      await batch.commit();
     } catch (e) {
       if (mounted) {
         setState(() {
