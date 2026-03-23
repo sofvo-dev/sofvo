@@ -3,7 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ━━━ 共通関数 ━━━
+    // ━━━━ 共通関数 ━━━━
     function isAuthenticated() {
       return request.auth != null;
     }
