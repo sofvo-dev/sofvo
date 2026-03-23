@@ -66,12 +66,16 @@ class _ChatListScreenState extends State<ChatListScreen>
         .doc(_currentUser!.uid)
         .collection('pinnedChats')
         .doc(chatId);
-    if (_pinnedChatIds.contains(chatId)) {
-      await ref.delete();
-      if (mounted) setState(() => _pinnedChatIds.remove(chatId));
-    } else {
-      await ref.set({'pinnedAt': FieldValue.serverTimestamp()});
-      if (mounted) setState(() => _pinnedChatIds.add(chatId));
+    final wasPinned = _pinnedChatIds.contains(chatId);
+    setState(() {
+      if (wasPinned) { _pinnedChatIds.remove(chatId); } else { _pinnedChatIds.add(chatId); }
+    });
+    try {
+      if (wasPinned) { await ref.delete(); } else { await ref.set({'pinnedAt': FieldValue.serverTimestamp()}); }
+    } catch (e) {
+      if (mounted) setState(() {
+        if (wasPinned) { _pinnedChatIds.add(chatId); } else { _pinnedChatIds.remove(chatId); }
+      });
     }
   }
 
@@ -82,12 +86,16 @@ class _ChatListScreenState extends State<ChatListScreen>
         .doc(_currentUser!.uid)
         .collection('hiddenChats')
         .doc(chatId);
-    if (_hiddenChatIds.contains(chatId)) {
-      await ref.delete();
-      if (mounted) setState(() => _hiddenChatIds.remove(chatId));
-    } else {
-      await ref.set({'hiddenAt': FieldValue.serverTimestamp()});
-      if (mounted) setState(() => _hiddenChatIds.add(chatId));
+    final wasHidden = _hiddenChatIds.contains(chatId);
+    setState(() {
+      if (wasHidden) { _hiddenChatIds.remove(chatId); } else { _hiddenChatIds.add(chatId); }
+    });
+    try {
+      if (wasHidden) { await ref.delete(); } else { await ref.set({'hiddenAt': FieldValue.serverTimestamp()}); }
+    } catch (e) {
+      if (mounted) setState(() {
+        if (wasHidden) { _hiddenChatIds.add(chatId); } else { _hiddenChatIds.remove(chatId); }
+      });
     }
   }
 

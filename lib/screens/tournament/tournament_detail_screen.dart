@@ -395,23 +395,28 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       return;
     }
 
-    final targetDoc = await targetRef.get();
-    final targetNickname = (targetDoc.data()?['nickname'] as String?) ?? '主催者';
-    final myDoc = await myRef.get();
-    final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
+    // UI即時更新
+    setState(() => _isFollowing = true);
 
-    await myRef.collection('following').doc(organizerId).set({
-      'nickname': targetNickname,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    await targetRef.collection('followers').doc(uid).set({
-      'nickname': myNickname,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    await myRef.update({'followingCount': FieldValue.increment(1)});
-    await targetRef.update({'followersCount': FieldValue.increment(1)});
+    try {
+      final targetDoc = await targetRef.get();
+      final targetNickname = (targetDoc.data()?['nickname'] as String?) ?? '主催者';
+      final myDoc = await myRef.get();
+      final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
 
-    if (mounted) setState(() => _isFollowing = true);
+      await myRef.collection('following').doc(organizerId).set({
+        'nickname': targetNickname,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await targetRef.collection('followers').doc(uid).set({
+        'nickname': myNickname,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await myRef.update({'followingCount': FieldValue.increment(1)});
+      await targetRef.update({'followersCount': FieldValue.increment(1)});
+    } catch (e) {
+      if (mounted) setState(() => _isFollowing = false);
+    }
   }
 
   Widget _buildFollowBanner() {

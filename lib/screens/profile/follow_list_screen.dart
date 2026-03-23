@@ -335,6 +335,12 @@ class _FollowListScreenState extends State<FollowListScreen> {
   }
 
   Future<void> _removeFollow(String targetUid) async {
+    // UI即時更新
+    final removedUser = _userCache.remove(targetUid);
+    final removedDocs = _followDocs;
+    _followDocs = _followDocs?.where((d) => d.id != targetUid).toList();
+    if (mounted) setState(() {});
+
     try {
       final firestore = FirebaseFirestore.instance;
       if (widget.isFollowers) {
@@ -350,15 +356,16 @@ class _FollowListScreenState extends State<FollowListScreen> {
         await firestore.collection('users').doc(widget.userId).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
         await firestore.collection('users').doc(targetUid).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
       }
-      _userCache.remove(targetUid);
-      _followDocs = _followDocs?.where((d) => d.id != targetUid).toList();
       if (mounted) {
-        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('削除しました'), backgroundColor: AppTheme.success));
       }
     } catch (e) {
+      // エラー時はUIを元に戻す
+      if (removedUser != null) _userCache[targetUid] = removedUser;
+      _followDocs = removedDocs;
       if (mounted) {
+        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
       }

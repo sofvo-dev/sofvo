@@ -154,22 +154,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         .collection('mutedChats')
         .doc(widget.chatId);
 
-    if (_isMuted) {
-      await ref.delete();
-      setState(() => _isMuted = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('通知をオンにしました')),
-        );
+    final wasMuted = _isMuted;
+    setState(() => _isMuted = !_isMuted);
+
+    try {
+      if (wasMuted) {
+        await ref.delete();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('通知をオンにしました')),
+          );
+        }
+      } else {
+        await ref.set({'mutedAt': FieldValue.serverTimestamp()});
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('このチャットの通知をオフにしました')),
+          );
+        }
       }
-    } else {
-      await ref.set({'mutedAt': FieldValue.serverTimestamp()});
-      setState(() => _isMuted = true);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('このチャットの通知をオフにしました')),
-        );
-      }
+    } catch (e) {
+      if (mounted) setState(() => _isMuted = wasMuted);
     }
   }
 
