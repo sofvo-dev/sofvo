@@ -2293,6 +2293,30 @@ exports.checkBookmarkAlerts = functions.pubsub
   });
 
 // ── テスト送信用（管理者のみ） ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 招待ページ用: 公開プロフィール取得（未認証OK）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.getPublicProfile = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const uid = req.query.uid;
+  if (!uid) { res.status(400).json({error: "uid is required"}); return; }
+
+  try {
+    const doc = await admin.firestore().collection("users").doc(uid).get();
+    if (!doc.exists) { res.status(404).json({error: "user not found"}); return; }
+    const data = doc.data();
+    res.json({
+      nickname: data.nickname || null,
+      avatarUrl: data.avatarUrl || null,
+    });
+  } catch (e) {
+    res.status(500).json({error: e.message});
+  }
+});
+
 exports.testWelcomeEmail = functions.https.onRequest(async (req, res) => {
   try {
     const email = req.body.email || req.query.email;
