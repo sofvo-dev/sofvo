@@ -344,25 +344,18 @@ class _FollowListScreenState extends State<FollowListScreen> {
     if (mounted) setState(() {});
 
     try {
+      // カウント更新はCloud Functionが自動処理
       final firestore = FirebaseFirestore.instance;
       if (widget.isFollowers) {
         // フォロワーから削除: targetUid が widget.userId をフォローしている関係を削除
-        // 自分の followers サブコレクションは権限あり
         await firestore.collection('users').doc(widget.userId).collection('followers').doc(targetUid).delete();
-        // 相手の following 削除・カウント更新は権限がない場合があるので個別に catch
         await firestore.collection('users').doc(targetUid).collection('following').doc(widget.userId).delete().catchError((_) {});
-        await firestore.collection('users').doc(widget.userId).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
-        await firestore.collection('users').doc(targetUid).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
       } else {
         // フォロー解除: widget.userId が targetUid をフォローしている関係を削除
-        // 自分の following と相手の followers（followerId=自分）は権限あり
         final batch = firestore.batch();
         batch.delete(firestore.collection('users').doc(widget.userId).collection('following').doc(targetUid));
         batch.delete(firestore.collection('users').doc(targetUid).collection('followers').doc(widget.userId));
-        batch.update(firestore.collection('users').doc(widget.userId), {'followingCount': FieldValue.increment(-1)});
         await batch.commit();
-        // 相手のカウント更新は権限がない場合があるので個別に catch
-        await firestore.collection('users').doc(targetUid).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

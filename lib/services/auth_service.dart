@@ -192,6 +192,7 @@ class AuthService {
 
     // ── 他ユーザーのフォロー/フォロワーから自分を削除 ──
     // 自分をフォローしているユーザーのfollowingから削除
+    // カウント更新はCloud Functionが自動処理（サブコレクション削除がトリガー）
     final myFollowers = await userRef.collection('followers').get();
     for (final followerDoc in myFollowers.docs) {
       try {
@@ -201,9 +202,6 @@ class AuthService {
             .collection('following')
             .doc(uid)
             .delete();
-        await firestore.collection('users').doc(followerDoc.id).update({
-          'followingCount': FieldValue.increment(-1),
-        });
       } catch (_) {}
     }
     // 自分がフォローしているユーザーのfollowersから削除
@@ -216,9 +214,6 @@ class AuthService {
             .collection('followers')
             .doc(uid)
             .delete();
-        await firestore.collection('users').doc(followingDoc.id).update({
-          'followersCount': FieldValue.increment(-1),
-        });
       } catch (_) {}
     }
 
