@@ -27,6 +27,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
 
   // フォロー状態キャッシュ
   final Set<String> _followingIds = {};
+  final Set<String> _togglingIds = {};
   String _mySearchId = '';
 
   @override
@@ -129,7 +130,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
 
   // ── フォロー切替 ──
   Future<void> _toggleFollow(String targetUid, String targetName) async {
-    if (_currentUser == null) return;
+    if (_currentUser == null || _togglingIds.contains(targetUid)) return;
     final myUid = _currentUser!.uid;
     final myRef = FirebaseFirestore.instance.collection('users').doc(myUid);
     final targetRef = FirebaseFirestore.instance.collection('users').doc(targetUid);
@@ -138,6 +139,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
 
     // UI即時更新
     setState(() {
+      _togglingIds.add(targetUid);
       if (wasFollowing) {
         _followingIds.remove(targetUid);
       } else {
@@ -146,26 +148,20 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     });
 
     try {
+      // フォロー時は通知用に自分の情報を先に取得
+      Map<String, dynamic> myData = {};
+      if (!wasFollowing) {
+        final myDoc = await myRef.get();
+        myData = myDoc.data() ?? {};
+      }
+
+      final batch = FirebaseFirestore.instance.batch();
       if (wasFollowing) {
-        // フォロー解除
-        final batch = FirebaseFirestore.instance.batch();
         batch.delete(myRef.collection('following').doc(targetUid));
         batch.delete(targetRef.collection('followers').doc(myUid));
         batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
         batch.update(targetRef, {'followersCount': FieldValue.increment(-1)});
-        await batch.commit();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('$targetNameさんのフォローを解除しました'),
-              backgroundColor: AppTheme.textSecondary));
-        }
       } else {
-        // フォロー — 通知用に自分の情報を先に取得
-        final myDoc = await myRef.get();
-        final myData = myDoc.data() ?? {};
-
-        final batch = FirebaseFirestore.instance.batch();
         batch.set(myRef.collection('following').doc(targetUid), {
           'nickname': targetName,
           'createdAt': FieldValue.serverTimestamp(),
@@ -175,25 +171,27 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         });
         batch.update(myRef, {'followingCount': FieldValue.increment(1)});
         batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
-        await batch.commit();
+      }
+      await batch.commit();
 
-        // フォロー通知
+      if (!wasFollowing) {
         NotificationService.sendFollowNotification(
           targetUserId: targetUid,
           senderId: myUid,
           senderName: myData['nickname'] ?? '不明',
           senderAvatar: myData['avatarUrl'] ?? '',
         );
+      }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('$targetNameさんをフォローしました！'),
-              backgroundColor: AppTheme.success));
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(wasFollowing
+                ? '$targetNameさんのフォローを解除しました'
+                : '$targetNameさんをフォローしました！'),
+            backgroundColor: wasFollowing ? AppTheme.textSecondary : AppTheme.success));
       }
     } catch (e) {
       debugPrint('フォロー切替エラー: $e');
-      // エラー時はUIを元に戻す
       if (mounted) {
         setState(() {
           if (wasFollowing) {
@@ -201,6 +199,15 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
           } else {
             _followingIds.remove(targetUid);
           }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('フォロー操作に失敗しました: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _togglingIds.remove(targetUid);
         });
       }
     }
