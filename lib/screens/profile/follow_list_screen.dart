@@ -343,19 +343,21 @@ class _FollowListScreenState extends State<FollowListScreen> {
 
     try {
       final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
       if (widget.isFollowers) {
         // フォロワーから削除: targetUid が widget.userId をフォローしている関係を削除
-        await firestore.collection('users').doc(widget.userId).collection('followers').doc(targetUid).delete();
-        await firestore.collection('users').doc(targetUid).collection('following').doc(widget.userId).delete();
-        await firestore.collection('users').doc(widget.userId).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
-        await firestore.collection('users').doc(targetUid).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
+        batch.delete(firestore.collection('users').doc(widget.userId).collection('followers').doc(targetUid));
+        batch.delete(firestore.collection('users').doc(targetUid).collection('following').doc(widget.userId));
+        batch.update(firestore.collection('users').doc(widget.userId), {'followersCount': FieldValue.increment(-1)});
+        batch.update(firestore.collection('users').doc(targetUid), {'followingCount': FieldValue.increment(-1)});
       } else {
         // フォロー解除: widget.userId が targetUid をフォローしている関係を削除
-        await firestore.collection('users').doc(widget.userId).collection('following').doc(targetUid).delete();
-        await firestore.collection('users').doc(targetUid).collection('followers').doc(widget.userId).delete();
-        await firestore.collection('users').doc(widget.userId).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
-        await firestore.collection('users').doc(targetUid).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
+        batch.delete(firestore.collection('users').doc(widget.userId).collection('following').doc(targetUid));
+        batch.delete(firestore.collection('users').doc(targetUid).collection('followers').doc(widget.userId));
+        batch.update(firestore.collection('users').doc(widget.userId), {'followingCount': FieldValue.increment(-1)});
+        batch.update(firestore.collection('users').doc(targetUid), {'followersCount': FieldValue.increment(-1)});
       }
+      await batch.commit();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('削除しました'), backgroundColor: AppTheme.success));

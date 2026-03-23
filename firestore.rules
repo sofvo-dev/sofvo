@@ -20,7 +20,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow update: if isOwner(userId)
+        || (isAuthenticated()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount']));
       allow delete: if isOwner(userId);
 
       // 個人情報（メール、性別、生年月日、FCMトークン等）— 本人のみアクセス可
