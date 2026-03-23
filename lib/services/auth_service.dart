@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
@@ -83,13 +83,36 @@ class AuthService {
     return digest.toString();
   }
 
-  // Appleログイン（Web: ポップアップ優先→リダイレクトフォールバック / iOS・iPadOS・Android: sign_in_with_apple）
+  /// Apple Credential を sign_in_with_apple パッケージで取得し Firebase OAuthCredential に変換
+  /// iPad の Scene-based lifecycle で signInWithProvider が presentationAnchor を
+  /// 取得できない問題を回避するため、ネイティブ認証UIを直接呼び出す
+  Future<OAuthCredential> _getAppleCredentialNative() async {
+    final rawNonce = _generateNonce();
+    final nonce = _sha256ofString(rawNonce);
+
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: nonce,
+    );
+
+    return OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      rawNonce: rawNonce,
+    );
+  }
+
+  // Appleログイン
+  // Web: signInWithPopup → signInWithRedirect フォールバック
+  // iOS/iPadOS: sign_in_with_apple パッケージ → signInWithCredential
+  // Android: signInWithProvider（ASAuthorizationController の問題なし）
   Future<UserCredential?> signInWithApple() async {
     if (kIsWeb) {
       final provider = OAuthProvider('apple.com');
       provider.addScope('email');
       provider.addScope('name');
-      // ポップアップを優先（リダイレクト方式はiOS Safariで ITP により失敗しやすい）
       try {
         return await _auth.signInWithPopup(provider);
       } catch (e) {
@@ -102,29 +125,18 @@ class AuthService {
         }
         rethrow;
       }
-    } else {
-      // iOS / iPadOS / Android: sign_in_with_apple パッケージを使用
-      // signInWithProvider は iPad の Scene-based lifecycle で
-      // ASAuthorizationController の presentationAnchor を取得できず失敗するため、
-      // sign_in_with_apple パッケージでネイティブ認証UI を表示し、
-      // 取得した credential を Firebase Auth に渡す方式に変更
-      final rawNonce = _generateNonce();
-      final nonce = _sha256ofString(rawNonce);
-
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: nonce,
-      );
-
-      final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-      );
-
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // iOS / iPadOS: sign_in_with_apple パッケージでネイティブ認証UIを表示
+      // signInWithProvider は iPad(Scene-based lifecycle)で
+      // ASAuthorizationController の presentationAnchor を取得できず失敗する
+      final oauthCredential = await _getAppleCredentialNative();
       return await _auth.signInWithCredential(oauthCredential);
+    } else {
+      // Android: signInWithProvider で問題なし
+      final provider = OAuthProvider('apple.com');
+      provider.addScope('email');
+      provider.addScope('name');
+      return await _auth.signInWithProvider(provider);
     }
   }
 
@@ -187,22 +199,14 @@ class AuthService {
         if (result.credential != null) {
           await user.reauthenticateWithCredential(result.credential!);
         }
-      } else {
-        // sign_in_with_apple でネイティブ認証UIを表示し、credentialで再認証
-        final rawNonce = _generateNonce();
-        final nonce = _sha256ofString(rawNonce);
-        final appleCredential = await SignInWithApple.getAppleIDCredential(
-          scopes: [
-            AppleIDAuthorizationScopes.email,
-            AppleIDAuthorizationScopes.fullName,
-          ],
-          nonce: nonce,
-        );
-        final oauthCredential = OAuthProvider('apple.com').credential(
-          idToken: appleCredential.identityToken,
-          rawNonce: rawNonce,
-        );
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        // iOS/iPadOS: sign_in_with_apple でネイティブ認証UIを表示し再認証
+        final oauthCredential = await _getAppleCredentialNative();
         await user.reauthenticateWithCredential(oauthCredential);
+      } else {
+        // Android: reauthenticateWithProvider で問題なし
+        final appleProvider = OAuthProvider('apple.com');
+        await user.reauthenticateWithProvider(appleProvider);
       }
     } else {
       // メール/パスワード認証
