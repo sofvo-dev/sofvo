@@ -2333,3 +2333,63 @@ exports.testWelcomeEmail = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// フォロー数の自動更新（Firestoreトリガー）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// followers サブコレクションが作成された → followersCount +1
+exports.onFollowerCreated = functions.firestore
+  .document("users/{userId}/followers/{followerId}")
+  .onCreate(async (snap, context) => {
+    const { userId } = context.params;
+    try {
+      await admin.firestore().collection("users").doc(userId).update({
+        followersCount: admin.firestore.FieldValue.increment(1),
+      });
+    } catch (e) {
+      console.error(`[onFollowerCreated] ${userId}: ${e.message}`);
+    }
+  });
+
+// followers サブコレクションが削除された → followersCount -1
+exports.onFollowerDeleted = functions.firestore
+  .document("users/{userId}/followers/{followerId}")
+  .onDelete(async (snap, context) => {
+    const { userId } = context.params;
+    try {
+      await admin.firestore().collection("users").doc(userId).update({
+        followersCount: admin.firestore.FieldValue.increment(-1),
+      });
+    } catch (e) {
+      console.error(`[onFollowerDeleted] ${userId}: ${e.message}`);
+    }
+  });
+
+// following サブコレクションが作成された → followingCount +1
+exports.onFollowingCreated = functions.firestore
+  .document("users/{userId}/following/{followId}")
+  .onCreate(async (snap, context) => {
+    const { userId } = context.params;
+    try {
+      await admin.firestore().collection("users").doc(userId).update({
+        followingCount: admin.firestore.FieldValue.increment(1),
+      });
+    } catch (e) {
+      console.error(`[onFollowingCreated] ${userId}: ${e.message}`);
+    }
+  });
+
+// following サブコレクションが削除された → followingCount -1
+exports.onFollowingDeleted = functions.firestore
+  .document("users/{userId}/following/{followId}")
+  .onDelete(async (snap, context) => {
+    const { userId } = context.params;
+    try {
+      await admin.firestore().collection("users").doc(userId).update({
+        followingCount: admin.firestore.FieldValue.increment(-1),
+      });
+    } catch (e) {
+      console.error(`[onFollowingDeleted] ${userId}: ${e.message}`);
+    }
+  });

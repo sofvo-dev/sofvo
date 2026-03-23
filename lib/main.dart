@@ -279,6 +279,7 @@ class _AuthGateState extends State<AuthGate> {
       });
 
       // 紹介者 → 新規ユーザー をフォロー（既にフォロー済みでなければ）
+      // カウント更新はCloud Functionが自動処理
       final reverseFollow = await referrerRef.collection('following').doc(myUid).get();
       if (!reverseFollow.exists) {
         await referrerRef.collection('following').doc(myUid).set({
@@ -288,21 +289,7 @@ class _AuthGateState extends State<AuthGate> {
         await myRef.collection('followers').doc(referrerUid).set({
           'createdAt': FieldValue.serverTimestamp(),
         });
-        await referrerRef.update({
-          'followingCount': FieldValue.increment(1),
-        });
-        await myRef.update({
-          'followersCount': FieldValue.increment(1),
-        });
       }
-
-      // カウンター更新（自分→紹介者のフォロー分）
-      await myRef.update({
-        'followingCount': FieldValue.increment(1),
-      });
-      await referrerRef.update({
-        'followersCount': FieldValue.increment(1),
-      });
 
       // 紹介者に通知
       NotificationService.sendFollowNotification(

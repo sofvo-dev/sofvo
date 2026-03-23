@@ -243,22 +243,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       });
 
       // 紹介者 → 新規ユーザー をフォロー
+      // カウント更新はCloud Functionが自動処理
       await referrerRef.collection('following').doc(myUid).set({
         'nickname': myNickname,
         'createdAt': FieldValue.serverTimestamp(),
       });
       await myRef.collection('followers').doc(referrerUid).set({
         'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // カウンター更新
-      await myRef.update({
-        'followingCount': FieldValue.increment(1),
-        'followersCount': FieldValue.increment(1),
-      });
-      await referrerRef.update({
-        'followingCount': FieldValue.increment(1),
-        'followersCount': FieldValue.increment(1),
       });
 
       // 紹介者に通知を送る
