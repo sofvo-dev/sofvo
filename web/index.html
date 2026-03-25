@@ -38,30 +38,19 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 
   <style>
-    .loading-screen {
+    #splash {
       position: fixed; inset: 0; z-index: 9999;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #1a2a44 0%, #243b5e 50%, #2d4a6f 100%);
+      display: flex; align-items: center; justify-content: center;
+      background: #f5f5f8;
+      transition: opacity .3s ease;
     }
-    .loading-screen .logo {
-      font-size: 32px; font-weight: 700; color: #fff;
-      letter-spacing: 2px; margin-bottom: 24px;
-    }
-    .loading-screen .spinner {
-      width: 28px; height: 28px;
-      border: 3px solid rgba(255,255,255,0.2);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    #splash.fade-out { opacity: 0; pointer-events: none; }
+    #splash img { width: 72px; height: 72px; border-radius: 16px; }
   </style>
 </head>
 <body>
-  <div id="splash" class="loading-screen">
-    <div class="logo">Sofvo</div>
-    <div class="spinner"></div>
+  <div id="splash">
+    <img src="icons/Icon-192.png" alt="Sofvo">
   </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
@@ -86,10 +75,11 @@
     }
   </script>
   <script>
-    // Flutter描画開始後にスプラッシュを非表示
     window.addEventListener('flutter-first-frame', function() {
-      var splash = document.getElementById('splash');
-      if (splash) splash.remove();
+      var s = document.getElementById('splash');
+      if (!s) return;
+      s.classList.add('fade-out');
+      setTimeout(function() { s.remove(); }, 300);
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>
