@@ -10,6 +10,7 @@ import '../../services/media_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
+import '../../services/follow_service.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
@@ -708,65 +709,42 @@ class MyPageScreen extends StatelessWidget {
 
 // ── メニューアイテムデータ ──
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// フォロー / フォロワー カウント（サブコレクション実数）
+// フォロー / フォロワー カウント（リアルタイムストリーム）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-class _FollowCounts extends StatefulWidget {
+class _FollowCounts extends StatelessWidget {
   final String userId;
   const _FollowCounts({required this.userId});
 
   @override
-  State<_FollowCounts> createState() => _FollowCountsState();
-}
-
-class _FollowCountsState extends State<_FollowCounts> {
-  int _followingCount = 0;
-  int _followersCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCounts();
-  }
-
-  @override
-  void didUpdateWidget(_FollowCounts oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.userId != widget.userId) _loadCounts();
-  }
-
-  Future<void> _loadCounts() async {
-    final userRef = FirebaseFirestore.instance.collection('users').doc(widget.userId);
-    final results = await Future.wait([
-      userRef.collection('following').get(),
-      userRef.collection('followers').get(),
-    ]);
-    if (mounted) {
-      setState(() {
-        _followingCount = results[0].docs.length;
-        _followersCount = results[1].docs.length;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final svc = FollowService.instance;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildCount('$_followingCount', 'フォロー', () async {
-          await Navigator.push(context, MaterialPageRoute(
-            builder: (_) => FollowListScreen(
-                userId: widget.userId, title: 'フォロー中', isFollowers: false)));
-          _loadCounts();
-        }),
+        StreamBuilder<int>(
+          stream: svc.followingCountStream(userId),
+          builder: (context, snap) {
+            final count = snap.data ?? 0;
+            return _buildCount('$count', 'フォロー', () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => FollowListScreen(
+                    userId: userId, title: 'フォロー中', isFollowers: false)));
+            });
+          },
+        ),
         Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
             color: Colors.white.withValues(alpha: 0.25)),
-        _buildCount('$_followersCount', 'フォロワー', () async {
-          await Navigator.push(context, MaterialPageRoute(
-            builder: (_) => FollowListScreen(
-                userId: widget.userId, title: 'フォロワー', isFollowers: true)));
-          _loadCounts();
-        }),
+        StreamBuilder<int>(
+          stream: svc.followersCountStream(userId),
+          builder: (context, snap) {
+            final count = snap.data ?? 0;
+            return _buildCount('$count', 'フォロワー', () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => FollowListScreen(
+                    userId: userId, title: 'フォロワー', isFollowers: true)));
+            });
+          },
+        ),
       ],
     );
   }

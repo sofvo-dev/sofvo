@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/app_theme.dart';
+import '../../services/follow_service.dart';
 import '../../services/notification_service.dart';
 import '../profile/user_profile_screen.dart';
 
@@ -25,8 +26,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   bool _idSearching = false;
   List<Map<String, dynamic>> _idResults = [];
 
-  // フォロー状態キャッシュ
-  final Set<String> _followingIds = {};
   final Set<String> _togglingIds = {};
   String _mySearchId = '';
 
@@ -34,20 +33,12 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadFollowing();
     _loadMySearchId();
+    FollowService.instance.addListener(_onFollowChanged);
   }
 
-  Future<void> _loadFollowing() async {
-    if (_currentUser == null) return;
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUser!.uid)
-        .collection('following')
-        .get();
-    setState(() {
-      _followingIds.addAll(snap.docs.map((d) => d.id));
-    });
+  void _onFollowChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadMySearchId() async {
@@ -65,6 +56,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
 
   @override
   void dispose() {
+    FollowService.instance.removeListener(_onFollowChanged);
     _tabController.dispose();
     _idController.dispose();
     super.dispose();
@@ -132,48 +124,33 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   Future<void> _toggleFollow(String targetUid, String targetName) async {
     if (_currentUser == null || _togglingIds.contains(targetUid)) return;
     final myUid = _currentUser!.uid;
-    final myRef = FirebaseFirestore.instance.collection('users').doc(myUid);
-    final targetRef = FirebaseFirestore.instance.collection('users').doc(targetUid);
+    final wasFollowing = FollowService.instance.isFollowing(targetUid);
 
-    final wasFollowing = _followingIds.contains(targetUid);
-
-    // UI即時更新
-    setState(() {
-      _togglingIds.add(targetUid);
-      if (wasFollowing) {
-        _followingIds.remove(targetUid);
-      } else {
-        _followingIds.add(targetUid);
-      }
-    });
+    setState(() => _togglingIds.add(targetUid));
 
     try {
-      // フォロー時は通知用に自分の情報を先に取得
-      Map<String, dynamic> myData = {};
+      // 通知用に自分の情報を先に取得
+      String myNickname = '不明';
+      String myAvatarUrl = '';
       if (!wasFollowing) {
-        final myDoc = await myRef.get();
-        myData = myDoc.data() ?? {};
+        final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+        final myData = myDoc.data() ?? {};
+        myNickname = (myData['nickname'] as String?) ?? '不明';
+        myAvatarUrl = (myData['avatarUrl'] as String?) ?? '';
       }
 
-      if (wasFollowing) {
-        await myRef.collection('following').doc(targetUid).delete();
-        await targetRef.collection('followers').doc(myUid).delete().catchError((_) {});
-      } else {
-        await myRef.collection('following').doc(targetUid).set({
-          'nickname': targetName,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        await targetRef.collection('followers').doc(myUid).set({
-          'createdAt': FieldValue.serverTimestamp(),
-        }).catchError((_) {});
-      }
+      await FollowService.instance.toggleFollow(
+        targetUid: targetUid,
+        targetNickname: targetName,
+      );
+      // UI は FollowService のリスナー (_onFollowChanged) が自動更新
 
       if (!wasFollowing) {
         NotificationService.sendFollowNotification(
           targetUserId: targetUid,
           senderId: myUid,
-          senderName: myData['nickname'] ?? '不明',
-          senderAvatar: myData['avatarUrl'] ?? '',
+          senderName: myNickname,
+          senderAvatar: myAvatarUrl,
         );
       }
 
@@ -187,22 +164,13 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     } catch (e) {
       debugPrint('フォロー切替エラー: $e');
       if (mounted) {
-        setState(() {
-          if (wasFollowing) {
-            _followingIds.add(targetUid);
-          } else {
-            _followingIds.remove(targetUid);
-          }
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('フォロー操作に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _togglingIds.remove(targetUid);
-        });
+        setState(() => _togglingIds.remove(targetUid));
       }
     }
   }
@@ -509,7 +477,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
             ? '${(user['area'] as Map)['prefecture'] ?? ''}'
             : '';
     final bio = (user['bio'] ?? '').toString();
-    final isFollowing = _followingIds.contains(uid);
+    final isFollowing = FollowService.instance.isFollowing(uid);
 
     return GestureDetector(
       onTap: () {

@@ -11,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'config/app_theme.dart';
 import 'services/auth_service.dart';
+import 'services/follow_service.dart';
 import 'services/notification_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -137,12 +138,22 @@ class _AuthGateState extends State<AuthGate> {
       _isInitialLoading = false;
     }
     // ストリームで認証状態の変化を監視
+    // FollowService の初期化
+    if (_currentUser != null) {
+      FollowService.instance.startListening(_currentUser!.uid);
+    }
     _authSubscription = AuthService().authStateChanges.listen((user) {
       if (mounted && !suppressAuthStateChange) {
         setState(() {
           _currentUser = user;
           _isInitialLoading = false;
         });
+      }
+      // FollowService の認証同期
+      if (user != null) {
+        FollowService.instance.startListening(user.uid);
+      } else {
+        FollowService.instance.stopListening();
       }
     });
   }
