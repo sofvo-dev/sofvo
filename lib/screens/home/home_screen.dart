@@ -254,8 +254,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     if (!_initialLoaded) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryColor));
+      return const SizedBox.shrink();
     }
 
     final uid = currentUser.uid;
@@ -314,9 +313,7 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
         if (!postSnapshot.hasData) {
-          return const Center(
-              child: CircularProgressIndicator(
-                  color: AppTheme.primaryColor));
+          return const SizedBox.shrink();
         }
 
         final allPosts = postSnapshot.data?.docs ?? [];
