@@ -155,20 +155,18 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         myData = myDoc.data() ?? {};
       }
 
-      final batch = FirebaseFirestore.instance.batch();
       if (wasFollowing) {
-        batch.delete(myRef.collection('following').doc(targetUid));
-        batch.delete(targetRef.collection('followers').doc(myUid));
+        await myRef.collection('following').doc(targetUid).delete();
+        await targetRef.collection('followers').doc(myUid).delete().catchError((_) {});
       } else {
-        batch.set(myRef.collection('following').doc(targetUid), {
+        await myRef.collection('following').doc(targetUid).set({
           'nickname': targetName,
           'createdAt': FieldValue.serverTimestamp(),
         });
-        batch.set(targetRef.collection('followers').doc(myUid), {
+        await targetRef.collection('followers').doc(myUid).set({
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        }).catchError((_) {});
       }
-      await batch.commit();
 
       if (!wasFollowing) {
         NotificationService.sendFollowNotification(

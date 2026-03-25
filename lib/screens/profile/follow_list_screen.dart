@@ -415,22 +415,19 @@ class _FollowListScreenState extends State<FollowListScreen> {
       final firestore = FirebaseFirestore.instance;
       final myRef = firestore.collection('users').doc(currentUid);
       final targetRef = firestore.collection('users').doc(targetUid);
-      final batch = firestore.batch();
       if (wasFollowing) {
-        batch.delete(myRef.collection('following').doc(targetUid));
-        batch.delete(targetRef.collection('followers').doc(currentUid));
+        await myRef.collection('following').doc(targetUid).delete();
+        await targetRef.collection('followers').doc(currentUid).delete().catchError((_) {});
       } else {
         final targetData = _userCache[targetUid];
-        batch.set(myRef.collection('following').doc(targetUid), {
+        await myRef.collection('following').doc(targetUid).set({
           'nickname': targetData?['nickname'] ?? '',
           'createdAt': FieldValue.serverTimestamp(),
         });
-        batch.set(targetRef.collection('followers').doc(currentUid), {
-          'nickname': '',
+        await targetRef.collection('followers').doc(currentUid).set({
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        }).catchError((_) {});
       }
-      await batch.commit();
     } catch (e) {
       // エラー時は元に戻す
       if (mounted) {

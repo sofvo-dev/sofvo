@@ -298,22 +298,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         myAvatarUrl = (myData['avatarUrl'] as String?) ?? '';
       }
 
-      final batch = _firestore.batch();
       if (wasFollowing) {
-        batch.delete(myRef.collection('following').doc(widget.userId));
-        batch.delete(targetRef.collection('followers').doc(_currentUid));
+        await myRef.collection('following').doc(widget.userId).delete();
+        await targetRef.collection('followers').doc(_currentUid).delete().catchError((_) {});
       } else {
         final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
-        batch.set(myRef.collection('following').doc(widget.userId), {
+        await myRef.collection('following').doc(widget.userId).set({
           'nickname': targetNickname,
           'createdAt': FieldValue.serverTimestamp(),
         });
-        batch.set(targetRef.collection('followers').doc(_currentUid), {
+        await targetRef.collection('followers').doc(_currentUid).set({
           'nickname': myNickname,
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        }).catchError((_) {});
       }
-      await batch.commit();
 
       // フォロー通知を送信
       if (!wasFollowing) {
