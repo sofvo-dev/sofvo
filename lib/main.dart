@@ -320,7 +320,7 @@ class _AuthGateState extends State<AuthGate> {
     // 初期ロード中（ストリームの最初のイベント待ち）
     if (_isInitialLoading && _currentUser == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF5F5F8),
+        backgroundColor: Color(0xFF1B3A5C),
         body: SizedBox.shrink(),
       );
     }
