@@ -159,8 +159,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
       if (wasFollowing) {
         batch.delete(myRef.collection('following').doc(targetUid));
         batch.delete(targetRef.collection('followers').doc(myUid));
-        batch.update(myRef, {'followingCount': FieldValue.increment(-1)});
-        batch.update(targetRef, {'followersCount': FieldValue.increment(-1)});
       } else {
         batch.set(myRef.collection('following').doc(targetUid), {
           'nickname': targetName,
@@ -169,8 +167,6 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         batch.set(targetRef.collection('followers').doc(myUid), {
           'createdAt': FieldValue.serverTimestamp(),
         });
-        batch.update(myRef, {'followingCount': FieldValue.increment(1)});
-        batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
       }
       await batch.commit();
 
