@@ -19,6 +19,7 @@ import 'tournament_finance_screen.dart';
 import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
 import '../../services/csv_download.dart';
+import '../../services/follow_service.dart';
 import '../../services/match_generator.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
@@ -385,37 +386,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final organizerId = widget.tournament['organizerId'] as String? ?? '';
     if (organizerId.isEmpty || organizerId == uid) return;
 
-    final myRef = _firestore.collection('users').doc(uid);
-    final targetRef = _firestore.collection('users').doc(organizerId);
-
-    // 既にフォロー済みかチェック
-    final existing = await myRef.collection('following').doc(organizerId).get();
-    if (existing.exists) {
+    if (FollowService.instance.isFollowing(organizerId)) {
       setState(() => _isFollowing = true);
       return;
     }
 
-    // UI即時更新
     setState(() => _isFollowing = true);
 
     try {
-      final targetDoc = await targetRef.get();
+      final targetDoc = await _firestore.collection('users').doc(organizerId).get();
       final targetNickname = (targetDoc.data()?['nickname'] as String?) ?? '主催者';
-      final myDoc = await myRef.get();
-      final myNickname = (myDoc.data()?['nickname'] as String?) ?? 'ユーザー';
-
-      final batch = _firestore.batch();
-      batch.set(myRef.collection('following').doc(organizerId), {
-        'nickname': targetNickname,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      batch.set(targetRef.collection('followers').doc(uid), {
-        'nickname': myNickname,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      batch.update(myRef, {'followingCount': FieldValue.increment(1)});
-      batch.update(targetRef, {'followersCount': FieldValue.increment(1)});
-      await batch.commit();
+      await FollowService.instance.toggleFollow(
+        targetUid: organizerId,
+        targetNickname: targetNickname,
+      );
     } catch (e) {
       if (mounted) setState(() => _isFollowing = false);
     }
