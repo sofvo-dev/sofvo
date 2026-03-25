@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import '../../services/follow_service.dart';
 import '../../services/notification_service.dart';
 import '../chat/chat_screen.dart';
 import '../tournament/tournament_detail_screen.dart';
@@ -34,18 +35,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _loadUserData();
   }
 
+  @override
+  void dispose() {
+    FollowService.instance.removeListener(_onFollowChanged);
+    super.dispose();
+  }
+
+  void _onFollowChanged() {
+    if (mounted) {
+      setState(() {
+        _isFollowing = FollowService.instance.isFollowing(widget.userId);
+      });
+    }
+  }
+
   Future<void> _loadUserData() async {
     try {
       final userDoc = await _firestore.collection('users').doc(widget.userId).get();
       final userData = userDoc.data() ?? {};
 
-      bool isFollowing = false;
       bool isAdmin = false;
-      if (!_isMyProfile && _currentUid.isNotEmpty) {
-        final followDoc = await _firestore
-            .collection('users').doc(_currentUid).collection('following').doc(widget.userId).get();
-        isFollowing = followDoc.exists;
-      }
       if (_currentUid.isNotEmpty) {
         final myDoc = await _firestore.collection('users').doc(_currentUid).get();
         isAdmin = myDoc.data()?['isAdmin'] == true;
@@ -54,10 +63,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (mounted) {
         setState(() {
           _userData = userData;
-          _isFollowing = isFollowing;
+          _isFollowing = FollowService.instance.isFollowing(widget.userId);
           _isAdmin = isAdmin;
           _isLoading = false;
         });
+        // FollowService のリアルタイム更新を監視
+        FollowService.instance.addListener(_onFollowChanged);
       }
     } catch (e) {
       if (mounted) {
@@ -279,39 +290,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (_isMyProfile || _isFollowToggling) return;
 
     final wasFollowing = _isFollowing;
-    setState(() {
-      _isFollowing = !_isFollowing;
-      _isFollowToggling = true;
-    });
+    setState(() => _isFollowToggling = true);
 
     try {
-      final myRef = _firestore.collection('users').doc(_currentUid);
-      final targetRef = _firestore.collection('users').doc(widget.userId);
-
-      // フォロー時は通知用に自分の情報を先に取得
+      // 通知用に自分の情報を先に取得
       String myNickname = 'ユーザー';
       String myAvatarUrl = '';
       if (!wasFollowing) {
-        final myDoc = await myRef.get();
+        final myDoc = await _firestore.collection('users').doc(_currentUid).get();
         final myData = myDoc.data() ?? {};
         myNickname = (myData['nickname'] as String?) ?? 'ユーザー';
         myAvatarUrl = (myData['avatarUrl'] as String?) ?? '';
       }
 
-      if (wasFollowing) {
-        await myRef.collection('following').doc(widget.userId).delete();
-        await targetRef.collection('followers').doc(_currentUid).delete().catchError((_) {});
-      } else {
-        final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
-        await myRef.collection('following').doc(widget.userId).set({
-          'nickname': targetNickname,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        await targetRef.collection('followers').doc(_currentUid).set({
-          'nickname': myNickname,
-          'createdAt': FieldValue.serverTimestamp(),
-        }).catchError((_) {});
-      }
+      final targetNickname = (_userData['nickname'] as String?) ?? 'ユーザー';
+      await FollowService.instance.toggleFollow(
+        targetUid: widget.userId,
+        targetNickname: targetNickname,
+        myNickname: myNickname,
+      );
+      // _isFollowing はリスナー (_onFollowChanged) が自動更新
 
       // フォロー通知を送信
       if (!wasFollowing) {
@@ -325,9 +323,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (e) {
       debugPrint('フォロー切替エラー: $e');
       if (mounted) {
-        setState(() {
-          _isFollowing = wasFollowing;
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('フォロー操作に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
@@ -897,65 +892,42 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// フォロー / フォロワー カウント（サブコレクション実数）
+// フォロー / フォロワー カウント（リアルタイムストリーム）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-class _FollowCounts extends StatefulWidget {
+class _FollowCounts extends StatelessWidget {
   final String userId;
   const _FollowCounts({required this.userId});
 
   @override
-  State<_FollowCounts> createState() => _FollowCountsState();
-}
-
-class _FollowCountsState extends State<_FollowCounts> {
-  int _followingCount = 0;
-  int _followersCount = 0;
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchCounts();
-  }
-
-  Future<void> _fetchCounts() async {
-    try {
-      final ref = FirebaseFirestore.instance.collection('users').doc(widget.userId);
-      final results = await Future.wait([
-        ref.collection('following').get(),
-        ref.collection('followers').get(),
-      ]);
-      if (mounted) {
-        setState(() {
-          _followingCount = results[0].docs.length;
-          _followersCount = results[1].docs.length;
-          _loaded = true;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loaded = true);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final svc = FollowService.instance;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildCount('$_followingCount', 'フォロー', () async {
-          await Navigator.push(context, MaterialPageRoute(
-            builder: (_) => FollowListScreen(
-                userId: widget.userId, title: 'フォロー中', isFollowers: false)));
-          _fetchCounts();
-        }),
+        StreamBuilder<int>(
+          stream: svc.followingCountStream(userId),
+          builder: (context, snap) {
+            final count = snap.data ?? 0;
+            return _buildCount('$count', 'フォロー', () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => FollowListScreen(
+                    userId: userId, title: 'フォロー中', isFollowers: false)));
+            });
+          },
+        ),
         Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 24),
             color: Colors.white.withValues(alpha: 0.25)),
-        _buildCount('$_followersCount', 'フォロワー', () async {
-          await Navigator.push(context, MaterialPageRoute(
-            builder: (_) => FollowListScreen(
-                userId: widget.userId, title: 'フォロワー', isFollowers: true)));
-          _fetchCounts();
-        }),
+        StreamBuilder<int>(
+          stream: svc.followersCountStream(userId),
+          builder: (context, snap) {
+            final count = snap.data ?? 0;
+            return _buildCount('$count', 'フォロワー', () {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => FollowListScreen(
+                    userId: userId, title: 'フォロワー', isFollowers: true)));
+            });
+          },
+        ),
       ],
     );
   }

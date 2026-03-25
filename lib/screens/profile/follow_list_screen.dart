@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../services/follow_service.dart';
 import 'user_profile_screen.dart';
 
 enum _SortType { dateDesc, dateAsc, nameAsc }
@@ -33,19 +34,23 @@ class _FollowListScreenState extends State<FollowListScreen> {
   final Map<String, Map<String, dynamic>> _userCache = {};
   List<QueryDocumentSnapshot>? _followDocs;
   bool _loading = true;
-  // 自分がフォロー中のUID一覧
-  final Set<String> _myFollowingIds = {};
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    FollowService.instance.addListener(_onFollowChanged);
   }
 
   @override
   void dispose() {
+    FollowService.instance.removeListener(_onFollowChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onFollowChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadData() async {
@@ -79,17 +84,12 @@ class _FollowListScreenState extends State<FollowListScreen> {
       }
       await Future.wait(futures);
 
-      // 本人 & Admin判定 & 自分のフォロー一覧取得
+      // 本人 & Admin判定
       final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
       _isOwner = currentUid == widget.userId;
       if (currentUid.isNotEmpty) {
         final myDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
         _isAdmin = myDoc.data()?['isAdmin'] == true;
-        final followingSnap = await FirebaseFirestore.instance
-            .collection('users').doc(currentUid).collection('following').get();
-        for (final doc in followingSnap.docs) {
-          _myFollowingIds.add(doc.id);
-        }
       }
     } catch (_) {}
 
@@ -376,7 +376,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
   }
 
   Widget _buildFollowButton(String targetUid) {
-    final isFollowing = _myFollowingIds.contains(targetUid);
+    final isFollowing = FollowService.instance.isFollowing(targetUid);
     return GestureDetector(
       onTap: () => _toggleFollow(targetUid),
       child: Container(
@@ -398,46 +398,15 @@ class _FollowListScreenState extends State<FollowListScreen> {
   }
 
   Future<void> _toggleFollow(String targetUid) async {
-    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    if (currentUid.isEmpty) return;
-
-    final wasFollowing = _myFollowingIds.contains(targetUid);
-    // UI即時更新
-    setState(() {
-      if (wasFollowing) {
-        _myFollowingIds.remove(targetUid);
-      } else {
-        _myFollowingIds.add(targetUid);
-      }
-    });
-
     try {
-      final firestore = FirebaseFirestore.instance;
-      final myRef = firestore.collection('users').doc(currentUid);
-      final targetRef = firestore.collection('users').doc(targetUid);
-      if (wasFollowing) {
-        await myRef.collection('following').doc(targetUid).delete();
-        await targetRef.collection('followers').doc(currentUid).delete().catchError((_) {});
-      } else {
-        final targetData = _userCache[targetUid];
-        await myRef.collection('following').doc(targetUid).set({
-          'nickname': targetData?['nickname'] ?? '',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        await targetRef.collection('followers').doc(currentUid).set({
-          'createdAt': FieldValue.serverTimestamp(),
-        }).catchError((_) {});
-      }
+      final targetData = _userCache[targetUid];
+      await FollowService.instance.toggleFollow(
+        targetUid: targetUid,
+        targetNickname: targetData?['nickname'] as String?,
+      );
+      // UI は FollowService のリスナー (_onFollowChanged) が自動更新
     } catch (e) {
-      // エラー時は元に戻す
       if (mounted) {
-        setState(() {
-          if (wasFollowing) {
-            _myFollowingIds.add(targetUid);
-          } else {
-            _myFollowingIds.remove(targetUid);
-          }
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
       }
