@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../config/app_theme.dart';
+import '../../services/follow_service.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../tournament/post_event_action_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -26,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen>
   late TabController _tabController;
   late TabController _noticeSubTabController;
   final Set<String> _hiddenPostIds = {};
-  List<String>? _followingIds;
+  bool _initialLoaded = false;
   bool _isAdmin = false;
 
   @override
@@ -42,33 +43,35 @@ class _HomeScreenState extends State<HomeScreen>
     });
     _noticeSubTabController = TabController(length: 2, vsync: this);
     _loadInitialData();
+    FollowService.instance.addListener(_onFollowChanged);
+  }
+
+  void _onFollowChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadInitialData() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    // 並列でフォローリスト・非表示投稿・ユーザー情報を取得
     final results = await Future.wait([
-      FirebaseFirestore.instance
-          .collection('users').doc(uid).collection('following').get(),
       FirebaseFirestore.instance
           .collection('users').doc(uid).collection('hiddenPosts').get(),
       FirebaseFirestore.instance
           .collection('users').doc(uid).get(),
     ]);
     if (!mounted) return;
-    final followSnap = results[0] as QuerySnapshot;
-    final hiddenSnap = results[1] as QuerySnapshot;
-    final userDoc = results[2] as DocumentSnapshot;
+    final hiddenSnap = results[0] as QuerySnapshot;
+    final userDoc = results[1] as DocumentSnapshot;
     setState(() {
-      _followingIds = [uid, ...followSnap.docs.map((d) => d.id)];
       _hiddenPostIds.addAll(hiddenSnap.docs.map((d) => d.id));
       _isAdmin = (userDoc.data() as Map<String, dynamic>?)?['isAdmin'] == true;
+      _initialLoaded = true;
     });
   }
 
   @override
   void dispose() {
+    FollowService.instance.removeListener(_onFollowChanged);
     _tabController.dispose();
     _noticeSubTabController.dispose();
     super.dispose();
@@ -250,12 +253,13 @@ class _HomeScreenState extends State<HomeScreen>
       return const Center(child: Text('ログインしてください'));
     }
 
-    if (_followingIds == null) {
+    if (!_initialLoaded) {
       return const Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor));
     }
 
-    final queryIds = _followingIds!.take(30).toList();
+    final uid = currentUser.uid;
+    final queryIds = [uid, ...FollowService.instance.followingIds].take(30).toList();
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
