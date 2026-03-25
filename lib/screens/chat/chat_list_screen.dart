@@ -517,17 +517,22 @@ class _ChatListScreenState extends State<ChatListScreen>
                       ? Center(child: Text('「$_searchQuery」に一致するグループがありません',
                           style: const TextStyle(color: AppTheme.textSecondary)))
                       : _buildEmptyState('group'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.only(top: 4, bottom: 80),
-                      itemCount: chats.length,
-                      separatorBuilder: (_, __) => Divider(
-                          height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
-                      itemBuilder: (context, index) {
-                        final data = chats[index].data() as Map<String, dynamic>;
-                        final chatId = chats[index].id;
-                        final type = (data['type'] as String?) ?? 'team';
-                        return _buildFirestoreChatTile(chatId, data, type);
-                      },
+                  : RefreshIndicator(
+                      color: AppTheme.primaryColor,
+                      onRefresh: () async => setState(() {}),
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(top: 4, bottom: 80),
+                        itemCount: chats.length,
+                        separatorBuilder: (_, __) => Divider(
+                            height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
+                        itemBuilder: (context, index) {
+                          final data = chats[index].data() as Map<String, dynamic>;
+                          final chatId = chats[index].id;
+                          final type = (data['type'] as String?) ?? 'team';
+                          return _buildFirestoreChatTile(chatId, data, type);
+                        },
+                      ),
                     ),
             ),
           ],
@@ -606,16 +611,21 @@ class _ChatListScreenState extends State<ChatListScreen>
               : _buildEmptyState(type);
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.only(top: 4, bottom: 80),
-          itemCount: chats.length,
-          separatorBuilder: (_, __) => Divider(
-              height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
-          itemBuilder: (context, index) {
-            final data = chats[index].data() as Map<String, dynamic>;
-            final chatId = chats[index].id;
-            return _buildFirestoreChatTile(chatId, data, type);
-          },
+        return RefreshIndicator(
+          color: AppTheme.primaryColor,
+          onRefresh: () async => setState(() {}),
+          child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(top: 4, bottom: 80),
+            itemCount: chats.length,
+            separatorBuilder: (_, __) => Divider(
+                height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
+            itemBuilder: (context, index) {
+              final data = chats[index].data() as Map<String, dynamic>;
+              final chatId = chats[index].id;
+              return _buildFirestoreChatTile(chatId, data, type);
+            },
+          ),
         );
       },
     );
