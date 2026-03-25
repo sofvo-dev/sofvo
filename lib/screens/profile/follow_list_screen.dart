@@ -305,12 +305,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
                     ],
                   ),
                 ),
-                if (_isOwner || _isAdmin)
-                  IconButton(
-                    icon: const Icon(Icons.person_remove, size: 20, color: AppTheme.error),
-                    onPressed: () => _confirmRemoveFollow(uid, nickname.toString()),
-                  )
-                else if (uid != FirebaseAuth.instance.currentUser?.uid)
+                if (uid != FirebaseAuth.instance.currentUser?.uid)
                   _buildFollowButton(uid),
               ],
             ),
