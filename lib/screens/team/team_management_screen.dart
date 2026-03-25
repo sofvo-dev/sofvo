@@ -542,13 +542,9 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     final Set<String> selectedIds = {};
     bool searching = false;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetCtx) {
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
         return StatefulBuilder(
           builder: (sheetCtx, setModalState) {
             Future<void> searchFollowing() async {
@@ -578,21 +574,26 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
               });
             }
 
-            return Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(sheetCtx).viewInsets.bottom + 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(child: Container(width: 40, height: 4,
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-                  const SizedBox(height: 20),
-                  Text('「$teamName」にメンバーを招待',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  const SizedBox(height: 4),
-                  const Text('フォローしている人から選択してください',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                  const SizedBox(height: 16),
+            return Scaffold(
+              backgroundColor: Colors.white,
+              appBar: AppBar(
+                backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                title: const Text('メンバー追加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                centerTitle: true,
+              ),
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('「$teamName」にメンバーを招待',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 4),
+                    const Text('フォローしている人から選択してください',
+                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
@@ -683,7 +684,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                               });
                             }
                             if (mounted) {
-                              Navigator.pop(sheetCtx);
+                              Navigator.of(context).pop();
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                   content: Text('${selectedIds.length}人をチームに追加しました！'),
                                   backgroundColor: AppTheme.success));
@@ -696,11 +697,12 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                   ),
                 ],
               ),
+              ),
             );
           },
         );
       },
-    );
+    ));
   }
 
   // ── チーム削除 ──
