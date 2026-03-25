@@ -83,14 +83,11 @@ class _FollowListScreenState extends State<FollowListScreen> {
       final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
       _isOwner = currentUid == widget.userId;
       if (currentUid.isNotEmpty) {
-        final results = await Future.wait([
-          FirebaseFirestore.instance.collection('users').doc(currentUid).get(),
-          FirebaseFirestore.instance.collection('users').doc(currentUid).collection('following').get(),
-        ]);
-        _isAdmin = (results[0] as DocumentSnapshot).data() is Map<String, dynamic>
-            ? ((results[0] as DocumentSnapshot).data() as Map<String, dynamic>?)?['isAdmin'] == true
-            : false;
-        for (final doc in (results[1] as QuerySnapshot).docs) {
+        final myDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
+        _isAdmin = myDoc.data()?['isAdmin'] == true;
+        final followingSnap = await FirebaseFirestore.instance
+            .collection('users').doc(currentUid).collection('following').get();
+        for (final doc in followingSnap.docs) {
           _myFollowingIds.add(doc.id);
         }
       }
