@@ -48,14 +48,11 @@
     #splash .wordmark {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 40px; font-weight: 800; letter-spacing: 1.5px;
-      animation: splash-in .6s ease-out;
+      animation: fade-in .5s ease;
     }
     #splash .wordmark .sof { color: #fff; }
     #splash .wordmark .vo  { color: #C4A962; }
-    @keyframes splash-in {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
