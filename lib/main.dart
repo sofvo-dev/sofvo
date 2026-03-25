@@ -320,11 +320,8 @@ class _AuthGateState extends State<AuthGate> {
     // 初期ロード中（ストリームの最初のイベント待ち）
     if (_isInitialLoading && _currentUser == null) {
       return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(
-            color: AppTheme.primaryColor,
-          ),
-        ),
+        backgroundColor: Color(0xFFF5F5F8),
+        body: SizedBox.shrink(),
       );
     }
 
@@ -354,11 +351,8 @@ class _AuthGateState extends State<AuthGate> {
       builder: (context, userSnapshot) {
         if (userSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(
-                color: AppTheme.primaryColor,
-              ),
-            ),
+            backgroundColor: Color(0xFFF5F5F8),
+            body: SizedBox.shrink(),
           );
         }
         if (!userSnapshot.hasData ||
