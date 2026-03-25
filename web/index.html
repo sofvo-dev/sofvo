@@ -90,10 +90,12 @@
   </script>
   <script>
     window.addEventListener('flutter-first-frame', function() {
-      var s = document.getElementById('splash');
-      if (!s) return;
-      s.classList.add('fade-out');
-      setTimeout(function() { s.remove(); }, 300);
+      setTimeout(function() {
+        var s = document.getElementById('splash');
+        if (!s) return;
+        s.classList.add('fade-out');
+        setTimeout(function() { s.remove(); }, 400);
+      }, 1000);
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>
