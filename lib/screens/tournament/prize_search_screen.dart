@@ -595,22 +595,34 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
     final commentCtrl = TextEditingController();
     bool isSaving = false;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-            child: Container(
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+              leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+                if (commentCtrl.text.trim().isNotEmpty) {
+                  showDialog(context: ctx, builder: (c) => AlertDialog(
+                    title: const Text('入力内容を破棄しますか？'),
+                    content: const Text('入力した内容は保存されません。'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c), child: const Text('キャンセル')),
+                      TextButton(onPressed: () { Navigator.pop(c); Navigator.pop(ctx); }, child: const Text('破棄する', style: TextStyle(color: Colors.red))),
+                    ],
+                  ));
+                } else {
+                  Navigator.pop(ctx);
+                }
+              }),
+              title: const Text('レビューを投稿', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              centerTitle: true,
+            ),
+            body: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Center(child: Container(width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-                const SizedBox(height: 16),
-                const Text('レビューを書く', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
                 Text(prizeName, maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                 const SizedBox(height: 16),
@@ -723,7 +735,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
           );
         },
       ),
-    );
+    ));
   }
 
   Widget _detailTag(IconData icon, String text, Color color) {
@@ -1100,22 +1112,34 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
     final commentCtrl = TextEditingController();
     bool isSaving = false;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-            child: Container(
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+              leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+                if (commentCtrl.text.trim().isNotEmpty) {
+                  showDialog(context: ctx, builder: (c) => AlertDialog(
+                    title: const Text('入力内容を破棄しますか？'),
+                    content: const Text('入力した内容は保存されません。'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c), child: const Text('キャンセル')),
+                      TextButton(onPressed: () { Navigator.pop(c); Navigator.pop(ctx); }, child: const Text('破棄する', style: TextStyle(color: Colors.red))),
+                    ],
+                  ));
+                } else {
+                  Navigator.pop(ctx);
+                }
+              }),
+              title: const Text('レビューを編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              centerTitle: true,
+            ),
+            body: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Center(child: Container(width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-                const SizedBox(height: 16),
-                const Text('レビューを書く', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
                 Text(prizeName, maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                 const SizedBox(height: 16),
@@ -1224,7 +1248,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           );
         },
       ),
-    );
+    ));
   }
 
   @override

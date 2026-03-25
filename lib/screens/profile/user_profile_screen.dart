@@ -1237,161 +1237,164 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
 
   void _showCommentSheet(String postId) {
     final commentController = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.3,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (_, scrollController) {
-            return Column(
-              children: [
-                const SizedBox(height: 8),
-                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                const SizedBox(height: 12),
-                const Text('コメント', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const Divider(height: 20),
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: _firestore.collection('posts').doc(postId).collection('comments')
-                        .orderBy('createdAt', descending: false).snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                      }
-                      final comments = snapshot.data?.docs ?? [];
-                      if (comments.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+            leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+              if (commentController.text.trim().isNotEmpty) {
+                showDialog(context: context, builder: (c) => AlertDialog(
+                  title: const Text('入力内容を破棄しますか？'),
+                  content: const Text('入力した内容は保存されません。'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(c), child: const Text('キャンセル')),
+                    TextButton(onPressed: () { Navigator.pop(c); Navigator.of(context).pop(); }, child: const Text('破棄する', style: TextStyle(color: Colors.red))),
+                  ],
+                ));
+              } else {
+                Navigator.of(context).pop();
+              }
+            }),
+            title: const Text('コメント', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            centerTitle: true,
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('posts').doc(postId).collection('comments')
+                      .orderBy('createdAt', descending: false).snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                    }
+                    final comments = snapshot.data?.docs ?? [];
+                    if (comments.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 40, color: Colors.grey[300]),
+                            const SizedBox(height: 8),
+                            Text('まだコメントはありません', style: TextStyle(color: AppTheme.textSecondary)),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: comments.length,
+                      itemBuilder: (context, index) {
+                        final data = comments[index].data() as Map<String, dynamic>;
+                        final cId = comments[index].id;
+                        final nick = (data['userNickname'] as String?) ?? '名無し';
+                        final text = (data['text'] as String?) ?? '';
+                        final ts = data['createdAt'] as Timestamp?;
+                        final t = _formatTimeAgo(ts);
+                        final isMine = data['userId'] == FirebaseAuth.instance.currentUser?.uid;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.chat_bubble_outline, size: 40, color: Colors.grey[300]),
-                              const SizedBox(height: 8),
-                              Text('まだコメントはありません', style: TextStyle(color: AppTheme.textSecondary)),
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                                child: Text(nick.isNotEmpty ? nick[0] : '?',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(children: [
+                                      Text(nick, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                                      const SizedBox(width: 6),
+                                      Text(t, style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                                      const Spacer(),
+                                      if (isMine) GestureDetector(
+                                        onTap: () async {
+                                          await _firestore.collection('posts').doc(postId).collection('comments').doc(cId).delete();
+                                          await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(-1)});
+                                        },
+                                        child: Icon(Icons.close, size: 16, color: AppTheme.textHint),
+                                      ),
+                                    ]),
+                                    const SizedBox(height: 4),
+                                    Text(text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4)),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         );
-                      }
-                      return ListView.builder(
-                        controller: scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: comments.length,
-                        itemBuilder: (context, index) {
-                          final data = comments[index].data() as Map<String, dynamic>;
-                          final cId = comments[index].id;
-                          final nick = (data['userNickname'] as String?) ?? '名無し';
-                          final text = (data['text'] as String?) ?? '';
-                          final ts = data['createdAt'] as Timestamp?;
-                          final t = _formatTimeAgo(ts);
-                          final isMine = data['userId'] == FirebaseAuth.instance.currentUser?.uid;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                                  child: Text(nick.isNotEmpty ? nick[0] : '?',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(children: [
-                                        Text(nick, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                                        const SizedBox(width: 6),
-                                        Text(t, style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
-                                        const Spacer(),
-                                        if (isMine) GestureDetector(
-                                          onTap: () async {
-                                            await _firestore.collection('posts').doc(postId).collection('comments').doc(cId).delete();
-                                            await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(-1)});
-                                          },
-                                          child: Icon(Icons.close, size: 16, color: AppTheme.textHint),
-                                        ),
-                                      ]),
-                                      const SizedBox(height: 4),
-                                      Text(text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4)),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                      },
+                    );
+                  },
+                ),
+              ),
+              // 入力欄
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey[200]!))),
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(24)),
+                          child: TextField(
+                            controller: commentController,
+                            style: const TextStyle(fontSize: 14),
+                            decoration: const InputDecoration(
+                              hintText: 'コメントを入力...',
+                              hintStyle: TextStyle(color: AppTheme.textHint),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
                             ),
-                          );
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () async {
+                          final txt = commentController.text.trim();
+                          if (txt.isEmpty) return;
+                          commentController.clear();
+                          final uid = FirebaseAuth.instance.currentUser?.uid;
+                          if (uid == null) return;
+                          try {
+                            final uDoc = await _firestore.collection('users').doc(uid).get();
+                            final uName = (uDoc.data()?['nickname'] as String?) ?? '名無し';
+                            await _firestore.collection('posts').doc(postId).collection('comments').add({
+                              'userId': uid,
+                              'userNickname': uName,
+                              'text': txt,
+                              'createdAt': FieldValue.serverTimestamp(),
+                            });
+                            await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(1)});
+                          } catch (_) {}
                         },
-                      );
-                    },
+                        child: Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(18)),
+                          child: const Icon(Icons.send, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                // 入力欄
-                Container(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                  decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey[200]!))),
-                  child: SafeArea(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(24)),
-                            child: TextField(
-                              controller: commentController,
-                              style: const TextStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: 'コメントを入力...',
-                                hintStyle: TextStyle(color: AppTheme.textHint),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(vertical: 10),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () async {
-                            final txt = commentController.text.trim();
-                            if (txt.isEmpty) return;
-                            commentController.clear();
-                            final uid = FirebaseAuth.instance.currentUser?.uid;
-                            if (uid == null) return;
-                            try {
-                              final uDoc = await _firestore.collection('users').doc(uid).get();
-                              final uName = (uDoc.data()?['nickname'] as String?) ?? '名無し';
-                              await _firestore.collection('posts').doc(postId).collection('comments').add({
-                                'userId': uid,
-                                'userNickname': uName,
-                                'text': txt,
-                                'createdAt': FieldValue.serverTimestamp(),
-                              });
-                              await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(1)});
-                            } catch (_) {}
-                          },
-                          child: Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(18)),
-                            child: const Icon(Icons.send, color: Colors.white, size: 18),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+              ),
+            ],
+          ),
         );
       },
-    ).then((_) => commentController.dispose());
+    )).then((_) => commentController.dispose());
   }
 
   void _showImageViewer(BuildContext context, List<String> images, int initialIndex) {

@@ -280,48 +280,35 @@ class _RecruitmentManagementScreenState
     final docId = r['docId'] as String?;
     if (docId == null) return;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.75,
-          maxChildSize: 0.95,
-          builder: (_, scrollCtrl) {
-            return StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('recruitments')
-                  .doc(docId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-                final isActive = data['status'] == '募集中';
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+            title: const Text('募集詳細', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            centerTitle: true,
+          ),
+          body: StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('recruitments')
+                .doc(docId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+              final isActive = data['status'] == '募集中';
 
-                return SingleChildScrollView(
-                  controller: scrollCtrl,
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40, height: 4,
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      Text((data['title'] as String?) ?? '',
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text((data['title'] as String?) ?? '',
                           style: const TextStyle(
                               fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
@@ -552,10 +539,10 @@ class _RecruitmentManagementScreenState
                   ),
                 );
               },
-            );
-          },
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 

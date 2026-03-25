@@ -398,136 +398,117 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
       {'name': 'だいき', 'experience': '10年以上', 'isMember': false},
     ];
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return DraggableScrollableSheet(
-              initialChildSize: 0.65,
-              minChildSize: 0.4,
-              maxChildSize: 0.85,
-              expand: false,
-              builder: (context, scrollController) {
-                return Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40, height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text('メンバーを招待',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary)),
-                      const SizedBox(height: 4),
-                      const Text('フォロー中のユーザーから招待できます',
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textSecondary)),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: ListView.separated(
-                          controller: scrollController,
-                          itemCount: followUsers.length,
-                          separatorBuilder: (_, __) =>
-                              Divider(height: 1, color: Colors.grey[100]),
-                          itemBuilder: (context, index) {
-                            final u = followUsers[index];
-                            final isMember = u['isMember'] as bool;
-                            return ListTile(
-                              leading: CircleAvatar(
-                                radius: 20,
-                                backgroundColor: AppTheme.primaryColor
-                                    .withValues(alpha: 0.12),
-                                child: Text(
-                                    (u['name'] as String)[0],
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryColor)),
-                              ),
-                              title: Text(u['name'] as String,
+          builder: (ctx, setSheetState) {
+            return Scaffold(
+              backgroundColor: Colors.white,
+              appBar: AppBar(
+                backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                title: const Text('メンバー追加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                centerTitle: true,
+              ),
+              body: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    const Text('フォロー中のユーザーから招待できます',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary)),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: followUsers.length,
+                        separatorBuilder: (_, __) =>
+                            Divider(height: 1, color: Colors.grey[100]),
+                        itemBuilder: (context, index) {
+                          final u = followUsers[index];
+                          final isMember = u['isMember'] as bool;
+                          return ListTile(
+                            leading: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: AppTheme.primaryColor
+                                  .withValues(alpha: 0.12),
+                              child: Text(
+                                  (u['name'] as String)[0],
                                   style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600)),
-                              subtitle: Text(
-                                  '競技歴 ${u['experience']}',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondary)),
-                              trailing: isMember
-                                  ? Container(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor)),
+                            ),
+                            title: Text(u['name'] as String,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600)),
+                            subtitle: Text(
+                                '競技歴 ${u['experience']}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondary)),
+                            trailing: isMember
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius:
+                                          BorderRadius.circular(8),
+                                    ),
+                                    child: const Text('参加済み',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme
+                                                .textSecondary)),
+                                  )
+                                : ElevatedButton(
+                                    onPressed: () {
+                                      setSheetState(() {
+                                        followUsers[index] = {
+                                          ...u,
+                                          'isMember': true,
+                                        };
+                                      });
+                                      ScaffoldMessenger.of(this.context)
+                                          .showSnackBar(SnackBar(
+                                        content: Text(
+                                            '${u['name']}さんに招待を送りました'),
+                                        behavior:
+                                            SnackBarBehavior.floating,
+                                      ));
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          AppTheme.primaryColor,
+                                      minimumSize: const Size(0, 36),
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[100],
+                                          horizontal: 16),
+                                      shape: RoundedRectangleBorder(
                                         borderRadius:
                                             BorderRadius.circular(8),
                                       ),
-                                      child: const Text('参加済み',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme
-                                                  .textSecondary)),
-                                    )
-                                  : ElevatedButton(
-                                      onPressed: () {
-                                        setSheetState(() {
-                                          followUsers[index] = {
-                                            ...u,
-                                            'isMember': true,
-                                          };
-                                        });
-                                        ScaffoldMessenger.of(this.context)
-                                            .showSnackBar(SnackBar(
-                                          content: Text(
-                                              '${u['name']}さんに招待を送りました'),
-                                          behavior:
-                                              SnackBarBehavior.floating,
-                                        ));
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppTheme.primaryColor,
-                                        minimumSize: const Size(0, 36),
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      child: const Text('招待',
-                                          style: TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.white)),
                                     ),
-                            );
-                          },
-                        ),
+                                    child: const Text('招待',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.white)),
+                                  ),
+                          );
+                        },
                       ),
-                    ],
-                  ),
-                );
-              },
+                    ),
+                  ],
+                ),
+              ),
             );
           },
         );
       },
-    );
+    ));
   }
 
   void _showRemoveMemberDialog(Map<String, dynamic> member, int index) {

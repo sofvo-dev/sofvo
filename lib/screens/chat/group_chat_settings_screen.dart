@@ -214,171 +214,141 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
 
   // ━━━ メンバー追加 ━━━
   void _showAddMemberSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (_, scrollController) {
-            final currentMemberIds =
-                _members.map((m) => m['uid'] as String).toSet();
-            return Column(
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
+        final currentMemberIds =
+            _members.map((m) => m['uid'] as String).toSet();
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+            title: const Text('メンバー追加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            centerTitle: true,
+          ),
+          body: StreamBuilder<QuerySnapshot>(
+            stream: _firestore
+                .collection('users')
+                .doc(_currentUid)
+                .collection('following')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.primaryColor,
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'メンバーを追加',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: _firestore
-                        .collection('users')
-                        .doc(_currentUid)
-                        .collection('following')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.primaryColor,
-                          ),
-                        );
-                      }
-                      final followDocs = snapshot.data?.docs ?? [];
-                      // 既にメンバーのユーザーを除外
-                      final available = followDocs
-                          .where(
-                              (doc) => !currentMemberIds.contains(doc.id))
-                          .toList();
+                );
+              }
+              final followDocs = snapshot.data?.docs ?? [];
+              // 既にメンバーのユーザーを除外
+              final available = followDocs
+                  .where(
+                      (doc) => !currentMemberIds.contains(doc.id))
+                  .toList();
 
-                      if (available.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.person_search,
-                                  size: 48,
-                                  color: AppTheme.textHint),
-                              const SizedBox(height: 12),
-                              const Text(
-                                '追加できるユーザーがいません',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 15,
+              if (available.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person_search,
+                          size: 48,
+                          color: AppTheme.textHint),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '追加できるユーザーがいません',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.separated(
+                itemCount: available.length,
+                separatorBuilder: (_, __) =>
+                    Divider(height: 1, color: Colors.grey[100]),
+                itemBuilder: (_, i) {
+                  final uid = available[i].id;
+                  return FutureBuilder<DocumentSnapshot>(
+                    future:
+                        _firestore.collection('users').doc(uid).get(),
+                    builder: (context, userSnap) {
+                      final userData = userSnap.data?.data()
+                              as Map<String, dynamic>? ??
+                          {};
+                      final name = (userData['nickname']
+                              as String?) ??
+                          'ユーザー';
+                      final avatarUrl =
+                          (userData['avatarUrl'] as String?) ?? '';
+                      return ListTile(
+                        leading: avatarUrl.isNotEmpty
+                            ? CircleAvatar(
+                                radius: 22,
+                                backgroundImage:
+                                    NetworkImage(avatarUrl),
+                                backgroundColor: AppTheme
+                                    .primaryColor
+                                    .withValues(alpha: 0.1),
+                              )
+                            : CircleAvatar(
+                                radius: 22,
+                                backgroundColor: AppTheme
+                                    .primaryColor
+                                    .withValues(alpha: 0.1),
+                                child: Text(
+                                  name.isNotEmpty ? name[0] : '?',
+                                  style: const TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ],
+                        title: Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
                           ),
-                        );
-                      }
-
-                      return ListView.separated(
-                        controller: scrollController,
-                        itemCount: available.length,
-                        separatorBuilder: (_, __) =>
-                            Divider(height: 1, color: Colors.grey[100]),
-                        itemBuilder: (_, i) {
-                          final uid = available[i].id;
-                          return FutureBuilder<DocumentSnapshot>(
-                            future:
-                                _firestore.collection('users').doc(uid).get(),
-                            builder: (context, userSnap) {
-                              final userData = userSnap.data?.data()
-                                      as Map<String, dynamic>? ??
-                                  {};
-                              final name = (userData['nickname']
-                                      as String?) ??
-                                  'ユーザー';
-                              final avatarUrl =
-                                  (userData['avatarUrl'] as String?) ?? '';
-                              return ListTile(
-                                leading: avatarUrl.isNotEmpty
-                                    ? CircleAvatar(
-                                        radius: 22,
-                                        backgroundImage:
-                                            NetworkImage(avatarUrl),
-                                        backgroundColor: AppTheme
-                                            .primaryColor
-                                            .withValues(alpha: 0.1),
-                                      )
-                                    : CircleAvatar(
-                                        radius: 22,
-                                        backgroundColor: AppTheme
-                                            .primaryColor
-                                            .withValues(alpha: 0.1),
-                                        child: Text(
-                                          name.isNotEmpty ? name[0] : '?',
-                                          style: const TextStyle(
-                                            color: AppTheme.primaryColor,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                title: Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                trailing: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Text(
-                                    '追加',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                onTap: () async {
-                                  Navigator.pop(ctx);
-                                  await _addMember(uid, name);
-                                },
-                              );
-                            },
-                          );
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            '追加',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await _addMember(uid, name);
                         },
                       );
                     },
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         );
       },
-    );
+    ));
   }
 
   Future<void> _addMember(String uid, String name) async {

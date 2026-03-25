@@ -223,122 +223,95 @@ class _ChatListScreenState extends State<ChatListScreen>
   void _showNewDmSheet() {
     if (_currentUser == null) return;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (_, scrollController) {
-            return Column(
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text('新しいメッセージ',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary)),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(_currentUser!.uid)
-                        .collection('following')
-                        .snapshots(),
-                    builder: (context, followSnap) {
-                      if (followSnap.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
-                      }
-                      final followDocs = followSnap.data?.docs ?? [];
-                      if (followDocs.isEmpty) {
-                        return const Center(
-                          child: Text('フォロー中のユーザーがいません',
-                              style: TextStyle(
-                                  color: AppTheme.textSecondary)),
-                        );
-                      }
-                      // Resolve missing nicknames
-                      for (final doc in followDocs) {
-                        final data = doc.data() as Map<String, dynamic>? ?? {};
-                        final nickname = (data['nickname'] as String?) ?? '';
-                        if (nickname.isNotEmpty) {
-                          _userNameCache[doc.id] = nickname;
-                        } else if (!_userNameCache.containsKey(doc.id)) {
-                          FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(doc.id)
-                              .get()
-                              .then((userDoc) {
-                            final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
-                            if (resolved.isNotEmpty && mounted) {
-                              setState(() => _userNameCache[doc.id] = resolved);
-                              FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(_currentUser!.uid)
-                                  .collection('following')
-                                  .doc(doc.id)
-                                  .update({'nickname': resolved}).catchError((_) {});
-                            }
-                          }).catchError((_) {});
-                        }
-                      }
-                      return ListView.separated(
-                        controller: scrollController,
-                        itemCount: followDocs.length,
-                        separatorBuilder: (_, __) => Divider(
-                            height: 1, color: Colors.grey[100]),
-                        itemBuilder: (_, i) {
-                          final uid = followDocs[i].id;
-                          final name = _userNameCache[uid] ?? 'ユーザー';
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: AppTheme.primaryColor
-                                  .withValues(alpha: 0.12),
-                              child: Text(
-                                name.isNotEmpty && name != 'ユーザー' ? name[0] : '?',
-                                style: const TextStyle(
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            title: Text(name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              _startDmWith(uid, name);
-                            },
-                          );
-                        },
-                      );
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+            title: const Text('新しいメッセージ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            centerTitle: true,
+          ),
+          body: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(_currentUser!.uid)
+                .collection('following')
+                .snapshots(),
+            builder: (context, followSnap) {
+              if (followSnap.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(
+                    child: CircularProgressIndicator());
+              }
+              final followDocs = followSnap.data?.docs ?? [];
+              if (followDocs.isEmpty) {
+                return const Center(
+                  child: Text('フォロー中のユーザーがいません',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary)),
+                );
+              }
+              // Resolve missing nicknames
+              for (final doc in followDocs) {
+                final data = doc.data() as Map<String, dynamic>? ?? {};
+                final nickname = (data['nickname'] as String?) ?? '';
+                if (nickname.isNotEmpty) {
+                  _userNameCache[doc.id] = nickname;
+                } else if (!_userNameCache.containsKey(doc.id)) {
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(doc.id)
+                      .get()
+                      .then((userDoc) {
+                    final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
+                    if (resolved.isNotEmpty && mounted) {
+                      setState(() => _userNameCache[doc.id] = resolved);
+                      FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(_currentUser!.uid)
+                          .collection('following')
+                          .doc(doc.id)
+                          .update({'nickname': resolved}).catchError((_) {});
+                    }
+                  }).catchError((_) {});
+                }
+              }
+              return ListView.separated(
+                itemCount: followDocs.length,
+                separatorBuilder: (_, __) => Divider(
+                    height: 1, color: Colors.grey[100]),
+                itemBuilder: (_, i) {
+                  final uid = followDocs[i].id;
+                  final name = _userNameCache[uid] ?? 'ユーザー';
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: AppTheme.primaryColor
+                          .withValues(alpha: 0.12),
+                      child: Text(
+                        name.isNotEmpty && name != 'ユーザー' ? name[0] : '?',
+                        style: const TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    title: Text(name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _startDmWith(uid, name);
                     },
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         );
       },
-    );
+    ));
   }
 
   @override
