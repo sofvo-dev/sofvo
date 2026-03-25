@@ -41,34 +41,25 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   if (kIsWeb) {
     // LINEなどのアプリ内ブラウザではセッション永続化を無効にして
     // 他のユーザーにセッションが漏洩するのを防ぐ
-    if (isInAppBrowser()) {
-      await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
-    } else {
-      await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-    }
-  }
-
-  // Web: signInWithRedirect のリダイレクト結果を取得
-  // これがないとリダイレクト後にログイン状態にならない
-  if (kIsWeb) {
-    try {
-      await FirebaseAuth.instance.getRedirectResult();
-    } catch (e) {
+    final persistFuture = FirebaseAuth.instance.setPersistence(
+      isInAppBrowser() ? Persistence.SESSION : Persistence.LOCAL,
+    );
+    // getRedirectResult は非同期で実行（ブロックしない）
+    // リダイレクト後のログイン状態は authStateChanges リスナーが拾う
+    FirebaseAuth.instance.getRedirectResult().catchError((e) {
       debugPrint('getRedirectResult error: $e');
-    }
-  }
+    });
+    await persistFuture;
 
-  // Web URLパラメータ or パスから招待リンクの大会IDを取得
-  if (kIsWeb) {
+    // URLパラメータ or パスから招待リンクの大会IDを取得
     final uri = Uri.base;
     pendingTournamentId = uri.queryParameters['t'];
     pendingCheckInTournamentId = uri.queryParameters['checkin'];
     pendingReferrerUserId = uri.queryParameters['ref'];
-
-    // /tournament/:id パスにも対応
     if (pendingTournamentId == null && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'tournament') {
       pendingTournamentId = uri.pathSegments[1];
     }
@@ -376,8 +367,11 @@ class _AuthGateState extends State<AuthGate> {
           // 新規ユーザー: プロフィール未設定 → 直接プロフィール設定へ
           return const ProfileSetupScreen();
         }
-        BookmarkNotificationService.checkAndNotify(_currentUser!.uid);
-        PushNotificationService.initialize();
+        // 通知系は初回描画後に遅延実行（起動速度を優先）
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          BookmarkNotificationService.checkAndNotify(_currentUser!.uid);
+          PushNotificationService.initialize();
+        });
 
         // 招待リンクがあれば大会詳細へ自動遷移
         if (pendingTournamentId != null) {
