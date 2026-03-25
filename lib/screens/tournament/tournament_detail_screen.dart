@@ -5381,27 +5381,38 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       }
     }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetContext) {
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-              child: SingleChildScrollView(
+            return Scaffold(
+              backgroundColor: Colors.white,
+              appBar: AppBar(
+                backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+                leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+                  if (teamNameCtrl.text.trim() != currentTeamName || selectedMembers.length != currentMemberNames.entries.where((e) => e.key != uid).length) {
+                    showDialog(context: ctx, builder: (c) => AlertDialog(
+                      title: const Text('入力内容を破棄しますか？'),
+                      content: const Text('入力した内容は保存されません。'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(c), child: const Text('キャンセル')),
+                        TextButton(onPressed: () { Navigator.pop(c); Navigator.pop(ctx); }, child: const Text('破棄する', style: TextStyle(color: Colors.red))),
+                      ],
+                    ));
+                  } else {
+                    Navigator.pop(ctx);
+                  }
+                }),
+                title: const Text('エントリー編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                centerTitle: true,
+              ),
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(child: Container(width: 40, height: 4,
-                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-                    const SizedBox(height: 16),
-                    const Text('エントリー編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 20),
-
                     // チーム名入力
                     const Text('チーム名', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
@@ -5557,7 +5568,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             'leaderName': updatedLeaderName,
                           });
 
-                          Navigator.pop(sheetContext);
+                          Navigator.pop(ctx);
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('エントリーを更新しました'), backgroundColor: AppTheme.success),
@@ -5580,7 +5591,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           },
         );
       },
-    );
+    ));
   }
 
   // ━━━ エントリーシート ━━━
@@ -5590,26 +5601,36 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final teamNameCtrl = TextEditingController();
     final selectedMembers = <String, String>{};  // uid -> nickname
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetContext) {
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-              child: SingleChildScrollView(
+            return Scaffold(
+              backgroundColor: Colors.white,
+              appBar: AppBar(
+                backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+                leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+                  if (teamNameCtrl.text.trim().isNotEmpty || selectedMembers.isNotEmpty) {
+                    showDialog(context: ctx, builder: (c) => AlertDialog(
+                      title: const Text('入力内容を破棄しますか？'),
+                      content: const Text('入力した内容は保存されません。'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(c), child: const Text('戻る')),
+                        TextButton(onPressed: () { Navigator.pop(c); Navigator.pop(ctx); },
+                          child: const Text('破棄する', style: TextStyle(color: Colors.red))),
+                      ],
+                    ));
+                  } else { Navigator.pop(ctx); }
+                }),
+                title: const Text('大会にエントリー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                centerTitle: true, elevation: 0.5,
+              ),
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(child: Container(width: 40, height: 4,
-                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-                    const SizedBox(height: 16),
-                    const Text('大会にエントリー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
@@ -5747,7 +5768,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                                 const SnackBar(content: Text('メンバーは自分を含めて4人以上必要です'), backgroundColor: AppTheme.warning));
                             return;
                           }
-                          _confirmNewEntry(sheetContext, teamName, selectedMembers);
+                          _confirmNewEntry(ctx, teamName, selectedMembers);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
@@ -5765,7 +5786,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           },
         );
       },
-    );
+    ));
   }
 
   Future<void> _confirmNewEntry(BuildContext sheetContext, String teamName, Map<String, String> members) async {
@@ -6484,22 +6505,33 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     if (uid.isEmpty) return;
     final teamNameCtrl = TextEditingController();
 
-    showModalBottomSheet(
-      context: context, isScrollControlled: true, backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 16),
-            Row(children: [
-              Icon(Icons.hourglass_empty, color: AppTheme.warning, size: 22),
-              const SizedBox(width: 8),
-              const Text('キャンセル待ち登録', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ]),
-            const SizedBox(height: 8),
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+            leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+              if (teamNameCtrl.text.trim().isNotEmpty) {
+                showDialog(context: ctx, builder: (c) => AlertDialog(
+                  title: const Text('入力内容を破棄しますか？'),
+                  content: const Text('入力した内容は保存されません。'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(c), child: const Text('キャンセル')),
+                    TextButton(onPressed: () { Navigator.pop(c); Navigator.pop(ctx); }, child: const Text('破棄する', style: TextStyle(color: Colors.red))),
+                  ],
+                ));
+              } else {
+                Navigator.pop(ctx);
+              }
+            }),
+            title: const Text('補欠エントリー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            centerTitle: true,
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -6631,9 +6663,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ),
             const SizedBox(height: 8),
           ]),
+          ),
+          ),
         );
       },
-    );
+    ));
   }
 
   // ━━━ メンバー募集（全画面ダイアログ） ━━━
