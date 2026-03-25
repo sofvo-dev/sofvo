@@ -45,19 +45,22 @@
       transition: opacity .4s ease;
     }
     #splash.fade-out { opacity: 0; pointer-events: none; }
-    #splash img {
-      width: 80px; height: 80px; border-radius: 18px;
+    #splash .wordmark {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 40px; font-weight: 800; letter-spacing: 1.5px;
       animation: splash-in .6s ease-out;
     }
+    #splash .wordmark .sof { color: #fff; }
+    #splash .wordmark .vo  { color: #C4A962; }
     @keyframes splash-in {
-      from { opacity: 0; transform: scale(.85); }
-      to   { opacity: 1; transform: scale(1); }
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
   <div id="splash">
-    <img src="icons/Icon-192.png" alt="Sofvo">
+    <div class="wordmark"><span class="sof">Sof</span><span class="vo">vo</span></div>
   </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
