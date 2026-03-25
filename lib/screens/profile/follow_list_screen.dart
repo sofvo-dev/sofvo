@@ -33,6 +33,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
   final Map<String, Map<String, dynamic>> _userCache = {};
   List<QueryDocumentSnapshot>? _followDocs;
   bool _loading = true;
+  // 自分がフォロー中のUID一覧
+  final Set<String> _myFollowingIds = {};
 
   @override
   void initState() {
@@ -77,12 +79,20 @@ class _FollowListScreenState extends State<FollowListScreen> {
       }
       await Future.wait(futures);
 
-      // 本人 & Admin判定
+      // 本人 & Admin判定 & 自分のフォロー一覧取得
       final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
       _isOwner = currentUid == widget.userId;
       if (currentUid.isNotEmpty) {
-        final myDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
-        _isAdmin = myDoc.data()?['isAdmin'] == true;
+        final results = await Future.wait([
+          FirebaseFirestore.instance.collection('users').doc(currentUid).get(),
+          FirebaseFirestore.instance.collection('users').doc(currentUid).collection('following').get(),
+        ]);
+        _isAdmin = (results[0] as DocumentSnapshot).data() is Map<String, dynamic>
+            ? ((results[0] as DocumentSnapshot).data() as Map<String, dynamic>?)?['isAdmin'] == true
+            : false;
+        for (final doc in (results[1] as QuerySnapshot).docs) {
+          _myFollowingIds.add(doc.id);
+        }
       }
     } catch (_) {}
 
@@ -303,8 +313,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
                     icon: const Icon(Icons.person_remove, size: 20, color: AppTheme.error),
                     onPressed: () => _confirmRemoveFollow(uid, nickname.toString()),
                   )
-                else
-                  Icon(Icons.chevron_right, color: AppTheme.textHint),
+                else if (uid != FirebaseAuth.instance.currentUser?.uid)
+                  _buildFollowButton(uid),
               ],
             ),
           ),
@@ -367,6 +377,78 @@ class _FollowListScreenState extends State<FollowListScreen> {
       _followDocs = removedDocs;
       if (mounted) {
         setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
+      }
+    }
+  }
+
+  Widget _buildFollowButton(String targetUid) {
+    final isFollowing = _myFollowingIds.contains(targetUid);
+    return GestureDetector(
+      onTap: () => _toggleFollow(targetUid),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isFollowing ? AppTheme.backgroundColor : AppTheme.primaryColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isFollowing ? Colors.grey[300]! : AppTheme.primaryColor),
+        ),
+        child: Text(
+          isFollowing ? 'フォロー中' : 'フォローする',
+          style: TextStyle(
+            fontSize: 12, fontWeight: FontWeight.bold,
+            color: isFollowing ? AppTheme.textSecondary : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleFollow(String targetUid) async {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (currentUid.isEmpty) return;
+
+    final wasFollowing = _myFollowingIds.contains(targetUid);
+    // UI即時更新
+    setState(() {
+      if (wasFollowing) {
+        _myFollowingIds.remove(targetUid);
+      } else {
+        _myFollowingIds.add(targetUid);
+      }
+    });
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final myRef = firestore.collection('users').doc(currentUid);
+      final targetRef = firestore.collection('users').doc(targetUid);
+      final batch = firestore.batch();
+      if (wasFollowing) {
+        batch.delete(myRef.collection('following').doc(targetUid));
+        batch.delete(targetRef.collection('followers').doc(currentUid));
+      } else {
+        final targetData = _userCache[targetUid];
+        batch.set(myRef.collection('following').doc(targetUid), {
+          'nickname': targetData?['nickname'] ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        batch.set(targetRef.collection('followers').doc(currentUid), {
+          'nickname': '',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    } catch (e) {
+      // エラー時は元に戻す
+      if (mounted) {
+        setState(() {
+          if (wasFollowing) {
+            _myFollowingIds.add(targetUid);
+          } else {
+            _myFollowingIds.remove(targetUid);
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
       }

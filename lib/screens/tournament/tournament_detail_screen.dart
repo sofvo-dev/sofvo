@@ -6652,124 +6652,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  // ━━━ メンバー募集シート ━━━
+  // ━━━ メンバー募集（全画面ダイアログ） ━━━
   void _showRecruitSheet(BuildContext context) {
-    int recruitCount = 1;
-    final commentController = TextEditingController();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, setModalState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(child: Container(width: 40, height: 4,
-                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-                    const SizedBox(height: 16),
-                    const Text('メンバー募集する', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity, padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha:0.05),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha:0.15)),
-                      ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text((widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                        const SizedBox(height: 4),
-                        Text((widget.tournament['date'] ?? '') as String,
-                            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                      ]),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text('募集人数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: List.generate(4, (i) {
-                        final count = i + 1;
-                        final isSelected = recruitCount == count;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: GestureDetector(
-                            onTap: () => setModalState(() => recruitCount = count),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: isSelected ? AppTheme.primaryColor : AppTheme.backgroundColor,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
-                              ),
-                              child: Text('${count}人', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
-                                  color: isSelected ? Colors.white : AppTheme.textPrimary)),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('コメント', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: commentController, maxLines: 3, maxLength: 200,
-                      decoration: InputDecoration(
-                        hintText: '例: 一緒に楽しみましょう！初心者歓迎です',
-                        hintStyle: TextStyle(fontSize: 14, color: AppTheme.textHint),
-                        filled: true, fillColor: AppTheme.backgroundColor,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                          final userDoc = await _firestore.collection('users').doc(uid).get();
-                          final userData = userDoc.data() ?? {};
-                          await _firestore.collection('recruitments').add({
-                            'tournamentId': _tournamentId,
-                            'tournamentName': widget.tournament['name'],
-                            'tournamentDate': widget.tournament['date'],
-                            'userId': uid,
-                            'nickname': userData['nickname'] ?? '',
-                            'avatarUrl': userData['avatarUrl'] ?? '',
-                            'experience': userData['experience'] ?? '',
-                            'recruitCount': recruitCount,
-                            'comment': commentController.text.trim(),
-                            'createdAt': FieldValue.serverTimestamp(),
-                          });
-                          Navigator.pop(sheetContext);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('募集を投稿しました！'), backgroundColor: AppTheme.success),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text('募集を投稿する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => _RecruitFullScreen(
+        tournamentId: _tournamentId,
+        tournament: widget.tournament,
+        firestore: _firestore,
+      ),
+    ));
   }
 
   // ━━━ シェアシート ━━━
@@ -8701,6 +8593,186 @@ class _TieOptionButton extends StatelessWidget {
           Text(description, style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
               textAlign: TextAlign.center),
         ]),
+      ),
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// メンバー募集 全画面ダイアログ
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _RecruitFullScreen extends StatefulWidget {
+  final String tournamentId;
+  final Map<String, dynamic> tournament;
+  final FirebaseFirestore firestore;
+  const _RecruitFullScreen({required this.tournamentId, required this.tournament, required this.firestore});
+
+  @override
+  State<_RecruitFullScreen> createState() => _RecruitFullScreenState();
+}
+
+class _RecruitFullScreenState extends State<_RecruitFullScreen> {
+  int _recruitCount = 1;
+  final _commentController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  bool get _hasInput => _commentController.text.trim().isNotEmpty || _recruitCount != 1;
+
+  Future<bool> _confirmDiscard() async {
+    if (!_hasInput) return true;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('入力内容を破棄しますか？'),
+        content: const Text('入力した内容は保存されません。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('戻る')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('破棄する', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _submit() async {
+    setState(() => _submitting = true);
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final userDoc = await widget.firestore.collection('users').doc(uid).get();
+      final userData = userDoc.data() ?? {};
+      await widget.firestore.collection('recruitments').add({
+        'tournamentId': widget.tournamentId,
+        'tournamentName': widget.tournament['name'],
+        'tournamentDate': widget.tournament['date'],
+        'userId': uid,
+        'nickname': userData['nickname'] ?? '',
+        'avatarUrl': userData['avatarUrl'] ?? '',
+        'experience': userData['experience'] ?? '',
+        'recruitCount': _recruitCount,
+        'comment': _commentController.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('募集を投稿しました！'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('投稿に失敗しました: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmDiscard()) Navigator.pop(context);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: AppTheme.textPrimary),
+            onPressed: () async {
+              if (await _confirmDiscard()) Navigator.pop(context);
+            },
+          ),
+          title: const Text('メンバー募集する', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          elevation: 0.5,
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity, padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.15)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text((widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  const SizedBox(height: 4),
+                  Text((widget.tournament['date'] ?? '') as String,
+                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                ]),
+              ),
+              const SizedBox(height: 20),
+              const Text('募集人数', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Row(
+                children: List.generate(4, (i) {
+                  final count = i + 1;
+                  final isSelected = _recruitCount == count;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _recruitCount = count),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primaryColor : AppTheme.backgroundColor,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!),
+                        ),
+                        child: Text('${count}人', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : AppTheme.textPrimary)),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+              const Text('コメント', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _commentController, maxLines: 3, maxLength: 200,
+                decoration: InputDecoration(
+                  hintText: '例: 一緒に楽しみましょう！初心者歓迎です',
+                  hintStyle: TextStyle(fontSize: 14, color: AppTheme.textHint),
+                  filled: true, fillColor: AppTheme.backgroundColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _submitting ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _submitting
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('募集を投稿する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
