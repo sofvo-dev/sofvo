@@ -36,8 +36,33 @@
   <!-- cropper.js（image_cropper Web版に必要） -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+
+  <style>
+    .loading-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1a2a44 0%, #243b5e 50%, #2d4a6f 100%);
+    }
+    .loading-screen .logo {
+      font-size: 32px; font-weight: 700; color: #fff;
+      letter-spacing: 2px; margin-bottom: 24px;
+    }
+    .loading-screen .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
+  <div id="splash" class="loading-screen">
+    <div class="logo">Sofvo</div>
+    <div class="spinner"></div>
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -59,6 +84,13 @@
         window.location.reload();
       });
     }
+  </script>
+  <script>
+    // Flutter描画開始後にスプラッシュを非表示
+    window.addEventListener('flutter-first-frame', function() {
+      var splash = document.getElementById('splash');
+      if (splash) splash.remove();
+    });
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
