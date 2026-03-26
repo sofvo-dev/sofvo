@@ -19,6 +19,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   final _currentUser = FirebaseAuth.instance.currentUser;
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _showSearchBar = false;
   Set<String> _blockedUserIds = {};
   Set<String> _pinnedChatIds = {};
   Set<String> _hiddenChatIds = {};
@@ -331,6 +332,20 @@ class _ChatListScreenState extends State<ChatListScreen>
                   children: [
                     const Text('チャット',
                         style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    const Spacer(),
+                    // 検索アイコン
+                    GestureDetector(
+                      onTap: () => setState(() => _showSearchBar = !_showSearchBar),
+                      child: Container(
+                        width: 32, height: 32,
+                        decoration: BoxDecoration(
+                          color: _showSearchBar ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.search, color: _showSearchBar ? AppTheme.primaryColor : AppTheme.textSecondary, size: 22),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     PopupMenuButton<String>(
                       icon: Container(
                         width: 32,
@@ -394,37 +409,40 @@ class _ChatListScreenState extends State<ChatListScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              // 検索バー
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _searchQuery = value.trim().toLowerCase()),
-                  decoration: InputDecoration(
-                    hintText: 'チャットを検索',
-                    hintStyle: TextStyle(fontSize: 14, color: AppTheme.textHint),
-                    prefixIcon: Icon(Icons.search, color: AppTheme.textHint, size: 20),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? GestureDetector(
-                            onTap: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                            child: Icon(Icons.close, color: AppTheme.textHint, size: 18),
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: AppTheme.backgroundColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+              if (_showSearchBar) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    onChanged: (value) => setState(() => _searchQuery = value.trim().toLowerCase()),
+                    decoration: InputDecoration(
+                      hintText: 'チャットを検索',
+                      hintStyle: TextStyle(fontSize: 14, color: AppTheme.textHint),
+                      prefixIcon: Icon(Icons.search, color: AppTheme.textHint, size: 20),
+                      suffixIcon: GestureDetector(
+                        onTap: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                            _showSearchBar = false;
+                          });
+                        },
+                        child: Icon(Icons.close, color: AppTheme.textHint, size: 18),
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.backgroundColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      isDense: true,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    isDense: true,
                   ),
                 ),
-              ),
+              ],
               const SizedBox(height: 8),
               TabBar(
                 controller: _tabController,
@@ -949,47 +967,45 @@ class _ChatListScreenState extends State<ChatListScreen>
       onAction = null;
     }
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 40, color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 60, 40, 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
             ),
+            child: Icon(icon, size: 36, color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+          ),
+          const SizedBox(height: 16),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 15, color: AppTheme.textSecondary, height: 1.5)),
+          if (onAction != null) ...[
             const SizedBox(height: 20),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 15, color: AppTheme.textSecondary, height: 1.5)),
-            if (onAction != null) ...[
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: onAction,
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: Text(actionLabel),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.edit, size: 18),
+                label: Text(actionLabel),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 52),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-            ],
+            ),
           ],
+        ],
         ),
-      ),
-    );
+      );
   }
 
   String _formatTime(Timestamp? timestamp) {
