@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/empty_state_view.dart';
 import '../tournament/tournament_detail_screen.dart';
 
 class RecruitmentScreen extends StatefulWidget {
@@ -233,50 +234,25 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   // ━━━ 開催予定タブ ━━━
   Widget _buildUpcomingTab() {
     if (_upcoming.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _loadMyTournaments,
-        child: ListView(children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 120),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(children: [
-                  Icon(Icons.event_note_outlined,
-                      size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  const Text('参加予定の大会はありません',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary)),
-                  const SizedBox(height: 8),
-                  Text('大会を検索してエントリーしましょう！',
-                      style: TextStyle(
-                          fontSize: 14, color: AppTheme.textSecondary)),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('下のメニューから「さがす」タブで大会を探せます'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.search, size: 18),
-                    label: const Text('大会を探す'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ]),
-              ),
-            ),
-          ]),
-        );
+      return EmptyStateView(
+        icon: Icons.event_note_outlined,
+        title: '参加予定の大会はありません',
+        subtitle: '大会を検索してエントリーしましょう！',
+        actions: [
+          EmptyStateAction(
+            label: '大会を探す',
+            icon: Icons.search,
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('下のメニューから「さがす」タブで大会を探せます'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        ],
+      );
     }
 
     return RefreshIndicator(
@@ -610,29 +586,10 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   // ━━━ 過去の大会タブ ━━━
   Widget _buildPastTab() {
     if (_past.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _loadMyTournaments,
-        child: ListView(children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 120),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(children: [
-                Icon(Icons.history, size: 64, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                const Text('過去の大会はありません',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary)),
-                const SizedBox(height: 8),
-                Text('大会に参加すると履歴がここに表示されます',
-                    style: TextStyle(
-                        fontSize: 14, color: AppTheme.textSecondary)),
-              ]),
-            ),
-          ),
-        ]),
+      return const EmptyStateView(
+        icon: Icons.history,
+        title: '過去の大会はありません',
+        subtitle: '大会に参加すると履歴がここに表示されます',
       );
     }
 

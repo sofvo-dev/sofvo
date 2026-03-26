@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/empty_state_view.dart';
 import 'chat_screen.dart';
 import 'create_group_chat_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -501,9 +502,7 @@ class _ChatListScreenState extends State<ChatListScreen>
 
         if (snapshot.hasError) {
           debugPrint('Group chat query error: ${snapshot.error}');
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _buildEmptyState('group'),
-          ]);
+          return _buildEmptyForType('group');
         }
 
         // type == 'group' をDart側でフィルタ（非表示チャット除外）
@@ -533,14 +532,9 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _searchQuery.isNotEmpty
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 120),
-                    child: Center(child: Text('「$_searchQuery」に一致するグループがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary))))
-                : _buildEmptyState('group'),
-          ]);
+          return _searchQuery.isNotEmpty
+              ? EmptyStateView(icon: Icons.search_off, title: '「$_searchQuery」に一致するグループがありません')
+              : _buildEmptyForType('group');
         }
 
         return ListView.separated(
@@ -589,9 +583,7 @@ class _ChatListScreenState extends State<ChatListScreen>
 
         if (snapshot.hasError) {
           debugPrint('Chat query error ($type): ${snapshot.error}');
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _buildEmptyState(type),
-          ]);
+          return _buildEmptyForType(type);
         }
 
         // type フィルタをDart側で適用（非表示チャット除外）
@@ -632,14 +624,9 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _searchQuery.isNotEmpty
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 120),
-                    child: Center(child: Text('「$_searchQuery」に一致するチャットがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary))))
-                : _buildEmptyState(type),
-          ]);
+          return _searchQuery.isNotEmpty
+              ? EmptyStateView(icon: Icons.search_off, title: '「$_searchQuery」に一致するチャットがありません')
+              : _buildEmptyForType(type);
         }
 
         return ListView.separated(
@@ -944,68 +931,31 @@ class _ChatListScreenState extends State<ChatListScreen>
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 空状態表示
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Widget _buildEmptyState(String type) {
-    IconData icon;
-    String message;
-    String actionLabel;
-    VoidCallback? onAction;
-
+  Widget _buildEmptyForType(String type) {
     if (type == 'dm') {
-      icon = Icons.chat_bubble_outline;
-      message = 'まだDMはありません';
-      actionLabel = '新しいメッセージを送る';
-      onAction = _showNewDmSheet;
+      return EmptyStateView(
+        icon: Icons.chat_bubble_outline,
+        title: 'まだDMはありません',
+        actions: [EmptyStateAction(label: '新しいメッセージを送る', icon: Icons.edit, onPressed: _showNewDmSheet)],
+      );
     } else if (type == 'group') {
-      icon = Icons.groups_outlined;
-      message = 'グループチャットはありません';
-      actionLabel = 'グループを作成';
-      onAction = () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const CreateGroupChatScreen()));
+      return EmptyStateView(
+        icon: Icons.groups_outlined,
+        title: 'グループチャットはありません',
+        actions: [EmptyStateAction(label: 'グループを作成', icon: Icons.edit, onPressed: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const CreateGroupChatScreen())))],
+      );
     } else if (type == 'team') {
-      icon = Icons.groups_outlined;
-      message = 'チームチャットはありません\nチーム管理画面からチャットを開始できます';
-      actionLabel = '';
-      onAction = null;
+      return const EmptyStateView(
+        icon: Icons.groups_outlined,
+        title: 'チームチャットはありません\nチーム管理画面からチャットを開始できます',
+      );
     } else {
-      icon = Icons.emoji_events_outlined;
-      message = '大会チャットはありません\n大会詳細画面からチャットを開始できます';
-      actionLabel = '';
-      onAction = null;
+      return const EmptyStateView(
+        icon: Icons.emoji_events_outlined,
+        title: '大会チャットはありません\n大会詳細画面からチャットを開始できます',
+      );
     }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 120),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          children: [
-            Icon(icon, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            if (onAction != null) ...[
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: onAction,
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: Text(actionLabel),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 
   String _formatTime(Timestamp? timestamp) {

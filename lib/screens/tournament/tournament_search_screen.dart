@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/empty_state_view.dart';
 import '../../services/bookmark_notification_service.dart';
 import 'tournament_detail_screen.dart';
 import '../chat/chat_screen.dart';
@@ -1151,25 +1152,11 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
   // ── Standard empty state used by search lists ──
   Widget _emptyState(IconData icon, String title, String sub) {
-    return ListView(children: [
-      Padding(
-        padding: const EdgeInsets.only(top: 120),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(children: [
-            Icon(icon, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text(title, textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            if (sub.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(sub, textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
-            ],
-          ]),
-          ),
-        ),
-      ]);
+    return EmptyStateView(
+      icon: icon,
+      title: title,
+      subtitle: sub.isNotEmpty ? sub : null,
+    );
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
