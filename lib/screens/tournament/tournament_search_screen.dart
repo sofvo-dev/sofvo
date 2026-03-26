@@ -1149,28 +1149,37 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     );
   }
 
+  double _emptyStateTopPadding(double contentHeight) {
+    final screenH = MediaQuery.of(context).size.height;
+    final bottomNav = 56.0 + MediaQuery.of(context).padding.bottom;
+    final contentTop = screenH - contentHeight - bottomNav;
+    final targetY = screenH * 0.35;
+    return (targetY - contentTop).clamp(20.0, contentHeight * 0.5);
+  }
+
   // ── Standard empty state used by search lists ──
   Widget _emptyState(IconData icon, String title, String sub) {
-    final topPadding = MediaQuery.of(context).size.height * 0.18;
-    return ListView(children: [
-      Padding(
-        padding: EdgeInsets.only(top: topPadding),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(children: [
-            Icon(icon, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text(title, textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            if (sub.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(sub, textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
-            ],
-          ]),
+    return LayoutBuilder(builder: (context, constraints) {
+      return ListView(children: [
+        Padding(
+          padding: EdgeInsets.only(top: _emptyStateTopPadding(constraints.maxHeight)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(children: [
+              Icon(icon, size: 64, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              Text(title, textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              if (sub.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(sub, textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+              ],
+            ]),
+          ),
         ),
-      ),
-    ]);
+      ]);
+    });
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
