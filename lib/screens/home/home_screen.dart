@@ -351,64 +351,67 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildEmptyTimeline() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text('タイムラインに投稿がありません',
+    return SizedBox(
+      height: 400,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              const Text('タイムラインに投稿がありません',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary)),
+              const SizedBox(height: 8),
+              Text(
+                'フォロー中のユーザーの投稿がここに表示されます。\n仲間を見つけてフォローしましょう！',
                 style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary)),
-            const SizedBox(height: 8),
-            Text(
-              'フォロー中のユーザーの投稿がここに表示されます。\n仲間を見つけてフォローしましょう！',
-              style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondary,
-                  height: 1.5),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _openCreatePost,
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text('投稿する'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 52),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                    height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _openCreatePost,
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('投稿する'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 52),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const FollowSearchScreen()));
-                },
-                icon: const Icon(Icons.person_search, size: 18),
-                label: const Text('友達をさがす'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryColor,
-                  side: const BorderSide(color: AppTheme.primaryColor),
-                  minimumSize: const Size(0, 52),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const FollowSearchScreen()));
+                  },
+                  icon: const Icon(Icons.person_search, size: 18),
+                  label: const Text('友達をさがす'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    minimumSize: const Size(0, 52),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1488,14 +1491,18 @@ class _HomeScreenState extends State<HomeScreen>
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                Text('運営からのお知らせはありません', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
-              ],
+          return SizedBox(
+            height: 400,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  const Text('運営からのお知らせはありません',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                ],
+              ),
             ),
           );
         }

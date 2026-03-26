@@ -249,11 +249,11 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textSecondary)),
+                            color: AppTheme.textPrimary)),
                     const SizedBox(height: 8),
-                    const Text('大会を検索してエントリーしましょう！',
+                    Text('大会を検索してエントリーしましょう！',
                         style: TextStyle(
-                            fontSize: 13, color: AppTheme.textHint)),
+                            fontSize: 14, color: AppTheme.textSecondary)),
                     const SizedBox(height: 20),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -632,11 +632,11 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textSecondary)),
+                            color: AppTheme.textPrimary)),
                     const SizedBox(height: 8),
-                    const Text('大会に参加すると履歴がここに表示されます',
+                    Text('大会に参加すると履歴がここに表示されます',
                         style: TextStyle(
-                            fontSize: 13, color: AppTheme.textHint)),
+                            fontSize: 14, color: AppTheme.textSecondary)),
                   ]),
             ),
           ),
