@@ -326,11 +326,13 @@ class _ChatListScreenState extends State<ChatListScreen>
           Material(
             color: Colors.white,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 52),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                     const Text('チャット',
                         style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                     const Spacer(),
@@ -409,6 +411,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                     ),
                   ],
                 ),
+              ),
               ),
               if (_showSearchBar) ...[
                 const SizedBox(height: 8),

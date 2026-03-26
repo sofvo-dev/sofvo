@@ -151,11 +151,14 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     return Material(
       color: Colors.white,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Text('マイ大会',
-              style:
-                  TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        const ConstrainedBox(
+          constraints: BoxConstraints(minHeight: 52),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Text('マイ大会',
+                style:
+                    TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+          ),
         ),
         const SizedBox(height: 12),
         TabBar(
