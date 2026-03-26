@@ -326,6 +326,7 @@ class _HomeScreenState extends State<HomeScreen>
           color: AppTheme.primaryColor,
           onRefresh: () async {
             await _loadInitialData();
+            setState(() {});
           },
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),

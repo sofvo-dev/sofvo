@@ -519,7 +519,10 @@ class _ChatListScreenState extends State<ChatListScreen>
                       : _buildEmptyState('group'))
                   : RefreshIndicator(
                       color: AppTheme.primaryColor,
-                      onRefresh: () async => setState(() {}),
+                      onRefresh: () async {
+                        setState(() {});
+                        await Future.delayed(const Duration(milliseconds: 500));
+                      },
                       child: ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(top: 4, bottom: 80),
@@ -613,7 +616,10 @@ class _ChatListScreenState extends State<ChatListScreen>
 
         return RefreshIndicator(
           color: AppTheme.primaryColor,
-          onRefresh: () async => setState(() {}),
+          onRefresh: () async {
+            setState(() {});
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(top: 4, bottom: 80),
