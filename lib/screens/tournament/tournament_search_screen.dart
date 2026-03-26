@@ -1229,6 +1229,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           onRefresh: () async {
             await _loadFollowing();
             await _loadBookmarks();
+            setState(() {});
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1539,6 +1540,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           onRefresh: () async {
             await _loadFollowing();
             await _loadBookmarks();
+            setState(() {});
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
