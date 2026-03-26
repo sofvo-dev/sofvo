@@ -260,14 +260,20 @@ class _HomeScreenState extends State<HomeScreen>
     final uid = currentUser.uid;
     final queryIds = [uid, ...FollowService.instance.followingIds].take(30).toList();
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('posts')
-          .where('userId', whereIn: queryIds)
-          .orderBy('createdAt', descending: true)
-          .limit(50)
-          .snapshots(),
-      builder: (context, postSnapshot) {
+    return RefreshIndicator(
+      color: AppTheme.primaryColor,
+      onRefresh: () async {
+        await _loadInitialData();
+        setState(() {});
+      },
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('posts')
+            .where('userId', whereIn: queryIds)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .snapshots(),
+        builder: (context, postSnapshot) {
         if (postSnapshot.hasError) {
           debugPrint("TIMELINE ERROR: ${postSnapshot.error}");
           return Center(
@@ -313,35 +319,35 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
         if (!postSnapshot.hasData) {
-          return const SizedBox.shrink();
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [
+            SizedBox(height: 200),
+            Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+          ]);
         }
 
         final allPosts = postSnapshot.data?.docs ?? [];
         final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
         if (posts.isEmpty) {
-          return _buildEmptyTimeline();
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            const SizedBox(height: 80),
+            _buildEmptyTimeline(),
+          ]);
         }
 
-        return RefreshIndicator(
-          color: AppTheme.primaryColor,
-          onRefresh: () async {
-            await _loadInitialData();
-            setState(() {});
+        return ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          itemCount: posts.length,
+          separatorBuilder: (_, __) =>
+              Divider(height: 1, thickness: 1, color: Colors.grey[100]),
+          itemBuilder: (context, index) {
+            final data =
+                posts[index].data() as Map<String, dynamic>? ?? {};
+            return _buildPostItem(posts[index].id, data);
           },
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 4, bottom: 80),
-            itemCount: posts.length,
-            separatorBuilder: (_, __) =>
-                Divider(height: 1, thickness: 1, color: Colors.grey[100]),
-            itemBuilder: (context, index) {
-              final data =
-                  posts[index].data() as Map<String, dynamic>? ?? {};
-              return _buildPostItem(posts[index].id, data);
-            },
-          ),
         );
       },
+      ),
     );
   }
 
