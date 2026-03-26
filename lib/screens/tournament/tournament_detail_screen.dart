@@ -6664,7 +6664,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             const SizedBox(height: 8),
           ]),
           ),
-          ),
         );
       },
     ));
