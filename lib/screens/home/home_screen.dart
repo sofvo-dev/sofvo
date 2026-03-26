@@ -152,9 +152,11 @@ class _HomeScreenState extends State<HomeScreen>
           Material(
             color: Colors.white,
             child: Column(children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 52),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(children: [
                   RichText(
                     text: TextSpan(
                       children: [
@@ -207,6 +209,7 @@ class _HomeScreenState extends State<HomeScreen>
                     },
                   ),
                 ]),
+              ),
               ),
               const SizedBox(height: 12),
               TabBar(

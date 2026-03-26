@@ -257,22 +257,25 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       color: Colors.white,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Title + toggle
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Row(
-            children: [
-              Text(
-                _isSavedMode ? '保存済み' : 'さがす',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                Text(
+                  _isSavedMode ? '保存済み' : 'さがす',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
                 ),
               ),
               const Spacer(),
               if (!_isSavedMode) _buildCompactToggle(),
             ],
           ),
+        ),
         ),
         const SizedBox(height: 12),
 
