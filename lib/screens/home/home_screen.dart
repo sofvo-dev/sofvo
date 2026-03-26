@@ -261,13 +261,7 @@ class _HomeScreenState extends State<HomeScreen>
     final uid = currentUser.uid;
     final queryIds = [uid, ...FollowService.instance.followingIds].take(30).toList();
 
-    return RefreshIndicator(
-      color: AppTheme.primaryColor,
-      onRefresh: () async {
-        await _loadInitialData();
-        setState(() {});
-      },
-      child: StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('posts')
             .where('userId', whereIn: queryIds)
@@ -350,7 +344,13 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
 
-        return ListView.separated(
+        return RefreshIndicator(
+          color: AppTheme.primaryColor,
+          onRefresh: () async {
+            await _loadInitialData();
+            setState(() {});
+          },
+          child: ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(top: 4, bottom: 80),
           itemCount: posts.length,
@@ -361,9 +361,9 @@ class _HomeScreenState extends State<HomeScreen>
                 posts[index].data() as Map<String, dynamic>? ?? {};
             return _buildPostItem(posts[index].id, data);
           },
-        );
+        ),
+      );
       },
-      ),
     );
   }
 
