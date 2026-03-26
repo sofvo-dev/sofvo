@@ -36,76 +36,70 @@ class EmptyStateView extends StatelessWidget {
       final topPadding = (constraints.maxHeight + 56.0 + mq.viewPadding.bottom - 0.65 * mq.size.height)
           .clamp(20.0, constraints.maxHeight * 0.5);
 
-      return CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(top: topPadding),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  children: [
-                    Icon(icon, size: 64, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        subtitle!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondary,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                    for (final action in actions) ...[
-                      SizedBox(height: action.isPrimary ? 24 : 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: action.isPrimary
-                            ? ElevatedButton.icon(
-                                onPressed: action.onPressed,
-                                icon: Icon(action.icon, size: 18),
-                                label: Text(action.label),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryColor,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size(0, 52),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                ),
-                              )
-                            : OutlinedButton.icon(
-                                onPressed: action.onPressed,
-                                icon: Icon(action.icon, size: 18),
-                                label: Text(action.label),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryColor,
-                                  side: const BorderSide(color: AppTheme.primaryColor),
-                                  minimumSize: const Size(0, 52),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
-                      ),
-                    ],
-                  ],
+      return Padding(
+        padding: EdgeInsets.only(top: topPadding),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 64, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
                 ),
               ),
-            ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+              for (final action in actions) ...[
+                SizedBox(height: action.isPrimary ? 24 : 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: action.isPrimary
+                      ? ElevatedButton.icon(
+                          onPressed: action.onPressed,
+                          icon: Icon(action.icon, size: 18),
+                          label: Text(action.label),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 52),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: action.onPressed,
+                          icon: Icon(action.icon, size: 18),
+                          label: Text(action.label),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(color: AppTheme.primaryColor),
+                            minimumSize: const Size(0, 52),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       );
     });
   }
