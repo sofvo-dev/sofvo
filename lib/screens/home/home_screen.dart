@@ -328,9 +328,11 @@ class _HomeScreenState extends State<HomeScreen>
         final allPosts = postSnapshot.data?.docs ?? [];
         final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
         if (posts.isEmpty) {
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _buildEmptyTimeline(),
-          ]);
+          return LayoutBuilder(builder: (context, constraints) {
+            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+              SizedBox(height: constraints.maxHeight, child: _buildEmptyTimeline()),
+            ]);
+          });
         }
 
         return ListView.separated(
@@ -351,9 +353,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildEmptyTimeline() {
-    return SizedBox(
-      height: 400,
-      child: Center(
+    return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
@@ -413,7 +413,6 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -1491,18 +1490,15 @@ class _HomeScreenState extends State<HomeScreen>
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return SizedBox(
-            height: 400,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  const Text('運営からのお知らせはありません',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                ],
-              ),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                const Text('運営からのお知らせはありません',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              ],
             ),
           );
         }
@@ -1577,7 +1573,8 @@ class _HomeScreenState extends State<HomeScreen>
               children: [
                 Icon(Icons.notifications_none, size: 64, color: Colors.grey[300]),
                 const SizedBox(height: 16),
-                Text('あなた宛の通知はありません', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+                const Text('あなた宛の通知はありません',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               ],
             ),
           );

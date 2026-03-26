@@ -1151,23 +1151,20 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
   // ── Standard empty state used by search lists ──
   Widget _emptyState(IconData icon, String title, String sub) {
-    return SizedBox(
-      height: 400,
-      child: Center(child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(title, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-          if (sub.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(sub, textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
-          ],
-        ]),
-      )),
-    );
+    return Center(child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, size: 64, color: Colors.grey[300]),
+        const SizedBox(height: 16),
+        Text(title, textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        if (sub.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(sub, textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+        ],
+      ]),
+    ));
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

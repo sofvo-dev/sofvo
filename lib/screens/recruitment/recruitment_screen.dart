@@ -235,54 +235,53 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     if (_upcoming.isEmpty) {
       return RefreshIndicator(
         onRefresh: _loadMyTournaments,
-        child: ListView(children: [
-          SizedBox(
-            height: 400,
-            child: Center(
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.event_note_outlined,
-                        size: 64, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                    const Text('参加予定の大会はありません',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary)),
-                    const SizedBox(height: 8),
-                    Text('大会を検索してエントリーしましょう！',
-                        style: TextStyle(
-                            fontSize: 14, color: AppTheme.textSecondary)),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          // MainTabScreenの「さがす」タブに切り替え
-                          // 親のIndexedStackから切り替えは難しいので、
-                          // シンプルにSnackBarで案内
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('下のメニューから「さがす」タブで大会を探せます'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.search, size: 18),
-                        label: const Text('大会を探す'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 52),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: LayoutBuilder(builder: (context, constraints) {
+          return ListView(children: [
+            SizedBox(
+              height: constraints.maxHeight,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.event_note_outlined,
+                            size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        const Text('参加予定の大会はありません',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary)),
+                        const SizedBox(height: 8),
+                        Text('大会を検索してエントリーしましょう！',
+                            style: TextStyle(
+                                fontSize: 14, color: AppTheme.textSecondary)),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('下のメニューから「さがす」タブで大会を探せます'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.search, size: 18),
+                          label: const Text('大会を探す'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 52),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
-                      ),
-                    ),
-                  ]),
+                      ]),
+                ),
+              ),
             ),
-          ),
-        ]),
+          ]);
+        }),
       );
     }
 
@@ -619,28 +618,33 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     if (_past.isEmpty) {
       return RefreshIndicator(
         onRefresh: _loadMyTournaments,
-        child: ListView(children: [
-          SizedBox(
-            height: 400,
-            child: Center(
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.history, size: 64, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                    const Text('過去の大会はありません',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary)),
-                    const SizedBox(height: 8),
-                    Text('大会に参加すると履歴がここに表示されます',
-                        style: TextStyle(
-                            fontSize: 14, color: AppTheme.textSecondary)),
-                  ]),
+        child: LayoutBuilder(builder: (context, constraints) {
+          return ListView(children: [
+            SizedBox(
+              height: constraints.maxHeight,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.history, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        const Text('過去の大会はありません',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary)),
+                        const SizedBox(height: 8),
+                        Text('大会に参加すると履歴がここに表示されます',
+                            style: TextStyle(
+                                fontSize: 14, color: AppTheme.textSecondary)),
+                      ]),
+                ),
+              ),
             ),
-          ),
-        ]),
+          ]);
+        }),
       );
     }
 
