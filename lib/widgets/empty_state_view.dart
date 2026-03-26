@@ -31,80 +31,88 @@ class EmptyStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: CustomScrollView(
+    return LayoutBuilder(builder: (context, constraints) {
+      final mq = MediaQuery.of(context);
+      // Formula: place icon at 35% of screen height from top.
+      // topPadding = contentHeight + bottomNavH + viewPadBottom - 0.65 * screenH
+      // This cancels out header height differences mathematically:
+      //   icon_absolute = vpTop + header + topPadding
+      //   = vpTop + header + (screenH - vpTop - vpBottom - header - bottomNav) + bottomNav + vpBottom - 0.65*screenH
+      //   = 0.35 * screenH  (header cancels!)
+      final topPadding = (constraints.maxHeight + 56.0 + mq.viewPadding.bottom - 0.65 * mq.size.height)
+          .clamp(20.0, constraints.maxHeight * 0.5);
+
+      return CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Align(
-              alignment: const Alignment(0, -0.3),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: topPadding),
               child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  children: [
+                    Icon(icon, size: 64, color: Colors.grey[300]),
+                    const SizedBox(height: 16),
                     Text(
-                      subtitle!,
+                      title,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary,
-                        height: 1.5,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
-                  ],
-                  for (final action in actions) ...[
-                    SizedBox(height: action.isPrimary ? 24 : 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: action.isPrimary
-                          ? ElevatedButton.icon(
-                              onPressed: action.onPressed,
-                              icon: Icon(action.icon, size: 18),
-                              label: Text(action.label),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(0, 52),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                    for (final action in actions) ...[
+                      SizedBox(height: action.isPrimary ? 24 : 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: action.isPrimary
+                            ? ElevatedButton.icon(
+                                onPressed: action.onPressed,
+                                icon: Icon(action.icon, size: 18),
+                                label: Text(action.label),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(0, 52),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                ),
+                              )
+                            : OutlinedButton.icon(
+                                onPressed: action.onPressed,
+                                icon: Icon(action.icon, size: 18),
+                                label: Text(action.label),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  side: const BorderSide(color: AppTheme.primaryColor),
+                                  minimumSize: const Size(0, 52),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                ),
                               ),
-                            )
-                          : OutlinedButton.icon(
-                              onPressed: action.onPressed,
-                              icon: Icon(action.icon, size: 18),
-                              label: Text(action.label),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primaryColor,
-                                side: const BorderSide(color: AppTheme.primaryColor),
-                                minimumSize: const Size(0, 52),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                              ),
-                            ),
-                    ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-      ),
-    );
+        ],
+      );
+    });
   }
 }
