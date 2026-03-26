@@ -31,11 +31,13 @@ class EmptyStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TEST: 500px固定で変化があるか確認
-    const topPadding = 500.0;
+    return LayoutBuilder(builder: (context, constraints) {
+      final mq = MediaQuery.of(context);
+      final topPadding = (constraints.maxHeight + 56.0 + mq.viewPadding.bottom - 0.65 * mq.size.height)
+          .clamp(20.0, constraints.maxHeight * 0.5);
 
-    return Padding(
-      padding: const EdgeInsets.only(top: topPadding),
+      return Padding(
+        padding: EdgeInsets.only(top: topPadding),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
@@ -99,5 +101,6 @@ class EmptyStateView extends StatelessWidget {
           ),
         ),
       );
+    });
   }
 }
