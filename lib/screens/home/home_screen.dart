@@ -329,7 +329,6 @@ class _HomeScreenState extends State<HomeScreen>
         final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
         if (posts.isEmpty) {
           return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            const SizedBox(height: 80),
             _buildEmptyTimeline(),
           ]);
         }
