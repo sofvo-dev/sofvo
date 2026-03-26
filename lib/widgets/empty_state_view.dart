@@ -46,17 +46,6 @@ class EmptyStateView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Column(
                   children: [
-                    // DEBUG: remove after fixing
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      color: Colors.yellow,
-                      child: Text(
-                        'H:${constraints.maxHeight.toInt()} P:${topPadding.toInt()} S:${mq.size.height.toInt()} vpT:${mq.viewPadding.top.toInt()} vpB:${mq.viewPadding.bottom.toInt()}',
-                        style: const TextStyle(fontSize: 9, color: Colors.red),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // END DEBUG
                     Icon(icon, size: 64, color: Colors.grey[300]),
                     const SizedBox(height: 16),
                     Text(
