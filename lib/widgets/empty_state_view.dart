@@ -31,14 +31,15 @@ class EmptyStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Align(
-            alignment: const Alignment(0, -0.3),
-            child: Padding(
+    return SizedBox.expand(
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Align(
+              alignment: const Alignment(0, -0.3),
+              child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -103,6 +104,7 @@ class EmptyStateView extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }
