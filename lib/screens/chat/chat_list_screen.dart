@@ -464,8 +464,13 @@ class _ChatListScreenState extends State<ChatListScreen>
       return const Center(child: Text('ログインしてください'));
     }
 
-    // 複合インデックス不要: membersのみでクエリ → type フィルタ＆ソートはDart側
-    return StreamBuilder<QuerySnapshot>(
+    return RefreshIndicator(
+      color: AppTheme.primaryColor,
+      onRefresh: () async {
+        setState(() {});
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('chats')
           .where('members', arrayContains: _currentUser!.uid)
@@ -507,40 +512,31 @@ class _ChatListScreenState extends State<ChatListScreen>
           return chatName.toLowerCase().contains(_searchQuery) || allNames.contains(_searchQuery);
         }).toList();
 
-        return Column(
-          children: [
-            // グループ作成ボタン
-            // チャット一覧
-            Expanded(
-              child: chats.isEmpty
-                  ? (_searchQuery.isNotEmpty
-                      ? Center(child: Text('「$_searchQuery」に一致するグループがありません',
-                          style: const TextStyle(color: AppTheme.textSecondary)))
-                      : _buildEmptyState('group'))
-                  : RefreshIndicator(
-                      color: AppTheme.primaryColor,
-                      onRefresh: () async {
-                        setState(() {});
-                        await Future.delayed(const Duration(milliseconds: 500));
-                      },
-                      child: ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(top: 4, bottom: 80),
-                        itemCount: chats.length,
-                        separatorBuilder: (_, __) => Divider(
-                            height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
-                        itemBuilder: (context, index) {
-                          final data = chats[index].data() as Map<String, dynamic>;
-                          final chatId = chats[index].id;
-                          final type = (data['type'] as String?) ?? 'team';
-                          return _buildFirestoreChatTile(chatId, data, type);
-                        },
-                      ),
-                    ),
-            ),
-          ],
+        if (chats.isEmpty) {
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            _searchQuery.isNotEmpty
+                ? Padding(padding: const EdgeInsets.only(top: 80),
+                    child: Center(child: Text('「$_searchQuery」に一致するグループがありません',
+                        style: const TextStyle(color: AppTheme.textSecondary))))
+                : _buildEmptyState('group'),
+          ]);
+        }
+
+        return ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          itemCount: chats.length,
+          separatorBuilder: (_, __) => Divider(
+              height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
+          itemBuilder: (context, index) {
+            final data = chats[index].data() as Map<String, dynamic>;
+            final chatId = chats[index].id;
+            final type = (data['type'] as String?) ?? 'team';
+            return _buildFirestoreChatTile(chatId, data, type);
+          },
         );
       },
+      ),
     );
   }
 
@@ -552,8 +548,13 @@ class _ChatListScreenState extends State<ChatListScreen>
       return const Center(child: Text('ログインしてください'));
     }
 
-    // 複合インデックス不要: membersのみでクエリ → type フィルタ＆ソートはDart側
-    return StreamBuilder<QuerySnapshot>(
+    return RefreshIndicator(
+      color: AppTheme.primaryColor,
+      onRefresh: () async {
+        setState(() {});
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('chats')
           .where('members', arrayContains: _currentUser!.uid)
@@ -608,32 +609,29 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return _searchQuery.isNotEmpty
-              ? Center(child: Text('「$_searchQuery」に一致するチャットがありません',
-                  style: const TextStyle(color: AppTheme.textSecondary)))
-              : _buildEmptyState(type);
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            _searchQuery.isNotEmpty
+                ? Padding(padding: const EdgeInsets.only(top: 80),
+                    child: Center(child: Text('「$_searchQuery」に一致するチャットがありません',
+                        style: const TextStyle(color: AppTheme.textSecondary))))
+                : _buildEmptyState(type),
+          ]);
         }
 
-        return RefreshIndicator(
-          color: AppTheme.primaryColor,
-          onRefresh: () async {
-            setState(() {});
-            await Future.delayed(const Duration(milliseconds: 500));
+        return ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          itemCount: chats.length,
+          separatorBuilder: (_, __) => Divider(
+              height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
+          itemBuilder: (context, index) {
+            final data = chats[index].data() as Map<String, dynamic>;
+            final chatId = chats[index].id;
+            return _buildFirestoreChatTile(chatId, data, type);
           },
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 4, bottom: 80),
-            itemCount: chats.length,
-            separatorBuilder: (_, __) => Divider(
-                height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
-            itemBuilder: (context, index) {
-              final data = chats[index].data() as Map<String, dynamic>;
-              final chatId = chats[index].id;
-              return _buildFirestoreChatTile(chatId, data, type);
-            },
-          ),
         );
       },
+      ),
     );
   }
 
