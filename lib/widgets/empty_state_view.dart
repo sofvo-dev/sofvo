@@ -33,12 +33,6 @@ class EmptyStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final mq = MediaQuery.of(context);
-      // Formula: place icon at 35% of screen height from top.
-      // topPadding = contentHeight + bottomNavH + viewPadBottom - 0.65 * screenH
-      // This cancels out header height differences mathematically:
-      //   icon_absolute = vpTop + header + topPadding
-      //   = vpTop + header + (screenH - vpTop - vpBottom - header - bottomNav) + bottomNav + vpBottom - 0.65*screenH
-      //   = 0.35 * screenH  (header cancels!)
       final topPadding = (constraints.maxHeight + 56.0 + mq.viewPadding.bottom - 0.65 * mq.size.height)
           .clamp(20.0, constraints.maxHeight * 0.5);
 
@@ -52,6 +46,17 @@ class EmptyStateView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Column(
                   children: [
+                    // DEBUG: remove after fixing
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      color: Colors.yellow,
+                      child: Text(
+                        'H:${constraints.maxHeight.toInt()} P:${topPadding.toInt()} S:${mq.size.height.toInt()} vpT:${mq.viewPadding.top.toInt()} vpB:${mq.viewPadding.bottom.toInt()}',
+                        style: const TextStyle(fontSize: 9, color: Colors.red),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // END DEBUG
                     Icon(icon, size: 64, color: Colors.grey[300]),
                     const SizedBox(height: 16),
                     Text(
