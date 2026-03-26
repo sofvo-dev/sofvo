@@ -231,23 +231,13 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   }
 
   // ━━━ 開催予定タブ ━━━
-  double _emptyStateTopPadding(double contentHeight) {
-    final mq = MediaQuery.of(context);
-    final screenH = mq.size.height;
-    final bottomSpace = 56.0 + mq.viewPadding.bottom;
-    final contentTop = screenH - contentHeight - bottomSpace;
-    final targetY = screenH * 0.35;
-    return (targetY - contentTop).clamp(20.0, contentHeight * 0.5);
-  }
-
   Widget _buildUpcomingTab() {
     if (_upcoming.isEmpty) {
       return RefreshIndicator(
         onRefresh: _loadMyTournaments,
-        child: LayoutBuilder(builder: (context, constraints) {
-          return ListView(children: [
-            Padding(
-              padding: EdgeInsets.only(top: _emptyStateTopPadding(constraints.maxHeight)),
+        child: ListView(children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 120),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Column(children: [
@@ -285,9 +275,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                 ]),
               ),
             ),
-          ]);
-        }),
-      );
+          ]),
+        );
     }
 
     return RefreshIndicator(
@@ -623,29 +612,27 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     if (_past.isEmpty) {
       return RefreshIndicator(
         onRefresh: _loadMyTournaments,
-        child: LayoutBuilder(builder: (context, constraints) {
-          return ListView(children: [
-            Padding(
-              padding: EdgeInsets.only(top: _emptyStateTopPadding(constraints.maxHeight)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(children: [
-                  Icon(Icons.history, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  const Text('過去の大会はありません',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary)),
-                  const SizedBox(height: 8),
-                  Text('大会に参加すると履歴がここに表示されます',
-                      style: TextStyle(
-                          fontSize: 14, color: AppTheme.textSecondary)),
-                ]),
-              ),
+        child: ListView(children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 120),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(children: [
+                Icon(Icons.history, size: 64, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                const Text('過去の大会はありません',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary)),
+                const SizedBox(height: 8),
+                Text('大会に参加すると履歴がここに表示されます',
+                    style: TextStyle(
+                        fontSize: 14, color: AppTheme.textSecondary)),
+              ]),
             ),
-          ]);
-        }),
+          ),
+        ]),
       );
     }
 
