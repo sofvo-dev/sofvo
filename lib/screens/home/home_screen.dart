@@ -328,11 +328,9 @@ class _HomeScreenState extends State<HomeScreen>
         final allPosts = postSnapshot.data?.docs ?? [];
         final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
         if (posts.isEmpty) {
-          return LayoutBuilder(builder: (context, constraints) {
-            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-              _buildEmptyTimeline(constraints.maxHeight),
-            ]);
-          });
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            _buildEmptyTimeline(),
+          ]);
         }
 
         return ListView.separated(
@@ -352,20 +350,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  /// Calculate top padding so the icon appears at a fixed absolute Y position
-  /// (35% of screen height) regardless of header height differences.
-  double _emptyStateTopPadding(double contentHeight) {
-    final mq = MediaQuery.of(context);
-    final screenH = mq.size.height;
-    final bottomSpace = 56.0 + mq.viewPadding.bottom;
-    final contentTop = screenH - contentHeight - bottomSpace;
-    final targetY = screenH * 0.35;
-    return (targetY - contentTop).clamp(20.0, contentHeight * 0.5);
-  }
-
-  Widget _buildEmptyTimeline(double contentHeight) {
+  Widget _buildEmptyTimeline() {
     return Padding(
-      padding: EdgeInsets.only(top: _emptyStateTopPadding(contentHeight)),
+      padding: const EdgeInsets.only(top: 120),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
@@ -1501,21 +1488,19 @@ class _HomeScreenState extends State<HomeScreen>
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return LayoutBuilder(builder: (context, constraints) {
-            return ListView(children: [
-              Padding(
-                padding: EdgeInsets.only(top: _emptyStateTopPadding(constraints.maxHeight)),
-                child: Column(
-                  children: [
-                    Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                    const Text('運営からのお知らせはありません',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  ],
-                ),
+          return ListView(children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 120),
+              child: Column(
+                children: [
+                  Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  const Text('運営からのお知らせはありません',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                ],
               ),
-            ]);
-          });
+            ),
+          ]);
         }
         return ListView.builder(
           padding: const EdgeInsets.all(16),
@@ -1582,21 +1567,19 @@ class _HomeScreenState extends State<HomeScreen>
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return LayoutBuilder(builder: (context, constraints) {
-            return ListView(children: [
-              Padding(
-                padding: EdgeInsets.only(top: _emptyStateTopPadding(constraints.maxHeight)),
-                child: Column(
-                  children: [
-                    Icon(Icons.notifications_none, size: 64, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                    const Text('あなた宛の通知はありません',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  ],
-                ),
+          return ListView(children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 120),
+              child: Column(
+                children: [
+                  Icon(Icons.notifications_none, size: 64, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  const Text('あなた宛の通知はありません',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                ],
               ),
-            ]);
-          });
+            ),
+          ]);
         }
         _markAnnouncementsAsRead();
         return ListView.builder(
