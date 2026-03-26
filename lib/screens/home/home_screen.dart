@@ -208,6 +208,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ]),
               ),
+              const SizedBox(height: 12),
               TabBar(
                 controller: _tabController,
                 labelColor: AppTheme.textPrimary,

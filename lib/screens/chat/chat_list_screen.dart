@@ -444,7 +444,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                   ),
                 ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TabBar(
                 controller: _tabController,
                 labelColor: AppTheme.textPrimary,
