@@ -501,7 +501,9 @@ class _ChatListScreenState extends State<ChatListScreen>
 
         if (snapshot.hasError) {
           debugPrint('Group chat query error: ${snapshot.error}');
-          return _buildEmptyState('group');
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            _buildEmptyState('group'),
+          ]);
         }
 
         // type == 'group' をDart側でフィルタ（非表示チャット除外）
@@ -531,17 +533,14 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return LayoutBuilder(builder: (context, constraints) {
-            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-              SizedBox(
-                height: constraints.maxHeight,
-                child: _searchQuery.isNotEmpty
-                    ? Center(child: Text('「$_searchQuery」に一致するグループがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary)))
-                    : _buildEmptyState('group'),
-              ),
-            ]);
-          });
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            _searchQuery.isNotEmpty
+                ? Padding(
+                    padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.18),
+                    child: Center(child: Text('「$_searchQuery」に一致するグループがありません',
+                        style: const TextStyle(color: AppTheme.textSecondary))))
+                : _buildEmptyState('group'),
+          ]);
         }
 
         return ListView.separated(
@@ -590,7 +589,9 @@ class _ChatListScreenState extends State<ChatListScreen>
 
         if (snapshot.hasError) {
           debugPrint('Chat query error ($type): ${snapshot.error}');
-          return _buildEmptyState(type);
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            _buildEmptyState(type),
+          ]);
         }
 
         // type フィルタをDart側で適用（非表示チャット除外）
@@ -631,17 +632,14 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return LayoutBuilder(builder: (context, constraints) {
-            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-              SizedBox(
-                height: constraints.maxHeight,
-                child: _searchQuery.isNotEmpty
-                    ? Center(child: Text('「$_searchQuery」に一致するチャットがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary)))
-                    : _buildEmptyState(type),
-              ),
-            ]);
-          });
+          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+            _searchQuery.isNotEmpty
+                ? Padding(
+                    padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.18),
+                    child: Center(child: Text('「$_searchQuery」に一致するチャットがありません',
+                        style: const TextStyle(color: AppTheme.textSecondary))))
+                : _buildEmptyState(type),
+          ]);
         }
 
         return ListView.separated(
@@ -975,11 +973,12 @@ class _ChatListScreenState extends State<ChatListScreen>
       onAction = null;
     }
 
-    return Center(
+    final topPadding = MediaQuery.of(context).size.height * 0.18;
+    return Padding(
+      padding: EdgeInsets.only(top: topPadding),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
