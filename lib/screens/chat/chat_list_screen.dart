@@ -531,13 +531,17 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _searchQuery.isNotEmpty
-                ? Padding(padding: const EdgeInsets.only(top: 80),
-                    child: Center(child: Text('「$_searchQuery」に一致するグループがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary))))
-                : _buildEmptyState('group'),
-          ]);
+          return LayoutBuilder(builder: (context, constraints) {
+            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+              SizedBox(
+                height: constraints.maxHeight,
+                child: _searchQuery.isNotEmpty
+                    ? Center(child: Text('「$_searchQuery」に一致するグループがありません',
+                        style: const TextStyle(color: AppTheme.textSecondary)))
+                    : _buildEmptyState('group'),
+              ),
+            ]);
+          });
         }
 
         return ListView.separated(
@@ -627,13 +631,17 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _searchQuery.isNotEmpty
-                ? Padding(padding: const EdgeInsets.only(top: 80),
-                    child: Center(child: Text('「$_searchQuery」に一致するチャットがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary))))
-                : _buildEmptyState(type),
-          ]);
+          return LayoutBuilder(builder: (context, constraints) {
+            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+              SizedBox(
+                height: constraints.maxHeight,
+                child: _searchQuery.isNotEmpty
+                    ? Center(child: Text('「$_searchQuery」に一致するチャットがありません',
+                        style: const TextStyle(color: AppTheme.textSecondary)))
+                    : _buildEmptyState(type),
+              ),
+            ]);
+          });
         }
 
         return ListView.separated(
@@ -967,42 +975,39 @@ class _ChatListScreenState extends State<ChatListScreen>
       onAction = null;
     }
 
-    return SizedBox(
-      height: 400,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 64, color: Colors.grey[300]),
-              const SizedBox(height: 16),
-              Text(message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-              if (onAction != null) ...[
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: onAction,
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: Text(actionLabel),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            if (onAction != null) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: Text(actionLabel),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 52),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
-              ],
+              ),
             ],
-          ),
+          ],
         ),
       ),
-      );
+    );
   }
 
   String _formatTime(Timestamp? timestamp) {
