@@ -953,9 +953,10 @@ class _ChatListScreenState extends State<ChatListScreen>
   // 空状態表示
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   double _emptyStateTopPadding(double contentHeight) {
-    final screenH = MediaQuery.of(context).size.height;
-    final bottomNav = 56.0 + MediaQuery.of(context).padding.bottom;
-    final contentTop = screenH - contentHeight - bottomNav;
+    final mq = MediaQuery.of(context);
+    final screenH = mq.size.height;
+    final bottomSpace = 56.0 + mq.viewPadding.bottom;
+    final contentTop = screenH - contentHeight - bottomSpace;
     final targetY = screenH * 0.35;
     return (targetY - contentTop).clamp(20.0, contentHeight * 0.5);
   }
