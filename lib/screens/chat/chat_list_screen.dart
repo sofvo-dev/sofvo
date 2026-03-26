@@ -501,9 +501,11 @@ class _ChatListScreenState extends State<ChatListScreen>
 
         if (snapshot.hasError) {
           debugPrint('Group chat query error: ${snapshot.error}');
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _buildEmptyState('group'),
-          ]);
+          return LayoutBuilder(builder: (context, constraints) {
+            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+              _buildEmptyState('group', constraints.maxHeight),
+            ]);
+          });
         }
 
         // type == 'group' をDart側でフィルタ（非表示チャット除外）
@@ -533,14 +535,16 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _searchQuery.isNotEmpty
-                ? Padding(
-                    padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.18),
-                    child: Center(child: Text('「$_searchQuery」に一致するグループがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary))))
-                : _buildEmptyState('group'),
-          ]);
+          return LayoutBuilder(builder: (context, constraints) {
+            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+              _searchQuery.isNotEmpty
+                  ? Padding(
+                      padding: EdgeInsets.only(top: _emptyStateTopPadding(constraints.maxHeight)),
+                      child: Center(child: Text('「$_searchQuery」に一致するグループがありません',
+                          style: const TextStyle(color: AppTheme.textSecondary))))
+                  : _buildEmptyState('group', constraints.maxHeight),
+            ]);
+          });
         }
 
         return ListView.separated(
@@ -589,9 +593,11 @@ class _ChatListScreenState extends State<ChatListScreen>
 
         if (snapshot.hasError) {
           debugPrint('Chat query error ($type): ${snapshot.error}');
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _buildEmptyState(type),
-          ]);
+          return LayoutBuilder(builder: (context, constraints) {
+            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+              _buildEmptyState(type, constraints.maxHeight),
+            ]);
+          });
         }
 
         // type フィルタをDart側で適用（非表示チャット除外）
@@ -632,14 +638,16 @@ class _ChatListScreenState extends State<ChatListScreen>
         }).toList();
 
         if (chats.isEmpty) {
-          return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-            _searchQuery.isNotEmpty
-                ? Padding(
-                    padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.18),
-                    child: Center(child: Text('「$_searchQuery」に一致するチャットがありません',
-                        style: const TextStyle(color: AppTheme.textSecondary))))
-                : _buildEmptyState(type),
-          ]);
+          return LayoutBuilder(builder: (context, constraints) {
+            return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+              _searchQuery.isNotEmpty
+                  ? Padding(
+                      padding: EdgeInsets.only(top: _emptyStateTopPadding(constraints.maxHeight)),
+                      child: Center(child: Text('「$_searchQuery」に一致するチャットがありません',
+                          style: const TextStyle(color: AppTheme.textSecondary))))
+                  : _buildEmptyState(type, constraints.maxHeight),
+            ]);
+          });
         }
 
         return ListView.separated(
@@ -944,7 +952,15 @@ class _ChatListScreenState extends State<ChatListScreen>
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 空状態表示
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Widget _buildEmptyState(String type) {
+  double _emptyStateTopPadding(double contentHeight) {
+    final screenH = MediaQuery.of(context).size.height;
+    final bottomNav = 56.0 + MediaQuery.of(context).padding.bottom;
+    final contentTop = screenH - contentHeight - bottomNav;
+    final targetY = screenH * 0.35;
+    return (targetY - contentTop).clamp(20.0, contentHeight * 0.5);
+  }
+
+  Widget _buildEmptyState(String type, double contentHeight) {
     IconData icon;
     String message;
     String actionLabel;
@@ -973,9 +989,8 @@ class _ChatListScreenState extends State<ChatListScreen>
       onAction = null;
     }
 
-    final topPadding = MediaQuery.of(context).size.height * 0.18;
     return Padding(
-      padding: EdgeInsets.only(top: topPadding),
+      padding: EdgeInsets.only(top: _emptyStateTopPadding(contentHeight)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
