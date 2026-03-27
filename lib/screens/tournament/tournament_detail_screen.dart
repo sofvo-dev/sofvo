@@ -535,37 +535,44 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             const SizedBox(height: 16),
 
             // ━━━ 募集状況 ━━━
-            _buildCard(
-              title: '募集状況',
-              titleIcon: Icons.groups,
-              child: Column(children: [
-                Row(children: [
-                  Text('$liveCurrentTeams', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  Text(' / $liveMaxTeams チーム', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: liveProgress >= 1.0 ? AppTheme.error.withValues(alpha: 0.1) : AppTheme.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
+            StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
+              builder: (context, entriesSnap) {
+                final entryCount = entriesSnap.data?.docs.length ?? 0;
+                final entryProgress = liveMaxTeams > 0 ? entryCount / liveMaxTeams : 0.0;
+                return _buildCard(
+                  title: '募集状況',
+                  titleIcon: Icons.groups,
+                  child: Column(children: [
+                    Row(children: [
+                      Text('$entryCount', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      Text(' / $liveMaxTeams チーム', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: entryProgress >= 1.0 ? AppTheme.error.withValues(alpha: 0.1) : AppTheme.success.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(entryProgress >= 1.0 ? '満員' : '残り${liveMaxTeams - entryCount}枠',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                                color: entryProgress >= 1.0 ? AppTheme.error : AppTheme.success)),
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: entryProgress.clamp(0.0, 1.0),
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          entryProgress >= 1.0 ? AppTheme.error : entryProgress >= 0.8 ? AppTheme.warning : AppTheme.success),
+                        minHeight: 10,
+                      ),
                     ),
-                    child: Text(liveProgress >= 1.0 ? '満員' : '残り${liveMaxTeams - liveCurrentTeams}枠',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-                            color: liveProgress >= 1.0 ? AppTheme.error : AppTheme.success)),
-                  ),
-                ]),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: liveProgress.clamp(0.0, 1.0),
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      liveProgress >= 1.0 ? AppTheme.error : liveProgress >= 0.8 ? AppTheme.warning : AppTheme.success),
-                    minHeight: 10,
-                  ),
-                ),
-              ]),
+                  ]),
+                );
+              },
             ),
             const SizedBox(height: 16),
 
@@ -6384,9 +6391,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           );
         }
 
-        final currentTeams = t['currentTeams'] is int ? t['currentTeams'] as int : 0;
         final maxTeams = t['maxTeams'] is int ? t['maxTeams'] as int : 0;
-        final isFull = maxTeams > 0 && currentTeams >= maxTeams;
+
+        // entriesの実数で満員判定
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
+          builder: (context, entriesSnap) {
+            final entryCount = entriesSnap.data?.docs.length ?? 0;
+            final isFull = maxTeams > 0 && entryCount >= maxTeams;
 
         // 満員の場合はキャンセル待ちUI表示
         if (isFull || status == '満員') {
@@ -6409,7 +6421,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   child: Row(children: [
                     Icon(Icons.info_outline, size: 16, color: AppTheme.warning),
                     const SizedBox(width: 8),
-                    Text('現在満員です ($currentTeams/$maxTeamsチーム)', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
+                    Text('現在満員です ($entryCount/$maxTeamsチーム)', style: TextStyle(fontSize: 13, color: AppTheme.warning, fontWeight: FontWeight.w600)),
                   ]),
                 ),
                 const SizedBox(height: 8),
@@ -6495,6 +6507,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     ),
                   ),
                 ),
+        );
+          },
         );
       },
     );
