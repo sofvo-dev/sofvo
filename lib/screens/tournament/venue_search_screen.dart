@@ -370,7 +370,10 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
           children: [
             const SizedBox(height: 12),
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 16),
+            Align(alignment: Alignment.centerRight, child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+            )),
             Expanded(
               child: ListView(
                 controller: scrollCtrl,

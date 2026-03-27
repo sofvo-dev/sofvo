@@ -391,7 +391,10 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
           children: [
             const SizedBox(height: 12),
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 16),
+            Align(alignment: Alignment.centerRight, child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+            )),
             Expanded(
               child: ListView(
                 controller: scrollCtrl,
@@ -1720,10 +1723,13 @@ class _PrizeCategoryPickerSheetState extends State<_PrizeCategoryPickerSheet> {
             children: [
               const SizedBox(height: 12),
               Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('カテゴリを選択', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(children: [
+                  const Expanded(child: Text('カテゴリを選択', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary))),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                ]),
               ),
               const SizedBox(height: 8),
               Expanded(

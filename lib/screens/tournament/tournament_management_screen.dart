@@ -834,8 +834,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 16),
-            const Text('テンプレートから作成', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Row(children: [
+              const Expanded(child: Text('テンプレートから作成', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+            ]),
             const SizedBox(height: 4),
             Text('保存したテンプレートを使って大会を作成できます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             const SizedBox(height: 16),
