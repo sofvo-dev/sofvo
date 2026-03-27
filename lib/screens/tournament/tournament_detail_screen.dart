@@ -2403,8 +2403,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
               Center(child: Container(width: 40, height: 4,
                   decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 16),
-              const Text('編集者を管理', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Row(children: [
+                const Expanded(child: Text('編集者を管理', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              ]),
               const SizedBox(height: 4),
               Text('編集権限を持つユーザーは大会情報を編集できます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               const SizedBox(height: 16),
@@ -6043,7 +6046,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Center(child: Container(width: 40, height: 4,
               decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(children: [
@@ -6053,7 +6056,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 child: Icon(Icons.how_to_reg, size: 22, color: AppTheme.success),
               ),
               const SizedBox(width: 12),
-              const Text('受付メニュー', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Expanded(child: Text('受付メニュー', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
             ]),
           ),
           const SizedBox(height: 8),
@@ -6124,6 +6128,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         onEditTournament: () => _showEditTournamentSheet(tournData),
         onStatusChange: () => _showStatusDialog(tournData['status'] ?? '準備中'),
         onSelfEntry: () => _showEntrySheet(context),
+        onRecruit: () => _showRecruitSheet(context),
         onCheckIn: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))),
         onCsvMenu: _showCsvImportMenu,
         onDeleteTeams: _deleteEntryTeams,
@@ -8090,6 +8095,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
   final VoidCallback onEditTournament;
   final VoidCallback onStatusChange;
   final VoidCallback onSelfEntry;
+  final VoidCallback onRecruit;
   final VoidCallback onCheckIn;
   final VoidCallback onCsvMenu;
   final VoidCallback onDeleteTeams;
@@ -8110,6 +8116,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.onEditTournament,
     required this.onStatusChange,
     required this.onSelfEntry,
+    required this.onRecruit,
     required this.onCheckIn,
     required this.onCsvMenu,
     required this.onDeleteTeams,
@@ -8154,6 +8161,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           // ━━━ 参加者管理 ━━━
           _sectionLabel('参加者管理'),
           _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
+          _menuTile(context, Icons.person_add, 'メンバー募集する', '一緒にプレーするメンバーを募集', onRecruit, color: AppTheme.success),
           _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
           _menuTile(context, Icons.upload_file, 'CSVインポート', 'エントリー・対戦表・決勝のCSV管理', onCsvMenu, color: AppTheme.success),
 
