@@ -2,7 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-// v3: totalResults対応 + CI自動デプロイ
+// v4: エントリー数自動更新 (onEntryCreated/onEntryDeleted) + repairCurrentTeams
 
 admin.initializeApp();
 

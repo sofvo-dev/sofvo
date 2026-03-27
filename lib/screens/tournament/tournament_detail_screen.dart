@@ -5611,6 +5611,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               backgroundColor: Colors.white,
               appBar: AppBar(
                 backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+                foregroundColor: AppTheme.textPrimary,
                 leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
                   if (teamNameCtrl.text.trim().isNotEmpty || selectedMembers.isNotEmpty) {
                     showDialog(context: ctx, builder: (c) => AlertDialog(
