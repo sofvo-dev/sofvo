@@ -1577,9 +1577,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       });
       count++;
     }
-    // currentTeamsを更新
-    final tournRef = _firestore.collection('tournaments').doc(_tournamentId);
-    batch.update(tournRef, {'currentTeams': FieldValue.increment(count)});
+    // currentTeamsはCloud Function (onEntryCreated) で自動更新
 
     await batch.commit();
 
@@ -3970,7 +3968,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       for (final docId in selectedIds) {
         batch.delete(_firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc(docId));
       }
-      batch.update(_firestore.collection('tournaments').doc(_tournamentId), {'currentTeams': FieldValue.increment(-selectedIds.length)});
+      // currentTeamsはCloud Function (onEntryDeleted) で自動更新
       await batch.commit();
       await _loadMyTeams();
       if (mounted) {
@@ -5871,10 +5869,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // currentTeams更新
-    await _firestore.collection('tournaments').doc(_tournamentId).update({
-      'currentTeams': FieldValue.increment(1),
-    });
+    // currentTeamsはCloud Function (onEntryCreated) で自動更新
 
     // 掲示板に自動投稿
     await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add({
