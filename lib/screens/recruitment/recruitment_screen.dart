@@ -151,9 +151,9 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     return Material(
       color: Colors.white,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const ConstrainedBox(
-          constraints: BoxConstraints(minHeight: 52),
-          child: Padding(
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: const Padding(
             padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Text('マイ大会',
                 style:
