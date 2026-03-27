@@ -1047,28 +1047,35 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                   ],
                   const SizedBox(height: 10),
                   // 参加チーム数バー + ブックマーク
-                  Row(children: [
-                    Text('$currentTeams/$maxTeams', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                    const SizedBox(width: 8),
-                    Expanded(child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progress.toDouble().clamp(0.0, 1.0),
-                        backgroundColor: Colors.grey[200],
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                            progress >= 1.0 ? AppTheme.error : progress >= 0.8 ? AppTheme.warning : AppTheme.success),
-                        minHeight: 5,
-                      ),
-                    )),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: () => _toggleTournamentBookmark(tid, {
-                        'title': title, 'date': date, 'location': location,
-                        'tournamentType': type, 'status': status,
-                      }),
-                      child: Icon(Icons.bookmark, size: 28, color: AppTheme.accentColor),
-                    ),
-                  ]),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('tournaments').doc(tid).collection('entries').snapshots(),
+                    builder: (context, entriesSnap) {
+                      final entryCount = entriesSnap.data?.docs.length ?? 0;
+                      final entryProgress = maxTeams > 0 ? entryCount / (maxTeams as num) : 0.0;
+                      return Row(children: [
+                        Text('$entryCount/$maxTeams', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                        const SizedBox(width: 8),
+                        Expanded(child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: entryProgress.toDouble().clamp(0.0, 1.0),
+                            backgroundColor: Colors.grey[200],
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                entryProgress >= 1.0 ? AppTheme.error : entryProgress >= 0.8 ? AppTheme.warning : AppTheme.success),
+                            minHeight: 5,
+                          ),
+                        )),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () => _toggleTournamentBookmark(tid, {
+                            'title': title, 'date': date, 'location': location,
+                            'tournamentType': type, 'status': status,
+                          }),
+                          child: Icon(Icons.bookmark, size: 28, color: AppTheme.accentColor),
+                        ),
+                      ]);
+                    },
+                  ),
                 ])),
               ]),
             ),
@@ -1380,29 +1387,36 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               ],
               const SizedBox(height: 10),
               // 参加チーム数バー + ブックマーク
-              Row(children: [
-                Text('$currentTeams/$maxTeams', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                const SizedBox(width: 8),
-                Expanded(child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress.toDouble().clamp(0.0, 1.0),
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        progress >= 1.0 ? AppTheme.error : progress >= 0.8 ? AppTheme.warning : AppTheme.success),
-                    minHeight: 5,
-                  ),
-                )),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: () => _toggleTournamentBookmark(doc.id, {
-                    'title': title, 'date': date, 'location': location,
-                    'tournamentType': type, 'status': status,
-                  }),
-                  child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border,
-                      size: 28, color: isSaved ? AppTheme.accentColor : Colors.grey[400]),
-                ),
-              ]),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('tournaments').doc(doc.id).collection('entries').snapshots(),
+                builder: (context, entriesSnap) {
+                  final entryCount = entriesSnap.data?.docs.length ?? 0;
+                  final entryProgress = maxTeams > 0 ? entryCount / (maxTeams as num) : 0.0;
+                  return Row(children: [
+                    Text('$entryCount/$maxTeams', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                    const SizedBox(width: 8),
+                    Expanded(child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: entryProgress.toDouble().clamp(0.0, 1.0),
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            entryProgress >= 1.0 ? AppTheme.error : entryProgress >= 0.8 ? AppTheme.warning : AppTheme.success),
+                        minHeight: 5,
+                      ),
+                    )),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () => _toggleTournamentBookmark(doc.id, {
+                        'title': title, 'date': date, 'location': location,
+                        'tournamentType': type, 'status': status,
+                      }),
+                      child: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border,
+                          size: 28, color: isSaved ? AppTheme.accentColor : Colors.grey[400]),
+                    ),
+                  ]);
+                },
+              ),
             ])),
           ]),
         ),
