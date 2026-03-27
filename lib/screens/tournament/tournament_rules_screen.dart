@@ -716,7 +716,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
             _switchRow('勝ち点制を使用する', _useMatchPoints, (v) => setState(() => _useMatchPoints = v), _prelimColor),
             if (!_useMatchPoints)
               const Padding(padding: EdgeInsets.only(left: 8, top: 4),
-                child: Text('※ 勝敗数のみで順位を決定します', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+                child: Text('※ 勝敗数のみで順位を決定します\n※ 同順位の場合は得失点差で決定します', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
             if (_useMatchPoints) ...[
               const SizedBox(height: 8),
               if (_prelimRounds == 2 && !_r2SameAsR1) ...[

@@ -2128,6 +2128,32 @@ async function sendAccountDeletedMailTo(email, nickname) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// エントリー追加時に currentTeams を自動インクリメント
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onEntryCreated = functions.firestore
+  .document("tournaments/{tournamentId}/entries/{entryId}")
+  .onCreate(async (snap, context) => {
+    const tournamentId = context.params.tournamentId;
+    const db = admin.firestore();
+    await db.collection("tournaments").doc(tournamentId).update({
+      currentTeams: admin.firestore.FieldValue.increment(1),
+    });
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// エントリー削除時に currentTeams を自動デクリメント
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onEntryDeleted = functions.firestore
+  .document("tournaments/{tournamentId}/entries/{entryId}")
+  .onDelete(async (snap, context) => {
+    const tournamentId = context.params.tournamentId;
+    const db = admin.firestore();
+    await db.collection("tournaments").doc(tournamentId).update({
+      currentTeams: admin.firestore.FieldValue.increment(-1),
+    });
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会作成時にフォロワーへ通知
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.onTournamentCreate = functions.firestore
