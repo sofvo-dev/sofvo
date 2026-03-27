@@ -2154,6 +2154,29 @@ exports.onEntryDeleted = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 全大会の currentTeams を entries 数から再計算して修復
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.repairCurrentTeams = functions.https.onRequest(async (req, res) => {
+  const db = admin.firestore();
+  const tournamentsSnap = await db.collection("tournaments").get();
+  let fixed = 0;
+
+  for (const doc of tournamentsSnap.docs) {
+    const entriesSnap = await db.collection("tournaments").doc(doc.id).collection("entries").get();
+    const actual = entriesSnap.size;
+    const current = doc.data().currentTeams || 0;
+
+    if (actual !== current) {
+      await db.collection("tournaments").doc(doc.id).update({ currentTeams: actual });
+      fixed++;
+      console.log(`Fixed ${doc.id}: ${current} -> ${actual}`);
+    }
+  }
+
+  res.json({ message: `Repaired ${fixed} tournaments`, total: tournamentsSnap.size });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会作成時にフォロワーへ通知
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.onTournamentCreate = functions.firestore
