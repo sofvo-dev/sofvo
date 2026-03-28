@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 
@@ -135,13 +136,9 @@ class PointService {
       }
     }
 
-    // ━━━ ポイント計算 & 付与 ━━━
-    final batch = _firestore.batch();
+    // ━━━ ポイント計算 & Cloud Function で付与 ━━━
     final pointHistoryData = <String, Map<String, dynamic>>{};
-
-    // 現在のシーズン（年度）
-    final now = DateTime.now();
-    final season = now.month >= 4 ? now.year : now.year - 1;
+    final userPointsList = <Map<String, dynamic>>[];
 
     for (final entry in userTeamMap.entries) {
       final uid = entry.key;
@@ -151,40 +148,29 @@ class PointService {
       final rank = teamRanks[teamId] ?? 99;
       final rankPoints = calculateRankPoints(teamCount, rank);
 
-      // ユーザードキュメント更新
-      final userRef = _firestore.collection('users').doc(uid);
-      batch.update(userRef, {
-        'totalPoints': FieldValue.increment(rankPoints),
-        'seasonPoints': FieldValue.increment(rankPoints),
-        'stats.tournamentsPlayed': FieldValue.increment(1),
-        if (rank == 1) 'stats.championships': FieldValue.increment(1),
+      userPointsList.add({
+        'uid': uid,
+        'rankPoints': rankPoints,
+        'rank': rank,
       });
 
-      // ポイント履歴
+      // ポイント履歴（通知用）
       pointHistoryData[uid] = {
         'rankPoints': rankPoints,
         'totalEarned': rankPoints,
         'rank': rank <= 3 ? rank : null,
       };
-
-      // ポイント履歴をユーザーのサブコレクションに保存
-      final historyRef = userRef.collection('pointHistory').doc(tournamentId);
-      batch.set(historyRef, {
-        'tournamentId': tournamentId,
-        'tournamentName': tournamentName,
-        'date': tournament['date'] ?? '',
-        'teamCount': teamCount,
-        'rank': rank <= 3 ? rank : null,
-        'rankPoints': rankPoints,
-        'totalEarned': rankPoints,
-        'season': season,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
     }
 
-    batch.update(tournamentRef, {'pointsAwarded': true});
+    // Cloud Function でサーバーサイドからポイント付与
+    await FirebaseFunctions.instance.httpsCallable('distributePoints').call({
+      'tournamentId': tournamentId,
+      'tournamentName': tournamentName,
+      'userPoints': userPointsList,
+    });
 
-    await batch.commit();
+    // pointsAwarded フラグを主催者権限で更新
+    await tournamentRef.update({'pointsAwarded': true});
 
     // ポイント獲得通知を送信
     await _sendPointNotifications(

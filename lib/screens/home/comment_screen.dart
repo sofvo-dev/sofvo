@@ -71,14 +71,6 @@ class _CommentScreenState extends State<CommentScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // コメント数を更新
-      await FirebaseFirestore.instance
-          .collection('posts')
-          .doc(widget.postId)
-          .update({
-        'commentsCount': FieldValue.increment(1),
-      });
-
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
@@ -102,13 +94,6 @@ class _CommentScreenState extends State<CommentScreen> {
           .collection('comments')
           .doc(commentId)
           .delete();
-
-      await FirebaseFirestore.instance
-          .collection('posts')
-          .doc(widget.postId)
-          .update({
-        'commentsCount': FieldValue.increment(-1),
-      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -369,14 +369,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final followersSnap = await userRef.collection('followers').get();
       for (final doc in followersSnap.docs) {
         await _firestore.collection('users').doc(doc.id).collection('following').doc(uid).delete().catchError((_) {});
-        await _firestore.collection('users').doc(doc.id).update({'followingCount': FieldValue.increment(-1)}).catchError((_) {});
       }
 
       // フォロー先のfollowersから削除
       final followingSnap = await userRef.collection('following').get();
       for (final doc in followingSnap.docs) {
         await _firestore.collection('users').doc(doc.id).collection('followers').doc(uid).delete().catchError((_) {});
-        await _firestore.collection('users').doc(doc.id).update({'followersCount': FieldValue.increment(-1)}).catchError((_) {});
       }
 
       // サブコレクション削除
@@ -1228,10 +1226,8 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
 
     if (likeDoc.exists) {
       await likeRef.delete();
-      await postRef.update({'likesCount': FieldValue.increment(-1)});
     } else {
       await likeRef.set({'userId': uid, 'createdAt': FieldValue.serverTimestamp()});
-      await postRef.update({'likesCount': FieldValue.increment(1)});
     }
   }
 
@@ -1319,7 +1315,6 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
                                       if (isMine) GestureDetector(
                                         onTap: () async {
                                           await _firestore.collection('posts').doc(postId).collection('comments').doc(cId).delete();
-                                          await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(-1)});
                                         },
                                         child: Icon(Icons.close, size: 16, color: AppTheme.textHint),
                                       ),
@@ -1377,7 +1372,6 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
                               'text': txt,
                               'createdAt': FieldValue.serverTimestamp(),
                             });
-                            await _firestore.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(1)});
                           } catch (_) {}
                         },
                         child: Container(

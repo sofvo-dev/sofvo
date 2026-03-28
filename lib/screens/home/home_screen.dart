@@ -116,13 +116,11 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (likeDoc.exists) {
       await likeRef.delete();
-      await postRef.update({'likesCount': FieldValue.increment(-1)});
     } else {
       await likeRef.set({
         'userId': uid,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      await postRef.update({'likesCount': FieldValue.increment(1)});
       // いいね通知を送信
       final postDoc = await postRef.get();
       final postData = postDoc.data() as Map<String, dynamic>?;
@@ -1008,7 +1006,6 @@ class _HomeScreenState extends State<HomeScreen>
                                       if (isMine) GestureDetector(
                                         onTap: () async {
                                           await FirebaseFirestore.instance.collection('posts').doc(postId).collection('comments').doc(cId).delete();
-                                          await FirebaseFirestore.instance.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(-1)});
                                         },
                                         child: Icon(Icons.close, size: 16, color: AppTheme.textHint),
                                       ),
@@ -1070,7 +1067,6 @@ class _HomeScreenState extends State<HomeScreen>
                               'text': txt,
                               'createdAt': FieldValue.serverTimestamp(),
                             });
-                            await FirebaseFirestore.instance.collection('posts').doc(postId).update({'commentsCount': FieldValue.increment(1)});
                           } catch (_) {
                             // Silently handle - comment will not appear but app won't crash
                           }

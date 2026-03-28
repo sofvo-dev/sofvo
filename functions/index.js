@@ -2,7 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-// v4: エントリー数自動更新 (onEntryCreated/onEntryDeleted) + repairCurrentTeams
+// v5: 投稿いいね/コメント数 + フォロー数 + タイムラインいいね数の自動更新 Cloud Functions 追加
 
 admin.initializeApp();
 
@@ -2174,6 +2174,164 @@ exports.repairCurrentTeams = functions.https.onRequest(async (req, res) => {
   }
 
   res.json({ message: `Repaired ${fixed} tournaments`, total: tournamentsSnap.size });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 投稿いいね数の自動更新
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onPostLikeCreated = functions.firestore
+  .document("posts/{postId}/likes/{likeId}")
+  .onCreate(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("posts").doc(context.params.postId).update({
+      likesCount: admin.firestore.FieldValue.increment(1),
+    });
+  });
+
+exports.onPostLikeDeleted = functions.firestore
+  .document("posts/{postId}/likes/{likeId}")
+  .onDelete(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("posts").doc(context.params.postId).update({
+      likesCount: admin.firestore.FieldValue.increment(-1),
+    });
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 投稿コメント数の自動更新
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onPostCommentCreated = functions.firestore
+  .document("posts/{postId}/comments/{commentId}")
+  .onCreate(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("posts").doc(context.params.postId).update({
+      commentsCount: admin.firestore.FieldValue.increment(1),
+    });
+  });
+
+exports.onPostCommentDeleted = functions.firestore
+  .document("posts/{postId}/comments/{commentId}")
+  .onDelete(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("posts").doc(context.params.postId).update({
+      commentsCount: admin.firestore.FieldValue.increment(-1),
+    });
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 大会タイムラインいいね数の自動更新
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onTimelineLikeCreated = functions.firestore
+  .document("tournaments/{tournamentId}/timeline/{postId}/likes/{likeId}")
+  .onCreate(async (snap, context) => {
+    const { tournamentId, postId } = context.params;
+    const db = admin.firestore();
+    await db.collection("tournaments").doc(tournamentId)
+      .collection("timeline").doc(postId).update({
+        likesCount: admin.firestore.FieldValue.increment(1),
+      });
+  });
+
+exports.onTimelineLikeDeleted = functions.firestore
+  .document("tournaments/{tournamentId}/timeline/{postId}/likes/{likeId}")
+  .onDelete(async (snap, context) => {
+    const { tournamentId, postId } = context.params;
+    const db = admin.firestore();
+    await db.collection("tournaments").doc(tournamentId)
+      .collection("timeline").doc(postId).update({
+        likesCount: admin.firestore.FieldValue.increment(-1),
+      });
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// フォロワー数の自動更新
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onFollowerCreated = functions.firestore
+  .document("users/{userId}/followers/{followerId}")
+  .onCreate(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("users").doc(context.params.userId).update({
+      followersCount: admin.firestore.FieldValue.increment(1),
+    });
+  });
+
+exports.onFollowerDeleted = functions.firestore
+  .document("users/{userId}/followers/{followerId}")
+  .onDelete(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("users").doc(context.params.userId).update({
+      followersCount: admin.firestore.FieldValue.increment(-1),
+    });
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// フォロー数の自動更新
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onFollowingCreated = functions.firestore
+  .document("users/{userId}/following/{followId}")
+  .onCreate(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("users").doc(context.params.userId).update({
+      followingCount: admin.firestore.FieldValue.increment(1),
+    });
+  });
+
+exports.onFollowingDeleted = functions.firestore
+  .document("users/{userId}/following/{followId}")
+  .onDelete(async (snap, context) => {
+    const db = admin.firestore();
+    await db.collection("users").doc(context.params.userId).update({
+      followingCount: admin.firestore.FieldValue.increment(-1),
+    });
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ポイント付与（サーバーサイド）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.distributePoints = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+
+  const { tournamentId, tournamentName, userPoints } = data;
+  if (!tournamentId || !userPoints || !Array.isArray(userPoints)) {
+    throw new functions.https.HttpsError("invalid-argument", "パラメータが不正です");
+  }
+
+  // 主催者権限チェック
+  const db = admin.firestore();
+  const tournDoc = await db.collection("tournaments").doc(tournamentId).get();
+  if (!tournDoc.exists) throw new functions.https.HttpsError("not-found", "大会が見つかりません");
+  const tournData = tournDoc.data();
+  const isOrganizer = tournData.organizerId === context.auth.uid;
+  const isEditor = (tournData.editors || []).includes(context.auth.uid);
+  if (!isOrganizer && !isEditor) {
+    throw new functions.https.HttpsError("permission-denied", "権限がありません");
+  }
+
+  const batch = db.batch();
+  for (const entry of userPoints) {
+    const { uid, rankPoints, rank } = entry;
+    const userRef = db.collection("users").doc(uid);
+    const updateData = {
+      totalPoints: admin.firestore.FieldValue.increment(rankPoints),
+      seasonPoints: admin.firestore.FieldValue.increment(rankPoints),
+      "stats.tournamentsPlayed": admin.firestore.FieldValue.increment(1),
+    };
+    if (rank === 1) updateData["stats.championships"] = admin.firestore.FieldValue.increment(1);
+    batch.update(userRef, updateData);
+
+    const historyRef = userRef.collection("pointHistory").doc(tournamentId);
+    batch.set(historyRef, {
+      tournamentId,
+      tournamentName: tournamentName || "",
+      rankPoints,
+      totalEarned: rankPoints,
+      rank: rank <= 3 ? rank : null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  await batch.commit();
+  return { success: true, updated: userPoints.length };
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
