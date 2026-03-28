@@ -475,10 +475,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2.5),
                             ),
                             child: avatarUrl.isNotEmpty
-                                ? CircleAvatar(
-                                    radius: 30,
-                                    backgroundImage: CachedNetworkImageProvider(avatarUrl),
-                                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                ? ClipOval(
+                                    child: CachedNetworkImage(
+                                      imageUrl: avatarUrl,
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        width: 60, height: 60,
+                                        color: Colors.white.withValues(alpha: 0.2),
+                                      ),
+                                      errorWidget: (context, url, error) => CircleAvatar(
+                                        radius: 30,
+                                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                        child: Text(nickname.isNotEmpty ? nickname[0] : '?',
+                                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                                      ),
+                                    ),
                                   )
                                 : CircleAvatar(
                                     radius: 30,
