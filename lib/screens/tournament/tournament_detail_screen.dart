@@ -5343,10 +5343,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final likeDoc = await likeRef.get();
     if (likeDoc.exists) {
       await likeRef.delete();
-      await postRef.update({'likesCount': FieldValue.increment(-1)});
     } else {
       await likeRef.set({'userId': uid, 'createdAt': FieldValue.serverTimestamp()});
-      await postRef.update({'likesCount': FieldValue.increment(1)});
     }
   }
 
