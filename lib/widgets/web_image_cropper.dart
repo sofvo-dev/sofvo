@@ -40,6 +40,7 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
   final _transformController = TransformationController();
   ui.Image? _image;
   bool _isProcessing = false;
+  double _cropSize = 0;
 
   @override
   void initState() {
@@ -83,17 +84,19 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
     final image = _image!;
     final outputSize = widget.outputSize;
 
-    // Get the viewport size (the visible crop area)
+    // Get the viewport size
     final renderBox = _cropAreaKey.currentContext!.findRenderObject()
         as RenderBox;
     final viewSize = renderBox.size;
-    final cropDiameter = min(viewSize.width, viewSize.height);
+
+    // Use the same crop diameter as the visual overlay
+    final cropDiameter = _cropSize;
 
     // Get the transformation matrix
     final matrix = _transformController.value;
     final inv = Matrix4.inverted(matrix);
 
-    // Calculate the center of the viewport in image coordinates
+    // Calculate the center of the viewport
     final centerX = viewSize.width / 2;
     final centerY = viewSize.height / 2;
 
@@ -106,10 +109,8 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
     final offsetX = (viewSize.width - imgW * baseScale) / 2;
     final offsetY = (viewSize.height - imgH * baseScale) / 2;
 
-    // Transform viewport center back to image coordinates
+    // The crop rect in viewport coordinates (centered circle)
     final halfCrop = cropDiameter / 2;
-
-    // The crop rect in viewport coordinates
     final cropLeft = centerX - halfCrop;
     final cropTop = centerY - halfCrop;
 
@@ -153,7 +154,38 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
     return byteData!.buffer.asUint8List();
   }
 
+  /// 画像がクロップ円をちょうど覆うように初期スケールを設定
+  void _setInitialTransform(BoxConstraints constraints) {
+    final image = _image;
+    if (image == null) return;
+
+    final viewW = constraints.maxWidth;
+    final viewH = constraints.maxHeight;
+    final cropDiameter = min(viewW, viewH) * 0.8;
+
+    final imgW = image.width.toDouble();
+    final imgH = image.height.toDouble();
+
+    // InteractiveViewerのデフォルト: 画像はBoxFit.containでviewportにフィット
+    final baseScale = min(viewW / imgW, viewH / imgH);
+    final displayW = imgW * baseScale;
+    final displayH = imgH * baseScale;
+
+    // 画像の短辺がクロップ円を覆うようにスケール
+    final imgDisplayMin = min(displayW, displayH);
+    if (imgDisplayMin < cropDiameter) {
+      final needed = cropDiameter / imgDisplayMin;
+      // 中心を基準にスケール
+      final dx = viewW / 2 * (1 - needed);
+      final dy = viewH / 2 * (1 - needed);
+      _transformController.value = Matrix4.identity()
+        ..translate(dx, dy)
+        ..scale(needed);
+    }
+  }
+
   final _cropAreaKey = GlobalKey();
+  bool _initialTransformSet = false;
 
   @override
   Widget build(BuildContext context) {
@@ -191,6 +223,15 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
                   constraints.maxWidth,
                   constraints.maxHeight,
                 ) * 0.8;
+                _cropSize = cropSize;
+
+                // 初回のみ初期スケールを設定
+                if (!_initialTransformSet) {
+                  _initialTransformSet = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _setInitialTransform(constraints);
+                  });
+                }
 
                 return Stack(
                   alignment: Alignment.center,
@@ -204,6 +245,7 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
                         transformationController: _transformController,
                         minScale: 0.5,
                         maxScale: 5.0,
+                        boundaryMargin: const EdgeInsets.all(double.infinity),
                         child: Image.memory(
                           widget.imageBytes,
                           fit: BoxFit.contain,
