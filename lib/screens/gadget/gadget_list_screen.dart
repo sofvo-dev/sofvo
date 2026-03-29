@@ -313,7 +313,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
   // ── リスト表示（長押しドラッグで並び替え） ──
   Widget _buildCardView(List<Map<String, dynamic>> gadgets) {
     return ReorderableListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       itemCount: gadgets.length,
       onReorder: (oldIndex, newIndex) => _onReorder(gadgets, oldIndex, newIndex),
       proxyDecorator: (child, index, animation) {
@@ -459,7 +459,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
   // ── グリッド表示 ──
   Widget _buildGridView(List<Map<String, dynamic>> gadgets) {
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.of(context).padding.bottom),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 10,

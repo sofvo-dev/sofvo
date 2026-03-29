@@ -251,7 +251,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.of(context).padding.bottom),
       itemCount: users.length,
       itemBuilder: (context, index) {
         final userData = users[index];
