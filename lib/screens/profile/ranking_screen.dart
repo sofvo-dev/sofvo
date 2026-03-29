@@ -117,7 +117,7 @@ class _RankingList extends StatelessWidget {
               ),
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
                 itemCount: users.length,
                 itemBuilder: (context, index) {
                   final data = users[index].data() as Map<String, dynamic>;
