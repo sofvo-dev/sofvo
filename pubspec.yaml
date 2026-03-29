@@ -36,7 +36,7 @@ dependencies:
   path_provider: ^2.1.0
   sign_in_with_apple: ^6.1.4
   crypto: ^3.0.6
-  cloud_functions: ^5.3.3
+  cloud_functions: ^5.1.0
 
 dev_dependencies:
   flutter_test:
