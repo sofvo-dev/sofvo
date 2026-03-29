@@ -3545,7 +3545,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             // コート別プレビュー
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
                 itemCount: courts.length,
                 itemBuilder: (ctx, courtIdx) {
                   final courtTeams = courts[courtIdx];
@@ -4212,7 +4212,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               // リーグ別プレビュー
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
                   itemCount: brackets.length,
                   itemBuilder: (ctx, idx) {
                     final bracket = brackets[idx];
