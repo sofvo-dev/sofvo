@@ -79,6 +79,9 @@ class MyPageScreen extends StatelessWidget {
                   ? '${rawArea['prefecture'] ?? ''}${rawArea['city'] ?? ''}'
                   : '';
           final bio = _safeString(data['bio']);
+          final socialLinks = data['socialLinks'] is Map<String, dynamic>
+              ? data['socialLinks'] as Map<String, dynamic>
+              : <String, dynamic>{};
           final totalPoints = _safeInt(data['totalPoints']);
           final seasonPoints = _safeInt(data['seasonPoints']);
           final stats = data['stats'] is Map<String, dynamic>
@@ -208,6 +211,10 @@ class MyPageScreen extends StatelessWidget {
                           if (bio.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             _ExpandableBio(bio: bio),
+                          ],
+                          if (socialLinks.values.any((v) => v is String && v.isNotEmpty)) ...[
+                            const SizedBox(height: 8),
+                            _SocialLinkIcons(socialLinks: socialLinks),
                           ],
                           const SizedBox(height: 12),
                           // ── フォロー / フォロワー（横一列コンパクト） ──
@@ -717,6 +724,57 @@ class MyPageScreen extends StatelessWidget {
 
 // ── メニューアイテムデータ ──
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SNSリンクアイコン表示
+class _SocialLinkIcons extends StatelessWidget {
+  final Map<String, dynamic> socialLinks;
+  const _SocialLinkIcons({required this.socialLinks});
+
+  static const _snsDefs = <String, (IconData, bool)>{
+    'instagram': (FontAwesomeIcons.instagram, false),
+    'facebook': (FontAwesomeIcons.facebook, false),
+    'x': (FontAwesomeIcons.xTwitter, false),
+    'tiktok': (FontAwesomeIcons.tiktok, false),
+    'youtube': (FontAwesomeIcons.youtube, false),
+    'website': (Icons.language, true),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = _snsDefs.entries
+        .where((e) => socialLinks[e.key] is String && (socialLinks[e.key] as String).isNotEmpty)
+        .toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: entries.map((e) {
+        final url = socialLinks[e.key] as String;
+        final (icon, isMaterial) = e.value;
+        return GestureDetector(
+          onTap: () => _openUrl(url),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: isMaterial
+                ? Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.7))
+                : FaIcon(icon, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    var target = url;
+    if (!target.startsWith('http://') && !target.startsWith('https://')) {
+      target = 'https://$target';
+    }
+    final uri = Uri.tryParse(target);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+}
+
 // 自己紹介（4行まで表示 → 「続きを読む」で全文展開）
 class _ExpandableBio extends StatefulWidget {
   final String bio;
@@ -1498,6 +1556,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late TextEditingController _nicknameCtrl;
   late TextEditingController _bioCtrl;
   late TextEditingController _idCtrl;
+  late TextEditingController _instagramCtrl;
+  late TextEditingController _facebookCtrl;
+  late TextEditingController _xCtrl;
+  late TextEditingController _tiktokCtrl;
+  late TextEditingController _youtubeCtrl;
+  late TextEditingController _websiteCtrl;
   String _selectedExperience = '1年未満';
   String _selectedArea = '東京都';
   String _selectedGender = '未設定';
@@ -1530,6 +1594,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _bioCtrl = TextEditingController(text: _str(d['bio']));
     _idCtrl = TextEditingController(text: _str(d['searchId']));
     _avatarUrl = _str(d['avatarUrl']);
+    final links = d['socialLinks'] is Map<String, dynamic>
+        ? d['socialLinks'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    _instagramCtrl = TextEditingController(text: _str(links['instagram']));
+    _facebookCtrl = TextEditingController(text: _str(links['facebook']));
+    _xCtrl = TextEditingController(text: _str(links['x']));
+    _tiktokCtrl = TextEditingController(text: _str(links['tiktok']));
+    _youtubeCtrl = TextEditingController(text: _str(links['youtube']));
+    _websiteCtrl = TextEditingController(text: _str(links['website']));
 
     // ユーザーIDが設定済みなら変更不可
     final existingId = _str(d['searchId']);
@@ -1593,6 +1666,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _nicknameCtrl.dispose();
     _bioCtrl.dispose();
     _idCtrl.dispose();
+    _instagramCtrl.dispose();
+    _facebookCtrl.dispose();
+    _xCtrl.dispose();
+    _tiktokCtrl.dispose();
+    _youtubeCtrl.dispose();
+    _websiteCtrl.dispose();
     super.dispose();
   }
 
@@ -1922,6 +2001,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 .copyWith(alignLabelWithHint: true),
           ),
           const SizedBox(height: 24),
+
+          // ── SNSリンク ──
+          _buildSectionLabel('SNSリンク'),
+          const SizedBox(height: 8),
+          _buildSnsField(FontAwesomeIcons.instagram, 'Instagram URL', _instagramCtrl),
+          _buildSnsField(FontAwesomeIcons.facebook, 'Facebook URL', _facebookCtrl),
+          _buildSnsField(FontAwesomeIcons.xTwitter, 'X (Twitter) URL', _xCtrl),
+          _buildSnsField(FontAwesomeIcons.tiktok, 'TikTok URL', _tiktokCtrl),
+          _buildSnsField(FontAwesomeIcons.youtube, 'YouTube URL', _youtubeCtrl),
+          _buildSnsField(Icons.language, 'その他URL', _websiteCtrl, isMaterialIcon: true),
+          const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _isSaving ? null : _saveProfile,
             child: const Text('保存する',
@@ -1958,6 +2048,25 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
               color: AppTheme.primaryColor, width: 2)),
+    );
+  }
+
+  Widget _buildSnsField(IconData icon, String hint, TextEditingController ctrl, {bool isMaterialIcon = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: ctrl,
+        decoration: _inputDecoration(hint).copyWith(
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(12),
+            child: isMaterialIcon
+                ? Icon(icon, size: 20, color: AppTheme.textSecondary)
+                : FaIcon(icon, size: 18, color: AppTheme.textSecondary),
+          ),
+        ),
+        keyboardType: TextInputType.url,
+        style: const TextStyle(fontSize: 14),
+      ),
     );
   }
 
@@ -2000,6 +2109,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           'experience': _selectedExperience,
           'area': _selectedArea,
           'avatarUrl': _avatarUrl,
+          'socialLinks': {
+            'instagram': _instagramCtrl.text.trim(),
+            'facebook': _facebookCtrl.text.trim(),
+            'x': _xCtrl.text.trim(),
+            'tiktok': _tiktokCtrl.text.trim(),
+            'youtube': _youtubeCtrl.text.trim(),
+            'website': _websiteCtrl.text.trim(),
+          },
         };
 
         // ユーザーIDは初回のみ設定可
