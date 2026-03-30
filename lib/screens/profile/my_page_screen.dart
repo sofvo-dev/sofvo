@@ -17,6 +17,7 @@ import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
 import '../tournament/prize_search_screen.dart';
 import '../tournament/tournament_management_screen.dart';
+import '../notification/create_notice_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
@@ -354,6 +355,30 @@ class MyPageScreen extends StatelessWidget {
                         child: _BadgeCollectionRow(userId: viewingUid),
                       ),
                       const SizedBox(height: 24),
+                    ],
+
+                    // ── お知らせ配信（公式アカウントのみ） ──
+                    if (isOfficial) ...[
+                      _buildCardSection(
+                        context: context,
+                        title: 'お知らせ配信',
+                        icon: Icons.campaign_rounded,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: _buildMenuCard(
+                              icon: Icons.send_rounded,
+                              title: 'お知らせを作成',
+                              subtitle: '全ユーザーに一斉配信',
+                              color: AppTheme.accentColor,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const CreateNoticeScreen())),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                     ],
 
                     // ── 大会主催者メニュー（カード型） ──
