@@ -211,7 +211,7 @@ class MyPageScreen extends StatelessWidget {
                               alignment: Alignment.centerLeft,
                               child: Text(bio,
                                   style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
-                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                                  maxLines: 4, overflow: TextOverflow.ellipsis),
                             ),
                           ],
                           const SizedBox(height: 12),
@@ -1859,7 +1859,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           TextField(
             controller: _bioCtrl,
             maxLines: 4,
-            maxLength: 60,
+            maxLength: 120,
             decoration: _inputDecoration('自己紹介を入力')
                 .copyWith(alignLabelWithHint: true),
           ),

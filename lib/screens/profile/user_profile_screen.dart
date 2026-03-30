@@ -529,7 +529,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(bio,
                               style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
-                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                              maxLines: 4, overflow: TextOverflow.ellipsis),
                         ),
                       ],
                       const SizedBox(height: 12),
