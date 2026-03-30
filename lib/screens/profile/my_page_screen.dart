@@ -83,6 +83,7 @@ class MyPageScreen extends StatelessWidget {
           final socialLinks = data['socialLinks'] is Map<String, dynamic>
               ? data['socialLinks'] as Map<String, dynamic>
               : <String, dynamic>{};
+          final isOfficial = data['isOfficial'] == true;
           final totalPoints = _safeInt(data['totalPoints']);
           final seasonPoints = _safeInt(data['seasonPoints']);
           final stats = data['stats'] is Map<String, dynamic>
@@ -191,15 +192,17 @@ class MyPageScreen extends StatelessWidget {
                                           const OfficialBadge(size: 18, color: Colors.white),
                                       ],
                                     ),
-                                    const SizedBox(height: 4),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 4,
-                                      children: [
-                                        if (experience.isNotEmpty) _buildHeaderTag('競技歴 $experience'),
-                                        if (area.isNotEmpty) _buildHeaderTag(area),
-                                      ],
-                                    ),
+                                    if (!isOfficial) ...[
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (experience.isNotEmpty) _buildHeaderTag('競技歴 $experience'),
+                                          if (area.isNotEmpty) _buildHeaderTag(area),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -234,7 +237,8 @@ class MyPageScreen extends StatelessWidget {
                 ),
               ),
 
-              // ━━━ ダッシュボード（スタッツ） ━━━
+              // ━━━ ダッシュボード（スタッツ）※公式アカウントは非表示 ━━━
+              if (!isOfficial)
               SliverToBoxAdapter(
                 child: Transform.translate(
                   offset: const Offset(0, -8),
@@ -261,7 +265,8 @@ class MyPageScreen extends StatelessWidget {
                 ),
               ),
 
-              // ━━━ ポイント関連ボタン ━━━
+              // ━━━ ポイント関連ボタン ※公式アカウントは非表示 ━━━
+              if (!isOfficial)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -320,36 +325,36 @@ class MyPageScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(0, 20, 0, 100),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // ━━━ 大会結果カードセクション ━━━
-                    _buildCardSection(
-                      context: context,
-                      title: '大会結果',
-                      icon: Icons.emoji_events_rounded,
-                      seeAllTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const TournamentHistoryScreen())),
-                      child: _TournamentCardsRow(userId: viewingUid),
-                    ),
-                    const SizedBox(height: 24),
+                    // ━━━ 大会結果・ガジェット・バッジ ※公式アカウントは非表示 ━━━
+                    if (!isOfficial) ...[
+                      _buildCardSection(
+                        context: context,
+                        title: '大会結果',
+                        icon: Icons.emoji_events_rounded,
+                        seeAllTap: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => const TournamentHistoryScreen())),
+                        child: _TournamentCardsRow(userId: viewingUid),
+                      ),
+                      const SizedBox(height: 24),
 
-                    // ━━━ マイガジェットカードセクション ━━━
-                    _buildCardSection(
-                      context: context,
-                      title: 'マイガジェット',
-                      icon: Icons.devices_other_rounded,
-                      seeAllTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const GadgetListScreen())),
-                      child: _GadgetCardsRow(userId: viewingUid),
-                    ),
-                    const SizedBox(height: 24),
+                      _buildCardSection(
+                        context: context,
+                        title: 'マイガジェット',
+                        icon: Icons.devices_other_rounded,
+                        seeAllTap: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => const GadgetListScreen())),
+                        child: _GadgetCardsRow(userId: viewingUid),
+                      ),
+                      const SizedBox(height: 24),
 
-                    // ━━━ バッジコレクション（YAMAP風） ━━━
-                    _buildCardSection(
-                      context: context,
-                      title: 'バッジコレクション',
-                      icon: Icons.workspace_premium_rounded,
-                      child: _BadgeCollectionRow(userId: viewingUid),
-                    ),
-                    const SizedBox(height: 24),
+                      _buildCardSection(
+                        context: context,
+                        title: 'バッジコレクション',
+                        icon: Icons.workspace_premium_rounded,
+                        child: _BadgeCollectionRow(userId: viewingUid),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
 
                     // ── 大会主催者メニュー（カード型） ──
                     _buildCardSection(
@@ -499,7 +504,8 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // ━━━ ランキング（トップ3プレビュー） ━━━
+                    // ━━━ ランキング ※公式アカウントは非表示 ━━━
+                    if (!isOfficial)
                     _buildCardSection(
                       context: context,
                       title: 'ランキング',
@@ -1466,14 +1472,17 @@ class _RankingPreview extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('users')
           .orderBy('totalPoints', descending: true)
-          .limit(3)
+          .limit(10)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
-        final users = snapshot.data?.docs ?? [];
+        final users = (snapshot.data?.docs ?? [])
+            .where((d) => (d.data() as Map<String, dynamic>)['isOfficial'] != true)
+            .take(3)
+            .toList();
         if (users.isEmpty) {
           return const SizedBox(
             height: 60,
@@ -1881,120 +1890,121 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
           const SizedBox(height: 8),
 
-          // ── 競技歴 ──
-          _buildSectionLabel('競技歴'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _experiences.map((exp) {
-              final sel = _selectedExperience == exp;
-              return ChoiceChip(
-                label: Text(exp),
-                selected: sel,
-                onSelected: (s) {
-                  if (s) setState(() => _selectedExperience = exp);
-                },
-                selectedColor:
-                    AppTheme.primaryColor.withValues(alpha: 0.15),
-                labelStyle: TextStyle(
-                  color: sel
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondary,
-                  fontWeight:
-                      sel ? FontWeight.bold : FontWeight.normal,
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-
-          // ── 性別 ──
-          _buildSectionLabel('性別'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _genders.map((g) {
-              final sel = _selectedGender == g;
-              return ChoiceChip(
-                label: Text(g),
-                selected: sel,
-                onSelected: (s) {
-                  if (s) setState(() => _selectedGender = g);
-                },
-                selectedColor:
-                    AppTheme.primaryColor.withValues(alpha: 0.15),
-                labelStyle: TextStyle(
-                  color: sel
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondary,
-                  fontWeight:
-                      sel ? FontWeight.bold : FontWeight.normal,
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-
-          // ── エリア（都道府県） ──
-          _buildSectionLabel('エリア（都道府県）'),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
+          // ── 競技歴・性別・エリア・生年月日 ※公式アカウントは非表示 ──
+          if (widget.userData['isOfficial'] != true) ...[
+            _buildSectionLabel('競技歴'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _experiences.map((exp) {
+                final sel = _selectedExperience == exp;
+                return ChoiceChip(
+                  label: Text(exp),
+                  selected: sel,
+                  onSelected: (s) {
+                    if (s) setState(() => _selectedExperience = exp);
+                  },
+                  selectedColor:
+                      AppTheme.primaryColor.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    color: sel
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary,
+                    fontWeight:
+                        sel ? FontWeight.bold : FontWeight.normal,
+                  ),
+                );
+              }).toList(),
             ),
-            child: DropdownButton<String>(
-              value: _selectedArea,
-              isExpanded: true,
-              underline: const SizedBox(),
-              items: _areas
-                  .map((a) =>
-                      DropdownMenuItem(value: a, child: Text(a)))
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) setState(() => _selectedArea = v);
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // ── 生年月日 ──
-          _buildSectionLabel('生年月日'),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: _pickBirthDate,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            _buildSectionLabel('性別'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _genders.map((g) {
+                final sel = _selectedGender == g;
+                return ChoiceChip(
+                  label: Text(g),
+                  selected: sel,
+                  onSelected: (s) {
+                    if (s) setState(() => _selectedGender = g);
+                  },
+                  selectedColor:
+                      AppTheme.primaryColor.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    color: sel
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary,
+                    fontWeight:
+                        sel ? FontWeight.bold : FontWeight.normal,
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            _buildSectionLabel('エリア（都道府県）'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey[200]!),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 18,
-                      color: _birthDate != null ? AppTheme.primaryColor : AppTheme.textHint),
-                  const SizedBox(width: 12),
-                  Text(
-                    _birthDate != null
-                        ? '${_birthDate!.year}年${_birthDate!.month}月${_birthDate!.day}日'
-                        : '生年月日を選択',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _birthDate != null ? AppTheme.textPrimary : AppTheme.textHint,
-                    ),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
-                ],
+              child: DropdownButton<String>(
+                value: _selectedArea,
+                isExpanded: true,
+                underline: const SizedBox(),
+                items: _areas
+                    .map((a) =>
+                        DropdownMenuItem(value: a, child: Text(a)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _selectedArea = v);
+                },
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ],
+
+          if (widget.userData['isOfficial'] != true) ...[
+            _buildSectionLabel('生年月日'),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: _pickBirthDate,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today, size: 18,
+                        color: _birthDate != null ? AppTheme.primaryColor : AppTheme.textHint),
+                    const SizedBox(width: 12),
+                    Text(
+                      _birthDate != null
+                          ? '${_birthDate!.year}年${_birthDate!.month}月${_birthDate!.day}日'
+                          : '生年月日を選択',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: _birthDate != null ? AppTheme.textPrimary : AppTheme.textHint,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // ── 自己紹介 ──
           _buildSectionLabel('自己紹介'),
