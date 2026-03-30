@@ -196,7 +196,7 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
         foregroundColor: Colors.white,
         title: const Text('画像を切り抜き'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
