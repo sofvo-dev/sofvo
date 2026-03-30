@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/official_badge.dart';
 import '../../services/follow_service.dart';
 import '../../services/notification_service.dart';
 import '../profile/user_profile_screen.dart';
@@ -518,6 +519,8 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                           overflow: TextOverflow.ellipsis),
                     ),
+                    if (user['isOfficial'] == true)
+                      const OfficialBadge(size: 16),
                     if (experience.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(

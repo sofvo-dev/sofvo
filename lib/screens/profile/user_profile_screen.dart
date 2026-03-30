@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../widgets/official_badge.dart';
 import '../../config/app_theme.dart';
 import '../../services/follow_service.dart';
 import '../../services/notification_service.dart';
@@ -511,8 +512,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(nickname,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                Row(
+                                  children: [
+                                    Flexible(child: Text(nickname,
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                        overflow: TextOverflow.ellipsis)),
+                                    if (_userData['isOfficial'] == true)
+                                      const OfficialBadge(size: 18, color: Colors.white),
+                                  ],
+                                ),
                                 const SizedBox(height: 4),
                                 Wrap(
                                   spacing: 6,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/official_badge.dart';
 import '../../services/follow_service.dart';
 import 'user_profile_screen.dart';
 
@@ -288,7 +289,13 @@ class _FollowListScreenState extends State<FollowListScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(nickname.toString(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      Row(
+                        children: [
+                          Flexible(child: Text(nickname.toString(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                          if (userData['isOfficial'] == true)
+                            const OfficialBadge(size: 15),
+                        ],
+                      ),
                       if (area.toString().isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Row(children: [
