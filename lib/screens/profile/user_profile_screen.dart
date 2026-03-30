@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_theme.dart';
 import '../../services/follow_service.dart';
 import '../../services/notification_service.dart';
@@ -410,6 +411,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final nickname = _safeString(_userData['nickname']).isEmpty
         ? '名前なし' : _safeString(_userData['nickname']);
     final bio = _safeString(_userData['bio']);
+    final socialLinks = _userData['socialLinks'] is Map<String, dynamic>
+        ? _userData['socialLinks'] as Map<String, dynamic>
+        : <String, dynamic>{};
     final avatarUrl = _safeString(_userData['avatarUrl']);
     final rawArea = _userData['area'];
     final area = rawArea is String
@@ -526,6 +530,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       if (bio.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         _ExpandableBio(bio: bio),
+                      ],
+                      if (socialLinks.values.any((v) => v is String && v.isNotEmpty)) ...[
+                        const SizedBox(height: 8),
+                        _SocialLinkIcons(socialLinks: socialLinks),
                       ],
                       const SizedBox(height: 12),
                       // ── フォロー / フォロワー ──
@@ -898,6 +906,57 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SNSリンクアイコン表示
+class _SocialLinkIcons extends StatelessWidget {
+  final Map<String, dynamic> socialLinks;
+  const _SocialLinkIcons({required this.socialLinks});
+
+  static const _snsDefs = <String, (IconData, bool)>{
+    'instagram': (FontAwesomeIcons.instagram, false),
+    'facebook': (FontAwesomeIcons.facebook, false),
+    'x': (FontAwesomeIcons.xTwitter, false),
+    'tiktok': (FontAwesomeIcons.tiktok, false),
+    'youtube': (FontAwesomeIcons.youtube, false),
+    'website': (Icons.language, true),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = _snsDefs.entries
+        .where((e) => socialLinks[e.key] is String && (socialLinks[e.key] as String).isNotEmpty)
+        .toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: entries.map((e) {
+        final url = socialLinks[e.key] as String;
+        final (icon, isMaterial) = e.value;
+        return GestureDetector(
+          onTap: () => _openUrl(url),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: isMaterial
+                ? Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.7))
+                : FaIcon(icon, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    var target = url;
+    if (!target.startsWith('http://') && !target.startsWith('https://')) {
+      target = 'https://$target';
+    }
+    final uri = Uri.tryParse(target);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+}
+
 // 自己紹介（4行まで表示 → 「続きを読む」で全文展開）
 class _ExpandableBio extends StatefulWidget {
   final String bio;
