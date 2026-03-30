@@ -142,33 +142,50 @@ firebase deploy --only hosting    # Hosting のデプロイ
   4. 「ドメイン解約についてのご案内」メールの案内に従い、ムームードメインで移管申請
 - **参考**: https://www.xserver.ne.jp/support/faq/transfer_domain_permanent_free.php
 
-## アプリ化 進捗（2026/03/14 時点）
+## アプリ化 進捗（2026/03/30 更新）
 
 ### リリース状況
-- **iOS**: 🟡 審査待ち（App Store Connect に提出済み、結果待ち 1〜3日）
-- **Android**: ⏳ クローズドテスト中（12人オプトイン済み、1/14日目 → 3/28頃完了）
+- **iOS**: 🔴 審査リジェクト（3回目）→ 修正対応中
+- **Android**: ⏳ クローズドテスト完了（14日間経過）→ 製品版申請可能
+
+### iOS 審査履歴
+| 回 | 日付 | 結果 | リジェクト理由 | 対応 |
+|----|------|------|----------------|------|
+| 1回目 | 2026/03 | リジェクト | Guideline 2.1(a): Apple Sign Inエラー（iPad Scene-based lifecycle で presentationAnchor 取得不可） | `sign_in_with_apple` パッケージでネイティブ認証UIを直接呼び出すよう変更 |
+| 2回目 | 2026/03 | リジェクト | Guideline 2.1(a): Apple Sign Inエラー（identityToken が null） | `_getAppleCredentialNative()` に null チェック追加 |
+| 3回目 | 2026/03/30 | リジェクト | Guideline 2.1(a): Apple Sign Inエラー（iPad Air M3 / iPadOS 26.4）+ デモアカウントにコンテンツ不足 | `sign_in_with_apple` パッケージを削除し `signInWithProvider` に統一。デモアカウントの事前コンテンツ準備が必要 |
+
+### 3回目リジェクト 詳細（2026/03/30）
+- **Submission ID**: 2801059c-36c4-487a-9f1d-385d78cc2f97
+- **Review Device**: iPad Air 11-inch (M3) / iPadOS 26.4
+- **問題1 - Guideline 2.1(a) App Completeness**: Apple Sign Inでエラーメッセージが表示された
+  - **原因**: `sign_in_with_apple` パッケージが iPadOS 26.4 で互換性問題
+  - **修正**: パッケージを削除し、`firebase_auth` の `signInWithProvider` に統一（CLAUDE.mdルール準拠）
+- **問題2 - Guideline 2.1(a) Information Needed**: デモアカウントにコンテンツが事前入力されていない
+  - **対応**: App Store Connect の App Review Information にデモアカウント情報を記載し、Firestore にサンプルデータを投入する必要あり
+
+### 次回再提出時のチェックリスト
+- [ ] `sign_in_with_apple` 削除 & `signInWithProvider` 統一の修正をmainにマージ
+- [ ] デモアカウント（メール+パスワード）を作成し、プロフィール・サンプルデータを投入
+- [ ] App Store Connect の「App Review Information」にデモアカウントのログイン情報を記載
+- [ ] ビルド番号 1.0.0+12 でArchive & アップロード
+- [ ] 実機iPad でApple Sign In動作確認（可能であれば）
 
 ### 完了済み
 - Apple Developer 登録
 - Google Play Console 登録
 - iOS ビルド & App Store Connect アップロード
 - iOS スクリーンショット & メタデータ登録
-- iOS 審査提出
+- iOS 審査提出（3回）
 - Android クローズドテスト版公開 & テスター12人オプトイン
 - プライバシーポリシー・利用規約 公開済み
 - Firebase 設定完了
 - 署名設定（iOS / Android）完了
 
 ### 残りタスク
-1. iOS 審査結果対応（数日以内）
-2. Android 14日間テスト完了待ち（3/28頃）
-3. Android 製品版申請 & 審査（3/28以降）
-4. ドメイン移管（XServer → ムームードメイン）サポート返信待ち
-
-### 想定スケジュール
-- **3月中旬〜**: iOS App Store 公開（審査通過次第）
-- **3月末〜**: Android Play Store 製品版申請
-- **4月上旬**: 両ストアで公開完了（目標）
+1. iOS 再提出 & 審査通過（デモアカウント準備 + Apple Sign In修正）
+2. Android 製品版申請 & 審査
+3. ドメイン移管（XServer → ムームードメイン）サポート返信待ち
 
 ## スーパーアドミン（最高権限）設定手順
 1. [Firebase Console](https://console.firebase.google.com/) を開く
