@@ -104,7 +104,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('お知らせ配信', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
