@@ -422,6 +422,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         : rawArea is Map
             ? '${rawArea['prefecture'] ?? ''}${rawArea['city'] ?? ''}'
             : '';
+    final isOfficial = _userData['isOfficial'] == true;
     final experience = _safeString(_userData['experience']);
     final seasonPoints = _safeInt(_userData['seasonPoints']);
     final totalPoints = _safeInt(_userData['totalPoints']);
@@ -521,15 +522,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       const OfficialBadge(size: 18, color: Colors.white),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    if (experience.isNotEmpty) _buildHeaderTag('競技歴 $experience'),
-                                    if (area.isNotEmpty) _buildHeaderTag(area),
-                                  ],
-                                ),
+                                if (!isOfficial) ...[
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (experience.isNotEmpty) _buildHeaderTag('競技歴 $experience'),
+                                      if (area.isNotEmpty) _buildHeaderTag(area),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -614,7 +617,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ),
 
-          // ━━━ ダッシュボード（スタッツ） ━━━
+          // ━━━ ダッシュボード ※公式アカウントは非表示 ━━━
+          if (!isOfficial)
           SliverToBoxAdapter(
             child: Transform.translate(
               offset: const Offset(0, -12),
@@ -646,28 +650,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // ━━━ 大会結果カードセクション ━━━
-                _buildCardSection(
-                  title: '大会結果',
-                  icon: Icons.emoji_events_rounded,
-                  child: _TournamentCardsRow(userId: widget.userId),
-                ),
-                const SizedBox(height: 16),
+                // ━━━ 大会結果・ガジェット ※公式アカウントは非表示 ━━━
+                if (!isOfficial) ...[
+                  _buildCardSection(
+                    title: '大会結果',
+                    icon: Icons.emoji_events_rounded,
+                    child: _TournamentCardsRow(userId: widget.userId),
+                  ),
+                  const SizedBox(height: 16),
 
-                // ━━━ ガジェットカードセクション ━━━
-                _buildCardSection(
-                  title: 'ガジェット',
-                  icon: Icons.devices_other_rounded,
-                  child: _GadgetCardsRow(userId: widget.userId),
-                ),
-                const SizedBox(height: 16),
+                  _buildCardSection(
+                    title: 'ガジェット',
+                    icon: Icons.devices_other_rounded,
+                    child: _GadgetCardsRow(userId: widget.userId),
+                  ),
+                  const SizedBox(height: 16),
 
-                // ━━━ バッジコレクション ━━━
-                _buildCardSection(
-                  title: 'バッジコレクション',
-                  icon: Icons.workspace_premium_rounded,
-                  child: _BadgeCollectionRow(userId: widget.userId),
-                ),
+                  _buildCardSection(
+                    title: 'バッジコレクション',
+                    icon: Icons.workspace_premium_rounded,
+                    child: _BadgeCollectionRow(userId: widget.userId),
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 // ━━━ 投稿 ━━━
