@@ -197,9 +197,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           errorStr.contains('web-context-cancelled')) {
         return;
       }
-      String message = 'Apple登録に失敗しました。\n$errorStr';
+      String message = 'Apple登録に失敗しました。しばらくしてからもう一度お試しください。';
       if (errorStr.contains('operation-not-allowed')) {
         message = 'Apple登録は現在ご利用いただけません。\nメールアドレスまたはGoogleで登録してください。';
+      } else if (errorStr.contains('network') || errorStr.contains('unavailable')) {
+        message = 'ネットワークに接続できません。接続を確認してください。';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

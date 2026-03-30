@@ -1,11 +1,6 @@
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 class AuthService {
   // シングルトンパターン: アプリ更新時にセッションが切れないようにする
@@ -69,55 +64,13 @@ class AuthService {
     }
   }
 
-  /// セキュリティ用ランダムnonce生成
-  String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
-  }
-
-  /// SHA256ハッシュ
-  String _sha256ofString(String input) {
-    final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  /// Apple Credential を sign_in_with_apple パッケージで取得し Firebase OAuthCredential に変換
-  /// iPad の Scene-based lifecycle で signInWithProvider が presentationAnchor を
-  /// 取得できない問題を回避するため、ネイティブ認証UIを直接呼び出す
-  Future<OAuthCredential> _getAppleCredentialNative() async {
-    final rawNonce = _generateNonce();
-    final nonce = _sha256ofString(rawNonce);
-
-    final appleCredential = await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-      nonce: nonce,
-    );
-
-    final idToken = appleCredential.identityToken;
-    if (idToken == null) {
-      throw Exception('Apple Sign-In: identityToken が取得できませんでした');
-    }
-
-    return OAuthProvider('apple.com').credential(
-      idToken: idToken,
-      rawNonce: rawNonce,
-    );
-  }
-
-  // Appleログイン
-  // Web: signInWithPopup → signInWithRedirect フォールバック
-  // iOS/iPadOS: sign_in_with_apple パッケージ → signInWithCredential
-  // Android: signInWithProvider（ASAuthorizationController の問題なし）
+  // Appleログイン（Web: ポップアップ優先→リダイレクトフォールバック / Android・iOS・iPadOS: signInWithProvider）
   Future<UserCredential?> signInWithApple() async {
+    final provider = OAuthProvider('apple.com');
+    provider.addScope('email');
+    provider.addScope('name');
+
     if (kIsWeb) {
-      final provider = OAuthProvider('apple.com');
-      provider.addScope('email');
-      provider.addScope('name');
       try {
         return await _auth.signInWithPopup(provider);
       } catch (e) {
@@ -130,17 +83,9 @@ class AuthService {
         }
         rethrow;
       }
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      // iOS / iPadOS: sign_in_with_apple パッケージでネイティブ認証UIを表示
-      // signInWithProvider は iPad(Scene-based lifecycle)で
-      // ASAuthorizationController の presentationAnchor を取得できず失敗する
-      final oauthCredential = await _getAppleCredentialNative();
-      return await _auth.signInWithCredential(oauthCredential);
     } else {
-      // Android: signInWithProvider で問題なし
-      final provider = OAuthProvider('apple.com');
-      provider.addScope('email');
-      provider.addScope('name');
+      // Android / iOS / iPadOS: signInWithProvider を使用
+      // 全ネイティブプラットフォームで統一した認証フロー
       return await _auth.signInWithProvider(provider);
     }
   }
@@ -204,12 +149,8 @@ class AuthService {
         if (result.credential != null) {
           await user.reauthenticateWithCredential(result.credential!);
         }
-      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-        // iOS/iPadOS: sign_in_with_apple でネイティブ認証UIを表示し再認証
-        final oauthCredential = await _getAppleCredentialNative();
-        await user.reauthenticateWithCredential(oauthCredential);
       } else {
-        // Android: reauthenticateWithProvider で問題なし
+        // Android / iOS / iPadOS: reauthenticateWithProvider を使用
         final appleProvider = OAuthProvider('apple.com');
         await user.reauthenticateWithProvider(appleProvider);
       }

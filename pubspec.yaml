@@ -1,7 +1,7 @@
 name: sofvo
 description: "ソフトバレーボール マッチングアプリ"
 publish_to: 'none'
-version: 1.0.0+11
+version: 1.0.0+12
 
 environment:
   sdk: ^3.11.0
@@ -34,8 +34,6 @@ dependencies:
   csv: ^6.0.0
   share_plus: ^10.0.0
   path_provider: ^2.1.0
-  sign_in_with_apple: ^6.1.4
-  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:

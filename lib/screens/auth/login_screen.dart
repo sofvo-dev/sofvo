@@ -148,9 +148,11 @@ class _LoginScreenState extends State<LoginScreen> {
           errorStr.contains('web-context-cancelled')) {
         return;
       }
-      String message = 'Appleログインに失敗しました。\n$errorStr';
+      String message = 'Appleログインに失敗しました。しばらくしてからもう一度お試しください。';
       if (errorStr.contains('operation-not-allowed')) {
         message = 'Appleログインは現在ご利用いただけません。\nメールアドレスまたはGoogleでログインしてください。';
+      } else if (errorStr.contains('network') || errorStr.contains('unavailable')) {
+        message = 'ネットワークに接続できません。接続を確認してください。';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
