@@ -207,13 +207,7 @@ class MyPageScreen extends StatelessWidget {
                           ),
                           if (bio.isNotEmpty) ...[
                             const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: Text(bio,
-                                  softWrap: true,
-                                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
-                                  maxLines: 4, overflow: TextOverflow.ellipsis),
-                            ),
+                            _ExpandableBio(bio: bio),
                           ],
                           const SizedBox(height: 12),
                           // ── フォロー / フォロワー（横一列コンパクト） ──
@@ -723,6 +717,69 @@ class MyPageScreen extends StatelessWidget {
 
 // ── メニューアイテムデータ ──
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 自己紹介（4行まで表示 → 「続きを読む」で全文展開）
+class _ExpandableBio extends StatefulWidget {
+  final String bio;
+  const _ExpandableBio({required this.bio});
+
+  @override
+  State<_ExpandableBio> createState() => _ExpandableBioState();
+}
+
+class _ExpandableBioState extends State<_ExpandableBio> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textSpan = TextSpan(
+                text: widget.bio,
+                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
+              );
+              final tp = TextPainter(
+                text: textSpan,
+                maxLines: 4,
+                textDirection: TextDirection.ltr,
+              )..layout(maxWidth: constraints.maxWidth);
+              final isOverflow = tp.didExceedMaxLines;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.bio,
+                    softWrap: true,
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
+                    maxLines: _expanded ? null : 4,
+                    overflow: _expanded ? null : TextOverflow.ellipsis,
+                  ),
+                  if (isOverflow)
+                    GestureDetector(
+                      onTap: () => setState(() => _expanded = !_expanded),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          _expanded ? '閉じる' : '続きを読む',
+                          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // フォロー / フォロワー カウント（リアルタイムストリーム）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 class _FollowCounts extends StatelessWidget {
