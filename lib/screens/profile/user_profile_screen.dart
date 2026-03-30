@@ -911,13 +911,13 @@ class _SocialLinkIcons extends StatelessWidget {
   final Map<String, dynamic> socialLinks;
   const _SocialLinkIcons({required this.socialLinks});
 
-  static const _snsDefs = <String, (IconData, bool)>{
-    'instagram': (FontAwesomeIcons.instagram, false),
-    'facebook': (FontAwesomeIcons.facebook, false),
-    'x': (FontAwesomeIcons.xTwitter, false),
-    'tiktok': (FontAwesomeIcons.tiktok, false),
-    'youtube': (FontAwesomeIcons.youtube, false),
-    'website': (Icons.language, true),
+  static const _snsDefs = <String, IconData>{
+    'instagram': FontAwesomeIcons.instagram,
+    'facebook': FontAwesomeIcons.facebook,
+    'x': FontAwesomeIcons.xTwitter,
+    'tiktok': FontAwesomeIcons.tiktok,
+    'youtube': FontAwesomeIcons.youtube,
+    'website': Icons.language,
   };
 
   @override
@@ -931,14 +931,12 @@ class _SocialLinkIcons extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: entries.map((e) {
         final url = socialLinks[e.key] as String;
-        final (icon, isMaterial) = e.value;
+        final icon = e.value;
         return GestureDetector(
           onTap: () => _openUrl(url),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: isMaterial
-                ? Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.7))
-                : FaIcon(icon, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+            child: Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.7)),
           ),
         );
       }).toList(),

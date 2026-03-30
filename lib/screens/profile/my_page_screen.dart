@@ -729,13 +729,13 @@ class _SocialLinkIcons extends StatelessWidget {
   final Map<String, dynamic> socialLinks;
   const _SocialLinkIcons({required this.socialLinks});
 
-  static const _snsDefs = <String, (IconData, bool)>{
-    'instagram': (FontAwesomeIcons.instagram, false),
-    'facebook': (FontAwesomeIcons.facebook, false),
-    'x': (FontAwesomeIcons.xTwitter, false),
-    'tiktok': (FontAwesomeIcons.tiktok, false),
-    'youtube': (FontAwesomeIcons.youtube, false),
-    'website': (Icons.language, true),
+  static const _snsDefs = <String, IconData>{
+    'instagram': FontAwesomeIcons.instagram,
+    'facebook': FontAwesomeIcons.facebook,
+    'x': FontAwesomeIcons.xTwitter,
+    'tiktok': FontAwesomeIcons.tiktok,
+    'youtube': FontAwesomeIcons.youtube,
+    'website': Icons.language,
   };
 
   @override
@@ -749,14 +749,12 @@ class _SocialLinkIcons extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: entries.map((e) {
         final url = socialLinks[e.key] as String;
-        final (icon, isMaterial) = e.value;
+        final icon = e.value;
         return GestureDetector(
           onTap: () => _openUrl(url),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: isMaterial
-                ? Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.7))
-                : FaIcon(icon, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+            child: Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.7)),
           ),
         );
       }).toList(),
@@ -2010,7 +2008,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           _buildSnsField(FontAwesomeIcons.xTwitter, 'X (Twitter) URL', _xCtrl),
           _buildSnsField(FontAwesomeIcons.tiktok, 'TikTok URL', _tiktokCtrl),
           _buildSnsField(FontAwesomeIcons.youtube, 'YouTube URL', _youtubeCtrl),
-          _buildSnsField(Icons.language, 'その他URL', _websiteCtrl, isMaterialIcon: true),
+          _buildSnsField(Icons.language, 'その他URL', _websiteCtrl),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _isSaving ? null : _saveProfile,
@@ -2051,7 +2049,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     );
   }
 
-  Widget _buildSnsField(IconData icon, String hint, TextEditingController ctrl, {bool isMaterialIcon = false}) {
+  Widget _buildSnsField(IconData icon, String hint, TextEditingController ctrl) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
@@ -2059,9 +2057,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         decoration: _inputDecoration(hint).copyWith(
           prefixIcon: Padding(
             padding: const EdgeInsets.all(12),
-            child: isMaterialIcon
-                ? Icon(icon, size: 20, color: AppTheme.textSecondary)
-                : FaIcon(icon, size: 18, color: AppTheme.textSecondary),
+            child: Icon(icon, size: 20, color: AppTheme.textSecondary),
           ),
         ),
         keyboardType: TextInputType.url,
