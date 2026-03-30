@@ -2393,3 +2393,465 @@ exports.onFollowingDeleted = functions.firestore
       console.error(`[onFollowingDeleted] ${userId}: ${e.message}`);
     }
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// デモアカウント用サンプルデータ投入
+// App Store 審査用: レビュアーがアプリの全機能を確認できるようにする
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.seedDemoData = functions.https.onRequest(async (req, res) => {
+  try {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const serverTs = admin.firestore.FieldValue.serverTimestamp();
+
+    // ── 1. デモアカウントを Firebase Auth に作成（既存なら取得）──
+    const demoEmail = "demo-reviewer@sofvo.com";
+    const demoPassword = "SofvoDemo2026!";
+    let demoUid;
+    try {
+      const existing = await admin.auth().getUserByEmail(demoEmail);
+      demoUid = existing.uid;
+      console.log(`[seedDemoData] 既存デモアカウント: ${demoUid}`);
+    } catch (e) {
+      if (e.code === "auth/user-not-found") {
+        const created = await admin.auth().createUser({
+          email: demoEmail,
+          password: demoPassword,
+          emailVerified: true,
+          displayName: "ソフボ太郎",
+        });
+        demoUid = created.uid;
+        console.log(`[seedDemoData] デモアカウント作成: ${demoUid}`);
+      } else {
+        throw e;
+      }
+    }
+
+    // ── 2. ダミーユーザー作成（大会の対戦相手用）──
+    const dummyUsers = [
+      { nickname: "バレー花子", area: "神奈川県", experience: "3〜5年" },
+      { nickname: "スパイク次郎", area: "千葉県", experience: "5〜10年" },
+      { nickname: "レシーブ美咲", area: "埼玉県", experience: "1〜3年" },
+      { nickname: "トス健太", area: "東京都", experience: "10年以上" },
+      { nickname: "サーブ優子", area: "茨城県", experience: "3〜5年" },
+    ];
+    const dummyUids = [];
+    for (let i = 0; i < dummyUsers.length; i++) {
+      const dummyId = `demo_dummy_${i + 1}`;
+      dummyUids.push(dummyId);
+      await db.collection("users").doc(dummyId).set({
+        uid: dummyId,
+        nickname: dummyUsers[i].nickname,
+        bio: "ソフトバレーボールが大好きです！",
+        avatarUrl: "",
+        area: dummyUsers[i].area,
+        experience: dummyUsers[i].experience,
+        searchId: `dummy${i + 1}`,
+        totalPoints: Math.floor(Math.random() * 500) + 100,
+        seasonPoints: Math.floor(Math.random() * 200) + 50,
+        title: "ビギナー",
+        stats: {
+          tournamentsPlayed: Math.floor(Math.random() * 10) + 1,
+          tournamentsHosted: 0,
+          wins: Math.floor(Math.random() * 15) + 3,
+          losses: Math.floor(Math.random() * 10) + 2,
+          championships: 0,
+          helperCount: 0,
+        },
+        settings: {
+          helperAvailable: true,
+          notificationEnabled: true,
+          calendarSync: false,
+          privacy: "public",
+        },
+        followersCount: 0,
+        followingCount: 0,
+        profileCompleted: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // ── 3. デモユーザープロフィール ──
+    await db.collection("users").doc(demoUid).set({
+      uid: demoUid,
+      nickname: "ソフボ太郎",
+      bio: "ソフトバレーボール歴5年です。週末は都内の体育館で練習しています。初心者の方も大歓迎！一緒に楽しみましょう。",
+      avatarUrl: "",
+      area: "東京都",
+      experience: "5〜10年",
+      searchId: "sofvo_demo",
+      totalPoints: 850,
+      seasonPoints: 320,
+      title: "レギュラー",
+      stats: {
+        tournamentsPlayed: 12,
+        tournamentsHosted: 3,
+        wins: 28,
+        losses: 15,
+        championships: 2,
+        helperCount: 1,
+      },
+      settings: {
+        helperAvailable: true,
+        notificationEnabled: true,
+        calendarSync: false,
+        privacy: "public",
+      },
+      followersCount: 3,
+      followingCount: 2,
+      profileCompleted: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // プライベート情報
+    await db.collection("users").doc(demoUid)
+      .collection("private").doc("info").set({
+        email: demoEmail,
+        gender: "男性",
+        birthDate: null,
+        createdAt: serverTs,
+      });
+
+    // ── 4. フォロー関係 ──
+    // デモユーザーが2人フォロー
+    for (let i = 0; i < 2; i++) {
+      await db.collection("users").doc(demoUid)
+        .collection("following").doc(dummyUids[i]).set({
+          nickname: dummyUsers[i].nickname,
+          createdAt: now,
+        });
+      await db.collection("users").doc(dummyUids[i])
+        .collection("followers").doc(demoUid).set({
+          createdAt: now,
+        });
+      await db.collection("users").doc(dummyUids[i]).update({
+        followersCount: admin.firestore.FieldValue.increment(1),
+      });
+    }
+    // 3人がデモユーザーをフォロー
+    for (let i = 0; i < 3; i++) {
+      await db.collection("users").doc(dummyUids[i])
+        .collection("following").doc(demoUid).set({
+          nickname: "ソフボ太郎",
+          createdAt: now,
+        });
+      await db.collection("users").doc(demoUid)
+        .collection("followers").doc(dummyUids[i]).set({
+          createdAt: now,
+        });
+      await db.collection("users").doc(dummyUids[i]).update({
+        followingCount: admin.firestore.FieldValue.increment(1),
+      });
+    }
+
+    // ── 5. 大会データ ──
+    // 大会1: 終了済み（実績あり）
+    const t1Ref = await db.collection("tournaments").add({
+      title: "第5回 渋谷ソフトバレー交流大会",
+      date: "2026/03/16",
+      location: "渋谷区スポーツセンター",
+      venueId: "",
+      venueAddress: "東京都渋谷区神南1-1-1",
+      courts: 2,
+      maxTeams: 8,
+      currentTeams: 6,
+      entryFee: 1500,
+      type: "混合",
+      deadline: "2026/03/14",
+      description: "初心者〜中級者向けの交流大会です。楽しくプレーしましょう！",
+      area: "東京都",
+      status: "終了",
+      organizerId: demoUid,
+      organizerName: "ソフボ太郎",
+      openTime: "09:00",
+      receptionTime: "09:00",
+      captainMeetingTime: "09:30",
+      openingTime: "09:45",
+      matchStartTime: "10:00",
+      finalTime: "14:00",
+      closingTime: "15:00",
+      entryTeamIds: [],
+      rules: {},
+      pointsAwarded: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 大会2: 募集中（これから開催）
+    const futureDate = "2026/04/20";
+    const t2Ref = await db.collection("tournaments").add({
+      title: "第1回 新宿ソフトバレー春季大会",
+      date: futureDate,
+      location: "新宿区立スポーツセンター",
+      venueId: "",
+      venueAddress: "東京都新宿区大久保3-5-1",
+      courts: 3,
+      maxTeams: 12,
+      currentTeams: 4,
+      entryFee: 2000,
+      type: "混合",
+      deadline: "2026/04/18",
+      description: "春の新宿で盛り上がろう！レベル不問、どなたでも参加OK。優勝チームには景品あり🏆",
+      area: "東京都",
+      status: "募集中",
+      organizerId: demoUid,
+      organizerName: "ソフボ太郎",
+      openTime: "08:30",
+      receptionTime: "08:30",
+      captainMeetingTime: "09:00",
+      openingTime: "09:15",
+      matchStartTime: "09:30",
+      finalTime: "14:30",
+      closingTime: "15:30",
+      entryTeamIds: [],
+      rules: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 大会3: 他人主催の募集中大会
+    const t3Ref = await db.collection("tournaments").add({
+      title: "横浜みなとソフトバレーカップ 2026",
+      date: "2026/05/11",
+      location: "横浜市総合体育館",
+      venueId: "",
+      venueAddress: "神奈川県横浜市港北区小机町3300",
+      courts: 4,
+      maxTeams: 16,
+      currentTeams: 9,
+      entryFee: 2500,
+      type: "混合",
+      deadline: "2026/05/09",
+      description: "横浜最大級のソフトバレー大会！全レベル歓迎。4面コートで全16チーム。",
+      area: "神奈川県",
+      status: "募集中",
+      organizerId: dummyUids[0],
+      organizerName: dummyUsers[0].nickname,
+      openTime: "08:00",
+      receptionTime: "08:00",
+      captainMeetingTime: "08:30",
+      openingTime: "08:45",
+      matchStartTime: "09:00",
+      finalTime: "15:00",
+      closingTime: "16:00",
+      entryTeamIds: [],
+      rules: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 大会エントリー（終了済み大会に4チーム）
+    const teamNames = ["チームSofvo", "渋谷スパイカーズ", "東京サンダー", "パワーヒッターズ"];
+    for (let i = 0; i < 4; i++) {
+      const leaderUid = i === 0 ? demoUid : dummyUids[i - 1];
+      await db.collection("tournaments").doc(t1Ref.id)
+        .collection("entries").add({
+          teamName: teamNames[i],
+          memberUids: [leaderUid],
+          enteredBy: leaderUid,
+          leaderUid: leaderUid,
+          createdAt: now,
+        });
+    }
+
+    // ── 6. ポイント履歴（デモユーザー）──
+    await db.collection("users").doc(demoUid)
+      .collection("pointHistory").doc(t1Ref.id).set({
+        tournamentId: t1Ref.id,
+        tournamentName: "第5回 渋谷ソフトバレー交流大会",
+        date: "2026/03/16",
+        teamCount: 6,
+        rank: 1,
+        rankPoints: 180,
+        totalEarned: 180,
+        season: 2025,
+        createdAt: now,
+      });
+
+    // ── 7. チームデータ ──
+    const teamRef = await db.collection("teams").add({
+      name: "チームSofvo",
+      isMain: true,
+      ownerId: demoUid,
+      memberIds: [demoUid, dummyUids[0], dummyUids[1], dummyUids[2]],
+      memberNames: {
+        [demoUid]: "ソフボ太郎",
+        [dummyUids[0]]: dummyUsers[0].nickname,
+        [dummyUids[1]]: dummyUsers[1].nickname,
+        [dummyUids[2]]: dummyUsers[2].nickname,
+      },
+      memberAvatars: {
+        [demoUid]: "",
+        [dummyUids[0]]: "",
+        [dummyUids[1]]: "",
+        [dummyUids[2]]: "",
+      },
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // ── 8. 投稿データ（タイムライン）──
+    // 投稿1: 大会結果報告
+    const post1 = await db.collection("posts").add({
+      userId: demoUid,
+      userNickname: "ソフボ太郎",
+      userAvatarUrl: "",
+      text: "第5回渋谷ソフトバレー交流大会で優勝しました！🏆\nチームメンバーのみんな、ありがとう！次回も頑張りましょう💪",
+      images: [],
+      likesCount: 5,
+      commentsCount: 2,
+      autoGenerated: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 投稿1のいいね
+    for (let i = 0; i < 5; i++) {
+      const likerUid = i < dummyUids.length ? dummyUids[i] : `liker_${i}`;
+      await db.collection("posts").doc(post1.id)
+        .collection("likes").doc(likerUid).set({
+          userId: likerUid,
+          createdAt: now,
+        });
+    }
+
+    // 投稿1のコメント
+    await db.collection("posts").doc(post1.id)
+      .collection("comments").add({
+        userId: dummyUids[0],
+        userNickname: dummyUsers[0].nickname,
+        text: "優勝おめでとうございます！🎉 次は私たちも負けませんよ！",
+        createdAt: now,
+      });
+    await db.collection("posts").doc(post1.id)
+      .collection("comments").add({
+        userId: dummyUids[1],
+        userNickname: dummyUsers[1].nickname,
+        text: "楽しかったです！またよろしくお願いします！",
+        createdAt: now,
+      });
+
+    // 投稿2: 練習の様子
+    await db.collection("posts").add({
+      userId: demoUid,
+      userNickname: "ソフボ太郎",
+      userAvatarUrl: "",
+      text: "今日は4月の春季大会に向けてチーム練習しました！\nサーブレシーブの精度がかなり上がってきた。本番が楽しみ✨",
+      images: [],
+      likesCount: 3,
+      commentsCount: 0,
+      autoGenerated: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 投稿3: メンバー募集
+    await db.collection("posts").add({
+      userId: demoUid,
+      userNickname: "ソフボ太郎",
+      userAvatarUrl: "",
+      text: "4/20の新宿春季大会、あと2名募集中です！\n初心者歓迎、男女問わず。興味ある方はDMください📩",
+      images: [],
+      likesCount: 1,
+      commentsCount: 0,
+      autoGenerated: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 他ユーザーの投稿
+    await db.collection("posts").add({
+      userId: dummyUids[0],
+      userNickname: dummyUsers[0].nickname,
+      userAvatarUrl: "",
+      text: "横浜みなとカップのエントリー開始しました！\n今年は16チーム規模で開催予定。みなさんのご参加お待ちしています🏐",
+      images: [],
+      likesCount: 8,
+      commentsCount: 1,
+      autoGenerated: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // ── 9. 通知データ ──
+    const notifications = [
+      {
+        type: "like",
+        senderId: dummyUids[0],
+        senderName: dummyUsers[0].nickname,
+        senderAvatar: "",
+        message: `${dummyUsers[0].nickname}さんがあなたの投稿にいいねしました`,
+        postId: post1.id,
+        read: false,
+        createdAt: now,
+      },
+      {
+        type: "comment",
+        senderId: dummyUids[1],
+        senderName: dummyUsers[1].nickname,
+        senderAvatar: "",
+        message: `${dummyUsers[1].nickname}さんがコメントしました: 楽しかったです！`,
+        postId: post1.id,
+        read: false,
+        createdAt: now,
+      },
+      {
+        type: "follow",
+        senderId: dummyUids[2],
+        senderName: dummyUsers[2].nickname,
+        senderAvatar: "",
+        message: `${dummyUsers[2].nickname}さんがあなたをフォローしました`,
+        read: true,
+        createdAt: now,
+      },
+      {
+        type: "points_earned",
+        senderId: "system",
+        senderName: "ポイント獲得",
+        senderAvatar: "",
+        message: "第5回 渋谷ソフトバレー交流大会で180ポイント獲得しました！",
+        tournamentId: t1Ref.id,
+        points: 180,
+        read: true,
+        createdAt: now,
+      },
+    ];
+    for (const n of notifications) {
+      await db.collection("users").doc(demoUid)
+        .collection("notifications").add(n);
+    }
+
+    // ── 10. ブックマーク ──
+    await db.collection("users").doc(demoUid)
+      .collection("bookmarks").add({
+        type: "tournament",
+        title: "横浜みなとソフトバレーカップ 2026",
+        targetId: t3Ref.id,
+        date: "2026/05/11",
+        location: "横浜市総合体育館",
+        status: "募集中",
+        alerts: ["締切3日前"],
+        createdAt: now,
+      });
+
+    res.json({
+      success: true,
+      message: "デモデータを投入しました",
+      demoAccount: {
+        email: demoEmail,
+        password: demoPassword,
+        uid: demoUid,
+      },
+      data: {
+        tournaments: [t1Ref.id, t2Ref.id, t3Ref.id],
+        team: teamRef.id,
+        posts: post1.id,
+      },
+    });
+  } catch (e) {
+    console.error("[seedDemoData] Error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
