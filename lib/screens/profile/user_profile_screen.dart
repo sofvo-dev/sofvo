@@ -525,9 +525,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                       if (bio.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
+                        SizedBox(
+                          width: double.infinity,
                           child: Text(bio,
+                              softWrap: true,
                               style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
                               maxLines: 4, overflow: TextOverflow.ellipsis),
                         ),
