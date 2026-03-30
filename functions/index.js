@@ -2405,8 +2405,8 @@ exports.seedDemoData = functions.https.onRequest(async (req, res) => {
     const serverTs = admin.firestore.FieldValue.serverTimestamp();
 
     // ── 1. デモアカウントを Firebase Auth に作成（既存なら取得）──
-    const demoEmail = "demo-reviewer@sofvo.com";
-    const demoPassword = "SofvoDemo2026!";
+    const demoEmail = "test@sofvo.app";
+    const demoPassword = "Test1234!";
     let demoUid;
     try {
       const existing = await admin.auth().getUserByEmail(demoEmail);
