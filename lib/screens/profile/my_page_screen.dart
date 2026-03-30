@@ -1859,7 +1859,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           TextField(
             controller: _bioCtrl,
             maxLines: 4,
-            maxLength: 200,
+            maxLength: 60,
             decoration: _inputDecoration('自己紹介を入力')
                 .copyWith(alignLabelWithHint: true),
           ),
