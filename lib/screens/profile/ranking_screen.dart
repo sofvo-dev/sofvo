@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/official_badge.dart';
 import '../../services/point_service.dart';
 import 'user_profile_screen.dart';
 
@@ -189,12 +190,18 @@ class _RankingList extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(nickname.isEmpty ? '名無し' : nickname,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
-                                      color: isMe ? AppTheme.primaryColor : AppTheme.textPrimary,
-                                    )),
+                                Row(
+                                  children: [
+                                    Flexible(child: Text(nickname.isEmpty ? '名無し' : nickname,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
+                                          color: isMe ? AppTheme.primaryColor : AppTheme.textPrimary,
+                                        ), overflow: TextOverflow.ellipsis)),
+                                    if (data['isOfficial'] == true)
+                                      const OfficialBadge(size: 15),
+                                  ],
+                                ),
                                 if (isMe)
                                   Text('あなた',
                                       style: TextStyle(fontSize: 11, color: AppTheme.primaryColor)),

@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../services/media_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../widgets/official_badge.dart';
 import '../../config/app_theme.dart';
 import '../../services/follow_service.dart';
 import '../tournament/tournament_detail_screen.dart';
@@ -181,8 +182,15 @@ class MyPageScreen extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(nickname,
-                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    Row(
+                                      children: [
+                                        Flexible(child: Text(nickname,
+                                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                            overflow: TextOverflow.ellipsis)),
+                                        if (data['isOfficial'] == true)
+                                          const OfficialBadge(size: 18, color: Colors.white),
+                                      ],
+                                    ),
                                     const SizedBox(height: 4),
                                     Wrap(
                                       spacing: 6,
