@@ -584,6 +584,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 TextFormField(
                   controller: _bioController,
                   maxLines: 3,
+                  maxLength: 60,
                   style: const TextStyle(fontSize: 15),
                   decoration: const InputDecoration(
                     hintText: '一言自己紹介（任意）',
