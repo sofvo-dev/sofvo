@@ -1576,6 +1576,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final experience = data['experience'] ?? '';
     final tournamentName = data['tournamentName'] ?? '';
     final tournamentDate = data['tournamentDate'] ?? '';
+    final tournamentId = data['tournamentId'] ?? '';
     final recruitCount = data['recruitCount'] ?? 0;
     final comment = data['comment'] ?? '';
     final recruiterId = data['userId'] ?? '';
@@ -1631,24 +1632,33 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           ]),
           if (tournamentName.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!),
+            GestureDetector(
+              onTap: tournamentId.isNotEmpty ? () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => TournamentDetailScreen(tournament: {
+                  'id': tournamentId, 'name': tournamentName, 'date': tournamentDate,
+                }),
+              )) : null,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(children: [
+                  Icon(Icons.emoji_events, size: 16, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(tournamentName,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+                    if (tournamentDate.isNotEmpty)
+                      Text(tournamentDate,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ])),
+                  if (tournamentId.isNotEmpty)
+                    Icon(Icons.chevron_right, size: 18, color: AppTheme.textHint),
+                ]),
               ),
-              child: Row(children: [
-                Icon(Icons.emoji_events, size: 16, color: AppTheme.primaryColor),
-                const SizedBox(width: 8),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tournamentName,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
-                  if (tournamentDate.isNotEmpty)
-                    Text(tournamentDate,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                ])),
-              ]),
             ),
           ],
           if (comment.isNotEmpty) ...[
