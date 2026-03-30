@@ -802,7 +802,7 @@ class _ExpandableBioState extends State<_ExpandableBio> {
               );
               final tp = TextPainter(
                 text: textSpan,
-                maxLines: 4,
+                maxLines: 2,
                 textDirection: TextDirection.ltr,
               )..layout(maxWidth: constraints.maxWidth);
               final isOverflow = tp.didExceedMaxLines;
@@ -814,7 +814,7 @@ class _ExpandableBioState extends State<_ExpandableBio> {
                     widget.bio,
                     softWrap: true,
                     style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8), height: 1.3),
-                    maxLines: _expanded ? null : 4,
+                    maxLines: _expanded ? null : 2,
                     overflow: _expanded ? null : TextOverflow.ellipsis,
                   ),
                   if (isOverflow)
