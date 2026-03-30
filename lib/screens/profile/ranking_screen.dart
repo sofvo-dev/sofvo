@@ -95,9 +95,7 @@ class _RankingList extends StatelessWidget {
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
 
-        final users = (snapshot.data?.docs ?? [])
-            .where((d) => (d.data() as Map<String, dynamic>)['isOfficial'] != true)
-            .toList();
+        final users = snapshot.data?.docs ?? [];
         if (users.isEmpty) {
           return const Center(child: Text('ランキングデータがありません'));
         }

@@ -1472,17 +1472,14 @@ class _RankingPreview extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('users')
           .orderBy('totalPoints', descending: true)
-          .limit(10)
+          .limit(3)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
         }
 
-        final users = (snapshot.data?.docs ?? [])
-            .where((d) => (d.data() as Map<String, dynamic>)['isOfficial'] != true)
-            .take(3)
-            .toList();
+        final users = snapshot.data?.docs ?? [];
         if (users.isEmpty) {
           return const SizedBox(
             height: 60,
