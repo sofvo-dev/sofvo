@@ -106,6 +106,7 @@ class AuthService {
     return OAuthProvider('apple.com').credential(
       idToken: idToken,
       rawNonce: rawNonce,
+      accessToken: appleCredential.authorizationCode,
     );
   }
 
