@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
@@ -27,9 +28,22 @@ class _MainTabScreenState extends State<MainTabScreen> {
     const MyPageScreen(),
   ];
 
+  // ホーム・チャット = 白背景 → ダークアイコン, マイページ = 暗い背景 → ライトアイコン
+  // さがす・マイ大会 = AppBarが自動でハンドル
+  SystemUiOverlayStyle _statusBarStyle() {
+    switch (_currentIndex) {
+      case 4: // マイページ（ダークヘッダー）
+        return SystemUiOverlayStyle.light;
+      default: // ホーム・さがす・マイ大会・チャット
+        return SystemUiOverlayStyle.dark;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _statusBarStyle(),
+      child: Scaffold(
       body: ConnectivityBanner(
         child: IndexedStack(
           index: _currentIndex,
@@ -42,7 +56,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
           setState(() => _currentIndex = index);
         },
       ),
-    );
+    ));
   }
 }
 
@@ -80,7 +94,10 @@ class _BottomNav extends StatelessWidget {
           }
         }
 
-        return NavigationBar(
+        return Container(
+          color: Colors.white,
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom > 0 ? 4 : 0),
+          child: NavigationBar(
           selectedIndex: currentIndex,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: onDestinationSelected,
@@ -113,7 +130,7 @@ class _BottomNav extends StatelessWidget {
               label: 'マイページ',
             ),
           ],
-        );
+        ));
       },
     );
   }
