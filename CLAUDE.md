@@ -2,6 +2,17 @@
 
 ## 開発ルール
 
+### 修正完了時のデプロイ判定ルール
+- **修正が完了したら、変更ファイルを「審査必要（ストア再提出）」と「審査不要（即反映）」に分類して報告すること**
+- 判定基準:
+  - **審査必要**: `lib/**`, `pubspec.yaml`, `android/**`, `ios/**`（Dartコード・ネイティブ設定 → ストア再提出が必要）
+  - **審査不要**: `functions/**`, `firestore.rules`, `storage.rules`, `website/**`, `.github/**`（サーバー側・ルール・CI → mainマージで即反映）
+- 報告フォーマット例:
+  ```
+  ✅ 審査不要（即反映）: storage.rules, functions/index.js
+  📱 審査必要（ストア再提出）: lib/screens/auth/login_screen.dart
+  ```
+
 ### クロスプラットフォーム統一ルール
 - **修正・実装は必ず Android / iPhone / iPad / Web の全プラットフォームで同じ動作になるようにすること**
 - プラットフォーム分岐は「Web vs ネイティブ」の2分岐に留める。Android / iOS / iPad で別々のコードパスを作らない
