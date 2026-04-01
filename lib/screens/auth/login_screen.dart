@@ -180,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
               key: _formKey,
               child: Column(
                 children: [
-                  const SizedBox(height: 80),
+                  const SizedBox(height: 40),
 
                   // ── アプリ名 ──
                   RichText(
@@ -216,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
 
                   // ── メールアドレス ──
                   TextFormField(
