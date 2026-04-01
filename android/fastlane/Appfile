@@ -1,8 +1,4 @@
-# Google Play Console の設定
-# json_key_file("path/to/google-play-service-account.json")
-# package_name("com.sofvo.app")
-
 package_name("com.sofvo.app")
 
-# Google Play API アクセス用のサービスアカウントキーを指定:
-# json_key_file(ENV["GOOGLE_PLAY_JSON_KEY"])
+# Google Play API サービスアカウントキー（CI: 環境変数, ローカル: ファイルパス）
+json_key_file(ENV["SUPPLY_JSON_KEY"] || "fastlane/google-play-key.json")

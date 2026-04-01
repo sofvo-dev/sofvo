@@ -2,6 +2,11 @@ name: Build Android AAB
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy_to_play_store:
+        description: 'Google Play 製品版にアップロード'
+        type: boolean
+        default: false
   push:
     branches: [main, claude/*]
     paths:
@@ -52,3 +57,30 @@ jobs:
         with:
           name: app-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
+
+      # ── Google Play 製品版へ自動アップロード ──
+      - name: Setup Ruby
+        if: github.ref == 'refs/heads/main' && inputs.deploy_to_play_store == true
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install Fastlane
+        if: github.ref == 'refs/heads/main' && inputs.deploy_to_play_store == true
+        run: gem install fastlane
+
+      - name: Create Google Play service account key
+        if: github.ref == 'refs/heads/main' && inputs.deploy_to_play_store == true
+        run: echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > android/fastlane/google-play-key.json
+
+      - name: Deploy to Google Play (production)
+        if: github.ref == 'refs/heads/main' && inputs.deploy_to_play_store == true
+        working-directory: android
+        run: fastlane release
+        env:
+          SUPPLY_JSON_KEY: fastlane/google-play-key.json
+
+      - name: Cleanup service account key
+        if: always() && inputs.deploy_to_play_store == true
+        run: rm -f android/fastlane/google-play-key.json

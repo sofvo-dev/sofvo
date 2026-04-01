@@ -1,12 +1,10 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "App Store Connect にアップロード"
+  desc "App Store Connect にアップロード & 審査提出"
   lane :release do
-    # Flutter ビルド
     sh("cd ../.. && flutter build ios --release")
 
-    # Xcode Archive & App Store Connect へアップロード
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
@@ -18,7 +16,9 @@ platform :ios do
     upload_to_app_store(
       skip_metadata: true,
       skip_screenshots: true,
-      precheck_include_in_app_purchases: false
+      precheck_include_in_app_purchases: false,
+      submit_for_review: true,
+      automatic_release: true
     )
   end
 
