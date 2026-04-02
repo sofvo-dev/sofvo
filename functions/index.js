@@ -2974,3 +2974,111 @@ exports.seedReviewData = functions.https.onRequest(async (req, res) => {
 
   res.json({ success: true, message: "サンプルデータ投入完了", tournaments: tournamentIds.length, recruitments: recruitments.length, posts: posts.length });
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// チャットメッセージ送信時のプッシュ通知
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onChatMessageCreated = functions.firestore
+  .document("chats/{chatId}/messages/{messageId}")
+  .onCreate(async (snap, context) => {
+    const { chatId } = context.params;
+    const message = snap.data();
+    const senderId = message.senderId;
+    const senderName = message.senderName || "ユーザー";
+    const type = message.type || "text";
+
+    // 通知本文を決定
+    let body;
+    if (type === "image") {
+      body = "📷 画像を送信しました";
+    } else if (type === "file") {
+      body = `📎 ${message.fileName || "ファイル"}`;
+    } else {
+      body = (message.text || "").substring(0, 100);
+    }
+
+    if (!body) return null;
+
+    const db = admin.firestore();
+
+    // チャットドキュメントからメンバー一覧を取得
+    const chatDoc = await db.collection("chats").doc(chatId).get();
+    if (!chatDoc.exists) return null;
+    const chatData = chatDoc.data();
+    const members = chatData.members || [];
+    const chatType = chatData.type || "dm";
+    const chatName = chatData.name || "";
+
+    // 送信者以外のメンバーにプッシュ通知
+    const tokens = [];
+    for (const memberId of members) {
+      if (memberId === senderId) continue;
+
+      // ミュートチェック
+      const mutedDoc = await db
+        .collection("users").doc(memberId)
+        .collection("mutedChats").doc(chatId)
+        .get();
+      if (mutedDoc.exists) continue;
+
+      // FCMトークン取得
+      const privateDoc = await db
+        .collection("users").doc(memberId)
+        .collection("private").doc("info")
+        .get();
+      const token = privateDoc.data()?.fcmToken;
+      if (token) tokens.push(token);
+    }
+
+    if (tokens.length === 0) return null;
+
+    // 通知タイトル（DMは送信者名、グループはグループ名）
+    const title = chatType === "dm" ? senderName : `${chatName}`;
+    const notificationBody = chatType === "dm" ? body : `${senderName}: ${body}`;
+
+    const payload = {
+      notification: {
+        title,
+        body: notificationBody,
+      },
+      data: {
+        type: "chat",
+        targetId: chatId,
+        chatType,
+        senderId,
+      },
+    };
+
+    // 各トークンに送信（無効トークンは削除）
+    const results = await Promise.allSettled(
+      tokens.map((token) =>
+        admin.messaging().send({ ...payload, token })
+      )
+    );
+
+    // 無効トークンをクリーンアップ
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].status === "rejected") {
+        const error = results[i].reason;
+        if (
+          error?.code === "messaging/registration-token-not-registered" ||
+          error?.code === "messaging/invalid-registration-token"
+        ) {
+          // 無効トークンを持つユーザーを特定して削除
+          for (const memberId of members) {
+            if (memberId === senderId) continue;
+            const pDoc = await db
+              .collection("users").doc(memberId)
+              .collection("private").doc("info")
+              .get();
+            if (pDoc.data()?.fcmToken === tokens[i]) {
+              await pDoc.ref.update({ fcmToken: admin.firestore.FieldValue.delete() });
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  });
