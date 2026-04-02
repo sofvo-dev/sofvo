@@ -675,17 +675,17 @@ class _ChatListScreenState extends State<ChatListScreen>
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   bool _hasUnread(Map<String, dynamic> data) {
     if (_currentUser == null) return false;
+    final uid = _currentUser!.uid;
     // unreadCountマップから判定（あれば）
     final unreadCountMap = data['unreadCount'] as Map<String, dynamic>?;
-    if (unreadCountMap != null && unreadCountMap.containsKey(_currentUser!.uid)) {
-      final count = (unreadCountMap[_currentUser!.uid] as int?) ?? 0;
+    if (unreadCountMap != null && unreadCountMap.containsKey(uid)) {
+      final raw = unreadCountMap[uid];
+      final count = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
       return count > 0;
     }
-    // フォールバック: lastRead比較
-    final lastSenderId = data['lastMessageSenderId'] as String?;
-    if (lastSenderId == _currentUser!.uid) return false;
+    // フォールバック: lastRead比較（unreadCountが未設定の既存チャット用）
     final lastReadMap = data['lastRead'] as Map<String, dynamic>? ?? {};
-    final myLastRead = lastReadMap[_currentUser!.uid] as Timestamp?;
+    final myLastRead = lastReadMap[uid] as Timestamp?;
     final lastMessageAt = data['lastMessageAt'] as Timestamp?;
     if (lastMessageAt == null) return false;
     if (myLastRead == null) return true;
@@ -701,7 +701,8 @@ class _ChatListScreenState extends State<ChatListScreen>
     final timeText = _formatTime(lastAt);
     final unread = _hasUnread(data);
     final unreadCountMap = data['unreadCount'] as Map<String, dynamic>? ?? {};
-    final unreadNum = (unreadCountMap[_currentUser!.uid] as int?) ?? 0;
+    final rawUnread = unreadCountMap[_currentUser!.uid];
+    final unreadNum = (rawUnread is int) ? rawUnread : (rawUnread is num) ? rawUnread.toInt() : 0;
 
     String title;
     String? otherUserId;
