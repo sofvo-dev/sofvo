@@ -676,14 +676,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   bool _hasUnread(Map<String, dynamic> data) {
     if (_currentUser == null) return false;
     final uid = _currentUser!.uid;
-    // unreadCountマップから判定（あれば）
-    final unreadCountMap = data['unreadCount'] as Map<String, dynamic>?;
-    if (unreadCountMap != null && unreadCountMap.containsKey(uid)) {
-      final raw = unreadCountMap[uid];
-      final count = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
-      return count > 0;
-    }
-    // フォールバック: lastRead比較（unreadCountが未設定の既存チャット用）
+    // lastRead vs lastMessageAt のタイムスタンプ比較で判定（最も確実）
     final lastReadMap = data['lastRead'] as Map<String, dynamic>? ?? {};
     final myLastRead = lastReadMap[uid] as Timestamp?;
     final lastMessageAt = data['lastMessageAt'] as Timestamp?;

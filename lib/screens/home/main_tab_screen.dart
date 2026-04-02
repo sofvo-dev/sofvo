@@ -84,20 +84,16 @@ class _BottomNav extends StatelessWidget {
             final data = doc.data() as Map<String, dynamic>;
             final lastMessage = (data['lastMessage'] as String?) ?? '';
             if (lastMessage.isEmpty) continue;
-            // unreadCountマップから取得（あれば）
-            final unreadCountMap = data['unreadCount'] as Map<String, dynamic>?;
-            if (unreadCountMap != null && unreadCountMap.containsKey(uid)) {
-              final raw = unreadCountMap[uid];
-              final count = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
-              unreadCount += count;
-            } else {
-              // フォールバック: lastRead比較（unreadCount未設定の既存チャット用）
-              final lastRead = (data['lastRead'] as Map<String, dynamic>?)?[uid];
-              final lastMsg = data['lastMessageAt'];
-              if (lastMsg is Timestamp) {
-                if (lastRead == null || (lastRead is Timestamp && lastMsg.toDate().isAfter(lastRead.toDate()))) {
-                  unreadCount++;
-                }
+            // lastRead vs lastMessageAt のタイムスタンプ比較で判定
+            final lastRead = (data['lastRead'] as Map<String, dynamic>?)?[uid];
+            final lastMsg = data['lastMessageAt'];
+            if (lastMsg is Timestamp) {
+              if (lastRead == null || (lastRead is Timestamp && lastMsg.toDate().isAfter(lastRead.toDate()))) {
+                // unreadCountマップから件数を取得（あれば）
+                final unreadMap = data['unreadCount'] as Map<String, dynamic>?;
+                final raw = unreadMap?[uid];
+                final num = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
+                unreadCount += num > 0 ? num : 1;
               }
             }
           }
