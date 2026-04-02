@@ -828,15 +828,15 @@ class _ChatListScreenState extends State<ChatListScreen>
             const SizedBox(height: 4),
             if (unread)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                constraints: const BoxConstraints(minWidth: 20),
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                 child: Text(
                   unreadNum > 99 ? '99+' : '${unreadNum > 0 ? unreadNum : 1}',
-                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1),
                   textAlign: TextAlign.center,
                 ),
               ),
