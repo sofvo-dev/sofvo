@@ -71,8 +71,11 @@ git stash pop
 #### Step 1: コード最新化
 ```bash
 cd ~/Desktop/sofvo
+git checkout main
+git checkout -- .
 git pull origin main --rebase
 ```
+- `unstaged changes` エラー時: `git checkout -- .` でローカル変更を破棄してからpull
 - コンフリクト時: `git rebase --abort && git fetch origin main && git reset --hard origin/main`
 
 #### Step 2: Flutter クリーン & 依存関係取得
@@ -111,11 +114,18 @@ cd ..
 5. **審査に提出** をクリック
 
 ### バージョン番号の更新（必要な場合）
-同じバージョンで再提出する場合、ビルド番号だけ上げればOK:
+- **App Storeで承認済みのバージョン（例: 1.0.0）と同じバージョンでは新ビルドを提出できない**
+- 機能追加・バグ修正時はマイナーバージョンを上げる（例: `1.0.0` → `1.0.1`）
+- 同じバージョンで再提出する場合、ビルド番号だけ上げればOK（例: `1.0.1+14` → `1.0.1+15`）
 ```bash
-# pubspec.yaml の version を変更（例: 1.0.0+6 → 1.0.0+7）
-# "+" の後の数字がビルド番号
+# pubspec.yaml の version を変更
+# "+" の前がバージョン、"+" の後がビルド番号
 ```
+
+### Macローカルでの提出時の注意
+- **unstaged changesエラー**: `git checkout -- .` で変更を破棄してからpull
+- **`flutter clean && flutter pub get` を必ず実行する**: pubspec.yamlの変更がビルドに反映されない
+- **fastlaneがない場合**: Xcodeで手動Archive → Distribute App で提出可能（fastlaneなしでOK）
 
 ### トラブルシュート
 
