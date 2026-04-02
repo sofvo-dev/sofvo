@@ -694,6 +694,8 @@ class _ChatListScreenState extends State<ChatListScreen>
     final lastAt = data['lastMessageAt'] as Timestamp?;
     final timeText = _formatTime(lastAt);
     final unread = _hasUnread(data);
+    final unreadCountMap = data['unreadCount'] as Map<String, dynamic>? ?? {};
+    final unreadNum = (unreadCountMap[_currentUser!.uid] as int?) ?? 0;
 
     String title;
     String? otherUserId;
@@ -826,11 +828,16 @@ class _ChatListScreenState extends State<ChatListScreen>
             const SizedBox(height: 4),
             if (unread)
               Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
                   color: AppTheme.primaryColor,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                constraints: const BoxConstraints(minWidth: 20),
+                child: Text(
+                  unreadNum > 99 ? '99+' : '${unreadNum > 0 ? unreadNum : 1}',
+                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
                 ),
               ),
           ],
