@@ -675,6 +675,9 @@ class _ChatListScreenState extends State<ChatListScreen>
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   bool _hasUnread(Map<String, dynamic> data) {
     if (_currentUser == null) return false;
+    // 自分が最後に送ったメッセージなら未読扱いしない
+    final lastSenderId = data['lastMessageSenderId'] as String?;
+    if (lastSenderId == _currentUser!.uid) return false;
     final lastReadMap = data['lastRead'] as Map<String, dynamic>? ?? {};
     final myLastRead = lastReadMap[_currentUser!.uid] as Timestamp?;
     final lastMessageAt = data['lastMessageAt'] as Timestamp?;
