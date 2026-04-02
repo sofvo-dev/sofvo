@@ -25,6 +25,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   Set<String> _pinnedChatIds = {};
   Set<String> _hiddenChatIds = {};
   final Map<String, String> _userNameCache = {};
+  final Map<String, String> _userAvatarCache = {};
 
   @override
   void initState() {
@@ -140,15 +141,21 @@ class _ChatListScreenState extends State<ChatListScreen>
 
   /// ユーザー名をFirestoreから取得してキャッシュ + memberNamesを修正
   Future<void> _resolveAndCacheName(String chatId, String userId) async {
-    if (_userNameCache.containsKey(userId)) return;
+    if (_userNameCache.containsKey(userId) && _userAvatarCache.containsKey(userId)) return;
     final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
     final nickname = (doc.data()?['nickname'] as String?) ?? '';
-    if (nickname.isNotEmpty && mounted) {
-      setState(() => _userNameCache[userId] = nickname);
-      // Firestoreのチャットドキュメントも修正
-      await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
-        'memberNames.$userId': nickname,
+    final avatarUrl = (doc.data()?['avatarUrl'] as String?) ?? '';
+    if (mounted) {
+      setState(() {
+        if (nickname.isNotEmpty) _userNameCache[userId] = nickname;
+        _userAvatarCache[userId] = avatarUrl;
       });
+      if (nickname.isNotEmpty) {
+        // Firestoreのチャットドキュメントも修正
+        await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
+          'memberNames.$userId': nickname,
+        });
+      }
     }
   }
 
@@ -256,27 +263,34 @@ class _ChatListScreenState extends State<ChatListScreen>
                           color: AppTheme.textSecondary)),
                 );
               }
-              // Resolve missing nicknames
+              // Resolve missing nicknames and avatars
               for (final doc in followDocs) {
                 final data = doc.data() as Map<String, dynamic>? ?? {};
                 final nickname = (data['nickname'] as String?) ?? '';
                 if (nickname.isNotEmpty) {
                   _userNameCache[doc.id] = nickname;
-                } else if (!_userNameCache.containsKey(doc.id)) {
+                }
+                if (!_userNameCache.containsKey(doc.id) || !_userAvatarCache.containsKey(doc.id)) {
                   FirebaseFirestore.instance
                       .collection('users')
                       .doc(doc.id)
                       .get()
                       .then((userDoc) {
                     final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
-                    if (resolved.isNotEmpty && mounted) {
-                      setState(() => _userNameCache[doc.id] = resolved);
-                      FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(_currentUser!.uid)
-                          .collection('following')
-                          .doc(doc.id)
-                          .update({'nickname': resolved}).catchError((_) {});
+                    final avatarUrl = (userDoc.data()?['avatarUrl'] as String?) ?? '';
+                    if (mounted) {
+                      setState(() {
+                        if (resolved.isNotEmpty) _userNameCache[doc.id] = resolved;
+                        _userAvatarCache[doc.id] = avatarUrl;
+                      });
+                      if (resolved.isNotEmpty) {
+                        FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(_currentUser!.uid)
+                            .collection('following')
+                            .doc(doc.id)
+                            .update({'nickname': resolved}).catchError((_) {});
+                      }
                     }
                   }).catchError((_) {});
                 }
@@ -288,17 +302,24 @@ class _ChatListScreenState extends State<ChatListScreen>
                 itemBuilder: (_, i) {
                   final uid = followDocs[i].id;
                   final name = _userNameCache[uid] ?? 'ユーザー';
+                  final avatarUrl = _userAvatarCache[uid] ?? '';
                   return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor
-                          .withValues(alpha: 0.12),
-                      child: Text(
-                        name.isNotEmpty && name != 'ユーザー' ? name[0] : '?',
-                        style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    leading: avatarUrl.isNotEmpty
+                        ? CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                            backgroundImage: NetworkImage(avatarUrl),
+                          )
+                        : CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor
+                                .withValues(alpha: 0.12),
+                            child: Text(
+                              name.isNotEmpty && name != 'ユーザー' ? name[0] : '?',
+                              style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
                     title: Text(name,
                         style: const TextStyle(
                             fontWeight: FontWeight.w600)),
@@ -686,10 +707,12 @@ class _ChatListScreenState extends State<ChatListScreen>
       title = (otherEntry.value as String).isNotEmpty
           ? otherEntry.value as String
           : 'ユーザー';
-      // memberNamesにないか'ユーザー'の場合、非同期で名前を解決
-      if (title == 'ユーザー' && otherUserId.isNotEmpty) {
+      // 非同期で名前とアバターを解決
+      if (otherUserId.isNotEmpty) {
         _resolveAndCacheName(chatId, otherUserId);
-        title = _userNameCache[otherUserId] ?? 'ユーザー';
+        if (title == 'ユーザー') {
+          title = _userNameCache[otherUserId] ?? 'ユーザー';
+        }
       }
     } else {
       title = (data['name'] as String?) ?? 'チャット';
@@ -715,17 +738,27 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     final isPinned = _pinnedChatIds.contains(chatId);
 
+    final dmAvatarUrl = (type == 'dm' && otherUserId != null && otherUserId.isNotEmpty)
+        ? (_userAvatarCache[otherUserId] ?? '')
+        : '';
+
     Widget avatarWidget = type == 'dm'
-        ? CircleAvatar(
-            radius: 24,
-            backgroundColor:
-                AppTheme.primaryColor.withValues(alpha: 0.12),
-            child: Text(initial,
-                style: const TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18)),
-          )
+        ? (dmAvatarUrl.isNotEmpty
+            ? CircleAvatar(
+                radius: 24,
+                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                backgroundImage: NetworkImage(dmAvatarUrl),
+              )
+            : CircleAvatar(
+                radius: 24,
+                backgroundColor:
+                    AppTheme.primaryColor.withValues(alpha: 0.12),
+                child: Text(initial,
+                    style: const TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18)),
+              ))
         : _buildGroupLeading(data, icon, iconColor);
 
     if (isPinned) {
