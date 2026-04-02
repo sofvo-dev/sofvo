@@ -22,6 +22,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _followNotification = true;
   bool _chatNotification = true;
   bool _likeCommentNotification = true;
+  bool _organizerNotification = true;
+  bool _officialNotification = true;
+  bool _reminderNotification = true;
+  bool _teamNotification = true;
   String _searchId = '';
   bool _isAdmin = false;
 
@@ -55,6 +59,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _matchNotification = settings['match'] ?? true;
             _chatNotification = settings['chat'] ?? true;
             _likeCommentNotification = settings['likeComment'] ?? true;
+            _organizerNotification = settings['organizer'] ?? true;
+            _officialNotification = settings['official'] ?? true;
+            _reminderNotification = settings['reminder'] ?? true;
+            _teamNotification = settings['team'] ?? true;
           }
         });
       }
@@ -74,6 +82,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'match': _matchNotification,
         'chat': _chatNotification,
         'likeComment': _likeCommentNotification,
+        'organizer': _organizerNotification,
+        'official': _officialNotification,
+        'reminder': _reminderNotification,
+        'team': _teamNotification,
       },
     }, SetOptions(merge: true));
   }
@@ -224,6 +236,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _matchNotification,
                     _pushNotification ? (v) {
                       setState(() => _matchNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.campaign_outlined,
+                    '大会運営者からの通知',
+                    'エントリー中の大会の主催者からの連絡',
+                    _organizerNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _organizerNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.verified_outlined,
+                    'Sofvo公式からの通知',
+                    'メンテナンス・新機能・イベント情報',
+                    _officialNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _officialNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.alarm_outlined,
+                    'リマインダー',
+                    '大会前日のお知らせ',
+                    _reminderNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _reminderNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.group_outlined,
+                    'チーム',
+                    'メンバーの加入・退出',
+                    _teamNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _teamNotification = v);
                       _saveNotificationSettings();
                     } : null,
                   ),

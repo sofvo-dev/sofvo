@@ -2976,6 +2976,60 @@ exports.seedReviewData = functions.https.onRequest(async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FCMプッシュ通知ヘルパー
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * ユーザーの通知設定を確認し、FCMトークンを取得
+ * @param {string} userId - 送信先ユーザーID
+ * @param {string} settingKey - notificationSettings内のキー (例: 'chat', 'follow')
+ * @returns {Promise<string|null>} FCMトークン（通知OFF/トークンなしならnull）
+ */
+async function getFcmTokenIfEnabled(userId, settingKey) {
+  const db = admin.firestore();
+  const userDoc = await db.collection("users").doc(userId).get();
+  if (!userDoc.exists) return null;
+
+  const settings = userDoc.data()?.notificationSettings || {};
+  // マスタートグルがOFFなら送らない
+  if (settings.push === false) return null;
+  // 個別設定がOFFなら送らない
+  if (settingKey && settings[settingKey] === false) return null;
+
+  const privateDoc = await db
+    .collection("users").doc(userId)
+    .collection("private").doc("info")
+    .get();
+  return privateDoc.data()?.fcmToken || null;
+}
+
+/**
+ * 複数トークンにFCM送信 + 無効トークン自動削除
+ */
+async function sendFcmToTokens(tokens, payload) {
+  if (tokens.length === 0) return;
+  const results = await Promise.allSettled(
+    tokens.map((t) => admin.messaging().send({ ...payload, token: t.token }))
+  );
+  const db = admin.firestore();
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === "rejected") {
+      const error = results[i].reason;
+      if (
+        error?.code === "messaging/registration-token-not-registered" ||
+        error?.code === "messaging/invalid-registration-token"
+      ) {
+        await db
+          .collection("users").doc(tokens[i].userId)
+          .collection("private").doc("info")
+          .update({ fcmToken: admin.firestore.FieldValue.delete() })
+          .catch(() => {});
+      }
+    }
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // チャットメッセージ送信時のプッシュ通知
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.onChatMessageCreated = functions.firestore
@@ -2987,7 +3041,6 @@ exports.onChatMessageCreated = functions.firestore
     const senderName = message.senderName || "ユーザー";
     const type = message.type || "text";
 
-    // 通知本文を決定
     let body;
     if (type === "image") {
       body = "📷 画像を送信しました";
@@ -2996,12 +3049,9 @@ exports.onChatMessageCreated = functions.firestore
     } else {
       body = (message.text || "").substring(0, 100);
     }
-
     if (!body) return null;
 
     const db = admin.firestore();
-
-    // チャットドキュメントからメンバー一覧を取得
     const chatDoc = await db.collection("chats").doc(chatId).get();
     if (!chatDoc.exists) return null;
     const chatData = chatDoc.data();
@@ -3009,76 +3059,215 @@ exports.onChatMessageCreated = functions.firestore
     const chatType = chatData.type || "dm";
     const chatName = chatData.name || "";
 
-    // 送信者以外のメンバーにプッシュ通知
     const tokens = [];
     for (const memberId of members) {
       if (memberId === senderId) continue;
-
       // ミュートチェック
-      const mutedDoc = await db
-        .collection("users").doc(memberId)
-        .collection("mutedChats").doc(chatId)
-        .get();
+      const mutedDoc = await db.collection("users").doc(memberId).collection("mutedChats").doc(chatId).get();
       if (mutedDoc.exists) continue;
-
-      // FCMトークン取得
-      const privateDoc = await db
-        .collection("users").doc(memberId)
-        .collection("private").doc("info")
-        .get();
-      const token = privateDoc.data()?.fcmToken;
-      if (token) tokens.push(token);
+      const token = await getFcmTokenIfEnabled(memberId, "chat");
+      if (token) tokens.push({ token, userId: memberId });
     }
 
-    if (tokens.length === 0) return null;
-
-    // 通知タイトル（DMは送信者名、グループはグループ名）
-    const title = chatType === "dm" ? senderName : `${chatName}`;
+    const title = chatType === "dm" ? senderName : chatName;
     const notificationBody = chatType === "dm" ? body : `${senderName}: ${body}`;
 
-    const payload = {
-      notification: {
-        title,
-        body: notificationBody,
-      },
-      data: {
-        type: "chat",
-        targetId: chatId,
-        chatType,
-        senderId,
-      },
-    };
-
-    // 各トークンに送信（無効トークンは削除）
-    const results = await Promise.allSettled(
-      tokens.map((token) =>
-        admin.messaging().send({ ...payload, token })
-      )
-    );
-
-    // 無効トークンをクリーンアップ
-    for (let i = 0; i < results.length; i++) {
-      if (results[i].status === "rejected") {
-        const error = results[i].reason;
-        if (
-          error?.code === "messaging/registration-token-not-registered" ||
-          error?.code === "messaging/invalid-registration-token"
-        ) {
-          // 無効トークンを持つユーザーを特定して削除
-          for (const memberId of members) {
-            if (memberId === senderId) continue;
-            const pDoc = await db
-              .collection("users").doc(memberId)
-              .collection("private").doc("info")
-              .get();
-            if (pDoc.data()?.fcmToken === tokens[i]) {
-              await pDoc.ref.update({ fcmToken: admin.firestore.FieldValue.delete() });
-              break;
-            }
-          }
-        }
-      }
-    }
-
+    await sendFcmToTokens(tokens, {
+      notification: { title, body: notificationBody },
+      data: { type: "chat", targetId: chatId, chatType, senderId },
+    });
     return null;
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// いいね通知のプッシュ通知
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onNotificationCreatedPush = functions.firestore
+  .document("users/{userId}/notifications/{notificationId}")
+  .onCreate(async (snap, context) => {
+    const { userId } = context.params;
+    const data = snap.data();
+    const notifType = data.type || "";
+    const senderId = data.senderId || "";
+    const senderName = data.senderName || "";
+    const message = data.message || "";
+
+    // 自分自身への通知はスキップ
+    if (senderId === userId) return null;
+
+    // 通知タイプ → 設定キーのマッピング
+    const settingKeyMap = {
+      like: "likeComment",
+      comment: "likeComment",
+      follow: "follow",
+      tournament_announcement: "organizer",
+      tournament_end: "tournament",
+      waitlist_available: "tournament",
+      points_earned: "tournament",
+      tournament_created: "tournament",
+      deadline_approaching: "reminder",
+      slots_low: "tournament",
+      official: "official",
+      team_join: "team",
+      team_leave: "team",
+    };
+
+    const settingKey = settingKeyMap[notifType];
+    if (!settingKey) return null;
+
+    const token = await getFcmTokenIfEnabled(userId, settingKey);
+    if (!token) return null;
+
+    // 通知タイトルの決定
+    let title;
+    switch (notifType) {
+      case "like":
+        title = "いいね";
+        break;
+      case "comment":
+        title = "コメント";
+        break;
+      case "follow":
+        title = "フォロー";
+        break;
+      case "tournament_announcement":
+        title = "大会運営者からのお知らせ";
+        break;
+      case "tournament_end":
+        title = "大会結果";
+        break;
+      case "waitlist_available":
+        title = "空き通知";
+        break;
+      case "deadline_approaching":
+        title = "リマインダー";
+        break;
+      case "official":
+        title = "Sofvo公式";
+        break;
+      case "team_join":
+      case "team_leave":
+        title = "チーム";
+        break;
+      default:
+        title = "Sofvo";
+    }
+
+    const body = senderName ? `${senderName}${message}` : message;
+
+    // 遷移先データ
+    const navData = { type: notifType };
+    if (data.tournamentId) navData.tournamentId = data.tournamentId;
+    if (data.postId) navData.targetId = data.postId;
+    if (notifType === "follow" && senderId) navData.targetId = senderId;
+
+    await sendFcmToTokens([{ token, userId }], {
+      notification: { title, body: body.substring(0, 100) },
+      data: navData,
+    });
+    return null;
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 大会前日リマインダー（毎日9:00 JST実行）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.sendTournamentReminders = functions.pubsub
+  .schedule("0 0 * * *") // UTC 0:00 = JST 9:00
+  .timeZone("Asia/Tokyo")
+  .onRun(async () => {
+    const db = admin.firestore();
+    // 明日の日付を取得 (YYYY/MM/DD形式)
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    const dd = String(tomorrow.getDate()).padStart(2, "0");
+    const tomorrowStr = `${yyyy}/${mm}/${dd}`;
+
+    // 明日開催の大会を取得
+    const tournaments = await db.collection("tournaments")
+      .where("date", "==", tomorrowStr)
+      .where("status", "in", ["募集中", "締切"])
+      .get();
+
+    for (const tDoc of tournaments.docs) {
+      const tData = tDoc.data();
+      const tournamentName = tData.title || "大会";
+
+      // 参加者を取得
+      const entries = await tDoc.ref.collection("entries").get();
+      const participantUids = new Set();
+      for (const entry of entries.docs) {
+        const eData = entry.data();
+        if (Array.isArray(eData.memberUids)) {
+          eData.memberUids.forEach((uid) => { if (uid) participantUids.add(uid); });
+        }
+        if (eData.enteredBy) participantUids.add(eData.enteredBy);
+      }
+
+      // 各参加者にリマインダー通知
+      const batch = db.batch();
+      for (const uid of participantUids) {
+        const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
+        batch.set(notifRef, {
+          type: "deadline_approaching",
+          senderId: "system",
+          senderName: "",
+          senderAvatar: "",
+          message: `明日は「${tournamentName}」の開催日です！`,
+          tournamentId: tDoc.id,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+    return null;
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Sofvo公式通知の送信（管理者用 Callable Function）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.sendOfficialNotification = functions.https.onCall(async (data, context) => {
+  // 管理者チェック
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  const db = admin.firestore();
+  const callerDoc = await db.collection("users").doc(context.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data()?.isAdmin !== true) {
+    throw new functions.https.HttpsError("permission-denied", "管理者権限が必要です");
+  }
+
+  const { title, message } = data;
+  if (!title || !message) {
+    throw new functions.https.HttpsError("invalid-argument", "title と message は必須です");
+  }
+
+  // 全ユーザーに通知
+  const usersSnap = await db.collection("users").get();
+  let count = 0;
+  const batchSize = 500;
+  let batch = db.batch();
+
+  for (const userDoc of usersSnap.docs) {
+    const uid = userDoc.id;
+    if (uid === context.auth.uid) continue;
+    const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
+    batch.set(notifRef, {
+      type: "official",
+      senderId: "sofvo_official",
+      senderName: "Sofvo公式",
+      senderAvatar: "",
+      message: `【${title}】${message}`,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    count++;
+    if (count % batchSize === 0) {
+      await batch.commit();
+      batch = db.batch();
+    }
+  }
+  if (count % batchSize !== 0) await batch.commit();
+
+  return { success: true, sentCount: count };
+});

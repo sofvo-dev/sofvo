@@ -131,11 +131,25 @@ class PushNotificationService {
           ));
         }
         break;
+      case 'like':
+      case 'comment':
+        // 投稿への遷移（将来実装）
+        break;
       case 'tournament_announcement':
       case 'tournament_end':
       case 'waitlist_available':
+      case 'deadline_approaching':
+      case 'tournament_created':
+      case 'slots_low':
         final tournamentId = data['tournamentId'] as String? ?? targetId;
         if (tournamentId != null) _navigateToTournament(navigator, tournamentId);
+        break;
+      case 'team_join':
+      case 'team_leave':
+        // チーム画面への遷移（将来実装）
+        break;
+      case 'official':
+        // 公式通知はタップ時に特別遷移なし（通知一覧を開く）
         break;
       default:
         debugPrint('Unknown notification type: $type');
