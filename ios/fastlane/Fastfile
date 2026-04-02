@@ -1,8 +1,12 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "App Store Connect にアップロード & 審査提出"
+  desc "App Store Connect にアップロード & 審査提出（ローカル最新化含む）"
   lane :release do
+    sh("cd ../.. && git pull origin main --rebase")
+    sh("cd ../.. && flutter clean")
+    sh("cd ../.. && flutter pub get")
+    sh("rm -rf Pods Podfile.lock && pod install --repo-update")
     sh("cd ../.. && flutter build ios --release")
 
     build_app(
@@ -22,8 +26,12 @@ platform :ios do
     )
   end
 
-  desc "TestFlight にアップロード（ベータテスト用）"
+  desc "TestFlight にアップロード（ベータテスト用、ローカル最新化含む）"
   lane :beta do
+    sh("cd ../.. && git pull origin main --rebase")
+    sh("cd ../.. && flutter clean")
+    sh("cd ../.. && flutter pub get")
+    sh("rm -rf Pods Podfile.lock && pod install --repo-update")
     sh("cd ../.. && flutter build ios --release")
 
     build_app(
