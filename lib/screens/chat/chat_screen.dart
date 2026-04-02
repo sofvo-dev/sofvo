@@ -172,24 +172,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// 自分以外のメンバーの未読カウントを+1する更新マップを返す
-  Future<Map<String, dynamic>> _buildUnreadIncrements() async {
-    var members = _memberIds;
-    // メンバーリストが空の場合、チャットドキュメントから直接取得
-    if (members.isEmpty) {
-      final chatDoc = await FirebaseFirestore.instance
-          .collection('chats').doc(widget.chatId).get();
-      members = List<String>.from(chatDoc.data()?['members'] ?? []);
-    }
-    final updates = <String, dynamic>{};
-    for (final memberId in members) {
-      if (memberId != _currentUser!.uid) {
-        updates['unreadCount.$memberId'] = FieldValue.increment(1);
-      }
-    }
-    return updates;
-  }
-
   Future<void> _loadMuteState() async {
     if (_currentUser == null) return;
     final doc = await FirebaseFirestore.instance
@@ -260,7 +242,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      final unreadInc = await _buildUnreadIncrements();
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
@@ -270,7 +251,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'lastMessageSenderId': _currentUser!.uid,
         'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
         'unreadCount.${_currentUser!.uid}': 0,
-        ...unreadInc,
       });
 
       _scrollToBottom();
@@ -348,7 +328,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      final imgUnreadInc = await _buildUnreadIncrements();
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
@@ -358,7 +337,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'lastMessageSenderId': _currentUser!.uid,
         'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
         'unreadCount.${_currentUser!.uid}': 0,
-        ...imgUnreadInc,
       });
 
       _scrollToBottom();
@@ -449,7 +427,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      final fileUnreadInc = await _buildUnreadIncrements();
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
@@ -459,7 +436,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'lastMessageSenderId': _currentUser!.uid,
         'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
         'unreadCount.${_currentUser!.uid}': 0,
-        ...fileUnreadInc,
       });
 
       _scrollToBottom();
