@@ -247,6 +247,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           .update({
         'lastMessage': savedText,
         'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': _currentUser!.uid,
+        'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
       });
 
       _scrollToBottom();
@@ -330,6 +332,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           .update({
         'lastMessage': '📷 画像',
         'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': _currentUser!.uid,
+        'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
       });
 
       _scrollToBottom();
@@ -426,6 +430,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           .update({
         'lastMessage': '📎 ${file.name}',
         'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': _currentUser!.uid,
+        'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
       });
 
       _scrollToBottom();
