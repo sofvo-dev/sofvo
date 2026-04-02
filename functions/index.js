@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+// Cloud Functions v1
 const nodemailer = require("nodemailer");
 // v5: 投稿いいね/コメント数 + フォロー数 + タイムラインいいね数の自動更新 Cloud Functions 追加
 
