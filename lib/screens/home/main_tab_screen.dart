@@ -92,8 +92,8 @@ class _BottomNav extends StatelessWidget {
                 // unreadCountマップから件数を取得（あれば）
                 final unreadMap = data['unreadCount'] as Map<String, dynamic>?;
                 final raw = unreadMap?[uid];
-                final num = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
-                unreadCount += num > 0 ? num : 1;
+                final cnt = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
+                unreadCount += cnt > 0 ? cnt : 1;
               }
             }
           }
