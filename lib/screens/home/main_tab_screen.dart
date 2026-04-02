@@ -87,12 +87,11 @@ class _BottomNav extends StatelessWidget {
             // unreadCountマップから取得（あれば）
             final unreadCountMap = data['unreadCount'] as Map<String, dynamic>?;
             if (unreadCountMap != null && unreadCountMap.containsKey(uid)) {
-              final count = (unreadCountMap[uid] as int?) ?? 0;
+              final raw = unreadCountMap[uid];
+              final count = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
               unreadCount += count;
             } else {
-              // フォールバック: lastRead比較
-              final lastSenderId = data['lastMessageSenderId'] as String?;
-              if (lastSenderId == uid) continue;
+              // フォールバック: lastRead比較（unreadCount未設定の既存チャット用）
               final lastRead = (data['lastRead'] as Map<String, dynamic>?)?[uid];
               final lastMsg = data['lastMessageAt'];
               if (lastMsg is Timestamp) {
