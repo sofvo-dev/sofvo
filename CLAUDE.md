@@ -12,6 +12,30 @@
   ✅ 審査不要（即反映）: storage.rules, functions/index.js
   📱 審査必要（ストア再提出）: lib/screens/auth/login_screen.dart
   ```
+- **審査必要な変更がある場合、以下のストア提出手順も併せて案内すること**
+
+### ストア提出手順（審査必要な変更がある場合に案内）
+
+#### Android（全自動）
+1. GitHub → **Actions** タブ
+2. 「**Build Android AAB**」を選択
+3. 右側の「**Run workflow**」をクリック
+4. 「**Google Play 製品版にアップロード**」に**チェック**を入れる
+5. 「**Run workflow**」で実行
+- ビルド → Google Play 製品版アップロードまで全自動
+
+#### iOS（ローカルMacで1コマンド）
+```bash
+cd ~/Desktop/sofvo
+git pull origin main --rebase
+cd ios
+fastlane release
+```
+- ビルド → App Store Connect アップロード → 審査提出まで全自動
+
+#### 注意事項
+- **バージョンコード（pubspec.yaml の `+` 以降の数字）を上げてからmainにマージすること**
+- 細かい修正はまとめて1回で提出するのが効率的（審査は数時間〜数日かかるため）
 
 ### クロスプラットフォーム統一ルール
 - **修正・実装は必ず Android / iPhone / iPad / Web の全プラットフォームで同じ動作になるようにすること**
