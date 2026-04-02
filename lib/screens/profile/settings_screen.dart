@@ -252,7 +252,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _buildDivider(),
                   _buildSwitchTile(
-                    Icons.verified_outlined,
+                    Icons.star_outline,
                     'Sofvo公式からの通知',
                     'メンテナンス・新機能・イベント情報',
                     _officialNotification,
@@ -263,7 +263,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _buildDivider(),
                   _buildSwitchTile(
-                    Icons.alarm_outlined,
+                    Icons.access_time,
                     'リマインダー',
                     '大会前日のお知らせ',
                     _reminderNotification,
