@@ -10,9 +10,9 @@ admin.initializeApp();
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Google Sheets 連携設定 (googleapis不使用 — 直接REST API)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const GADGET_SHEET_ID = "1IITgU-IvD1xpIqig0MtnlMfQAsoGWcwtbcPLKkNwv60";
-const VENUE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk";
-const PRIZE_SHEET_ID = "1p2WXADT519w65qk3wZ_Nrz5jQUDMyy0V7J0gKe4gBC4";
+const GADGET_SHEET_ID = "1rOmyJWIwLnosJkJmM0Z6QMNGwem0qkt2BSUlZ1w5Aw4";
+const VENUE_SHEET_ID = "1fAx4y_kVF526f-F9wm9FsE9hNKA3Ddn8fa2SRjB7hPs";
+const PRIZE_SHEET_ID = "1oKPuTyyK0xQHE6h-9FAYe5MH52j3Eroe3WuKCChJInE";
 
 async function getAccessToken() {
   // Firebase Admin SDK の組み込みクレデンシャルを使用
