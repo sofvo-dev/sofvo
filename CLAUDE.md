@@ -174,26 +174,19 @@ firebase deploy --only functions  # Cloud Functions のデプロイ
 firebase deploy --only hosting    # Hosting のデプロイ
 ```
 
-## ドメイン移管（sofvo.com: XServer → ムームードメイン）
-- **現在のレジストラ**: XServer（サーバーID: xs228659）
-- **移管先**: ムームードメイン
-- **ドメイン**: sofvo.com（利用期限: 2026/09/13）
-- **特典**: 「独自ドメイン永久無料特典」→ **解除完了（2026/03/25 XServer確認済み）**
-- **ステータス**: ドメイン解約完了（2026/03/25）→ Whois変更・認証鍵確認・ロック解除が次のステップ
-- **解除費用**: ¥1,721（税込、請求情報No: 104670522）→ **振込済み（2026/03/24）**
-- **XServerアカウントID**: phrw687530
-- **手順**:
-  1. XServerサポートに特典解除を依頼 → **済**
-  2. 解除手数料 ¥1,721 を支払い → **済（2026/03/24 振込完了）**
-  3. 特典解除完了（XServerから確認メール受領） → **済（2026/03/25）**
-  4. XServerアカウントからドメインの解約手続き → **済（2026/03/25）**
-  5. Whois情報を自分の情報に変更（メールアドレスは受信可能なもの、組織名は「None」） → **次のステップ**
-  6. 認証鍵（AuthCode）を確認・メモ → **次のステップ**
-  7. レジストラロックを解除 → **次のステップ**
-  8. ムームードメインで移管申請（認証鍵を入力）
-  9. Whoisメールアドレスに届く移管承認メールを承認
-  10. 移管確認メールは放置（数日で自動進行）
-- **参考**: https://www.xserver.ne.jp/support/faq/transfer_domain_permanent_free.php
+## ドメイン移管（sofvo.com: XServer → ムームードメイン）→ 完了
+- **レジストラ**: ムームードメイン（2026/04/03 移管完了）
+- **ドメイン**: sofvo.com（利用期限: 2027/09/13）
+- **移管費用**: ¥2,154（ムームードメイン） + ¥1,721（XServer特典解除費用）
+- **ステータス**: **移管完了**
+
+### 移管後のTODO
+- [ ] Firebase Hosting にカスタムドメイン `sofvo.com` を追加
+- [ ] Firebase Auth の承認済みドメインに `sofvo.com` を追加
+- [ ] Google Cloud Console で OAuth リダイレクトURIに `https://sofvo.com/__/auth/handler` を追加
+- [ ] `lib/firebase_options.dart` の `authDomain` を `sofvo.com` に変更
+- [ ] Google Workspace 契約 & MXレコード設定（メール）
+- [ ] DNS設定（ムームードメインのネームサーバー設定）
 
 ## アプリ化 進捗（2026/03/14 時点）
 
