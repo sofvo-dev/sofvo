@@ -326,6 +326,14 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
+    // アプリ起動時のスプラッシュ画面（ログイン済みネイティブアプリのみ）
+    if (_showSplash && !kIsWeb && _currentUser != null) {
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _showSplash = false);
+      });
+      return const _SplashScreen();
+    }
+
     // 未ログイン
     if (_currentUser == null) {
       _navigatedToTournament = false;
@@ -379,14 +387,6 @@ class _AuthGateState extends State<AuthGate> {
         // 紹介リンク（既存ユーザー向け）
         if (pendingReferrerUserId != null) {
           _handlePendingReferral(_currentUser!.uid);
-        }
-
-        // アプリ起動時のスプラッシュ画面（データ読み込み中に表示）
-        if (_showSplash && !kIsWeb) {
-          Future.delayed(const Duration(milliseconds: 1200), () {
-            if (mounted) setState(() => _showSplash = false);
-          });
-          return const _SplashScreen();
         }
 
         return const MainTabScreen();
