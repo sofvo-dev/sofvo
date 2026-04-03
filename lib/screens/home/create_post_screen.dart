@@ -167,6 +167,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('ログインしてください');
 
+      // Authトークンを強制リフレッシュ（expired token対策）
+      await user.getIdToken(true);
+
       // 画像をFirebase Storageに順次アップロード（進捗表示のため）
       final imageUrls = <String>[];
       for (int i = 0; i < _imageBytes.length; i++) {

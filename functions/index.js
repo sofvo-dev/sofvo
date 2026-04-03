@@ -3009,8 +3009,28 @@ async function getFcmTokenIfEnabled(userId, settingKey) {
  */
 async function sendFcmToTokens(tokens, payload) {
   if (tokens.length === 0) return;
+  // APNs (iOS) / Android 固有設定を付与
+  const enrichedPayload = {
+    ...payload,
+    apns: {
+      payload: {
+        aps: {
+          badge: 1,
+          sound: "default",
+        },
+      },
+      ...(payload.apns || {}),
+    },
+    android: {
+      notification: {
+        sound: "default",
+        ...(payload.android?.notification || {}),
+      },
+      ...(payload.android || {}),
+    },
+  };
   const results = await Promise.allSettled(
-    tokens.map((t) => admin.messaging().send({ ...payload, token: t.token }))
+    tokens.map((t) => admin.messaging().send({ ...enrichedPayload, token: t.token }))
   );
   const db = admin.firestore();
   for (let i = 0; i < results.length; i++) {

@@ -99,10 +99,12 @@ class _BottomNav extends StatelessWidget {
           }
         }
 
+        final bottomPad = MediaQuery.of(context).padding.bottom;
         return Container(
           color: Colors.white,
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom > 0 ? 4 : 0),
+          padding: EdgeInsets.only(bottom: bottomPad > 0 ? bottomPad - 8 : 0),
           child: NavigationBar(
+          height: 56,
           selectedIndex: currentIndex,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: onDestinationSelected,
@@ -110,18 +112,18 @@ class _BottomNav extends StatelessWidget {
           indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.1),
           destinations: [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.home, color: AppTheme.primaryColor),
+              icon: Icon(Icons.home_outlined, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.home, size: 22, color: AppTheme.primaryColor),
               label: 'ホーム',
             ),
             NavigationDestination(
-              icon: Icon(Icons.search_outlined, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.search, color: AppTheme.primaryColor),
+              icon: Icon(Icons.search_outlined, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.search, size: 22, color: AppTheme.primaryColor),
               label: 'さがす',
             ),
             NavigationDestination(
-              icon: Icon(Icons.calendar_today_outlined, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.calendar_today, color: AppTheme.primaryColor),
+              icon: Icon(Icons.calendar_today_outlined, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.calendar_today, size: 22, color: AppTheme.primaryColor),
               label: 'マイ大会',
             ),
             NavigationDestination(
@@ -130,8 +132,8 @@ class _BottomNav extends StatelessWidget {
               label: 'チャット',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.person, color: AppTheme.primaryColor),
+              icon: Icon(Icons.person_outline, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.person, size: 22, color: AppTheme.primaryColor),
               label: 'マイページ',
             ),
           ],
@@ -145,7 +147,7 @@ class _BottomNav extends StatelessWidget {
       isLabelVisible: count > 0,
       label: Text('$count', style: const TextStyle(fontSize: 10, color: Colors.white)),
       backgroundColor: AppTheme.error,
-      child: Icon(icon, color: color),
+      child: Icon(icon, size: 22, color: color),
     );
   }
 }

@@ -28,6 +28,13 @@ class PushNotificationService {
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         await _saveToken();
 
+        // iOS: フォアグラウンド表示オプション
+        await _messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
         _messaging.onTokenRefresh.listen((token) => _saveTokenToFirestore(token));
 
         // フォアグラウンドメッセージ → バナー表示
