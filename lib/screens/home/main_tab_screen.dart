@@ -100,7 +100,7 @@ class _BottomNav extends StatelessWidget {
         }
 
         return NavigationBar(
-          height: 56,
+          height: 64,
           selectedIndex: currentIndex,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: onDestinationSelected,
