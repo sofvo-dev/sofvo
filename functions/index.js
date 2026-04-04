@@ -3009,30 +3009,44 @@ async function getFcmTokenIfEnabled(userId, settingKey) {
  */
 async function sendFcmToTokens(tokens, payload) {
   if (tokens.length === 0) return;
-  // APNs (iOS) / Android 固有設定を付与
-  const enrichedPayload = {
-    ...payload,
-    apns: {
-      payload: {
-        aps: {
-          badge: 1,
-          sound: "default",
-        },
-      },
-      ...(payload.apns || {}),
-    },
-    android: {
-      notification: {
-        sound: "default",
-        ...(payload.android?.notification || {}),
-      },
-      ...(payload.android || {}),
-    },
-  };
-  const results = await Promise.allSettled(
-    tokens.map((t) => admin.messaging().send({ ...enrichedPayload, token: t.token }))
-  );
   const db = admin.firestore();
+
+  // ユーザーごとにバッジカウントをインクリメントしてから送信
+  const results = await Promise.allSettled(
+    tokens.map(async (t) => {
+      // badgeCount をインクリメント
+      const privateRef = db.collection("users").doc(t.userId)
+        .collection("private").doc("info");
+      await privateRef.set(
+        { badgeCount: admin.firestore.FieldValue.increment(1) },
+        { merge: true }
+      );
+      const privateDoc = await privateRef.get();
+      const badgeCount = privateDoc.data()?.badgeCount || 1;
+
+      const enrichedPayload = {
+        ...payload,
+        apns: {
+          payload: {
+            aps: {
+              badge: badgeCount,
+              sound: "default",
+            },
+          },
+          ...(payload.apns || {}),
+        },
+        android: {
+          notification: {
+            sound: "default",
+            ...(payload.android?.notification || {}),
+          },
+          ...(payload.android || {}),
+        },
+      };
+      return admin.messaging().send({ ...enrichedPayload, token: t.token });
+    })
+  );
+
   for (let i = 0; i < results.length; i++) {
     if (results[i].status === "rejected") {
       const error = results[i].reason;

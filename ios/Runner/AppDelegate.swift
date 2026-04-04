@@ -23,11 +23,6 @@ import FirebaseMessaging
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
-  override func applicationDidBecomeActive(_ application: UIApplication) {
-    // アプリ復帰時にバッジ数をクリア
-    application.applicationIconBadgeNumber = 0
-  }
-
   override func application(
     _ application: UIApplication,
     open url: URL,
