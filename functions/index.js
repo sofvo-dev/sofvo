@@ -3109,15 +3109,7 @@ exports.onChatMessageCreated = functions.firestore
     const chatType = chatData.type || "dm";
     const chatName = chatData.name || "";
 
-    // サーバー側で未読カウントを更新（クライアント側に依存しない）
-    const unreadUpdates = {};
-    for (const memberId of members) {
-      if (memberId === senderId) continue;
-      unreadUpdates[`unreadCount.${memberId}`] = admin.firestore.FieldValue.increment(1);
-    }
-    if (Object.keys(unreadUpdates).length > 0) {
-      await db.collection("chats").doc(chatId).update(unreadUpdates);
-    }
+    // unreadCountの更新はクライアント側で送信時にincrementしているため、ここでは行わない
 
     const tokens = [];
     for (const memberId of members) {
