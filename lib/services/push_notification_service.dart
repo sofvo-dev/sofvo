@@ -263,6 +263,7 @@ class PushNotificationService {
         .collection('private').doc('info')
         .set({
       'fcmToken': FieldValue.delete(),
+      'badgeCount': 0,
     }, SetOptions(merge: true));
   }
 }
