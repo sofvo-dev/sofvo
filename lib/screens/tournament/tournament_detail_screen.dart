@@ -1151,7 +1151,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none));
   }
 
-  void _showEditTournamentSheet(Map<String, dynamic> data) {
+  void _showEditTournamentSheet(Map<String, dynamic> data, [BuildContext? navContext]) {
     final titleCtrl = TextEditingController(text: data['title'] ?? '');
     final locationCtrl = TextEditingController(text: data['location'] ?? '');
     final rawFee = data['entryFee'];
@@ -1177,7 +1177,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final origRules = tournamentRules;
     final origVenue = selectedVenue;
 
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(navContext ?? context).push(MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
         bool hasChanges() {
@@ -6131,16 +6131,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       builder: (_) => _OrganizerMenuScreen(
         tournData: tournData,
         tournamentId: _tournamentId,
-        onEditTournament: () => _showEditTournamentSheet(tournData),
-        onStatusChange: () => _showStatusDialog(tournData['status'] ?? '準備中'),
+        onEditTournament: (ctx) => _showEditTournamentSheet(tournData, ctx),
         onSelfEntry: () => _showEntrySheet(context),
         onRecruit: () => _showRecruitSheet(context),
         onCheckIn: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CheckInScreen(tournamentId: _tournamentId, tournamentName: tournData['title'] ?? ''))),
         onCsvMenu: _showCsvImportMenu,
         onDeleteTeams: _deleteEntryTeams,
         onFinance: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))),
-        onEditors: _showEditorsSheet,
-        onAnnouncement: _showAnnouncementDialog,
         onGenerateRound2: () => _generateMatches(2),
         onGenerateFinals: _generateFinals,
         onReset: _showResetMenu,
@@ -8105,16 +8102,13 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
 class _OrganizerMenuScreen extends StatelessWidget {
   final Map<String, dynamic> tournData;
   final String tournamentId;
-  final VoidCallback onEditTournament;
-  final VoidCallback onStatusChange;
+  final void Function(BuildContext) onEditTournament;
   final VoidCallback onSelfEntry;
   final VoidCallback onRecruit;
   final VoidCallback onCheckIn;
   final VoidCallback onCsvMenu;
   final VoidCallback onDeleteTeams;
   final VoidCallback onFinance;
-  final VoidCallback onEditors;
-  final VoidCallback onAnnouncement;
   final VoidCallback onGenerateRound2;
   final VoidCallback onGenerateFinals;
   final VoidCallback onReset;
@@ -8127,15 +8121,12 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.tournData,
     required this.tournamentId,
     required this.onEditTournament,
-    required this.onStatusChange,
     required this.onSelfEntry,
     required this.onRecruit,
     required this.onCheckIn,
     required this.onCsvMenu,
     required this.onDeleteTeams,
     required this.onFinance,
-    required this.onEditors,
-    required this.onAnnouncement,
     required this.onGenerateRound2,
     required this.onGenerateFinals,
     required this.onReset,
@@ -8168,8 +8159,11 @@ class _OrganizerMenuScreen extends StatelessWidget {
         children: [
           // ━━━ 大会情報 ━━━
           _sectionLabel('大会情報'),
-          _menuTile(context, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', onEditTournament, color: AppTheme.primaryColor),
-          _menuTile(context, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 締切 → 開催中 → 終了', onStatusChange, color: AppTheme.primaryColor),
+          _menuTileNavigate(context, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', () => onEditTournament(context), color: AppTheme.primaryColor),
+          _menuTileNavigate(context, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 締切 → 開催中 → 終了', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => _StatusChangeScreen(
+              tournamentId: tournamentId, currentStatus: tournData['status'] ?? '準備中')));
+          }, color: AppTheme.primaryColor),
 
           // ━━━ 参加者管理 ━━━
           _sectionLabel('参加者管理'),
@@ -8181,8 +8175,13 @@ class _OrganizerMenuScreen extends StatelessWidget {
           // ━━━ 運営 ━━━
           _sectionLabel('運営'),
           _menuTile(context, Icons.account_balance_wallet_outlined, '収支管理', '参加費の入金状況・経費を管理', onFinance, color: AppTheme.accentColor),
-          _menuTile(context, Icons.people_outline, '権限管理', '他のユーザーに編集権限を付与', onEditors, color: AppTheme.accentColor),
-          _menuTile(context, Icons.campaign_outlined, 'お知らせ送信', '全参加者に通知を送信', onAnnouncement, color: AppTheme.accentColor),
+          _menuTileNavigate(context, Icons.people_outline, '権限管理', '他のユーザーに編集権限を付与', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => _EditorsScreen(tournamentId: tournamentId)));
+          }, color: AppTheme.accentColor),
+          _menuTileNavigate(context, Icons.campaign_outlined, 'お知らせ送信', '全参加者に通知を送信', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => _AnnouncementScreen(
+              tournamentId: tournamentId, tournamentData: tournData)));
+          }, color: AppTheme.accentColor),
 
           // ━━━ 試合進行 ━━━
           _sectionLabel('試合進行'),
@@ -8315,6 +8314,26 @@ class _OrganizerMenuScreen extends StatelessWidget {
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
       onTap: () { Navigator.pop(context); onTap(); },
+    );
+  }
+
+  /// Menu tile that navigates to a full-screen page without popping the menu first.
+  Widget _menuTileNavigate(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap, {Color color = AppTheme.primaryColor}) {
+    return ListTile(
+      dense: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 20, color: color),
+      ),
+      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
+      onTap: onTap,
     );
   }
 }
@@ -8806,6 +8825,341 @@ class _RecruitFullScreenState extends State<_RecruitFullScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ━━━ ステータス変更画面（全画面） ━━━
+class _StatusChangeScreen extends StatefulWidget {
+  final String tournamentId;
+  final String currentStatus;
+  const _StatusChangeScreen({required this.tournamentId, required this.currentStatus});
+  @override
+  State<_StatusChangeScreen> createState() => _StatusChangeScreenState();
+}
+
+class _StatusChangeScreenState extends State<_StatusChangeScreen> {
+  late String _selected;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.currentStatus;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statuses = ['準備中', '募集中', 'エントリー締切', '開催中', '終了'];
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('ステータス変更', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
+        elevation: 0, surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: statuses.map((s) {
+          return RadioListTile<String>(
+            title: Text(s, style: const TextStyle(fontSize: 16)),
+            value: s,
+            groupValue: _selected,
+            activeColor: AppTheme.primaryColor,
+            onChanged: (v) {
+              if (v != null) setState(() => _selected = v);
+            },
+          );
+        }).toList(),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: ElevatedButton(
+            onPressed: _selected == widget.currentStatus || _saving ? null : () async {
+              setState(() => _saving = true);
+              await FirebaseFirestore.instance.collection('tournaments').doc(widget.tournamentId).update({'status': _selected});
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('ステータスを「$_selected」に変更しました'), backgroundColor: AppTheme.success),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _saving
+                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('変更を保存', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ━━━ お知らせ送信画面（全画面） ━━━
+class _AnnouncementScreen extends StatefulWidget {
+  final String tournamentId;
+  final Map<String, dynamic> tournamentData;
+  const _AnnouncementScreen({required this.tournamentId, required this.tournamentData});
+  @override
+  State<_AnnouncementScreen> createState() => _AnnouncementScreenState();
+}
+
+class _AnnouncementScreenState extends State<_AnnouncementScreen> {
+  final _messageCtrl = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _messageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('お知らせ送信', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
+        elevation: 0, surfaceTintColor: Colors.transparent,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('全参加者に通知が届きます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _messageCtrl,
+            maxLines: 6,
+            maxLength: 200,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: '例: 持ち物の確認、集合場所の変更など',
+              hintStyle: TextStyle(fontSize: 14, color: AppTheme.textHint),
+              filled: true, fillColor: AppTheme.backgroundColor,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            Icon(Icons.check_circle_outline, size: 14, color: AppTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text('掲示板にも同時投稿されます', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ]),
+        ]),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: ElevatedButton.icon(
+            onPressed: _messageCtrl.text.trim().isEmpty || _sending ? null : () async {
+              final message = _messageCtrl.text.trim();
+              setState(() => _sending = true);
+
+              final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+              final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+              final nickname = userDoc.data()?['nickname'] ?? '主催者';
+              final avatar = (userDoc.data()?['avatarUrl'] ?? '') as String;
+
+              await FirebaseFirestore.instance.collection('tournaments').doc(widget.tournamentId).collection('timeline').add({
+                'authorId': uid,
+                'authorName': nickname,
+                'authorAvatar': avatar,
+                'text': message,
+                'isOrganizer': true,
+                'pinned': true,
+                'isAnnouncement': true,
+                'likesCount': 0,
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+
+              final tournName = widget.tournamentData['name'] as String? ?? widget.tournamentData['title'] as String? ?? '';
+              NotificationService.sendTournamentAnnouncement(
+                tournamentId: widget.tournamentId,
+                tournamentName: tournName,
+                senderId: uid,
+                senderName: nickname,
+                message: message,
+              );
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('お知らせを送信しました'), backgroundColor: AppTheme.success),
+                );
+                Navigator.pop(context);
+              }
+            },
+            icon: const Icon(Icons.send, size: 16),
+            label: _sending
+                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('送信', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentColor, foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ━━━ 権限管理画面（全画面） ━━━
+class _EditorsScreen extends StatefulWidget {
+  final String tournamentId;
+  const _EditorsScreen({required this.tournamentId});
+  @override
+  State<_EditorsScreen> createState() => _EditorsScreenState();
+}
+
+class _EditorsScreenState extends State<_EditorsScreen> {
+  final _firestore = FirebaseFirestore.instance;
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return const Scaffold(body: Center(child: Text('ログインしてください')));
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('権限管理', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
+        elevation: 0, surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('編集権限を持つユーザーは大会情報を編集できます', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          const SizedBox(height: 16),
+
+          // 現在の編集者リスト
+          StreamBuilder<DocumentSnapshot>(
+            stream: _firestore.collection('tournaments').doc(widget.tournamentId).snapshots(),
+            builder: (context, snap) {
+              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+              final tournData = snap.data!.data() as Map<String, dynamic>? ?? {};
+              final editors = List<String>.from(tournData['editors'] ?? []);
+
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('編集者 ${editors.length}人', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                if (editors.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                    child: const Center(child: Text('まだ編集者がいません', style: TextStyle(color: AppTheme.textHint))),
+                  )
+                else
+                  ...editors.map((editorUid) => FutureBuilder<DocumentSnapshot>(
+                    future: _firestore.collection('users').doc(editorUid).get(),
+                    builder: (context, userSnap) {
+                      final userData = userSnap.data?.data() as Map<String, dynamic>?;
+                      final name = userData?['nickname'] ?? '名前なし';
+                      final avatar = (userData?['avatarUrl'] ?? '').toString();
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: avatar.isNotEmpty
+                            ? CircleAvatar(radius: 18, backgroundImage: NetworkImage(avatar))
+                            : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                                child: Text(name.toString().isNotEmpty ? name.toString()[0] : '?',
+                                    style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold))),
+                        title: Text(name.toString(), style: const TextStyle(fontSize: 14)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, color: AppTheme.error),
+                          onPressed: () async {
+                            await _firestore.collection('tournaments').doc(widget.tournamentId).update({
+                              'editors': FieldValue.arrayRemove([editorUid]),
+                            });
+                          },
+                        ),
+                      );
+                    },
+                  )),
+              ]);
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // フォロー中から追加
+          const Text('フォロー中から追加', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          StreamBuilder<QuerySnapshot>(
+            stream: _firestore.collection('users').doc(uid).collection('following').snapshots(),
+            builder: (context, followSnap) {
+              if (!followSnap.hasData) return const Center(child: CircularProgressIndicator());
+              final followings = followSnap.data!.docs;
+              if (followings.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                  child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
+                );
+              }
+              return StreamBuilder<DocumentSnapshot>(
+                stream: _firestore.collection('tournaments').doc(widget.tournamentId).snapshots(),
+                builder: (context, tournSnap) {
+                  final currentEditors = List<String>.from(
+                      (tournSnap.data?.data() as Map<String, dynamic>?)?['editors'] ?? []);
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[200]!),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: followings.length,
+                      itemBuilder: (context, index) {
+                        final fDoc = followings[index];
+                        final fUid = fDoc.id;
+                        final isAlreadyEditor = currentEditors.contains(fUid);
+
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: _firestore.collection('users').doc(fUid).get(),
+                          builder: (context, userSnap) {
+                            final fData = fDoc.data() as Map<String, dynamic>;
+                            final userData = userSnap.data?.data() as Map<String, dynamic>?;
+                            final fName = userData?['nickname'] ?? fData['nickname'] ?? fData['userName'] ?? '名前なし';
+                            final fAvatar = userData?['avatarUrl'] ?? fData['avatarUrl'] ?? '';
+
+                            return ListTile(
+                              leading: fAvatar.toString().isNotEmpty
+                                  ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
+                                  : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                      child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?',
+                                          style: const TextStyle(color: AppTheme.primaryColor))),
+                              title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
+                              trailing: isAlreadyEditor
+                                  ? const Icon(Icons.check_circle, color: AppTheme.success)
+                                  : IconButton(
+                                      icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
+                                      onPressed: () async {
+                                        await _firestore.collection('tournaments').doc(widget.tournamentId).update({
+                                          'editors': FieldValue.arrayUnion([fUid]),
+                                        });
+                                      },
+                                    ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
       ),
     );
   }
