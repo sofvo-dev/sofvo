@@ -47,7 +47,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           body: const Center(child: Text('ログインしてください')));
     }
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(title: const Text('大会管理')),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('tournaments')
