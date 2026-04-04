@@ -1,7 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/profile/user_profile_screen.dart';
@@ -54,9 +54,15 @@ class PushNotificationService {
     }
   }
 
+  /// Web Push用VAPIDキー（Firebase Console → Cloud Messaging → Web構成で生成）
+  static String? vapidKey;
+
   static Future<void> _saveToken() async {
     try {
-      final token = await _messaging.getToken();
+      // Web: VAPIDキーが必要
+      final token = kIsWeb
+          ? await _messaging.getToken(vapidKey: vapidKey)
+          : await _messaging.getToken();
       if (token != null) await _saveTokenToFirestore(token);
     } catch (e) {
       debugPrint('Failed to get FCM token: $e');
@@ -67,12 +73,14 @@ class PushNotificationService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    // FCMトークンはprivateサブコレクションに保存（他ユーザーからアクセス不可）
+    // 複数デバイス対応: fcmTokens配列にトークンを追加（重複防止）
+    // 旧フィールド(fcmToken)も互換性のため更新
     await _firestore
         .collection('users').doc(uid)
         .collection('private').doc('info')
         .set({
       'fcmToken': token,
+      'fcmTokens': FieldValue.arrayUnion([token]),
       'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -258,12 +266,31 @@ class PushNotificationService {
   static Future<void> removeToken() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    await _firestore
-        .collection('users').doc(uid)
-        .collection('private').doc('info')
-        .set({
-      'fcmToken': FieldValue.delete(),
-      'badgeCount': 0,
-    }, SetOptions(merge: true));
+    // 現在のデバイスのトークンのみ削除（他デバイスには影響しない）
+    try {
+      final token = await _messaging.getToken();
+      final updates = <String, dynamic>{
+        'badgeCount': 0,
+      };
+      if (token != null) {
+        updates['fcmTokens'] = FieldValue.arrayRemove([token]);
+      }
+      // fcmToken(単一)は最後に登録したデバイスのものなので削除
+      updates['fcmToken'] = FieldValue.delete();
+      await _firestore
+          .collection('users').doc(uid)
+          .collection('private').doc('info')
+          .set(updates, SetOptions(merge: true));
+    } catch (_) {
+      // フォールバック: 全トークン削除
+      await _firestore
+          .collection('users').doc(uid)
+          .collection('private').doc('info')
+          .set({
+        'fcmToken': FieldValue.delete(),
+        'fcmTokens': FieldValue.delete(),
+        'badgeCount': 0,
+      }, SetOptions(merge: true));
+    }
   }
 }
