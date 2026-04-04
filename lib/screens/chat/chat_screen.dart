@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../profile/user_profile_screen.dart';
 import 'group_chat_settings_screen.dart';
+import '../../services/push_notification_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -170,6 +171,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
       'unreadCount.${_currentUser!.uid}': 0,
     });
+    // アプリアイコンバッジを未読数に合わせて更新
+    PushNotificationService.updateBadgeCount();
   }
 
   Future<void> _loadMuteState() async {

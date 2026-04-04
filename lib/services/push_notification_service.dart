@@ -216,6 +216,45 @@ class PushNotificationService {
     }
   }
 
+  /// 未読数を再計算してアプリアイコンバッジとFirestoreを更新
+  static Future<void> updateBadgeCount() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      int totalUnread = 0;
+
+      // チャット未読数
+      final chats = await _firestore
+          .collection('chats')
+          .where('members', arrayContains: uid)
+          .get();
+      for (final doc in chats.docs) {
+        final data = doc.data();
+        final unreadMap = data['unreadCount'] as Map<String, dynamic>?;
+        final cnt = unreadMap?[uid];
+        if (cnt is num && cnt > 0) totalUnread += cnt.toInt();
+      }
+
+      // 通知未読数
+      final notifications = await _firestore
+          .collection('users').doc(uid)
+          .collection('notifications')
+          .where('read', isEqualTo: false)
+          .count()
+          .get();
+      totalUnread += notifications.count ?? 0;
+
+      // Firestore の badgeCount を更新
+      await _firestore
+          .collection('users').doc(uid)
+          .collection('private').doc('info')
+          .set({'badgeCount': totalUnread}, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Failed to update badge count: $e');
+    }
+  }
+
   static Future<void> removeToken() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
