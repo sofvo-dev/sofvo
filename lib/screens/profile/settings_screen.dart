@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
@@ -28,11 +30,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _teamNotification = true;
   String _searchId = '';
   bool _isAdmin = false;
+  bool _osNotificationDenied = false;
 
   @override
   void initState() {
     super.initState();
     _loadNotificationSettings();
+    _checkOsNotificationPermission();
+  }
+
+  Future<void> _checkOsNotificationPermission() async {
+    if (kIsWeb) return;
+    try {
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      if (mounted) {
+        setState(() {
+          _osNotificationDenied =
+              settings.authorizationStatus == AuthorizationStatus.denied;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadNotificationSettings() async {
@@ -169,6 +186,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ),
+          if (_osNotificationDenied) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () async {
+                // 端末の通知設定を開く
+                await launchUrl(Uri.parse('app-settings:'));
+                // 戻ってきたら再チェック
+                Future.delayed(const Duration(seconds: 1), _checkOsNotificationPermission);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '端末の通知設定がオフになっています。タップして設定を開く',
+                        style: TextStyle(fontSize: 13, color: AppTheme.warning),
+                      ),
+                    ),
+                    Icon(Icons.open_in_new, color: AppTheme.warning, size: 16),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // プッシュ通知の個別設定

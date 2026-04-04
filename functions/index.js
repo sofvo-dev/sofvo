@@ -2986,22 +2986,34 @@ exports.seedReviewData = functions.https.onRequest(async (req, res) => {
  * @param {string} settingKey - notificationSettings内のキー (例: 'chat', 'follow')
  * @returns {Promise<string|null>} FCMトークン（通知OFF/トークンなしならnull）
  */
-async function getFcmTokenIfEnabled(userId, settingKey) {
+/**
+ * ユーザーの通知設定を確認し、有効なFCMトークン一覧を返す
+ * @returns {string[]} トークン配列（設定OFFまたはトークンなしの場合は空配列）
+ */
+async function getFcmTokensIfEnabled(userId, settingKey) {
   const db = admin.firestore();
   const userDoc = await db.collection("users").doc(userId).get();
-  if (!userDoc.exists) return null;
+  if (!userDoc.exists) return [];
 
   const settings = userDoc.data()?.notificationSettings || {};
-  // マスタートグルがOFFなら送らない
-  if (settings.push === false) return null;
-  // 個別設定がOFFなら送らない
-  if (settingKey && settings[settingKey] === false) return null;
+  if (settings.push === false) return [];
+  if (settingKey && settings[settingKey] === false) return [];
 
   const privateDoc = await db
     .collection("users").doc(userId)
     .collection("private").doc("info")
     .get();
-  return privateDoc.data()?.fcmToken || null;
+  const data = privateDoc.data() || {};
+  // 複数デバイス対応: fcmTokens配列を優先、なければfcmToken単体
+  const tokens = data.fcmTokens || [];
+  if (tokens.length > 0) return [...new Set(tokens)]; // 重複除去
+  return data.fcmToken ? [data.fcmToken] : [];
+}
+
+// 後方互換: 単一トークンを返す旧API
+async function getFcmTokenIfEnabled(userId, settingKey) {
+  const tokens = await getFcmTokensIfEnabled(userId, settingKey);
+  return tokens.length > 0 ? tokens[0] : null;
 }
 
 /**
@@ -3054,10 +3066,13 @@ async function sendFcmToTokens(tokens, payload) {
         error?.code === "messaging/registration-token-not-registered" ||
         error?.code === "messaging/invalid-registration-token"
       ) {
+        const invalidToken = tokens[i].token;
         await db
           .collection("users").doc(tokens[i].userId)
           .collection("private").doc("info")
-          .update({ fcmToken: admin.firestore.FieldValue.delete() })
+          .update({
+            fcmTokens: admin.firestore.FieldValue.arrayRemove([invalidToken]),
+          })
           .catch(() => {});
       }
     }
@@ -3110,8 +3125,10 @@ exports.onChatMessageCreated = functions.firestore
       // ミュートチェック
       const mutedDoc = await db.collection("users").doc(memberId).collection("mutedChats").doc(chatId).get();
       if (mutedDoc.exists) continue;
-      const token = await getFcmTokenIfEnabled(memberId, "chat");
-      if (token) tokens.push({ token, userId: memberId });
+      const memberTokens = await getFcmTokensIfEnabled(memberId, "chat");
+      for (const t of memberTokens) {
+        tokens.push({ token: t, userId: memberId });
+      }
     }
 
     const title = chatType === "dm" ? senderName : chatName;
@@ -3160,8 +3177,8 @@ exports.onNotificationCreatedPush = functions.firestore
     const settingKey = settingKeyMap[notifType];
     if (!settingKey) return null;
 
-    const token = await getFcmTokenIfEnabled(userId, settingKey);
-    if (!token) return null;
+    const userTokens = await getFcmTokensIfEnabled(userId, settingKey);
+    if (userTokens.length === 0) return null;
 
     // 通知タイトルの決定
     let title;
@@ -3206,10 +3223,13 @@ exports.onNotificationCreatedPush = functions.firestore
     if (data.postId) navData.targetId = data.postId;
     if (notifType === "follow" && senderId) navData.targetId = senderId;
 
-    await sendFcmToTokens([{ token, userId }], {
-      notification: { title, body: body.substring(0, 100) },
-      data: navData,
-    });
+    await sendFcmToTokens(
+      userTokens.map((t) => ({ token: t, userId })),
+      {
+        notification: { title, body: body.substring(0, 100) },
+        data: navData,
+      }
+    );
     return null;
   });
 
