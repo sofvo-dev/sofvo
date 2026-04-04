@@ -99,11 +99,7 @@ class _BottomNav extends StatelessWidget {
           }
         }
 
-        final bottomPad = MediaQuery.of(context).padding.bottom;
-        return Container(
-          color: Colors.white,
-          padding: EdgeInsets.only(bottom: bottomPad > 0 ? bottomPad - 8 : 0),
-          child: NavigationBar(
+        return NavigationBar(
           height: 56,
           selectedIndex: currentIndex,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -137,7 +133,7 @@ class _BottomNav extends StatelessWidget {
               label: 'マイページ',
             ),
           ],
-        ));
+        );
       },
     );
   }
