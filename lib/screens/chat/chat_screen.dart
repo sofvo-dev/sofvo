@@ -245,16 +245,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(widget.chatId)
-          .update({
+      final chatUpdate = <String, dynamic>{
         'lastMessage': savedText,
         'lastMessageAt': FieldValue.serverTimestamp(),
         'lastMessageSenderId': _currentUser!.uid,
         'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
         'unreadCount.${_currentUser!.uid}': 0,
-      });
+      };
+      for (final memberId in _memberIds) {
+        if (memberId == _currentUser!.uid) continue;
+        chatUpdate['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .update(chatUpdate);
 
       _scrollToBottom();
     } catch (e) {
@@ -331,16 +336,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(widget.chatId)
-          .update({
+      final imgUpdate = <String, dynamic>{
         'lastMessage': '📷 画像',
         'lastMessageAt': FieldValue.serverTimestamp(),
         'lastMessageSenderId': _currentUser!.uid,
         'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
         'unreadCount.${_currentUser!.uid}': 0,
-      });
+      };
+      for (final memberId in _memberIds) {
+        if (memberId == _currentUser!.uid) continue;
+        imgUpdate['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .update(imgUpdate);
 
       _scrollToBottom();
     } catch (e) {
@@ -430,16 +440,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(widget.chatId)
-          .update({
+      final fileUpdate = <String, dynamic>{
         'lastMessage': '📎 ${file.name}',
         'lastMessageAt': FieldValue.serverTimestamp(),
         'lastMessageSenderId': _currentUser!.uid,
         'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
         'unreadCount.${_currentUser!.uid}': 0,
-      });
+      };
+      for (final memberId in _memberIds) {
+        if (memberId == _currentUser!.uid) continue;
+        fileUpdate['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .update(fileUpdate);
 
       _scrollToBottom();
     } catch (e) {
