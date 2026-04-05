@@ -2015,10 +2015,10 @@ async function sendWelcomeMailTo(email, nickname) {
         </tr>
       </table>
       <p style="text-align:center;margin:0 0 24px">
-        <a href="https://sofvo-19d84.web.app/welcome" style="color:#2E5C8A;font-size:14px;font-weight:bold;text-decoration:none">詳しくはこちら &rarr;</a>
+        <a href="https://sofvo.com/welcome" style="color:#2E5C8A;font-size:14px;font-weight:bold;text-decoration:none">詳しくはこちら &rarr;</a>
       </p>
       <div style="text-align:center;margin:0 0 8px">
-        <a href="https://sofvo-19d84.web.app" style="background-color:#1B3A5C;color:#ffffff;text-decoration:none;padding:14px 48px;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block">Sofvo を開く</a>
+        <a href="https://sofvo.com" style="background-color:#1B3A5C;color:#ffffff;text-decoration:none;padding:14px 48px;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block">Sofvo を開く</a>
       </div>
       <p style="color:#B0B0B0;font-size:12px;line-height:1.6;margin:24px 0 0;border-top:1px solid #eee;padding-top:16px">
         このメールに心当たりがない場合は、このメールを無視してください。
@@ -2112,7 +2112,7 @@ async function sendAccountDeletedMailTo(email, nickname) {
         新しいアカウントで再登録が可能です。
       </p>
       <div style="text-align:center;margin:0 0 8px">
-        <a href="https://sofvo-19d84.web.app" style="background-color:#1B3A5C;color:#ffffff;text-decoration:none;padding:14px 48px;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block">Sofvo を開く</a>
+        <a href="https://sofvo.com" style="background-color:#1B3A5C;color:#ffffff;text-decoration:none;padding:14px 48px;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block">Sofvo を開く</a>
       </div>
       <p style="color:#B0B0B0;font-size:12px;line-height:1.6;margin:24px 0 0;border-top:1px solid #eee;padding-top:16px">
         このメールに心当たりがない場合は、このメールを無視してください。<br>

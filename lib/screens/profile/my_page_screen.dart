@@ -609,7 +609,7 @@ class MyPageScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                             Builder(builder: (ctx) {
-                              final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
+                              final referralUrl = 'https://sofvo.com/invite?ref=$viewingUid';
                               final shareText = 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl';
                               return Row(
                                 children: [
@@ -657,7 +657,7 @@ class MyPageScreen extends StatelessWidget {
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: () {
-                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
+                                  final referralUrl = 'https://sofvo.com/invite?ref=$viewingUid';
                                   Clipboard.setData(ClipboardData(text: referralUrl));
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
