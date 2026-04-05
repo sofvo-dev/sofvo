@@ -1004,6 +1004,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                           ),
                       const SizedBox(width: 5),
                       Text(displayName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      if (_officialCache[organizerId] == true)
+                        const OfficialBadge(size: 13),
                       if (!isFollowing) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -1345,6 +1347,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                     ),
                 const SizedBox(width: 5),
                 Text(displayName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                if (_officialCache[organizerId] == true)
+                  const OfficialBadge(size: 13),
                 if (!isFollowing) ...[
                   const SizedBox(width: 6),
                   Container(
