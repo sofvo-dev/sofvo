@@ -588,8 +588,17 @@ class _HomeScreenState extends State<HomeScreen>
                                 style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 12))),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('$nickname · $timeText',
-                          style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                      child: Row(
+                        children: [
+                          Flexible(child: Text(nickname,
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                              overflow: TextOverflow.ellipsis)),
+                          if (postUserId != null && _officialCache[postUserId] == true)
+                            const OfficialBadge(size: 13),
+                          Text(' · $timeText',
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        ],
+                      ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
