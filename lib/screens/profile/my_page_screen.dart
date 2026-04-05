@@ -402,7 +402,8 @@ class MyPageScreen extends StatelessWidget {
                         icon: Icons.admin_panel_settings_rounded,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
+                          child: Column(children: [
+                          Row(
                             children: [Expanded(child: _buildMenuCard(
                               icon: Icons.analytics_rounded,
                               title: 'ユーザー統計',
@@ -491,6 +492,7 @@ class MyPageScreen extends StatelessWidget {
                                   MaterialPageRoute(builder: (_) => const ArticleListScreen())),
                             ))],
                           ),
+                          ]),
                         ),
                       ),
                       const SizedBox(height: 16),
