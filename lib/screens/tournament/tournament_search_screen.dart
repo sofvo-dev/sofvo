@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/official_badge.dart';
+import '../../widgets/certified_badge.dart';
 import '../../services/bookmark_notification_service.dart';
 import 'tournament_detail_screen.dart';
 import '../chat/chat_screen.dart';
@@ -973,9 +974,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   // タイトル + ステータス
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(child: Text(title,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                        maxLines: 2, overflow: TextOverflow.ellipsis)),
+                    Expanded(child: Row(children: [
+                      Flexible(child: Text(title,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                          maxLines: 2, overflow: TextOverflow.ellipsis)),
+                      if (tData['isCertified'] == true) const CertifiedBadge(size: 14),
+                    ])),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1328,9 +1332,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // タイトル + ステータス
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: Text(title,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                    maxLines: 2, overflow: TextOverflow.ellipsis)),
+                Expanded(child: Row(children: [
+                  Flexible(child: Text(title,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                      maxLines: 2, overflow: TextOverflow.ellipsis)),
+                  if (data['isCertified'] == true) const CertifiedBadge(size: 14),
+                ])),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

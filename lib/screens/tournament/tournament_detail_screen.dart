@@ -22,6 +22,7 @@ import '../../services/csv_download.dart';
 import '../../services/follow_service.dart';
 import '../../services/match_generator.dart';
 import '../../widgets/official_badge.dart';
+import '../../widgets/certified_badge.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
@@ -349,9 +350,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           Row(
             children: [
               Expanded(
-                child: Text((t['name'] ?? t['title'] ?? '') as String,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Row(children: [
+                  Flexible(child: Text((t['name'] ?? t['title'] ?? '') as String,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  if (t['isCertified'] == true) const CertifiedBadge(size: 16),
+                ]),
               ),
               const SizedBox(width: 8),
               Container(

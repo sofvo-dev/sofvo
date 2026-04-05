@@ -24,6 +24,7 @@ import '../recruitment/recruitment_management_screen.dart';
 import 'admin_stats_screen.dart';
 import 'report_management_screen.dart';
 import '../admin/survey_list_screen.dart';
+import '../admin/sponsor_management_screen.dart';
 import '../admin/tournament_template_screen.dart';
 import '../admin/analytics_screen.dart';
 import 'admin_user_list_screen.dart';
@@ -450,6 +451,17 @@ class MyPageScreen extends StatelessWidget {
                               onTap: () => Navigator.push(context,
                                   MaterialPageRoute(builder: (_) => const TournamentTemplateScreen())),
                             ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.workspace_premium,
+                              title: '大会認定',
+                              subtitle: '公式認定バッジ管理',
+                              color: Colors.amber,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const CertificationScreen())),
+                            )), const SizedBox(width: 12), const Expanded(child: SizedBox())],
                           ),
                         ),
                       ),
