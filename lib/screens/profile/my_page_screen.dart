@@ -24,6 +24,7 @@ import '../recruitment/recruitment_management_screen.dart';
 import 'admin_stats_screen.dart';
 import 'report_management_screen.dart';
 import '../admin/survey_list_screen.dart';
+import '../admin/season_management_screen.dart';
 import '../admin/sponsor_management_screen.dart';
 import '../admin/tournament_template_screen.dart';
 import '../admin/analytics_screen.dart';
@@ -461,6 +462,24 @@ class MyPageScreen extends StatelessWidget {
                               color: Colors.amber,
                               onTap: () => Navigator.push(context,
                                   MaterialPageRoute(builder: (_) => const CertificationScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.campaign_rounded,
+                              title: 'スポンサー',
+                              subtitle: 'バナー広告管理',
+                              color: Colors.green,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const SponsorManagementScreen())),
+                            ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.emoji_events_outlined,
+                              title: 'シーズン管理',
+                              subtitle: 'ランキング期間設定',
+                              color: Colors.amber,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const SeasonManagementScreen())),
                             )), const SizedBox(width: 12), const Expanded(child: SizedBox())],
                           ),
                         ),
