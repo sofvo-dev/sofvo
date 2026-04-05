@@ -217,22 +217,24 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                 }
               });
               if (filtered.isEmpty) {
-                return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.location_off, size: 48, color: Colors.grey[300]),
-                  const SizedBox(height: 12),
-                  const Text('会場が見つかりません', style: TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.push<bool>(context,
-                        MaterialPageRoute(builder: (_) => const VenueRegisterScreen()));
-                      if (result == true) setState(() {});
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('新しい会場を登録'),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
-                  ),
-                ]));
+                return Center(child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.location_off, size: 48, color: Colors.grey[300]),
+                    const SizedBox(height: 12),
+                    const Text('会場が見つかりません', style: TextStyle(color: AppTheme.textSecondary)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final result = await Navigator.push<bool>(context,
+                          MaterialPageRoute(builder: (_) => const VenueRegisterScreen()));
+                        if (result == true) setState(() {});
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('新しい会場を登録'),
+                    ),
+                  ]),
+                ));
               }
               return ListView.builder(
                 itemCount: filtered.length,
