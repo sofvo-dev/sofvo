@@ -234,7 +234,8 @@ class MyPageScreen extends StatelessWidget {
                           ],
                           const SizedBox(height: 12),
                           // ── フォロー / フォロワー（横一列コンパクト） ──
-                          _FollowCounts(userId: viewingUid),
+                          if (!isOfficial)
+                            _FollowCounts(userId: viewingUid),
                         ],
                       ),
                     ),

@@ -18,7 +18,8 @@ class NoticeHistoryScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -26,6 +27,7 @@ class NoticeHistoryScreen extends StatelessWidget {
         ),
         title: const Text('配信履歴', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
+        elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
