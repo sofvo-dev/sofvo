@@ -230,12 +230,6 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                       },
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('景品を登録する'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 52),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
                     ),
                   ),
                 ]));
