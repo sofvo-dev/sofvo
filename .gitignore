@@ -54,3 +54,4 @@ android/app/sofvo-release-key.jks
 
 # Environment variables (secrets)
 functions/.env
+.claude/
