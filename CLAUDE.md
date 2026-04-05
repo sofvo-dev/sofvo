@@ -199,12 +199,15 @@ firebase deploy --only hosting    # Hosting のデプロイ
 - **ステータス**: **移管完了**
 
 ### 移管後のTODO
-- [ ] Firebase Hosting にカスタムドメイン `sofvo.com` を追加
-- [ ] Firebase Auth の承認済みドメインに `sofvo.com` を追加
-- [ ] Google Cloud Console で OAuth リダイレクトURIに `https://sofvo.com/__/auth/handler` を追加
-- [ ] `lib/firebase_options.dart` の `authDomain` を `sofvo.com` に変更
-- [ ] Google Workspace 契約 & MXレコード設定（メール）
-- [ ] DNS設定（ムームードメインのネームサーバー設定）
+- [x] Firebase Hosting にカスタムドメイン `sofvo.com` を追加（SSL証明書作成中）
+- [ ] Firebase Auth の承認済みドメインに `sofvo.com` を追加 ← 要確認
+- [x] Google Cloud Console で OAuth リダイレクトURIに `https://sofvo.com/__/auth/handler` を追加
+- [x] `lib/firebase_options.dart` の `authDomain` を `sofvo.com` に変更
+- [x] Google Workspace 契約 & MXレコード設定（`info@sofvo.com`）
+- [x] DNS設定（ムームードメインのネームサーバー設定）
+- [x] コードベース内の `sofvo-19d84.web.app` / `sofvo-19d84.firebaseapp.com` を `sofvo.com` に統一
+- [ ] Firebase Auth メールテンプレート用カスタムドメイン認証（DNS TXT/CNAME設定済み、反映待ち）
+- [ ] SPFレコード統合（Google Workspace + Firebase を1レコードに）
 
 ## アプリ化 進捗（2026/04/05 更新）
 
