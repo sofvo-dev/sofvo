@@ -394,7 +394,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFF9900),
                           minimumSize: const Size(56, 44),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: _isSearching
                             ? const SizedBox(width: 20, height: 20,
@@ -423,7 +423,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFFF9900),
                           side: const BorderSide(color: Color(0xFFFF9900)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: _isLoadingMore
@@ -522,7 +522,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                       foregroundColor: const Color(0xFFFF9900),
                       side: const BorderSide(color: Color(0xFFFF9900)),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       minimumSize: const Size(double.infinity, 40),
                     ),
@@ -539,7 +539,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       minimumSize: const Size(double.infinity, 40),
                     ),
@@ -958,7 +958,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                                   onPressed: _isAdding ? null : _addCustomCategory,
                                   style: ElevatedButton.styleFrom(
                                     minimumSize: const Size(56, 44),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                   child: _isAdding
                                       ? const SizedBox(width: 20, height: 20,

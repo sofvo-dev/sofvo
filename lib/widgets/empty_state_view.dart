@@ -69,25 +69,11 @@ class EmptyStateView extends StatelessWidget {
                         onPressed: action.onPressed,
                         icon: Icon(action.icon, size: 18),
                         label: Text(action.label),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 52),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
                       )
                     : OutlinedButton.icon(
                         onPressed: action.onPressed,
                         icon: Icon(action.icon, size: 18),
                         label: Text(action.label),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryColor,
-                          side: const BorderSide(color: AppTheme.primaryColor),
-                          minimumSize: const Size(0, 52),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
                       ),
               ),
             ],
