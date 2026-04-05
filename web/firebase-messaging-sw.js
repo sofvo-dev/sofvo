@@ -7,7 +7,7 @@ firebase.initializeApp({
   appId: '1:584952056517:web:9c58d1dd3ed79cd02afeac',
   messagingSenderId: '584952056517',
   projectId: 'sofvo-19d84',
-  authDomain: 'sofvo-19d84.firebaseapp.com',
+  authDomain: 'sofvo.com',
   storageBucket: 'sofvo-19d84.firebasestorage.app',
   measurementId: 'G-SGB6RFNZVV',
 });

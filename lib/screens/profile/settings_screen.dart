@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
 import '../../main.dart';
 import '../../services/auth_service.dart';
+import '../help/faq_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -384,7 +385,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.open_in_new,
                       color: Colors.grey[400], size: 18),
-                  onTap: () => _openUrl('https://sofvo-19d84.web.app/terms.html'),
+                  onTap: () => _openUrl('https://sofvo.com/terms.html'),
                 ),
                 _buildDivider(),
                 ListTile(
@@ -394,17 +395,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.open_in_new,
                       color: Colors.grey[400], size: 18),
-                  onTap: () => _openUrl('https://sofvo-19d84.web.app/privacy.html'),
+                  onTap: () => _openUrl('https://sofvo.com/privacy.html'),
                 ),
                 _buildDivider(),
                 ListTile(
                   leading: Icon(Icons.help_outline,
                       color: AppTheme.primaryColor, size: 22),
+                  title: const Text('よくある質問',
+                      style: TextStyle(fontSize: 15)),
+                  trailing: Icon(Icons.chevron_right,
+                      color: Colors.grey[400], size: 22),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FaqScreen())),
+                ),
+                _buildDivider(),
+                ListTile(
+                  leading: Icon(Icons.mail_outline,
+                      color: AppTheme.primaryColor, size: 22),
                   title: const Text('ヘルプ・お問い合わせ',
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.open_in_new,
                       color: Colors.grey[400], size: 18),
-                  onTap: () => _openUrl('https://sofvo-19d84.web.app/contact.html'),
+                  onTap: () => _openUrl('https://sofvo.com/contact.html'),
                 ),
               ],
             ),

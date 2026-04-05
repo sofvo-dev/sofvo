@@ -22,6 +22,14 @@ import '../notification/create_notice_screen.dart';
 import '../notification/notice_history_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'admin_stats_screen.dart';
+import 'report_management_screen.dart';
+import '../admin/survey_list_screen.dart';
+import '../admin/season_management_screen.dart';
+import '../admin/sponsor_management_screen.dart';
+import '../admin/tournament_template_screen.dart';
+import '../admin/analytics_screen.dart';
+import '../admin/certification_screen.dart';
+import '../admin/article_list_screen.dart';
 import 'admin_user_list_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
@@ -234,7 +242,8 @@ class MyPageScreen extends StatelessWidget {
                           ],
                           const SizedBox(height: 12),
                           // ── フォロー / フォロワー（横一列コンパクト） ──
-                          _FollowCounts(userId: viewingUid),
+                          if (!isOfficial)
+                            _FollowCounts(userId: viewingUid),
                         ],
                       ),
                     ),
@@ -393,7 +402,8 @@ class MyPageScreen extends StatelessWidget {
                         icon: Icons.admin_panel_settings_rounded,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
+                          child: Column(children: [
+                          Row(
                             children: [Expanded(child: _buildMenuCard(
                               icon: Icons.analytics_rounded,
                               title: 'ユーザー統計',
@@ -410,6 +420,79 @@ class MyPageScreen extends StatelessWidget {
                                   MaterialPageRoute(builder: (_) => const AdminUserListScreen())),
                             ))],
                           ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.flag_rounded,
+                              title: '通報管理',
+                              subtitle: 'ユーザーからの通報確認',
+                              color: Colors.red,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const ReportManagementScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.poll_rounded,
+                              title: 'アンケート',
+                              subtitle: '作成・結果確認',
+                              color: Colors.orange,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const SurveyListScreen())),
+                            ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.trending_up_rounded,
+                              title: 'アクセス解析',
+                              subtitle: '登録数推移・統計',
+                              color: Colors.blue,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const AnalyticsScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.copy_rounded,
+                              title: '大会テンプレート',
+                              subtitle: 'テンプレート管理',
+                              color: Colors.cyan,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const TournamentTemplateScreen())),
+                            ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.workspace_premium,
+                              title: '大会認定',
+                              subtitle: '公式認定バッジ管理',
+                              color: Colors.amber,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const CertificationScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.campaign_rounded,
+                              title: 'スポンサー',
+                              subtitle: 'バナー広告管理',
+                              color: Colors.green,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const SponsorManagementScreen())),
+                            ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.emoji_events_outlined,
+                              title: 'シーズン管理',
+                              subtitle: 'ランキング期間設定',
+                              color: Colors.amber,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const SeasonManagementScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.article_rounded,
+                              title: 'ブログ',
+                              subtitle: '公式記事の管理',
+                              color: Colors.deepPurple,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const ArticleListScreen())),
+                            ))],
+                          ),
+                          ]),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -525,40 +608,56 @@ class MyPageScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
-                                  final text = 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl';
-                                  if (kIsWeb) {
-                                    // Web: クリップボードにコピーしてスナックバーで通知
-                                    await Clipboard.setData(ClipboardData(text: text));
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('紹介リンクをコピーしました'), behavior: SnackBarBehavior.floating),
-                                      );
-                                    }
-                                  } else {
-                                    Share.share(text, subject: 'Sofvo - ソフトバレーボールアプリ');
-                                  }
-                                },
-                                icon: const Icon(Icons.share, size: 18),
-                                label: const Text('紹介リンクを送る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.accentColor,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size(double.infinity, 48),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ),
+                            Builder(builder: (ctx) {
+                              final referralUrl = 'https://sofvo.com/invite?ref=$viewingUid';
+                              final shareText = 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl';
+                              return Row(
+                                children: [
+                                  // LINE
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        final encoded = Uri.encodeComponent(shareText);
+                                        launchUrl(Uri.parse('https://line.me/R/share?text=$encoded'), mode: LaunchMode.externalApplication);
+                                      },
+                                      icon: const Icon(FontAwesomeIcons.line, size: 18),
+                                      label: const Text('LINE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF06C755),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(0, 48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // メール
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        final subject = Uri.encodeComponent('Sofvo - ソフトバレーボールアプリ');
+                                        final body = Uri.encodeComponent(shareText);
+                                        launchUrl(Uri.parse('mailto:?subject=$subject&body=$body'), mode: LaunchMode.externalApplication);
+                                      },
+                                      icon: const Icon(Icons.mail_outline, size: 18),
+                                      label: const Text('メール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.accentColor,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(0, 48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
                             const SizedBox(height: 8),
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: () {
-                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
+                                  final referralUrl = 'https://sofvo.com/invite?ref=$viewingUid';
                                   Clipboard.setData(ClipboardData(text: referralUrl));
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(

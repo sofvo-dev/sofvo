@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/connectivity_banner.dart';
+import '../../widgets/ban_guard.dart';
 import '../home/home_screen.dart';
 import '../tournament/tournament_search_screen.dart';
 import '../recruitment/recruitment_screen.dart';
@@ -41,22 +42,25 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _statusBarStyle(),
-      child: Scaffold(
-      body: ConnectivityBanner(
-        child: IndexedStack(
-          index: _currentIndex,
-          children: _screens,
+    return BanGuard(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _statusBarStyle(),
+        child: Scaffold(
+          body: ConnectivityBanner(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+          ),
+          bottomNavigationBar: _BottomNav(
+            currentIndex: _currentIndex,
+            onDestinationSelected: (index) {
+              setState(() => _currentIndex = index);
+            },
+          ),
         ),
       ),
-      bottomNavigationBar: _BottomNav(
-        currentIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
-        },
-      ),
-    ));
+    );
   }
 }
 

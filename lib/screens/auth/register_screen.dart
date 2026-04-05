@@ -42,7 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onTap: () => showUrlBottomSheet(
                 context,
                 '利用規約（EULA）',
-                'https://sofvo-19d84.web.app/terms.html',
+                'https://sofvo.com/terms.html',
               ),
               child: const Text(
                 '利用規約（EULA）',
@@ -57,7 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onTap: () => showUrlBottomSheet(
                 context,
                 'プライバシーポリシー',
-                'https://sofvo-19d84.web.app/privacy.html',
+                'https://sofvo.com/privacy.html',
               ),
               child: const Text(
                 'プライバシーポリシー',
@@ -470,7 +470,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: () => showUrlBottomSheet(
                         context,
                         '利用規約（EULA）',
-                        'https://sofvo-19d84.web.app/terms.html',
+                        'https://sofvo.com/terms.html',
                       ),
                       child: const Text(
                         '利用規約',
@@ -492,7 +492,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: () => showUrlBottomSheet(
                         context,
                         'プライバシーポリシー',
-                        'https://sofvo-19d84.web.app/privacy.html',
+                        'https://sofvo.com/privacy.html',
                       ),
                       child: const Text(
                         'プライバシーポリシー',

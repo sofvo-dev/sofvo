@@ -28,6 +28,9 @@ class PushNotificationService {
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         await _saveToken();
 
+        // 全ユーザー向けお知らせ通知トピックを購読
+        await _messaging.subscribeToTopic('all_users');
+
         // iOS: フォアグラウンド表示オプション
         await _messaging.setForegroundNotificationPresentationOptions(
           alert: true,
@@ -162,6 +165,9 @@ class PushNotificationService {
       case 'team_join':
       case 'team_leave':
         // チーム画面への遷移（将来実装）
+        break;
+      case 'notice':
+        // お知らせ通知はタップ時に特別遷移なし（通知一覧を開く）
         break;
       case 'official':
         // 公式通知はタップ時に特別遷移なし（通知一覧を開く）

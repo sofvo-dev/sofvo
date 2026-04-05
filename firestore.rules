@@ -207,7 +207,10 @@ service cloud.firestore {
     // ━━━ 通報 ━━━
     match /reports/{reportId} {
       allow create: if isAuthenticated();
-      allow read: if false; // 管理者のみ（Cloud Functions経由）
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow update: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     // ━━━ お知らせ ━━━
@@ -246,6 +249,47 @@ service cloud.firestore {
 
     // ━━━ 景品カテゴリ ━━━
     match /prizeCategories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ スポンサー ━━━
+    match /sponsors/{sponsorId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ アンケート ━━━
+    match /surveys/{surveyId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      match /responses/{responseId} {
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+        allow create: if isAuthenticated() && isOwner(responseId);
+      }
+    }
+
+    // ━━━ シーズン ━━━
+    match /seasons/{seasonId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ ブログ記事 ━━━
+    match /articles/{articleId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ 大会テンプレート ━━━
+    match /tournamentTemplates/{templateId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;

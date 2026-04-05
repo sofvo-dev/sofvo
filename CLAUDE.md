@@ -14,6 +14,14 @@
   ```
 - **ストア提出手順・AABビルドの案内はユーザーから求められたときのみ行う（毎回自動で案内しない）**
 
+### 審査提出リクエスト時の対応ルール
+- ユーザーが「審査に提出したい」と言ったら、以下を即座に用意すること：
+  1. **`pubspec.yaml`** のバージョンを+1（例: `1.0.5+18` → `1.0.6+19`）
+  2. **`ios/fastlane/Fastfile`** の `release_notes` を最新の変更内容に書き換え
+  3. コミット＆プッシュ（mainにマージ）
+- ユーザーはMacで `cd ~/Desktop/sofvo/ios && fastlane release` を実行するだけで審査提出まで全自動
+- `fastlane release` 内で自動的に `git pull` されるのでMac側の手動pull不要
+
 ### ストア提出手順（審査必要な変更がある場合に案内）
 
 #### Android（全自動）
@@ -191,12 +199,15 @@ firebase deploy --only hosting    # Hosting のデプロイ
 - **ステータス**: **移管完了**
 
 ### 移管後のTODO
-- [ ] Firebase Hosting にカスタムドメイン `sofvo.com` を追加
-- [ ] Firebase Auth の承認済みドメインに `sofvo.com` を追加
-- [ ] Google Cloud Console で OAuth リダイレクトURIに `https://sofvo.com/__/auth/handler` を追加
-- [ ] `lib/firebase_options.dart` の `authDomain` を `sofvo.com` に変更
-- [ ] Google Workspace 契約 & MXレコード設定（メール）
-- [ ] DNS設定（ムームードメインのネームサーバー設定）
+- [x] Firebase Hosting にカスタムドメイン `sofvo.com` を追加（SSL接続済み）
+- [x] Firebase Auth の承認済みドメインに `sofvo.com` を追加
+- [x] Google Cloud Console で OAuth リダイレクトURIに `https://sofvo.com/__/auth/handler` を追加
+- [x] `lib/firebase_options.dart` の `authDomain` を `sofvo.com` に変更
+- [x] Google Workspace 契約 & MXレコード設定（`info@sofvo.com`）
+- [x] DNS設定（ムームードメインのネームサーバー設定）
+- [x] コードベース内の `sofvo-19d84.web.app` / `sofvo-19d84.firebaseapp.com` を `sofvo.com` に統一
+- [x] SPFレコード統合（Google Workspace + Firebase を1レコードに統合済み）
+- [ ] Firebase Auth メールテンプレート用カスタムドメイン認証（DNS反映待ち → 認証後に送信元を `noreply@sofvo.com` に変更）
 
 ## アプリ化 進捗（2026/04/05 更新）
 
