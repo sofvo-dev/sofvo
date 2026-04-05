@@ -526,34 +526,50 @@ class MyPageScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
-                                  final text = 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl';
-                                  if (kIsWeb) {
-                                    // Web: クリップボードにコピーしてスナックバーで通知
-                                    await Clipboard.setData(ClipboardData(text: text));
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('紹介リンクをコピーしました'), behavior: SnackBarBehavior.floating),
-                                      );
-                                    }
-                                  } else {
-                                    Share.share(text, subject: 'Sofvo - ソフトバレーボールアプリ');
-                                  }
-                                },
-                                icon: const Icon(Icons.share, size: 18),
-                                label: const Text('紹介リンクを送る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.accentColor,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size(double.infinity, 48),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ),
+                            Builder(builder: (ctx) {
+                              final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
+                              final shareText = 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl';
+                              return Row(
+                                children: [
+                                  // LINE
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        final encoded = Uri.encodeComponent(shareText);
+                                        launchUrl(Uri.parse('https://line.me/R/share?text=$encoded'), mode: LaunchMode.externalApplication);
+                                      },
+                                      icon: const Icon(FontAwesomeIcons.line, size: 18),
+                                      label: const Text('LINE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF06C755),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(0, 48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // メール
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        final subject = Uri.encodeComponent('Sofvo - ソフトバレーボールアプリ');
+                                        final body = Uri.encodeComponent(shareText);
+                                        launchUrl(Uri.parse('mailto:?subject=$subject&body=$body'), mode: LaunchMode.externalApplication);
+                                      },
+                                      icon: const Icon(Icons.mail_outline, size: 18),
+                                      label: const Text('メール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.accentColor,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(0, 48),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
                             const SizedBox(height: 8),
                             SizedBox(
                               width: double.infinity,
