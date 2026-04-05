@@ -26,6 +26,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: auto-merge-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge-and-deploy:
     runs-on: ubuntu-latest
