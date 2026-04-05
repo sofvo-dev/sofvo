@@ -512,11 +512,6 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                         },
                         icon: const Icon(Icons.open_in_new, size: 18),
                         label: const Text('購入先を開く'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
                       ),
                     ),
                   const SizedBox(height: 12),
@@ -1319,7 +1314,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFF9900),
                         minimumSize: const Size(56, 44),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: _isSearching
                           ? const SizedBox(width: 20, height: 20,
@@ -1348,7 +1343,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFFF9900),
                           side: const BorderSide(color: Color(0xFFFF9900)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: _isLoadingMore
@@ -1426,7 +1421,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFFF9900),
                       side: const BorderSide(color: Color(0xFFFF9900)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       minimumSize: const Size(double.infinity, 40),
                     ),
@@ -1436,12 +1431,6 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
                     onPressed: _scrollToNameField,
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('手動で景品名を入力する', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      minimumSize: const Size(double.infinity, 40),
-                    ),
                   ),
                 ],
               ],
