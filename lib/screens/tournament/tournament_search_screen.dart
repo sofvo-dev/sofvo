@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/official_badge.dart';
 import '../../services/bookmark_notification_service.dart';
 import 'tournament_detail_screen.dart';
 import '../chat/chat_screen.dart';
@@ -44,6 +45,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   // ── Organizer avatar/name cache ──
   final Map<String, String> _organizerAvatarCache = {};
   final Map<String, String> _organizerNameCache = {};
+  final Map<String, bool> _officialCache = {};
 
   // ── Debounce timer for search ──
   Timer? _debounceTimer;
@@ -1002,6 +1004,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                           ),
                       const SizedBox(width: 5),
                       Text(displayName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      if (_officialCache[organizerId] == true)
+                        const OfficialBadge(size: 13),
                       if (!isFollowing) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -1089,6 +1093,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Widget _buildSavedRecruitCard(DocumentSnapshot bmDoc) {
     final bm = bmDoc.data() as Map<String, dynamic>;
     final nickname = bm['nickname'] ?? '?';
+    final savedRecruiterId = bmDoc.id;
+    if (savedRecruiterId.isNotEmpty && !_officialCache.containsKey(savedRecruiterId)) {
+      _fetchOrganizerData(savedRecruiterId);
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1128,9 +1136,16 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  nickname,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Flexible(child: Text(
+                      nickname,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    )),
+                    if (_officialCache[savedRecruiterId] == true)
+                      const OfficialBadge(size: 14),
+                  ],
                 ),
                 if ((bm['tournamentName'] ?? '').toString().isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -1226,7 +1241,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         if (filtered.isEmpty) {
           return _emptyState(
             friendsOnly ? Icons.emoji_events_outlined : Icons.explore_outlined,
-            friendsOnly ? 'フォロー中の大会はありません' : '大会が見つかりません',
+            friendsOnly ? 'フォロー中のユーザーの大会はありません' : '大会が見つかりません',
             '',
           );
         }
@@ -1343,6 +1358,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                     ),
                 const SizedBox(width: 5),
                 Text(displayName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                if (_officialCache[organizerId] == true)
+                  const OfficialBadge(size: 13),
                 if (!isFollowing) ...[
                   const SizedBox(width: 6),
                   Container(
@@ -1450,6 +1467,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       final data = doc.data();
       _organizerAvatarCache[uid] = (data?['avatarUrl'] ?? '').toString();
       _organizerNameCache[uid] = (data?['nickname'] ?? '').toString();
+      _officialCache[uid] = data?['isOfficial'] == true;
     } catch (_) {
       _organizerAvatarCache[uid] = '';
       _organizerNameCache[uid] = '';
@@ -1544,7 +1562,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         if (filtered.isEmpty) {
           return _emptyState(
             friendsOnly ? Icons.people_outline : Icons.person_search,
-            friendsOnly ? 'フォロー中のメンバー募集はありません' : 'メンバー募集が見つかりません',
+            friendsOnly ? 'フォロー中のユーザーのメンバー募集はありません' : 'メンバー募集が見つかりません',
             '',
           );
         }
@@ -1584,6 +1602,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final tournamentType = data['tournamentType'] ?? '';
     final isFollowing = _followingIds.contains(recruiterId) || recruiterId == _currentUser?.uid;
     final isSaved = _bookmarkedRecruits.contains(recruiterId);
+    // isOfficial チェック（recruiter）
+    if (recruiterId.isNotEmpty && !_officialCache.containsKey(recruiterId)) {
+      _fetchOrganizerData(recruiterId);
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1607,8 +1629,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(nickname,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),
+                Flexible(child: Text(nickname,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis)),
+                if (_officialCache[recruiterId] == true)
+                  const OfficialBadge(size: 15),
+                const Spacer(),
                 if (recruitCount > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

@@ -26,6 +26,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: auto-merge-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge-and-deploy:
     runs-on: ubuntu-latest
@@ -84,11 +88,11 @@ jobs:
             echo "firestore=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Rebase branch on latest main
+      - name: Merge main into branch
         if: github.event_name != 'workflow_dispatch'
         run: |
-          git rebase origin/main
-          git push origin HEAD:${GITHUB_REF_NAME} --force-with-lease
+          git merge origin/main --no-edit
+          git push origin HEAD:${GITHUB_REF_NAME}
 
       - name: Create PR and merge
         if: github.event_name != 'workflow_dispatch'

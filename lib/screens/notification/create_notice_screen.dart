@@ -15,6 +15,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
   final _bodyController = TextEditingController();
   String _selectedType = 'info';
   int _selectedTemplateIndex = 0;
+  bool _isPinned = false;
   bool _isSending = false;
 
   static const _noticeTemplates = <String, List<Map<String, String>>>{
@@ -77,6 +78,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
         'title': _titleController.text.trim(),
         'body': _bodyController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
+        if (_isPinned) 'pinned': true,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -161,6 +163,25 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                   ),
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // ピン留め
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SwitchListTile(
+                value: _isPinned,
+                onChanged: (v) => setState(() => _isPinned = v),
+                title: const Text('ピン留め', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                subtitle: Text('お知らせ一覧の上部に固定表示します', style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
+                secondary: Icon(Icons.push_pin, color: _isPinned ? AppTheme.primaryColor : AppTheme.textSecondary, size: 22),
+                activeColor: AppTheme.primaryColor,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
             const SizedBox(height: 20),
 

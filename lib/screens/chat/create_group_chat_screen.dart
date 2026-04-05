@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import '../../services/media_service.dart';
+import '../../widgets/official_badge.dart';
 import 'chat_screen.dart';
 
 class CreateGroupChatScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
   final Map<String, String> _selectedMembers = {}; // uid -> nickname
   String _searchQuery = '';
   final Map<String, String> _nameCache = {}; // uid -> resolved nickname
+  final Map<String, bool> _officialCache = {}; // uid -> isOfficial
 
   // Step 2 state
   Uint8List? _pickedImageBytes;
@@ -372,24 +374,33 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
                         final nickname = (data['nickname'] as String?) ?? '';
                         if (nickname.isNotEmpty) {
                           _nameCache[doc.id] = nickname;
-                        } else if (!_nameCache.containsKey(doc.id)) {
+                        }
+                        if (!_nameCache.containsKey(doc.id) || !_officialCache.containsKey(doc.id)) {
                           // Fetch from users collection
-                          FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(doc.id)
-                              .get()
-                              .then((userDoc) {
-                            final name = (userDoc.data()?['nickname'] as String?) ?? '';
-                            if (name.isNotEmpty && mounted) {
-                              setState(() => _nameCache[doc.id] = name);
-                              FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(_currentUser!.uid)
-                                  .collection('following')
-                                  .doc(doc.id)
-                                  .update({'nickname': name}).catchError((_) {});
-                            }
-                          }).catchError((_) {});
+                          if (!_officialCache.containsKey(doc.id)) {
+                            FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(doc.id)
+                                .get()
+                                .then((userDoc) {
+                              final name = (userDoc.data()?['nickname'] as String?) ?? '';
+                              final isOfficial = userDoc.data()?['isOfficial'] == true;
+                              if (mounted) {
+                                setState(() {
+                                  if (name.isNotEmpty) _nameCache[doc.id] = name;
+                                  _officialCache[doc.id] = isOfficial;
+                                });
+                                if (name.isNotEmpty) {
+                                  FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(_currentUser!.uid)
+                                      .collection('following')
+                                      .doc(doc.id)
+                                      .update({'nickname': name}).catchError((_) {});
+                                }
+                              }
+                            }).catchError((_) {});
+                          }
                         }
                       }
 
@@ -443,13 +454,22 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
                                   ),
                                 ),
                               ),
-                              title: Text(
-                                nickname,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
+                              title: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      nickname,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (_officialCache[uid] == true)
+                                    const OfficialBadge(size: 15),
+                                ],
                               ),
                               trailing: Container(
                                 width: 26,

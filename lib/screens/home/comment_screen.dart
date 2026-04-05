@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../services/content_filter_service.dart';
+import '../../widgets/official_badge.dart';
 
 class CommentScreen extends StatefulWidget {
   final String postId;
@@ -23,6 +24,19 @@ class _CommentScreenState extends State<CommentScreen> {
   final _scrollController = ScrollController();
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSending = false;
+  final Map<String, bool> _officialCache = {};
+
+  Future<void> _checkOfficial(String userId) async {
+    if (_officialCache.containsKey(userId)) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (mounted) {
+        setState(() {
+          _officialCache[userId] = doc.data()?['isOfficial'] == true;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -430,6 +444,11 @@ class _CommentScreenState extends State<CommentScreen> {
     final text = (data['text'] as String?) ?? '';
     final createdAt = data['createdAt'] as Timestamp?;
     final timeText = _formatTime(createdAt);
+    final userId = data['userId'] as String? ?? '';
+    if (userId.isNotEmpty && !_officialCache.containsKey(userId)) {
+      _checkOfficial(userId);
+    }
+    final isOfficial = _officialCache[userId] == true;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -460,6 +479,8 @@ class _CommentScreenState extends State<CommentScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textPrimary)),
+                    if (isOfficial)
+                      const OfficialBadge(size: 14),
                     const SizedBox(width: 6),
                     Text(timeText,
                         style: const TextStyle(

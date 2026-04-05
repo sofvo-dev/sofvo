@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/official_badge.dart';
 import '../profile/user_profile_screen.dart';
 import 'group_chat_settings_screen.dart';
 import '../../services/push_notification_service.dart';
@@ -43,6 +44,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _groupIconUrl = '';
   int _previousMessageCount = 0;
   String _resolvedTitle = '';
+  final Map<String, bool> _officialCache = {};
   String _otherUserAvatarUrl = '';
 
   late final Stream<QuerySnapshot> _messagesStream;
@@ -118,6 +120,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'memberNames.$otherUid': nickname,
       });
     }
+  }
+
+  Future<void> _checkOfficial(String userId) async {
+    if (_officialCache.containsKey(userId)) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (mounted) {
+        setState(() {
+          _officialCache[userId] = doc.data()?['isOfficial'] == true;
+        });
+      }
+    } catch (_) {}
   }
 
   /// DMの相手のアバターURLを取得
@@ -634,6 +648,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final displayTitle = _resolvedTitle.isNotEmpty ? _resolvedTitle : widget.chatTitle;
     final initial = displayTitle.isNotEmpty ? displayTitle[0] : '?';
+    // DM相手の公式バッジ確認
+    if (widget.chatType == 'dm' && widget.otherUserId != null && widget.otherUserId!.isNotEmpty) {
+      if (!_officialCache.containsKey(widget.otherUserId!)) {
+        _checkOfficial(widget.otherUserId!);
+      }
+    }
+    final showTitleBadge = widget.chatType == 'dm' &&
+        widget.otherUserId != null &&
+        _officialCache[widget.otherUserId] == true;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -675,6 +698,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 child: Text(displayTitle,
                     overflow: TextOverflow.ellipsis),
               ),
+              if (showTitleBadge) const OfficialBadge(size: 16),
             ],
           ),
         ),
@@ -891,8 +915,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ));
                   }
                 },
-                child: Text(senderName,
-                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+                child: Builder(builder: (_) {
+                  final senderId = data['senderId'] as String? ?? '';
+                  if (senderId.isNotEmpty && !_officialCache.containsKey(senderId)) {
+                    _checkOfficial(senderId);
+                  }
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(senderName,
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+                      if (_officialCache[senderId] == true)
+                        const OfficialBadge(size: 13),
+                    ],
+                  );
+                }),
               ),
             ),
           Row(

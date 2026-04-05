@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/official_badge.dart';
 import 'chat_screen.dart';
 import 'create_group_chat_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -25,6 +26,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   Set<String> _pinnedChatIds = {};
   Set<String> _hiddenChatIds = {};
   final Map<String, String> _userNameCache = {};
+  final Map<String, bool> _officialCache = {};
   final Map<String, String> _userAvatarCache = {};
 
   @override
@@ -149,6 +151,7 @@ class _ChatListScreenState extends State<ChatListScreen>
       setState(() {
         if (nickname.isNotEmpty) _userNameCache[userId] = nickname;
         _userAvatarCache[userId] = avatarUrl;
+        _officialCache[userId] = doc.data()?['isOfficial'] == true;
       });
       if (nickname.isNotEmpty) {
         // Firestoreのチャットドキュメントも修正
@@ -157,6 +160,18 @@ class _ChatListScreenState extends State<ChatListScreen>
         });
       }
     }
+  }
+
+  Future<void> _checkOfficial(String userId) async {
+    if (_officialCache.containsKey(userId)) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (mounted) {
+        setState(() {
+          _officialCache[userId] = doc.data()?['isOfficial'] == true;
+        });
+      }
+    } catch (_) {}
   }
 
   void _openChat({
@@ -263,14 +278,14 @@ class _ChatListScreenState extends State<ChatListScreen>
                           color: AppTheme.textSecondary)),
                 );
               }
-              // Resolve missing nicknames and avatars
+              // Resolve missing nicknames, avatars and isOfficial
               for (final doc in followDocs) {
                 final data = doc.data() as Map<String, dynamic>? ?? {};
                 final nickname = (data['nickname'] as String?) ?? '';
                 if (nickname.isNotEmpty) {
                   _userNameCache[doc.id] = nickname;
                 }
-                if (!_userNameCache.containsKey(doc.id) || !_userAvatarCache.containsKey(doc.id)) {
+                if (!_userNameCache.containsKey(doc.id) || !_userAvatarCache.containsKey(doc.id) || !_officialCache.containsKey(doc.id)) {
                   FirebaseFirestore.instance
                       .collection('users')
                       .doc(doc.id)
@@ -278,10 +293,12 @@ class _ChatListScreenState extends State<ChatListScreen>
                       .then((userDoc) {
                     final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
                     final avatarUrl = (userDoc.data()?['avatarUrl'] as String?) ?? '';
+                    final isOfficial = userDoc.data()?['isOfficial'] == true;
                     if (mounted) {
                       setState(() {
                         if (resolved.isNotEmpty) _userNameCache[doc.id] = resolved;
                         _userAvatarCache[doc.id] = avatarUrl;
+                        _officialCache[doc.id] = isOfficial;
                       });
                       if (resolved.isNotEmpty) {
                         FirebaseFirestore.instance
@@ -320,9 +337,13 @@ class _ChatListScreenState extends State<ChatListScreen>
                                   fontWeight: FontWeight.bold),
                             ),
                           ),
-                    title: Text(name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600)),
+                    title: Row(
+                        children: [
+                          Flexible(child: Text(name,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis)),
+                          if (_officialCache[uid] == true) const OfficialBadge(size: 15),
+                        ]),
                     onTap: () {
                       Navigator.of(context).pop();
                       _startDmWith(uid, name);
@@ -719,10 +740,15 @@ class _ChatListScreenState extends State<ChatListScreen>
           title = _userNameCache[otherUserId] ?? 'ユーザー';
         }
       }
+      // isOfficial をキャッシュ確認・取得
+      if (otherUserId.isNotEmpty && !_officialCache.containsKey(otherUserId)) {
+        _checkOfficial(otherUserId);
+      }
     } else {
       title = (data['name'] as String?) ?? 'チャット';
     }
 
+    final isOfficial = otherUserId != null && otherUserId.isNotEmpty && _officialCache[otherUserId] == true;
     final initial = title.isNotEmpty ? title[0] : '?';
 
     IconData icon;
@@ -798,11 +824,18 @@ class _ChatListScreenState extends State<ChatListScreen>
             const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         onLongPress: () => _showChatMenu(chatId, isPinned, type),
         leading: avatarWidget,
-        title: Text(title,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: unread ? FontWeight.bold : FontWeight.w600,
-                color: AppTheme.textPrimary)),
+        title: Row(
+            children: [
+              Flexible(
+                child: Text(title,
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: unread ? FontWeight.bold : FontWeight.w600,
+                        color: AppTheme.textPrimary),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              if (isOfficial) const OfficialBadge(size: 15),
+            ]),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(

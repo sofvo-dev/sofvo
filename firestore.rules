@@ -228,7 +228,7 @@ service cloud.firestore {
     match /prizes/{prizeId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.registeredBy == request.auth.uid;
 
       match /reviews/{reviewId} {
         allow read: if isAuthenticated();
