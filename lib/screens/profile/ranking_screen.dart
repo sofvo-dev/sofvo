@@ -95,9 +95,43 @@ class _RankingList extends StatelessWidget {
               child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
 
-        final users = snapshot.data?.docs ?? [];
+        final users = (snapshot.data?.docs ?? [])
+            .where((doc) => (doc.data() as Map<String, dynamic>)['isOfficial'] != true)
+            .toList();
         if (users.isEmpty) {
           return const Center(child: Text('ランキングデータがありません'));
+        }
+
+        // 同ポイントなら同順位を計算
+        final ranks = <int>[];
+        for (int i = 0; i < users.length; i++) {
+          final data = users[i].data() as Map<String, dynamic>;
+          int value;
+          if (sortField.contains('.')) {
+            final parts = sortField.split('.');
+            final stats = data[parts[0]] is Map<String, dynamic>
+                ? data[parts[0]] as Map<String, dynamic>
+                : {};
+            value = _intVal(stats[parts[1]]);
+          } else {
+            value = _intVal(data[sortField]);
+          }
+          if (i == 0) {
+            ranks.add(1);
+          } else {
+            final prevData = users[i - 1].data() as Map<String, dynamic>;
+            int prevValue;
+            if (sortField.contains('.')) {
+              final parts = sortField.split('.');
+              final stats = prevData[parts[0]] is Map<String, dynamic>
+                  ? prevData[parts[0]] as Map<String, dynamic>
+                  : {};
+              prevValue = _intVal(stats[parts[1]]);
+            } else {
+              prevValue = _intVal(prevData[sortField]);
+            }
+            ranks.add(value == prevValue ? ranks[i - 1] : i + 1);
+          }
         }
 
         return Column(
@@ -138,7 +172,7 @@ class _RankingList extends StatelessWidget {
                     value = _intVal(data[sortField]);
                   }
 
-                  final rank = index + 1;
+                  final rank = ranks[index];
 
                   return GestureDetector(
                     onTap: () => Navigator.push(context,
