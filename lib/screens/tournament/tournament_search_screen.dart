@@ -1093,6 +1093,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   Widget _buildSavedRecruitCard(DocumentSnapshot bmDoc) {
     final bm = bmDoc.data() as Map<String, dynamic>;
     final nickname = bm['nickname'] ?? '?';
+    final savedRecruiterId = bmDoc.id;
+    if (savedRecruiterId.isNotEmpty && !_officialCache.containsKey(savedRecruiterId)) {
+      _fetchOrganizerData(savedRecruiterId);
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1132,9 +1136,16 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  nickname,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Flexible(child: Text(
+                      nickname,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    )),
+                    if (_officialCache[savedRecruiterId] == true)
+                      const OfficialBadge(size: 14),
+                  ],
                 ),
                 if ((bm['tournamentName'] ?? '').toString().isNotEmpty) ...[
                   const SizedBox(height: 4),

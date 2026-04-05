@@ -21,6 +21,7 @@ import 'venue_search_screen.dart';
 import '../../services/csv_download.dart';
 import '../../services/follow_service.dart';
 import '../../services/match_generator.dart';
+import '../../widgets/official_badge.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
@@ -650,6 +651,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final organizerName = userNickname.isNotEmpty
                       ? userNickname
                       : live['organizerName'] as String? ?? t['organizer'] as String? ?? t['organizerName'] as String? ?? '主催者';
+                  final isOrgOfficial = userData['isOfficial'] == true;
                   return _buildCard(
                 child: Row(children: [
                   avatarUrl.isNotEmpty
@@ -659,8 +661,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(organizerName,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      Row(
+                        children: [
+                          Flexible(child: Text(organizerName,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                              overflow: TextOverflow.ellipsis)),
+                          if (isOrgOfficial) const OfficialBadge(size: 15),
+                        ],
+                      ),
                       const SizedBox(height: 2),
                       Row(children: [
                         Icon(Icons.star, size: 14, color: AppTheme.accentColor),

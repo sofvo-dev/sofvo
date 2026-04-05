@@ -312,12 +312,21 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                                   ),
                                 ),
                               ),
-                        title: Text(
-                          name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (userData['isOfficial'] == true)
+                              const OfficialBadge(size: 15),
+                          ],
                         ),
                         trailing: Container(
                           padding: const EdgeInsets.symmetric(

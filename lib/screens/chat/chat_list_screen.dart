@@ -273,29 +273,38 @@ class _ChatListScreenState extends State<ChatListScreen>
                           color: AppTheme.textSecondary)),
                 );
               }
-              // Resolve missing nicknames
+              // Resolve missing nicknames and isOfficial
               for (final doc in followDocs) {
                 final data = doc.data() as Map<String, dynamic>? ?? {};
                 final nickname = (data['nickname'] as String?) ?? '';
                 if (nickname.isNotEmpty) {
                   _userNameCache[doc.id] = nickname;
-                } else if (!_userNameCache.containsKey(doc.id)) {
-                  FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(doc.id)
-                      .get()
-                      .then((userDoc) {
-                    final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
-                    if (resolved.isNotEmpty && mounted) {
-                      setState(() => _userNameCache[doc.id] = resolved);
-                      FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(_currentUser!.uid)
-                          .collection('following')
-                          .doc(doc.id)
-                          .update({'nickname': resolved}).catchError((_) {});
-                    }
-                  }).catchError((_) {});
+                }
+                if (!_userNameCache.containsKey(doc.id) || !_officialCache.containsKey(doc.id)) {
+                  if (!_officialCache.containsKey(doc.id)) {
+                    FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(doc.id)
+                        .get()
+                        .then((userDoc) {
+                      final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
+                      final isOfficial = userDoc.data()?['isOfficial'] == true;
+                      if (mounted) {
+                        setState(() {
+                          if (resolved.isNotEmpty) _userNameCache[doc.id] = resolved;
+                          _officialCache[doc.id] = isOfficial;
+                        });
+                        if (resolved.isNotEmpty) {
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(_currentUser!.uid)
+                              .collection('following')
+                              .doc(doc.id)
+                              .update({'nickname': resolved}).catchError((_) {});
+                        }
+                      }
+                    }).catchError((_) {});
+                  }
                 }
               }
               return ListView.separated(
@@ -316,9 +325,13 @@ class _ChatListScreenState extends State<ChatListScreen>
                             fontWeight: FontWeight.bold),
                       ),
                     ),
-                    title: Text(name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600)),
+                    title: Row(
+                        children: [
+                          Flexible(child: Text(name,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis)),
+                          if (_officialCache[uid] == true) const OfficialBadge(size: 15),
+                        ]),
                     onTap: () {
                       Navigator.of(context).pop();
                       _startDmWith(uid, name);
