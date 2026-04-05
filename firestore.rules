@@ -223,5 +223,18 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
+
+    // ━━━ 景品 ━━━
+    match /prizes/{prizeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.registeredBy == request.auth.uid;
+    }
+
+    // ━━━ 景品カテゴリ ━━━
+    match /prizeCategories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+    }
   }
 }

@@ -1241,7 +1241,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         if (filtered.isEmpty) {
           return _emptyState(
             friendsOnly ? Icons.emoji_events_outlined : Icons.explore_outlined,
-            friendsOnly ? 'フォロー中の大会はありません' : '大会が見つかりません',
+            friendsOnly ? 'フォロー中のユーザーの大会はありません' : '大会が見つかりません',
             '',
           );
         }
@@ -1562,7 +1562,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         if (filtered.isEmpty) {
           return _emptyState(
             friendsOnly ? Icons.people_outline : Icons.person_search,
-            friendsOnly ? 'フォロー中のメンバー募集はありません' : 'メンバー募集が見つかりません',
+            friendsOnly ? 'フォロー中のユーザーのメンバー募集はありません' : 'メンバー募集が見つかりません',
             '',
           );
         }
