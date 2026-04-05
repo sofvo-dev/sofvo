@@ -405,10 +405,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(fontSize: 15)),
                   trailing: Icon(Icons.chevron_right,
                       color: Colors.grey[400], size: 22),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FaqScreen()),
-                  ),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FaqScreen())),
                 ),
                 _buildDivider(),
                 ListTile(

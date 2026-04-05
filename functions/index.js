@@ -3328,3 +3328,48 @@ exports.sendOfficialNotification = functions.https.onCall(async (data, context) 
 
   return { success: true, sentCount: count };
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// お知らせ作成時に全ユーザーへFCMプッシュ通知（トピック送信）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onNoticeCreated = functions.firestore
+  .document("notices/{noticeId}")
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    if (!data) return null;
+
+    const title = data.title || "お知らせ";
+    const body = (data.body || "").substring(0, 100);
+
+    const message = {
+      topic: "all_users",
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        type: "notice",
+        noticeId: context.params.noticeId,
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+      android: {
+        notification: {
+          sound: "default",
+        },
+      },
+    };
+
+    try {
+      await admin.messaging().send(message);
+      functions.logger.info(`Notice push sent to topic all_users: ${title}`);
+    } catch (err) {
+      functions.logger.error("Failed to send notice push:", err);
+    }
+    return null;
+  });
