@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -527,12 +528,20 @@ class MyPageScreen extends StatelessWidget {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                onPressed: () {
+                                onPressed: () async {
                                   final referralUrl = 'https://sofvo-19d84.web.app/invite?ref=$viewingUid';
-                                  Share.share(
-                                    'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl',
-                                    subject: 'Sofvo - ソフトバレーボールアプリ',
-                                  );
+                                  final text = 'ソフトバレーボールアプリ「Sofvo」を一緒に使おう！\n大会運営・エントリー・チャットがこれ一つで完結します。\n$referralUrl';
+                                  if (kIsWeb) {
+                                    // Web: クリップボードにコピーしてスナックバーで通知
+                                    await Clipboard.setData(ClipboardData(text: text));
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('紹介リンクをコピーしました'), behavior: SnackBarBehavior.floating),
+                                      );
+                                    }
+                                  } else {
+                                    Share.share(text, subject: 'Sofvo - ソフトバレーボールアプリ');
+                                  }
                                 },
                                 icon: const Icon(Icons.share, size: 18),
                                 label: const Text('紹介リンクを送る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
