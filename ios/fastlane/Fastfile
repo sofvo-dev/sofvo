@@ -18,11 +18,14 @@ platform :ios do
     )
 
     upload_to_app_store(
-      skip_metadata: true,
+      skip_metadata: false,
       skip_screenshots: true,
       precheck_include_in_app_purchases: false,
       submit_for_review: true,
-      automatic_release: true
+      automatic_release: true,
+      release_notes: {
+        "ja" => "・公式アカウント機能の追加（公式バッジ表示、大会認定）\n・管理者向け機能の強化（ユーザー統計、通報管理、BAN/凍結、メンテナンスモード）\n・FAQ/ヘルプページの追加\n・紹介リンクのLINE・メールシェア対応\n・プッシュ通知の改善\n・その他バグ修正とパフォーマンス改善"
+      }
     )
   end
 
