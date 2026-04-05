@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/official_badge.dart';
 import '../../services/bookmark_notification_service.dart';
 import 'tournament_detail_screen.dart';
 import '../chat/chat_screen.dart';
@@ -44,6 +45,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   // ── Organizer avatar/name cache ──
   final Map<String, String> _organizerAvatarCache = {};
   final Map<String, String> _organizerNameCache = {};
+  final Map<String, bool> _officialCache = {};
 
   // ── Debounce timer for search ──
   Timer? _debounceTimer;
@@ -1450,6 +1452,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       final data = doc.data();
       _organizerAvatarCache[uid] = (data?['avatarUrl'] ?? '').toString();
       _organizerNameCache[uid] = (data?['nickname'] ?? '').toString();
+      _officialCache[uid] = data?['isOfficial'] == true;
     } catch (_) {
       _organizerAvatarCache[uid] = '';
       _organizerNameCache[uid] = '';
