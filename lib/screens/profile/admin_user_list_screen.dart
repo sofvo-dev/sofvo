@@ -28,7 +28,8 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -36,6 +37,7 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
         ),
         title: const Text('全登録ユーザー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
+        elevation: 0,
       ),
       body: Column(
         children: [
