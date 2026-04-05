@@ -247,6 +247,13 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // ━━━ スポンサー ━━━
+    match /sponsors/{sponsorId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // ━━━ アンケート ━━━
     match /surveys/{surveyId} {
       allow read: if isAuthenticated();
@@ -258,6 +265,27 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
         allow create: if isAuthenticated() && isOwner(responseId);
       }
+    }
+
+    // ━━━ シーズン ━━━
+    match /seasons/{seasonId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ ブログ記事 ━━━
+    match /articles/{articleId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ 大会テンプレート ━━━
+    match /tournamentTemplates/{templateId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
   }
 }

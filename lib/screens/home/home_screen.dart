@@ -15,6 +15,7 @@ import '../../widgets/empty_state_view.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../tournament/post_event_action_screen.dart';
 import '../follow/follow_search_screen.dart';
+import '../../widgets/sponsor_banner.dart';
 import 'create_post_screen.dart';
 import 'comment_screen.dart';
 
@@ -368,13 +369,15 @@ class _HomeScreenState extends State<HomeScreen>
           child: ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(top: 4, bottom: 80),
-          itemCount: posts.length,
-          separatorBuilder: (_, __) =>
-              Divider(height: 1, thickness: 1, color: Colors.grey[100]),
+          itemCount: posts.length + 1,
+          separatorBuilder: (_, index) => index == 0
+              ? const SizedBox.shrink()
+              : Divider(height: 1, thickness: 1, color: Colors.grey[100]),
           itemBuilder: (context, index) {
+            if (index == 0) return const SponsorBanner();
             final data =
-                posts[index].data() as Map<String, dynamic>? ?? {};
-            return _buildPostItem(posts[index].id, data);
+                posts[index - 1].data() as Map<String, dynamic>? ?? {};
+            return _buildPostItem(posts[index - 1].id, data);
           },
         ),
       );
