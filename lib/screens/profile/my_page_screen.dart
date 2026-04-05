@@ -22,6 +22,7 @@ import '../notification/create_notice_screen.dart';
 import '../notification/notice_history_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'admin_stats_screen.dart';
+import 'report_management_screen.dart';
 import 'admin_user_list_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
@@ -410,6 +411,17 @@ class MyPageScreen extends StatelessWidget {
                               onTap: () => Navigator.push(context,
                                   MaterialPageRoute(builder: (_) => const AdminUserListScreen())),
                             ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.flag_rounded,
+                              title: '通報管理',
+                              subtitle: 'ユーザーからの通報確認',
+                              color: Colors.red,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const ReportManagementScreen())),
+                            )), const SizedBox(width: 12), const Expanded(child: SizedBox())],
                           ),
                         ),
                       ),

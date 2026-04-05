@@ -207,7 +207,10 @@ service cloud.firestore {
     // ━━━ 通報 ━━━
     match /reports/{reportId} {
       allow create: if isAuthenticated();
-      allow read: if false; // 管理者のみ（Cloud Functions経由）
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow update: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     // ━━━ お知らせ ━━━
