@@ -246,5 +246,18 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
+
+    // ━━━ アンケート ━━━
+    match /surveys/{surveyId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      match /responses/{responseId} {
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+        allow create: if isAuthenticated() && isOwner(responseId);
+      }
+    }
   }
 }
