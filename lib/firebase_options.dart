@@ -45,7 +45,7 @@ class DefaultFirebaseOptions {
     appId: '1:584952056517:web:9c58d1dd3ed79cd02afeac',
     messagingSenderId: '584952056517',
     projectId: 'sofvo-19d84',
-    authDomain: 'sofvo-19d84.firebaseapp.com',
+    authDomain: 'sofvo.com',
     storageBucket: 'sofvo-19d84.firebasestorage.app',
     measurementId: 'G-SGB6RFNZVV',
   );
@@ -81,7 +81,7 @@ class DefaultFirebaseOptions {
     appId: '1:584952056517:web:7217e98dd99267b22afeac',
     messagingSenderId: '584952056517',
     projectId: 'sofvo-19d84',
-    authDomain: 'sofvo-19d84.firebaseapp.com',
+    authDomain: 'sofvo.com',
     storageBucket: 'sofvo-19d84.firebasestorage.app',
     measurementId: 'G-J55TC11TYZ',
   );
