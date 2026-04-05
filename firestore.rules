@@ -273,5 +273,19 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
+
+    // ━━━ ブログ記事 ━━━
+    match /articles/{articleId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ 大会テンプレート ━━━
+    match /tournamentTemplates/{templateId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
   }
 }

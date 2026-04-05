@@ -28,6 +28,8 @@ import '../admin/season_management_screen.dart';
 import '../admin/sponsor_management_screen.dart';
 import '../admin/tournament_template_screen.dart';
 import '../admin/analytics_screen.dart';
+import '../admin/certification_screen.dart';
+import '../admin/article_list_screen.dart';
 import 'admin_user_list_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
@@ -480,7 +482,14 @@ class MyPageScreen extends StatelessWidget {
                               color: Colors.amber,
                               onTap: () => Navigator.push(context,
                                   MaterialPageRoute(builder: (_) => const SeasonManagementScreen())),
-                            )), const SizedBox(width: 12), const Expanded(child: SizedBox())],
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.article_rounded,
+                              title: 'ブログ',
+                              subtitle: '公式記事の管理',
+                              color: Colors.deepPurple,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const ArticleListScreen())),
+                            ))],
                           ),
                         ),
                       ),
