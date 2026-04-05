@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import '../../services/media_service.dart';
+import '../../widgets/official_badge.dart';
 import '../profile/user_profile_screen.dart';
 
 class GroupChatSettingsScreen extends StatefulWidget {
@@ -60,6 +61,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
           'uid': uid,
           'nickname': userData['nickname'] ?? memberNames[uid] ?? 'ユーザー',
           'avatarUrl': userData['avatarUrl'] ?? '',
+          'isOfficial': userData['isOfficial'] == true,
         });
       }
 
@@ -1147,13 +1149,22 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
                             ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          nickname,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                nickname,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (member['isOfficial'] == true)
+                              const OfficialBadge(size: 15),
+                          ],
                         ),
                       ),
                       if (isCreator)

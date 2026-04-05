@@ -21,6 +21,7 @@ import '../notification/create_notice_screen.dart';
 import '../notification/notice_history_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'admin_stats_screen.dart';
+import 'admin_user_list_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
 import '../gadget/gadget_list_screen.dart';
@@ -387,20 +388,26 @@ class MyPageScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildCardSection(
                         context: context,
-                        title: 'ユーザー統計',
-                        icon: Icons.bar_chart_rounded,
+                        title: '管理',
+                        icon: Icons.admin_panel_settings_rounded,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: _buildMenuCard(
+                          child: Row(
+                            children: [Expanded(child: _buildMenuCard(
                               icon: Icons.analytics_rounded,
                               title: 'ユーザー統計',
                               subtitle: '登録数・大会数を確認',
                               color: AppTheme.info,
                               onTap: () => Navigator.push(context,
                                   MaterialPageRoute(builder: (_) => const AdminStatsScreen())),
-                            ),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.people_rounded,
+                              title: '全登録ユーザー',
+                              subtitle: 'ユーザー一覧・検索',
+                              color: AppTheme.primaryColor,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const AdminUserListScreen())),
+                            ))],
                           ),
                         ),
                       ),

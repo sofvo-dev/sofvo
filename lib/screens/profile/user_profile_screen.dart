@@ -547,8 +547,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         _SocialLinkIcons(socialLinks: socialLinks),
                       ],
                       const SizedBox(height: 12),
-                      // ── フォロー / フォロワー ──
-                      _FollowCounts(userId: widget.userId),
+                      // ── フォロー / フォロワー ※公式アカウントは非表示 ──
+                      if (!isOfficial)
+                        _FollowCounts(userId: widget.userId),
                       // ── フォロー / メッセージ ボタン ──
                       if (!_isMyProfile) ...[
                         const SizedBox(height: 12),
@@ -597,13 +598,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 height: 42,
                                 padding: const EdgeInsets.symmetric(horizontal: 20),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
+                                  color: isOfficial
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                                  border: Border.all(color: Colors.white.withValues(alpha: isOfficial ? 1.0 : 0.5)),
                                 ),
-                                child: const Center(
-                                  child: Text('メッセージ',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isOfficial) ...[
+                                        Icon(Icons.support_agent, size: 16, color: AppTheme.primaryColor),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Text(isOfficial ? 'お問い合わせ' : 'メッセージ',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: isOfficial ? AppTheme.primaryColor : Colors.white,
+                                        )),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -672,6 +688,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: _BadgeCollectionRow(userId: widget.userId),
                   ),
                 ],
+
+                // ━━━ 主催大会（公式アカウントのみ） ━━━
+                if (isOfficial) ...[
+                  _buildCardSection(
+                    title: '主催大会',
+                    icon: Icons.emoji_events_rounded,
+                    child: _HostedTournamentCardsRow(userId: widget.userId),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 const SizedBox(height: 16),
 
                 // ━━━ 投稿 ━━━
@@ -905,6 +932,129 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                           ],
                         ),
                       ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 主催大会カード（横スクロール）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _HostedTournamentCardsRow extends StatefulWidget {
+  final String userId;
+  const _HostedTournamentCardsRow({required this.userId});
+
+  @override
+  State<_HostedTournamentCardsRow> createState() => _HostedTournamentCardsRowState();
+}
+
+class _HostedTournamentCardsRowState extends State<_HostedTournamentCardsRow> {
+  late Future<List<Map<String, dynamic>>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadHostedTournaments();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadHostedTournaments() async {
+    final snap = await FirebaseFirestore.instance
+        .collection('tournaments')
+        .where('organizerId', isEqualTo: widget.userId)
+        .orderBy('createdAt', descending: true)
+        .limit(5)
+        .get();
+    return snap.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return data;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildEmptyCard('データの取得に失敗しました', Icons.error_outline);
+        }
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+
+        final tournaments = snapshot.data!;
+        if (tournaments.isEmpty) {
+          return _buildEmptyCard('まだ主催大会がありません', Icons.emoji_events_outlined);
+        }
+
+        return SizedBox(
+          height: 130,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: tournaments.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final d = tournaments[index];
+              final title = (d['title'] ?? d['name'] ?? '大会') as String;
+              final date = (d['date'] ?? '') as String;
+              final status = (d['status'] ?? '') as String;
+              final docId = d['id'] as String;
+
+              Color statusColor;
+              if (status == '終了') {
+                statusColor = AppTheme.textSecondary;
+              } else if (status == '募集中') {
+                statusColor = AppTheme.accentColor;
+              } else {
+                statusColor = AppTheme.primaryColor;
+              }
+
+              return GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: {...d, 'id': docId, 'name': d['title'] ?? d['name'] ?? ''}))),
+                child: Container(
+                  width: 180,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(status.isEmpty ? '下書き' : status,
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 11, color: AppTheme.textSecondary),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(date, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
