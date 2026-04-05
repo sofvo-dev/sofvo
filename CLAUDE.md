@@ -26,12 +26,11 @@
 
 #### iOS（ローカルMacで1コマンド）
 ```bash
-cd ~/Desktop/sofvo
-git pull origin main --rebase
-cd ios
+cd ~/Desktop/sofvo/ios
 fastlane release
 ```
-- ビルド → App Store Connect アップロード → 審査提出まで全自動
+- git pull → flutter clean → flutter pub get → pod install → ビルド → App Store Connect アップロード → 審査提出まで全自動
+- 未コミットの変更がある場合は先に `git stash` してから実行、完了後 `git stash pop`
 
 #### 注意事項
 - **バージョンコード（pubspec.yaml の `+` 以降の数字）を上げてからmainにマージすること**
@@ -206,8 +205,8 @@ firebase deploy --only hosting    # Hosting のデプロイ
 - **Android**: 🟢 製品版公開済み（Google Play）
 
 ### Macローカル環境
-- **fastlane未インストール** → Xcodeで手動Archive → Distribute App で提出
-- iOS提出手順: `git pull` → `flutter clean` → `flutter pub get` → `pod install --repo-update` → Xcode Archive → Distribute App
+- **fastlaneインストール済み**（Ruby 4.0.2 + fastlane 2.232.2）
+- iOS提出: `cd ~/Desktop/sofvo/ios && fastlane release`（全自動）
 
 ## スーパーアドミン（最高権限）設定手順
 1. [Firebase Console](https://console.firebase.google.com/) を開く
