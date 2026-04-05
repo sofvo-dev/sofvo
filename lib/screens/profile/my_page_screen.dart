@@ -23,6 +23,7 @@ import '../notification/notice_history_screen.dart';
 import '../recruitment/recruitment_management_screen.dart';
 import 'admin_stats_screen.dart';
 import 'report_management_screen.dart';
+import '../admin/survey_list_screen.dart';
 import 'admin_user_list_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
@@ -421,7 +422,14 @@ class MyPageScreen extends StatelessWidget {
                               color: Colors.red,
                               onTap: () => Navigator.push(context,
                                   MaterialPageRoute(builder: (_) => const ReportManagementScreen())),
-                            )), const SizedBox(width: 12), const Expanded(child: SizedBox())],
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.poll_rounded,
+                              title: 'アンケート',
+                              subtitle: '作成・結果確認',
+                              color: Colors.orange,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const SurveyListScreen())),
+                            ))],
                           ),
                         ),
                       ),
