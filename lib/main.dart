@@ -13,6 +13,8 @@ import 'config/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/follow_service.dart';
 import 'services/notification_service.dart';
+import 'services/update_check_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
@@ -119,7 +121,7 @@ class _AuthGateState extends State<AuthGate> {
   StreamSubscription<User?>? _authSubscription;
   bool _isInitialLoading = true;
   bool _showSplash = true;
-
+  bool _updateChecked = false;
 
   @override
   void initState() {
@@ -316,6 +318,94 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
+  /// アプリ更新チェック
+  Future<void> _checkForUpdate() async {
+    if (_updateChecked) return;
+    _updateChecked = true;
+
+    final result = await UpdateCheckService.check();
+    if (result.status == UpdateStatus.none || !mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showUpdateDialog(result);
+    });
+  }
+
+  void _showUpdateDialog(UpdateCheckResult result) {
+    final isForce = result.status == UpdateStatus.force;
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isForce,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (ctx) => PopScope(
+        canPop: !isForce,
+        child: Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1B3A5C).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.system_update, size: 32, color: Color(0xFF1B3A5C)),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  isForce ? 'アップデートが必要です' : '新しいバージョンがあります',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  result.updateMessage ??
+                      (isForce
+                          ? 'アプリを最新バージョン（${result.latestVersion}）にアップデートしてください。'
+                          : '最新バージョン（${result.latestVersion}）が利用可能です。\nアップデートしますか？'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF6B6B6B), height: 1.6),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _openStore(),
+                    child: const Text('アップデート'),
+                  ),
+                ),
+                if (!isForce) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('あとで', style: TextStyle(color: Color(0xFF6B6B6B))),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openStore() {
+    final uri = Uri.parse(
+      Theme.of(context).platform == TargetPlatform.iOS
+          ? 'https://apps.apple.com/app/sofvo/id6742827798'
+          : 'https://play.google.com/store/apps/details?id=com.sofvo.app',
+    );
+    launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     // 初期ロード中（ストリームの最初のイベント待ち）
@@ -375,6 +465,9 @@ class _AuthGateState extends State<AuthGate> {
           BookmarkNotificationService.checkAndNotify(_currentUser!.uid);
           PushNotificationService.initialize();
         });
+
+        // アプリ更新チェック
+        _checkForUpdate();
 
         // 招待リンクがあれば大会詳細へ自動遷移
         if (pendingTournamentId != null) {

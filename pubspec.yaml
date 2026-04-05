@@ -37,6 +37,7 @@ dependencies:
   sign_in_with_apple: ^6.1.4
   crypto: ^3.0.6
   cloud_functions: ^6.0.6
+  package_info_plus: ^8.3.0
 
 dev_dependencies:
   flutter_test:

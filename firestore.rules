@@ -237,6 +237,13 @@ service cloud.firestore {
       }
     }
 
+    // ━━━ アプリ設定 ━━━
+    match /config/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // ━━━ 景品カテゴリ ━━━
     match /prizeCategories/{categoryId} {
       allow read: if isAuthenticated();
