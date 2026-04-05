@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
@@ -20,13 +22,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _matchNotification = true;
   bool _tournamentNotification = true;
   bool _followNotification = true;
+  bool _chatNotification = true;
+  bool _likeCommentNotification = true;
+  bool _organizerNotification = true;
+  bool _officialNotification = true;
+  bool _reminderNotification = true;
+  bool _teamNotification = true;
   String _searchId = '';
   bool _isAdmin = false;
+  bool _osNotificationDenied = false;
 
   @override
   void initState() {
     super.initState();
     _loadNotificationSettings();
+    _checkOsNotificationPermission();
+  }
+
+  Future<void> _checkOsNotificationPermission() async {
+    if (kIsWeb) return;
+    try {
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      if (mounted) {
+        setState(() {
+          _osNotificationDenied =
+              settings.authorizationStatus == AuthorizationStatus.denied;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadNotificationSettings() async {
@@ -51,6 +74,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _tournamentNotification = settings['tournament'] ?? true;
             _followNotification = settings['follow'] ?? true;
             _matchNotification = settings['match'] ?? true;
+            _chatNotification = settings['chat'] ?? true;
+            _likeCommentNotification = settings['likeComment'] ?? true;
+            _organizerNotification = settings['organizer'] ?? true;
+            _officialNotification = settings['official'] ?? true;
+            _reminderNotification = settings['reminder'] ?? true;
+            _teamNotification = settings['team'] ?? true;
           }
         });
       }
@@ -68,6 +97,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'tournament': _tournamentNotification,
         'follow': _followNotification,
         'match': _matchNotification,
+        'chat': _chatNotification,
+        'likeComment': _likeCommentNotification,
+        'organizer': _organizerNotification,
+        'official': _officialNotification,
+        'reminder': _reminderNotification,
+        'team': _teamNotification,
       },
     }, SetOptions(merge: true));
   }
@@ -132,69 +167,195 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ── 通知設定 ──
           _buildSectionHeader('通知設定'),
           const SizedBox(height: 8),
+
+          // プッシュ通知マスタートグル
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey[200]!),
             ),
-            child: Column(
-              children: [
-                _buildSwitchTile(
-                  Icons.notifications_outlined,
-                  'プッシュ通知',
-                  'アプリ内の通知を受け取る',
-                  _pushNotification,
-                  (v) {
-                    setState(() => _pushNotification = v);
-                    _saveNotificationSettings();
-                  },
+            child: _buildSwitchTile(
+              Icons.notifications_outlined,
+              'プッシュ通知',
+              'ロック画面・バナーに通知を表示',
+              _pushNotification,
+              (v) {
+                setState(() => _pushNotification = v);
+                _saveNotificationSettings();
+              },
+            ),
+          ),
+          if (_osNotificationDenied) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () async {
+                // 端末の通知設定を開く
+                await launchUrl(Uri.parse('app-settings:'));
+                // 戻ってきたら再チェック
+                Future.delayed(const Duration(seconds: 1), _checkOsNotificationPermission);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
                 ),
-                _buildDivider(),
-                _buildSwitchTile(
-                  Icons.mail_outline,
-                  'メール通知',
-                  '重要なお知らせをメールで受け取る',
-                  _emailNotification,
-                  (v) {
-                    setState(() => _emailNotification = v);
-                    _saveNotificationSettings();
-                  },
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '端末の通知設定がオフになっています。タップして設定を開く',
+                        style: TextStyle(fontSize: 13, color: AppTheme.warning),
+                      ),
+                    ),
+                    Icon(Icons.open_in_new, color: AppTheme.warning, size: 16),
+                  ],
                 ),
-                _buildDivider(),
-                _buildSwitchTile(
-                  Icons.sports_volleyball_outlined,
-                  '大会通知',
-                  '大会の更新・リマインダー',
-                  _tournamentNotification,
-                  (v) {
-                    setState(() => _tournamentNotification = v);
-                    _saveNotificationSettings();
-                  },
-                ),
-                _buildDivider(),
-                _buildSwitchTile(
-                  Icons.people_outline,
-                  'フォロー通知',
-                  'フォロー・フォロワーの更新',
-                  _followNotification,
-                  (v) {
-                    setState(() => _followNotification = v);
-                    _saveNotificationSettings();
-                  },
-                ),
-                _buildDivider(),
-                _buildSwitchTile(
-                  Icons.sync_alt,
-                  'マッチング通知',
-                  'メンバー募集のマッチング結果',
-                  _matchNotification,
-                  (v) {
-                    setState(() => _matchNotification = v);
-                    _saveNotificationSettings();
-                  },
-                ),
-              ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+
+          // プッシュ通知の個別設定
+          _buildSubSectionHeader('プッシュ通知の種類'),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: AnimatedOpacity(
+              opacity: _pushNotification ? 1.0 : 0.5,
+              duration: const Duration(milliseconds: 200),
+              child: Column(
+                children: [
+                  _buildSwitchTile(
+                    Icons.chat_bubble_outline,
+                    'チャット',
+                    '新しいメッセージを受け取った時',
+                    _chatNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _chatNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.sports_volleyball_outlined,
+                    '大会',
+                    '大会のお知らせ・結果・空き通知',
+                    _tournamentNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _tournamentNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.favorite_outline,
+                    'いいね・コメント',
+                    '投稿へのリアクション',
+                    _likeCommentNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _likeCommentNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.person_add_outlined,
+                    'フォロー',
+                    '新しいフォロワー',
+                    _followNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _followNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.sync_alt,
+                    'マッチング',
+                    'メンバー募集のマッチング結果',
+                    _matchNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _matchNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.campaign_outlined,
+                    '大会運営者からの通知',
+                    'エントリー中の大会の主催者からの連絡',
+                    _organizerNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _organizerNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.star_outline,
+                    'Sofvo公式からの通知',
+                    'メンテナンス・新機能・イベント情報',
+                    _officialNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _officialNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.access_time,
+                    'リマインダー',
+                    '大会前日のお知らせ',
+                    _reminderNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _reminderNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                  _buildDivider(),
+                  _buildSwitchTile(
+                    Icons.group_outlined,
+                    'チーム',
+                    'メンバーの加入・退出',
+                    _teamNotification,
+                    _pushNotification ? (v) {
+                      setState(() => _teamNotification = v);
+                      _saveNotificationSettings();
+                    } : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // メール通知
+          _buildSubSectionHeader('その他'),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: _buildSwitchTile(
+              Icons.mail_outline,
+              'メール通知',
+              '重要なお知らせをメールで受け取る',
+              _emailNotification,
+              (v) {
+                setState(() => _emailNotification = v);
+                _saveNotificationSettings();
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -350,15 +511,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildSubSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textHint,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSwitchTile(
     IconData icon,
     String title,
     String subtitle,
     bool value,
-    ValueChanged<bool> onChanged,
+    ValueChanged<bool>? onChanged,
   ) {
     return ListTile(
-      leading: Icon(icon, color: AppTheme.primaryColor, size: 22),
+      leading: Icon(icon, color: onChanged != null ? AppTheme.primaryColor : AppTheme.textHint, size: 22),
       title: Text(title, style: const TextStyle(fontSize: 15)),
       subtitle: Text(subtitle,
           style: const TextStyle(

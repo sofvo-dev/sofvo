@@ -121,12 +121,12 @@ class AppTheme {
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return GoogleFonts.notoSansJp(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: primaryColor,
             );
           }
-          return GoogleFonts.notoSansJp(fontSize: 12, color: textSecondary);
+          return GoogleFonts.notoSansJp(fontSize: 11, color: textSecondary);
         }),
       ),
       scaffoldBackgroundColor: backgroundColor,

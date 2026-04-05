@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+// Cloud Functions v1
 const nodemailer = require("nodemailer");
 // v5: 投稿いいね/コメント数 + フォロー数 + タイムラインいいね数の自動更新 Cloud Functions 追加
 
@@ -9,9 +10,9 @@ admin.initializeApp();
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Google Sheets 連携設定 (googleapis不使用 — 直接REST API)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const GADGET_SHEET_ID = "1IITgU-IvD1xpIqig0MtnlMfQAsoGWcwtbcPLKkNwv60";
-const VENUE_SHEET_ID = "1HNRinSk-Bk_NdekTLiZ8cOhhgVWs4CV4KvRdnYUKtFk";
-const PRIZE_SHEET_ID = "1p2WXADT519w65qk3wZ_Nrz5jQUDMyy0V7J0gKe4gBC4";
+const GADGET_SHEET_ID = "1rOmyJWIwLnosJkJmM0Z6QMNGwem0qkt2BSUlZ1w5Aw4";
+const VENUE_SHEET_ID = "1fAx4y_kVF526f-F9wm9FsE9hNKA3Ddn8fa2SRjB7hPs";
+const PRIZE_SHEET_ID = "1oKPuTyyK0xQHE6h-9FAYe5MH52j3Eroe3WuKCChJInE";
 
 async function getAccessToken() {
   // Firebase Admin SDK の組み込みクレデンシャルを使用
@@ -2600,3 +2601,730 @@ exports.onFollowingDeleted = functions.firestore
       console.error(`[onFollowingDeleted] ${userId}: ${e.message}`);
     }
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// サンプルデータ投入（App Store 審査用）
+// firebase functions:shell → seedReviewData()
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.seedReviewData = functions.https.onRequest(async (req, res) => {
+  const db = admin.firestore();
+  const now = admin.firestore.Timestamp.now();
+  const TEST_UID = "nRE9MEEBq2YNGRNIqCiMe66x8ah1";
+
+  // ── ダミーユーザー（主催者・投稿者として使う）──
+  const dummyUsers = [
+    { uid: "dummy_user_001", nickname: "バレー太郎", area: "東京都", experience: "5〜10年", searchId: "volley_taro", bio: "ソフトバレー歴8年。週末は都内で活動中！" },
+    { uid: "dummy_user_002", nickname: "スパイク花子", area: "神奈川県", experience: "3〜5年", searchId: "spike_hanako", bio: "横浜でチーム運営してます。初心者歓迎！" },
+    { uid: "dummy_user_003", nickname: "レシーブ次郎", area: "大阪府", experience: "10年以上", searchId: "receive_jiro", bio: "関西のソフトバレー仲間を探しています。" },
+    { uid: "dummy_user_004", nickname: "トス美咲", area: "愛知県", experience: "1〜3年", searchId: "toss_misaki", bio: "名古屋で初心者チームを作りました！" },
+    { uid: "dummy_user_005", nickname: "サーブ健太", area: "福岡県", experience: "3〜5年", searchId: "serve_kenta", bio: "福岡でソフトバレーを楽しんでます。" },
+  ];
+
+  for (const u of dummyUsers) {
+    await db.collection("users").doc(u.uid).set({
+      uid: u.uid,
+      nickname: u.nickname,
+      area: u.area,
+      experience: u.experience,
+      searchId: u.searchId,
+      bio: u.bio,
+      avatarUrl: "",
+      totalPoints: Math.floor(Math.random() * 500) + 100,
+      seasonPoints: Math.floor(Math.random() * 200) + 50,
+      followersCount: Math.floor(Math.random() * 30) + 5,
+      followingCount: Math.floor(Math.random() * 20) + 3,
+      profileCompleted: true,
+      stats: {
+        tournamentsPlayed: Math.floor(Math.random() * 15) + 3,
+        tournamentsHosted: Math.floor(Math.random() * 5),
+        wins: Math.floor(Math.random() * 20) + 5,
+        losses: Math.floor(Math.random() * 15) + 2,
+        championships: Math.floor(Math.random() * 3),
+        helperCount: Math.floor(Math.random() * 5),
+      },
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: true });
+  }
+
+  // ── テストユーザーのプロフィールを充実 ──
+  await db.collection("users").doc(TEST_UID).update({
+    totalPoints: 320,
+    seasonPoints: 150,
+    followersCount: 8,
+    followingCount: 5,
+    stats: {
+      tournamentsPlayed: 6,
+      tournamentsHosted: 0,
+      wins: 12,
+      losses: 8,
+      championships: 1,
+      helperCount: 2,
+    },
+    updatedAt: now,
+  });
+
+  // ── 大会データ（6件）──
+  const tournaments = [
+    {
+      title: "第12回 東京ソフトバレーボール交流大会",
+      date: "2026/04/20",
+      location: "東京体育館",
+      venueAddress: "東京都渋谷区千駄ヶ谷1-17-1",
+      area: "東京都",
+      type: "混合",
+      description: "初心者から経験者まで楽しめる交流大会です。試合後に懇親会も予定しています。お気軽にご参加ください！",
+      status: "募集中",
+      organizerId: "dummy_user_001",
+      organizerName: "バレー太郎",
+      icon: "emoji_events",
+      maxTeams: 16,
+      currentTeams: 10,
+      entryFee: 3000,
+      courts: 3,
+      openTime: "08:30",
+      receptionTime: "09:00",
+      matchStartTime: "09:30",
+      finalTime: "15:00",
+      closingTime: "16:00",
+    },
+    {
+      title: "横浜カップ 春季ソフトバレー大会",
+      date: "2026/04/27",
+      location: "横浜文化体育館",
+      venueAddress: "神奈川県横浜市中区不老町2-7",
+      area: "神奈川県",
+      type: "混合",
+      description: "横浜エリア最大級のソフトバレー大会！チーム戦で白熱の試合を楽しもう。",
+      status: "募集中",
+      organizerId: "dummy_user_002",
+      organizerName: "スパイク花子",
+      icon: "sports_volleyball",
+      maxTeams: 24,
+      currentTeams: 18,
+      entryFee: 4000,
+      courts: 4,
+      openTime: "08:00",
+      receptionTime: "08:30",
+      matchStartTime: "09:00",
+      finalTime: "16:00",
+      closingTime: "17:00",
+    },
+    {
+      title: "関西ソフトバレーフェスティバル",
+      date: "2026/05/05",
+      location: "大阪市中央体育館",
+      venueAddress: "大阪府大阪市港区田中3-1-40",
+      area: "大阪府",
+      type: "混合",
+      description: "GW特別企画！関西のソフトバレー愛好家が集まるお祭りイベント。初心者大歓迎！",
+      status: "募集中",
+      organizerId: "dummy_user_003",
+      organizerName: "レシーブ次郎",
+      icon: "celebration",
+      maxTeams: 20,
+      currentTeams: 12,
+      entryFee: 3500,
+      courts: 3,
+      openTime: "09:00",
+      receptionTime: "09:30",
+      matchStartTime: "10:00",
+      finalTime: "16:00",
+      closingTime: "17:00",
+    },
+    {
+      title: "名古屋初心者ソフトバレー体験会",
+      date: "2026/05/11",
+      location: "名古屋市スポーツセンター",
+      venueAddress: "愛知県名古屋市中区栄1-25-10",
+      area: "愛知県",
+      type: "混合",
+      description: "ソフトバレー未経験者・初心者向けの体験イベントです。道具は全て無料貸出！",
+      status: "募集中",
+      organizerId: "dummy_user_004",
+      organizerName: "トス美咲",
+      icon: "school",
+      maxTeams: 12,
+      currentTeams: 5,
+      entryFee: 1500,
+      courts: 2,
+      openTime: "10:00",
+      receptionTime: "10:15",
+      matchStartTime: "10:30",
+      finalTime: "14:00",
+      closingTime: "15:00",
+    },
+    {
+      title: "福岡ソフトバレーリーグ 第3節",
+      date: "2026/05/18",
+      location: "福岡市総合体育館",
+      venueAddress: "福岡県福岡市東区香椎照葉6-1-1",
+      area: "福岡県",
+      type: "混合",
+      description: "福岡リーグ戦の第3節です。リーグポイントを賭けた真剣勝負！",
+      status: "募集中",
+      organizerId: "dummy_user_005",
+      organizerName: "サーブ健太",
+      icon: "leaderboard",
+      maxTeams: 8,
+      currentTeams: 7,
+      entryFee: 2500,
+      courts: 2,
+      openTime: "09:00",
+      receptionTime: "09:15",
+      matchStartTime: "09:30",
+      finalTime: "15:00",
+      closingTime: "15:30",
+    },
+    {
+      title: "第5回 全日本シニアソフトバレー選手権",
+      date: "2026/04/13",
+      location: "代々木第二体育館",
+      venueAddress: "東京都渋谷区神南2-1-1",
+      area: "東京都",
+      type: "混合",
+      description: "全国から集まったシニアチームの大会です。熱い戦いが繰り広げられました！",
+      status: "終了",
+      organizerId: "dummy_user_001",
+      organizerName: "バレー太郎",
+      icon: "emoji_events",
+      maxTeams: 32,
+      currentTeams: 32,
+      entryFee: 5000,
+      courts: 6,
+      openTime: "08:00",
+      receptionTime: "08:30",
+      matchStartTime: "09:00",
+      finalTime: "16:00",
+      closingTime: "17:00",
+    },
+  ];
+
+  const tournamentIds = [];
+  for (const t of tournaments) {
+    const ref = await db.collection("tournaments").add({
+      ...t,
+      entryTeamIds: [],
+      rules: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+    tournamentIds.push({ id: ref.id, ...t });
+  }
+
+  // ── メンバー募集（4件）──
+  const recruitments = [
+    {
+      tournamentId: tournamentIds[0].id,
+      tournamentName: tournamentIds[0].title,
+      tournamentDate: tournamentIds[0].date,
+      userId: "dummy_user_001",
+      nickname: "バレー太郎",
+      experience: "5〜10年",
+      recruitCount: 2,
+      comment: "東京交流大会に一緒に出ませんか？あと2人募集中です。初心者でもOK！楽しくやりましょう！",
+      status: "募集中",
+      needed: 2,
+      approvedCount: 0,
+      pendingCount: 1,
+    },
+    {
+      tournamentId: tournamentIds[1].id,
+      tournamentName: tournamentIds[1].title,
+      tournamentDate: tournamentIds[1].date,
+      userId: "dummy_user_002",
+      nickname: "スパイク花子",
+      experience: "3〜5年",
+      recruitCount: 1,
+      comment: "横浜カップに出場予定！セッターができる方を1名探しています。女性歓迎です！",
+      status: "募集中",
+      needed: 1,
+      approvedCount: 0,
+      pendingCount: 0,
+    },
+    {
+      tournamentId: tournamentIds[2].id,
+      tournamentName: tournamentIds[2].title,
+      tournamentDate: tournamentIds[2].date,
+      userId: "dummy_user_003",
+      nickname: "レシーブ次郎",
+      experience: "10年以上",
+      recruitCount: 3,
+      comment: "GWの関西フェスに参加します！チームメンバー3名募集。経験不問、楽しめる方大歓迎！",
+      status: "募集中",
+      needed: 3,
+      approvedCount: 1,
+      pendingCount: 0,
+    },
+    {
+      tournamentId: tournamentIds[3].id,
+      tournamentName: tournamentIds[3].title,
+      tournamentDate: tournamentIds[3].date,
+      userId: "dummy_user_004",
+      nickname: "トス美咲",
+      experience: "1〜3年",
+      recruitCount: 4,
+      comment: "名古屋の体験会、一緒に参加しませんか？初心者チームなので気軽に来てください！",
+      status: "募集中",
+      needed: 4,
+      approvedCount: 2,
+      pendingCount: 1,
+    },
+  ];
+
+  for (const r of recruitments) {
+    await db.collection("recruitments").add({
+      ...r,
+      avatarUrl: "",
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // ── 投稿（5件）──
+  const posts = [
+    {
+      userId: "dummy_user_001",
+      userNickname: "バレー太郎",
+      userAvatarUrl: "",
+      text: "今日の練習、新しいフォーメーション試してみました！なかなか良い感じ。来週の大会が楽しみです💪",
+      images: [],
+      likesCount: 12,
+      commentsCount: 3,
+      autoGenerated: false,
+    },
+    {
+      userId: "dummy_user_002",
+      userNickname: "スパイク花子",
+      userAvatarUrl: "",
+      text: "横浜カップの会場下見してきました。きれいな体育館で設備も充実！参加チーム募集中なのでお気軽にどうぞ。",
+      images: [],
+      likesCount: 8,
+      commentsCount: 2,
+      autoGenerated: false,
+    },
+    {
+      userId: "dummy_user_003",
+      userNickname: "レシーブ次郎",
+      userAvatarUrl: "",
+      text: "GWの関西フェスティバル、続々エントリーいただいてます！残り枠わずかなのでお早めに〜",
+      images: [],
+      likesCount: 15,
+      commentsCount: 5,
+      autoGenerated: false,
+    },
+    {
+      userId: "dummy_user_004",
+      userNickname: "トス美咲",
+      userAvatarUrl: "",
+      text: "初心者チームで練習始めて3ヶ月、みんな上達してきてうれしい！名古屋で仲間増やしたいです。",
+      images: [],
+      likesCount: 20,
+      commentsCount: 4,
+      autoGenerated: false,
+    },
+    {
+      userId: "dummy_user_005",
+      userNickname: "サーブ健太",
+      userAvatarUrl: "",
+      text: "福岡リーグ第2節、チームが2位に入りました！次は優勝目指して頑張ります。応援よろしく！",
+      images: [],
+      likesCount: 25,
+      commentsCount: 7,
+      autoGenerated: false,
+    },
+  ];
+
+  for (const p of posts) {
+    await db.collection("posts").add({
+      ...p,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // ── テストユーザーのフォロー関係 ──
+  for (const u of dummyUsers.slice(0, 3)) {
+    await db.collection("users").doc(TEST_UID).collection("following").doc(u.uid).set({
+      uid: u.uid,
+      nickname: u.nickname,
+      createdAt: now,
+    });
+    await db.collection("users").doc(u.uid).collection("followers").doc(TEST_UID).set({
+      uid: TEST_UID,
+      createdAt: now,
+    });
+  }
+
+  // ── テストユーザーのポイント履歴 ──
+  const pointHistory = [
+    { type: "tournament_participation", points: 50, description: "大会参加ポイント", tournamentName: "第5回 全日本シニアソフトバレー選手権" },
+    { type: "tournament_participation", points: 50, description: "大会参加ポイント", tournamentName: "春季交流大会" },
+    { type: "tournament_win", points: 100, description: "優勝ポイント", tournamentName: "春季交流大会" },
+    { type: "daily_login", points: 10, description: "ログインボーナス" },
+    { type: "profile_complete", points: 30, description: "プロフィール完成ボーナス" },
+    { type: "first_follow", points: 20, description: "初フォローボーナス" },
+  ];
+
+  for (const ph of pointHistory) {
+    await db.collection("users").doc(TEST_UID).collection("pointHistory").add({
+      ...ph,
+      createdAt: now,
+    });
+  }
+
+  res.json({ success: true, message: "サンプルデータ投入完了", tournaments: tournamentIds.length, recruitments: recruitments.length, posts: posts.length });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FCMプッシュ通知ヘルパー
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * ユーザーの通知設定を確認し、FCMトークンを取得
+ * @param {string} userId - 送信先ユーザーID
+ * @param {string} settingKey - notificationSettings内のキー (例: 'chat', 'follow')
+ * @returns {Promise<string|null>} FCMトークン（通知OFF/トークンなしならnull）
+ */
+/**
+ * ユーザーの通知設定を確認し、有効なFCMトークン一覧を返す
+ * @returns {string[]} トークン配列（設定OFFまたはトークンなしの場合は空配列）
+ */
+async function getFcmTokensIfEnabled(userId, settingKey) {
+  const db = admin.firestore();
+  const userDoc = await db.collection("users").doc(userId).get();
+  if (!userDoc.exists) return [];
+
+  const settings = userDoc.data()?.notificationSettings || {};
+  if (settings.push === false) return [];
+  if (settingKey && settings[settingKey] === false) return [];
+
+  const privateDoc = await db
+    .collection("users").doc(userId)
+    .collection("private").doc("info")
+    .get();
+  const data = privateDoc.data() || {};
+  // 複数デバイス対応: fcmTokens配列を優先、なければfcmToken単体
+  const tokens = data.fcmTokens || [];
+  if (tokens.length > 0) return [...new Set(tokens)]; // 重複除去
+  return data.fcmToken ? [data.fcmToken] : [];
+}
+
+// 後方互換: 単一トークンを返す旧API
+async function getFcmTokenIfEnabled(userId, settingKey) {
+  const tokens = await getFcmTokensIfEnabled(userId, settingKey);
+  return tokens.length > 0 ? tokens[0] : null;
+}
+
+/**
+ * 複数トークンにFCM送信 + 無効トークン自動削除
+ */
+async function sendFcmToTokens(tokens, payload) {
+  if (tokens.length === 0) return;
+  const db = admin.firestore();
+
+  // ユーザーごとにバッジカウントをインクリメントしてから送信
+  const results = await Promise.allSettled(
+    tokens.map(async (t) => {
+      // badgeCount をインクリメント
+      const privateRef = db.collection("users").doc(t.userId)
+        .collection("private").doc("info");
+      await privateRef.set(
+        { badgeCount: admin.firestore.FieldValue.increment(1) },
+        { merge: true }
+      );
+      const privateDoc = await privateRef.get();
+      const badgeCount = privateDoc.data()?.badgeCount || 1;
+
+      const enrichedPayload = {
+        ...payload,
+        apns: {
+          payload: {
+            aps: {
+              badge: badgeCount,
+              sound: "default",
+            },
+          },
+          ...(payload.apns || {}),
+        },
+        android: {
+          notification: {
+            sound: "default",
+            ...(payload.android?.notification || {}),
+          },
+          ...(payload.android || {}),
+        },
+      };
+      return admin.messaging().send({ ...enrichedPayload, token: t.token });
+    })
+  );
+
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === "rejected") {
+      const error = results[i].reason;
+      if (
+        error?.code === "messaging/registration-token-not-registered" ||
+        error?.code === "messaging/invalid-registration-token"
+      ) {
+        const invalidToken = tokens[i].token;
+        await db
+          .collection("users").doc(tokens[i].userId)
+          .collection("private").doc("info")
+          .update({
+            fcmTokens: admin.firestore.FieldValue.arrayRemove([invalidToken]),
+          })
+          .catch(() => {});
+      }
+    }
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// チャットメッセージ送信時のプッシュ通知
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onChatMessageCreated = functions.firestore
+  .document("chats/{chatId}/messages/{messageId}")
+  .onCreate(async (snap, context) => {
+    const { chatId } = context.params;
+    const message = snap.data();
+    const senderId = message.senderId;
+    const senderName = message.senderName || "ユーザー";
+    const type = message.type || "text";
+
+    let body;
+    if (type === "image") {
+      body = "📷 画像を送信しました";
+    } else if (type === "file") {
+      body = `📎 ${message.fileName || "ファイル"}`;
+    } else {
+      body = (message.text || "").substring(0, 100);
+    }
+    if (!body) return null;
+
+    const db = admin.firestore();
+    const chatDoc = await db.collection("chats").doc(chatId).get();
+    if (!chatDoc.exists) return null;
+    const chatData = chatDoc.data();
+    const members = chatData.members || [];
+    const chatType = chatData.type || "dm";
+    const chatName = chatData.name || "";
+
+    // unreadCountの更新はクライアント側で送信時にincrementしているため、ここでは行わない
+
+    const tokens = [];
+    for (const memberId of members) {
+      if (memberId === senderId) continue;
+      // ミュートチェック
+      const mutedDoc = await db.collection("users").doc(memberId).collection("mutedChats").doc(chatId).get();
+      if (mutedDoc.exists) continue;
+      const memberTokens = await getFcmTokensIfEnabled(memberId, "chat");
+      for (const t of memberTokens) {
+        tokens.push({ token: t, userId: memberId });
+      }
+    }
+
+    const title = chatType === "dm" ? senderName : chatName;
+    const notificationBody = chatType === "dm" ? body : `${senderName}: ${body}`;
+
+    await sendFcmToTokens(tokens, {
+      notification: { title, body: notificationBody },
+      data: { type: "chat", targetId: chatId, chatType, senderId },
+    });
+    return null;
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// いいね通知のプッシュ通知
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.onNotificationCreatedPush = functions.firestore
+  .document("users/{userId}/notifications/{notificationId}")
+  .onCreate(async (snap, context) => {
+    const { userId } = context.params;
+    const data = snap.data();
+    const notifType = data.type || "";
+    const senderId = data.senderId || "";
+    const senderName = data.senderName || "";
+    const message = data.message || "";
+
+    // 自分自身への通知はスキップ
+    if (senderId === userId) return null;
+
+    // 通知タイプ → 設定キーのマッピング
+    const settingKeyMap = {
+      like: "likeComment",
+      comment: "likeComment",
+      follow: "follow",
+      tournament_announcement: "organizer",
+      tournament_end: "tournament",
+      waitlist_available: "tournament",
+      points_earned: "tournament",
+      tournament_created: "tournament",
+      deadline_approaching: "reminder",
+      slots_low: "tournament",
+      official: "official",
+      team_join: "team",
+      team_leave: "team",
+    };
+
+    const settingKey = settingKeyMap[notifType];
+    if (!settingKey) return null;
+
+    const userTokens = await getFcmTokensIfEnabled(userId, settingKey);
+    if (userTokens.length === 0) return null;
+
+    // 通知タイトルの決定
+    let title;
+    switch (notifType) {
+      case "like":
+        title = "いいね";
+        break;
+      case "comment":
+        title = "コメント";
+        break;
+      case "follow":
+        title = "フォロー";
+        break;
+      case "tournament_announcement":
+        title = "大会運営者からのお知らせ";
+        break;
+      case "tournament_end":
+        title = "大会結果";
+        break;
+      case "waitlist_available":
+        title = "空き通知";
+        break;
+      case "deadline_approaching":
+        title = "リマインダー";
+        break;
+      case "official":
+        title = "Sofvo公式";
+        break;
+      case "team_join":
+      case "team_leave":
+        title = "チーム";
+        break;
+      default:
+        title = "Sofvo";
+    }
+
+    const body = senderName ? `${senderName}${message}` : message;
+
+    // 遷移先データ
+    const navData = { type: notifType };
+    if (data.tournamentId) navData.tournamentId = data.tournamentId;
+    if (data.postId) navData.targetId = data.postId;
+    if (notifType === "follow" && senderId) navData.targetId = senderId;
+
+    await sendFcmToTokens(
+      userTokens.map((t) => ({ token: t, userId })),
+      {
+        notification: { title, body: body.substring(0, 100) },
+        data: navData,
+      }
+    );
+    return null;
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 大会前日リマインダー（毎日9:00 JST実行）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.sendTournamentReminders = functions.pubsub
+  .schedule("0 0 * * *") // UTC 0:00 = JST 9:00
+  .timeZone("Asia/Tokyo")
+  .onRun(async () => {
+    const db = admin.firestore();
+    // 明日の日付を取得 (YYYY/MM/DD形式)
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    const dd = String(tomorrow.getDate()).padStart(2, "0");
+    const tomorrowStr = `${yyyy}/${mm}/${dd}`;
+
+    // 明日開催の大会を取得
+    const tournaments = await db.collection("tournaments")
+      .where("date", "==", tomorrowStr)
+      .where("status", "in", ["募集中", "締切"])
+      .get();
+
+    for (const tDoc of tournaments.docs) {
+      const tData = tDoc.data();
+      const tournamentName = tData.title || "大会";
+
+      // 参加者を取得
+      const entries = await tDoc.ref.collection("entries").get();
+      const participantUids = new Set();
+      for (const entry of entries.docs) {
+        const eData = entry.data();
+        if (Array.isArray(eData.memberUids)) {
+          eData.memberUids.forEach((uid) => { if (uid) participantUids.add(uid); });
+        }
+        if (eData.enteredBy) participantUids.add(eData.enteredBy);
+      }
+
+      // 各参加者にリマインダー通知
+      const batch = db.batch();
+      for (const uid of participantUids) {
+        const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
+        batch.set(notifRef, {
+          type: "deadline_approaching",
+          senderId: "system",
+          senderName: "",
+          senderAvatar: "",
+          message: `明日は「${tournamentName}」の開催日です！`,
+          tournamentId: tDoc.id,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+    return null;
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Sofvo公式通知の送信（管理者用 Callable Function）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.sendOfficialNotification = functions.https.onCall(async (data, context) => {
+  // 管理者チェック
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  const db = admin.firestore();
+  const callerDoc = await db.collection("users").doc(context.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data()?.isAdmin !== true) {
+    throw new functions.https.HttpsError("permission-denied", "管理者権限が必要です");
+  }
+
+  const { title, message } = data;
+  if (!title || !message) {
+    throw new functions.https.HttpsError("invalid-argument", "title と message は必須です");
+  }
+
+  // 全ユーザーに通知
+  const usersSnap = await db.collection("users").get();
+  let count = 0;
+  const batchSize = 500;
+  let batch = db.batch();
+
+  for (const userDoc of usersSnap.docs) {
+    const uid = userDoc.id;
+    if (uid === context.auth.uid) continue;
+    const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
+    batch.set(notifRef, {
+      type: "official",
+      senderId: "sofvo_official",
+      senderName: "Sofvo公式",
+      senderAvatar: "",
+      message: `【${title}】${message}`,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    count++;
+    if (count % batchSize === 0) {
+      await batch.commit();
+      batch = db.batch();
+    }
+  }
+  if (count % batchSize !== 0) await batch.commit();
+
+  return { success: true, sentCount: count };
+});

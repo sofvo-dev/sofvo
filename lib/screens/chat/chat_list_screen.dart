@@ -27,6 +27,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   Set<String> _hiddenChatIds = {};
   final Map<String, String> _userNameCache = {};
   final Map<String, bool> _officialCache = {};
+  final Map<String, String> _userAvatarCache = {};
 
   @override
   void initState() {
@@ -142,18 +143,22 @@ class _ChatListScreenState extends State<ChatListScreen>
 
   /// ユーザー名をFirestoreから取得してキャッシュ + memberNamesを修正
   Future<void> _resolveAndCacheName(String chatId, String userId) async {
-    if (_userNameCache.containsKey(userId)) return;
+    if (_userNameCache.containsKey(userId) && _userAvatarCache.containsKey(userId)) return;
     final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
     final nickname = (doc.data()?['nickname'] as String?) ?? '';
-    if (nickname.isNotEmpty && mounted) {
+    final avatarUrl = (doc.data()?['avatarUrl'] as String?) ?? '';
+    if (mounted) {
       setState(() {
-        _userNameCache[userId] = nickname;
+        if (nickname.isNotEmpty) _userNameCache[userId] = nickname;
+        _userAvatarCache[userId] = avatarUrl;
         _officialCache[userId] = doc.data()?['isOfficial'] == true;
       });
-      // Firestoreのチャットドキュメントも修正
-      await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
-        'memberNames.$userId': nickname,
-      });
+      if (nickname.isNotEmpty) {
+        // Firestoreのチャットドキュメントも修正
+        await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
+          'memberNames.$userId': nickname,
+        });
+      }
     }
   }
 
@@ -273,38 +278,38 @@ class _ChatListScreenState extends State<ChatListScreen>
                           color: AppTheme.textSecondary)),
                 );
               }
-              // Resolve missing nicknames and isOfficial
+              // Resolve missing nicknames, avatars and isOfficial
               for (final doc in followDocs) {
                 final data = doc.data() as Map<String, dynamic>? ?? {};
                 final nickname = (data['nickname'] as String?) ?? '';
                 if (nickname.isNotEmpty) {
                   _userNameCache[doc.id] = nickname;
                 }
-                if (!_userNameCache.containsKey(doc.id) || !_officialCache.containsKey(doc.id)) {
-                  if (!_officialCache.containsKey(doc.id)) {
-                    FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(doc.id)
-                        .get()
-                        .then((userDoc) {
-                      final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
-                      final isOfficial = userDoc.data()?['isOfficial'] == true;
-                      if (mounted) {
-                        setState(() {
-                          if (resolved.isNotEmpty) _userNameCache[doc.id] = resolved;
-                          _officialCache[doc.id] = isOfficial;
-                        });
-                        if (resolved.isNotEmpty) {
-                          FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(_currentUser!.uid)
-                              .collection('following')
-                              .doc(doc.id)
-                              .update({'nickname': resolved}).catchError((_) {});
-                        }
+                if (!_userNameCache.containsKey(doc.id) || !_userAvatarCache.containsKey(doc.id) || !_officialCache.containsKey(doc.id)) {
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(doc.id)
+                      .get()
+                      .then((userDoc) {
+                    final resolved = (userDoc.data()?['nickname'] as String?) ?? '';
+                    final avatarUrl = (userDoc.data()?['avatarUrl'] as String?) ?? '';
+                    final isOfficial = userDoc.data()?['isOfficial'] == true;
+                    if (mounted) {
+                      setState(() {
+                        if (resolved.isNotEmpty) _userNameCache[doc.id] = resolved;
+                        _userAvatarCache[doc.id] = avatarUrl;
+                        _officialCache[doc.id] = isOfficial;
+                      });
+                      if (resolved.isNotEmpty) {
+                        FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(_currentUser!.uid)
+                            .collection('following')
+                            .doc(doc.id)
+                            .update({'nickname': resolved}).catchError((_) {});
                       }
-                    }).catchError((_) {});
-                  }
+                    }
+                  }).catchError((_) {});
                 }
               }
               return ListView.separated(
@@ -314,17 +319,24 @@ class _ChatListScreenState extends State<ChatListScreen>
                 itemBuilder: (_, i) {
                   final uid = followDocs[i].id;
                   final name = _userNameCache[uid] ?? 'ユーザー';
+                  final avatarUrl = _userAvatarCache[uid] ?? '';
                   return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor
-                          .withValues(alpha: 0.12),
-                      child: Text(
-                        name.isNotEmpty && name != 'ユーザー' ? name[0] : '?',
-                        style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    leading: avatarUrl.isNotEmpty
+                        ? CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                            backgroundImage: NetworkImage(avatarUrl),
+                          )
+                        : CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor
+                                .withValues(alpha: 0.12),
+                            child: Text(
+                              name.isNotEmpty && name != 'ユーザー' ? name[0] : '?',
+                              style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
                     title: Row(
                         children: [
                           Flexible(child: Text(name,
@@ -349,7 +361,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
@@ -684,8 +696,10 @@ class _ChatListScreenState extends State<ChatListScreen>
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   bool _hasUnread(Map<String, dynamic> data) {
     if (_currentUser == null) return false;
+    final uid = _currentUser!.uid;
+    // lastRead vs lastMessageAt のタイムスタンプ比較で判定（最も確実）
     final lastReadMap = data['lastRead'] as Map<String, dynamic>? ?? {};
-    final myLastRead = lastReadMap[_currentUser!.uid] as Timestamp?;
+    final myLastRead = lastReadMap[uid] as Timestamp?;
     final lastMessageAt = data['lastMessageAt'] as Timestamp?;
     if (lastMessageAt == null) return false;
     if (myLastRead == null) return true;
@@ -700,6 +714,9 @@ class _ChatListScreenState extends State<ChatListScreen>
     final lastAt = data['lastMessageAt'] as Timestamp?;
     final timeText = _formatTime(lastAt);
     final unread = _hasUnread(data);
+    final unreadCountMap = data['unreadCount'] as Map<String, dynamic>? ?? {};
+    final rawUnread = unreadCountMap[_currentUser!.uid];
+    final unreadNum = (rawUnread is int) ? rawUnread : (rawUnread is num) ? rawUnread.toInt() : 0;
 
     String title;
     String? otherUserId;
@@ -716,10 +733,12 @@ class _ChatListScreenState extends State<ChatListScreen>
       title = (otherEntry.value as String).isNotEmpty
           ? otherEntry.value as String
           : 'ユーザー';
-      // memberNamesにないか'ユーザー'の場合、非同期で名前を解決
-      if (title == 'ユーザー' && otherUserId.isNotEmpty) {
+      // 非同期で名前とアバターを解決
+      if (otherUserId.isNotEmpty) {
         _resolveAndCacheName(chatId, otherUserId);
-        title = _userNameCache[otherUserId] ?? 'ユーザー';
+        if (title == 'ユーザー') {
+          title = _userNameCache[otherUserId] ?? 'ユーザー';
+        }
       }
       // isOfficial をキャッシュ確認・取得
       if (otherUserId.isNotEmpty && !_officialCache.containsKey(otherUserId)) {
@@ -750,17 +769,27 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     final isPinned = _pinnedChatIds.contains(chatId);
 
+    final dmAvatarUrl = (type == 'dm' && otherUserId != null && otherUserId.isNotEmpty)
+        ? (_userAvatarCache[otherUserId] ?? '')
+        : '';
+
     Widget avatarWidget = type == 'dm'
-        ? CircleAvatar(
-            radius: 24,
-            backgroundColor:
-                AppTheme.primaryColor.withValues(alpha: 0.12),
-            child: Text(initial,
-                style: const TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18)),
-          )
+        ? (dmAvatarUrl.isNotEmpty
+            ? CircleAvatar(
+                radius: 24,
+                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                backgroundImage: NetworkImage(dmAvatarUrl),
+              )
+            : CircleAvatar(
+                radius: 24,
+                backgroundColor:
+                    AppTheme.primaryColor.withValues(alpha: 0.12),
+                child: Text(initial,
+                    style: const TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18)),
+              ))
         : _buildGroupLeading(data, icon, iconColor);
 
     if (isPinned) {
@@ -832,11 +861,16 @@ class _ChatListScreenState extends State<ChatListScreen>
             const SizedBox(height: 4),
             if (unread)
               Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
                   color: AppTheme.primaryColor,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                child: Text(
+                  unreadNum > 99 ? '99+' : '${unreadNum > 0 ? unreadNum : 1}',
+                  style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1),
+                  textAlign: TextAlign.center,
                 ),
               ),
           ],

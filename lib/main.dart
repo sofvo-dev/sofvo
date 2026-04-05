@@ -118,6 +118,7 @@ class _AuthGateState extends State<AuthGate> {
   User? _currentUser;
   StreamSubscription<User?>? _authSubscription;
   bool _isInitialLoading = true;
+  bool _showSplash = true;
 
 
   @override
@@ -325,6 +326,14 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
+    // アプリ起動時のスプラッシュ画面（ログイン済みネイティブアプリのみ）
+    if (_showSplash && !kIsWeb && _currentUser != null) {
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _showSplash = false);
+      });
+      return const _SplashScreen();
+    }
+
     // 未ログイン
     if (_currentUser == null) {
       _navigatedToTournament = false;
@@ -382,6 +391,53 @@ class _AuthGateState extends State<AuthGate> {
 
         return const MainTabScreen();
       },
+    );
+  }
+}
+
+/// アプリ起動時のスプラッシュ画面
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1B3A5C),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+                children: [
+                  TextSpan(
+                    text: 'Sof',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  TextSpan(
+                    text: 'vo',
+                    style: TextStyle(color: Color(0xFFBFA258)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'ソフトバレーを、もっと楽しく。',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

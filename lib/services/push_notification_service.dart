@@ -1,7 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/profile/user_profile_screen.dart';
@@ -28,6 +28,13 @@ class PushNotificationService {
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         await _saveToken();
 
+        // iOS: フォアグラウンド表示オプション
+        await _messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
         _messaging.onTokenRefresh.listen((token) => _saveTokenToFirestore(token));
 
         // フォアグラウンドメッセージ → バナー表示
@@ -47,9 +54,15 @@ class PushNotificationService {
     }
   }
 
+  /// Web Push用VAPIDキー（Firebase Console → Cloud Messaging → Web構成で生成）
+  static String? vapidKey;
+
   static Future<void> _saveToken() async {
     try {
-      final token = await _messaging.getToken();
+      // Web: VAPIDキーが必要
+      final token = kIsWeb
+          ? await _messaging.getToken(vapidKey: vapidKey)
+          : await _messaging.getToken();
       if (token != null) await _saveTokenToFirestore(token);
     } catch (e) {
       debugPrint('Failed to get FCM token: $e');
@@ -60,12 +73,14 @@ class PushNotificationService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    // FCMトークンはprivateサブコレクションに保存（他ユーザーからアクセス不可）
+    // 複数デバイス対応: fcmTokens配列にトークンを追加（重複防止）
+    // 旧フィールド(fcmToken)も互換性のため更新
     await _firestore
         .collection('users').doc(uid)
         .collection('private').doc('info')
         .set({
       'fcmToken': token,
+      'fcmTokens': FieldValue.arrayUnion([token]),
       'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -131,11 +146,25 @@ class PushNotificationService {
           ));
         }
         break;
+      case 'like':
+      case 'comment':
+        // 投稿への遷移（将来実装）
+        break;
       case 'tournament_announcement':
       case 'tournament_end':
       case 'waitlist_available':
+      case 'deadline_approaching':
+      case 'tournament_created':
+      case 'slots_low':
         final tournamentId = data['tournamentId'] as String? ?? targetId;
         if (tournamentId != null) _navigateToTournament(navigator, tournamentId);
+        break;
+      case 'team_join':
+      case 'team_leave':
+        // チーム画面への遷移（将来実装）
+        break;
+      case 'official':
+        // 公式通知はタップ時に特別遷移なし（通知一覧を開く）
         break;
       default:
         debugPrint('Unknown notification type: $type');
@@ -195,14 +224,73 @@ class PushNotificationService {
     }
   }
 
+  /// 未読数を再計算してアプリアイコンバッジとFirestoreを更新
+  static Future<void> updateBadgeCount() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      int totalUnread = 0;
+
+      // チャット未読数
+      final chats = await _firestore
+          .collection('chats')
+          .where('members', arrayContains: uid)
+          .get();
+      for (final doc in chats.docs) {
+        final data = doc.data();
+        final unreadMap = data['unreadCount'] as Map<String, dynamic>?;
+        final cnt = unreadMap?[uid];
+        if (cnt is num && cnt > 0) totalUnread += cnt.toInt();
+      }
+
+      // 通知未読数
+      final notifications = await _firestore
+          .collection('users').doc(uid)
+          .collection('notifications')
+          .where('read', isEqualTo: false)
+          .count()
+          .get();
+      totalUnread += notifications.count ?? 0;
+
+      // Firestore の badgeCount を更新
+      await _firestore
+          .collection('users').doc(uid)
+          .collection('private').doc('info')
+          .set({'badgeCount': totalUnread}, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Failed to update badge count: $e');
+    }
+  }
+
   static Future<void> removeToken() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    await _firestore
-        .collection('users').doc(uid)
-        .collection('private').doc('info')
-        .set({
-      'fcmToken': FieldValue.delete(),
-    }, SetOptions(merge: true));
+    // 現在のデバイスのトークンのみ削除（他デバイスには影響しない）
+    try {
+      final token = await _messaging.getToken();
+      final updates = <String, dynamic>{
+        'badgeCount': 0,
+      };
+      if (token != null) {
+        updates['fcmTokens'] = FieldValue.arrayRemove([token]);
+      }
+      // fcmToken(単一)は最後に登録したデバイスのものなので削除
+      updates['fcmToken'] = FieldValue.delete();
+      await _firestore
+          .collection('users').doc(uid)
+          .collection('private').doc('info')
+          .set(updates, SetOptions(merge: true));
+    } catch (_) {
+      // フォールバック: 全トークン削除
+      await _firestore
+          .collection('users').doc(uid)
+          .collection('private').doc('info')
+          .set({
+        'fcmToken': FieldValue.delete(),
+        'fcmTokens': FieldValue.delete(),
+        'badgeCount': 0,
+      }, SetOptions(merge: true));
+    }
   }
 }

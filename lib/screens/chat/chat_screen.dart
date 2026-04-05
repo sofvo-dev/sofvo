@@ -10,6 +10,7 @@ import '../../config/app_theme.dart';
 import '../../widgets/official_badge.dart';
 import '../profile/user_profile_screen.dart';
 import 'group_chat_settings_screen.dart';
+import '../../services/push_notification_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -39,10 +40,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Map<String, dynamic> _lastReadMap = {};
   List<String> _memberIds = [];
   Map<String, String> _memberNames = {};
+  Map<String, String> _memberAvatars = {};
   String _groupIconUrl = '';
   int _previousMessageCount = 0;
   String _resolvedTitle = '';
   final Map<String, bool> _officialCache = {};
+  String _otherUserAvatarUrl = '';
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -81,8 +84,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           );
           _groupIconUrl = (chatData['iconUrl'] as String?) ?? _groupIconUrl;
         });
-        // DMの場合、相手の名前を解決
-        if (widget.chatType == 'dm') _resolveDmTitle();
+        // DMの場合、相手の名前とアバターを解決
+        if (widget.chatType == 'dm') {
+          _resolveDmTitle();
+          _resolveDmAvatar();
+        }
       }
     });
   }
@@ -128,6 +134,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  /// DMの相手のアバターURLを取得
+  Future<void> _resolveDmAvatar() async {
+    if (_currentUser == null) return;
+    final otherUid = _memberIds.firstWhere((id) => id != _currentUser!.uid, orElse: () => '');
+    if (otherUid.isEmpty) return;
+    if (_memberAvatars.containsKey(otherUid) && _memberAvatars[otherUid]!.isNotEmpty) {
+      if (mounted && _otherUserAvatarUrl != _memberAvatars[otherUid]) {
+        setState(() => _otherUserAvatarUrl = _memberAvatars[otherUid]!);
+      }
+      return;
+    }
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(otherUid).get();
+    final avatarUrl = (userDoc.data()?['avatarUrl'] as String?) ?? '';
+    if (mounted && avatarUrl.isNotEmpty) {
+      setState(() {
+        _otherUserAvatarUrl = avatarUrl;
+        _memberAvatars[otherUid] = avatarUrl;
+      });
+    }
+  }
+
+  /// メッセージ送信者のアバターURLを取得（グループチャット用）
+  Future<void> _resolveSenderAvatar(String senderId) async {
+    if (_memberAvatars.containsKey(senderId)) return;
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(senderId).get();
+    final avatarUrl = (userDoc.data()?['avatarUrl'] as String?) ?? '';
+    if (mounted) {
+      setState(() => _memberAvatars[senderId] = avatarUrl);
+    }
+  }
+
   @override
   void dispose() {
     _chatDocSubscription?.cancel();
@@ -146,7 +183,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_currentUser == null) return;
     FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
       'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
+      'unreadCount.${_currentUser!.uid}': 0,
     });
+    // アプリアイコンバッジを未読数に合わせて更新
+    PushNotificationService.updateBadgeCount();
   }
 
   Future<void> _loadMuteState() async {
@@ -219,13 +259,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      final chatUpdate = <String, dynamic>{
+        'lastMessage': savedText,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': _currentUser!.uid,
+        'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
+        'unreadCount.${_currentUser!.uid}': 0,
+      };
+      for (final memberId in _memberIds) {
+        if (memberId == _currentUser!.uid) continue;
+        chatUpdate['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
-          .update({
-        'lastMessage': savedText,
-        'lastMessageAt': FieldValue.serverTimestamp(),
-      });
+          .update(chatUpdate);
 
       _scrollToBottom();
     } catch (e) {
@@ -302,13 +350,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      final imgUpdate = <String, dynamic>{
+        'lastMessage': '📷 画像',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': _currentUser!.uid,
+        'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
+        'unreadCount.${_currentUser!.uid}': 0,
+      };
+      for (final memberId in _memberIds) {
+        if (memberId == _currentUser!.uid) continue;
+        imgUpdate['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
-          .update({
-        'lastMessage': '📷 画像',
-        'lastMessageAt': FieldValue.serverTimestamp(),
-      });
+          .update(imgUpdate);
 
       _scrollToBottom();
     } catch (e) {
@@ -398,13 +454,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      final fileUpdate = <String, dynamic>{
+        'lastMessage': '📎 ${file.name}',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': _currentUser!.uid,
+        'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
+        'unreadCount.${_currentUser!.uid}': 0,
+      };
+      for (final memberId in _memberIds) {
+        if (memberId == _currentUser!.uid) continue;
+        fileUpdate['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(widget.chatId)
-          .update({
-        'lastMessage': '📎 ${file.name}',
-        'lastMessageAt': FieldValue.serverTimestamp(),
-      });
+          .update(fileUpdate);
 
       _scrollToBottom();
     } catch (e) {
@@ -608,21 +672,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           } : null,
           child: Row(
             children: [
-              _groupIconUrl.isNotEmpty
+              (_groupIconUrl.isNotEmpty)
                   ? CircleAvatar(
                       radius: 18,
                       backgroundImage: NetworkImage(_groupIconUrl),
                       backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
                     )
-                  : CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                      child: Text(initial,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor)),
-                    ),
+                  : (_otherUserAvatarUrl.isNotEmpty && widget.chatType == 'dm')
+                    ? CircleAvatar(
+                        radius: 18,
+                        backgroundImage: NetworkImage(_otherUserAvatarUrl),
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                      )
+                    : CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                        child: Text(initial,
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor)),
+                      ),
               const SizedBox(width: 10),
               Flexible(
                 child: Text(displayTitle,
@@ -639,7 +709,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: Column(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
         children: [
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
@@ -784,7 +856,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -875,14 +947,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ));
                     }
                   },
-                  child: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                    child: Text(
-                      senderName.isNotEmpty ? senderName[0] : '?',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                    ),
-                  ),
+                  child: _buildSenderAvatar(data['senderId'] as String?, senderName),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -943,6 +1008,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildSenderAvatar(String? senderId, String senderName) {
+    if (senderId != null && senderId.isNotEmpty) {
+      // グループチャットの場合、非同期でアバターを取得
+      if (!_memberAvatars.containsKey(senderId)) {
+        _resolveSenderAvatar(senderId);
+      }
+      final avatarUrl = _memberAvatars[senderId] ?? '';
+      if (avatarUrl.isNotEmpty) {
+        return CircleAvatar(
+          radius: 16,
+          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+          backgroundImage: NetworkImage(avatarUrl),
+        );
+      }
+    }
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+      child: Text(
+        senderName.isNotEmpty ? senderName[0] : '?',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+      ),
+    );
+  }
+
   Widget _buildMessageContent(String type, String text, String mediaUrl, String fileName, String fileExtension, int? fileSize, bool isMe) {
     if (type == 'image' && mediaUrl.isNotEmpty) {
       return GestureDetector(
@@ -987,7 +1077,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isMe
-                ? Colors.white.withValues(alpha: 0.15)
+                ? AppTheme.primaryColor.withValues(alpha: 0.85)
                 : Colors.white,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(16),

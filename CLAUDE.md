@@ -2,6 +2,40 @@
 
 ## 開発ルール
 
+### 修正完了時のデプロイ判定ルール
+- **修正が完了したら、変更ファイルを「審査必要（ストア再提出）」と「審査不要（即反映）」に分類して報告すること**
+- 判定基準:
+  - **審査必要**: `lib/**`, `pubspec.yaml`, `android/**`, `ios/**`（Dartコード・ネイティブ設定 → ストア再提出が必要）
+  - **審査不要**: `functions/**`, `firestore.rules`, `storage.rules`, `website/**`, `.github/**`（サーバー側・ルール・CI → mainマージで即反映）
+- 報告フォーマット例:
+  ```
+  ✅ 審査不要（即反映）: storage.rules, functions/index.js
+  📱 審査必要（ストア再提出）: lib/screens/auth/login_screen.dart
+  ```
+- **ストア提出手順・AABビルドの案内はユーザーから求められたときのみ行う（毎回自動で案内しない）**
+
+### ストア提出手順（審査必要な変更がある場合に案内）
+
+#### Android（全自動）
+1. GitHub → **Actions** タブ
+2. 「**Build Android AAB**」を選択
+3. 右側の「**Run workflow**」をクリック
+4. 「**Google Play 製品版にアップロード**」に**チェック**を入れる
+5. 「**Run workflow**」で実行
+- ビルド → Google Play 製品版アップロードまで全自動
+
+#### iOS（ローカルMacで1コマンド）
+```bash
+cd ~/Desktop/sofvo/ios
+fastlane release
+```
+- git pull → flutter clean → flutter pub get → pod install → ビルド → App Store Connect アップロード → 審査提出まで全自動
+- 未コミットの変更がある場合は先に `git stash` してから実行、完了後 `git stash pop`
+
+#### 注意事項
+- **バージョンコード（pubspec.yaml の `+` 以降の数字）を上げてからmainにマージすること**
+- 細かい修正はまとめて1回で提出するのが効率的（審査は数時間〜数日かかるため）
+
 ### クロスプラットフォーム統一ルール
 - **修正・実装は必ず Android / iPhone / iPad / Web の全プラットフォームで同じ動作になるようにすること**
 - プラットフォーム分岐は「Web vs ネイティブ」の2分岐に留める。Android / iOS / iPad で別々のコードパスを作らない
@@ -36,8 +70,11 @@ git stash pop
 #### Step 1: コード最新化
 ```bash
 cd ~/Desktop/sofvo
+git checkout main
+git checkout -- .
 git pull origin main --rebase
 ```
+- `unstaged changes` エラー時: `git checkout -- .` でローカル変更を破棄してからpull
 - コンフリクト時: `git rebase --abort && git fetch origin main && git reset --hard origin/main`
 
 #### Step 2: Flutter クリーン & 依存関係取得
@@ -76,11 +113,29 @@ cd ..
 5. **審査に提出** をクリック
 
 ### バージョン番号の更新（必要な場合）
-同じバージョンで再提出する場合、ビルド番号だけ上げればOK:
+- **App Storeで承認済み or 配信準備完了のバージョンと同じバージョンでは新ビルドを提出できない**
+- 機能追加・バグ修正時はマイナーバージョンを上げる（例: `1.0.2` → `1.0.3`）
+- 同じバージョンで再提出する場合、ビルド番号だけ上げればOK（例: `1.0.3+16` → `1.0.3+17`）
 ```bash
-# pubspec.yaml の version を変更（例: 1.0.0+6 → 1.0.0+7）
-# "+" の後の数字がビルド番号
+# pubspec.yaml の version を変更
+# "+" の前がバージョン、"+" の後がビルド番号
 ```
+
+### バージョン履歴
+| バージョン | ビルド | 状態 | 内容 |
+|---|---|---|---|
+| 1.0.0 | 5-13 | 承認済み | 初回リリース |
+| 1.0.1 | 14 | 配信準備完了 | バグ修正 |
+| 1.0.2 | 15 | 配信準備完了 | プッシュ通知・バッジ・タブバー改善 |
+| 1.0.3 | 16 | 審査提出予定 | 未読カウント修正・ステータスバー白統一・管理メニュー全画面化 |
+
+### iOS提出時のリリースノート
+- **iOSアップロード時は必ず「このバージョンの最新情報」も一緒に出すこと**
+
+### Macローカルでの提出時の注意
+- **unstaged changesエラー**: `git checkout -- .` で変更を破棄してからpull
+- **`flutter clean && flutter pub get` を必ず実行する**: pubspec.yamlの変更がビルドに反映されない
+- **fastlaneがない場合**: Xcodeで手動Archive → Distribute App で提出可能（fastlaneなしでOK）
 
 ### トラブルシュート
 
@@ -129,54 +184,29 @@ firebase deploy --only functions  # Cloud Functions のデプロイ
 firebase deploy --only hosting    # Hosting のデプロイ
 ```
 
-## ドメイン移管（sofvo.com: XServer → ムームードメイン）
-- **現在のレジストラ**: XServer（サーバーID: xs228659）
-- **移管先**: ムームードメイン
-- **ドメイン**: sofvo.com（利用期限: 2026/09/13）
-- **特典**: 「独自ドメイン永久無料特典」→ **解除完了（2026/03/25 XServer確認済み）**
-- **ステータス**: ドメイン解約完了（2026/03/25）→ Whois変更・認証鍵確認・ロック解除が次のステップ
-- **解除費用**: ¥1,721（税込、請求情報No: 104670522）→ **振込済み（2026/03/24）**
-- **XServerアカウントID**: phrw687530
-- **手順**:
-  1. XServerサポートに特典解除を依頼 → **済**
-  2. 解除手数料 ¥1,721 を支払い → **済（2026/03/24 振込完了）**
-  3. 特典解除完了（XServerから確認メール受領） → **済（2026/03/25）**
-  4. XServerアカウントからドメインの解約手続き → **済（2026/03/25）**
-  5. Whois情報を自分の情報に変更（メールアドレスは受信可能なもの、組織名は「None」） → **次のステップ**
-  6. 認証鍵（AuthCode）を確認・メモ → **次のステップ**
-  7. レジストラロックを解除 → **次のステップ**
-  8. ムームードメインで移管申請（認証鍵を入力）
-  9. Whoisメールアドレスに届く移管承認メールを承認
-  10. 移管確認メールは放置（数日で自動進行）
-- **参考**: https://www.xserver.ne.jp/support/faq/transfer_domain_permanent_free.php
+## ドメイン移管（sofvo.com: XServer → ムームードメイン）→ 完了
+- **レジストラ**: ムームードメイン（2026/04/03 移管完了）
+- **ドメイン**: sofvo.com（利用期限: 2027/09/13）
+- **移管費用**: ¥2,154（ムームードメイン） + ¥1,721（XServer特典解除費用）
+- **ステータス**: **移管完了**
 
-## アプリ化 進捗（2026/03/14 時点）
+### 移管後のTODO
+- [ ] Firebase Hosting にカスタムドメイン `sofvo.com` を追加
+- [ ] Firebase Auth の承認済みドメインに `sofvo.com` を追加
+- [ ] Google Cloud Console で OAuth リダイレクトURIに `https://sofvo.com/__/auth/handler` を追加
+- [ ] `lib/firebase_options.dart` の `authDomain` を `sofvo.com` に変更
+- [ ] Google Workspace 契約 & MXレコード設定（メール）
+- [ ] DNS設定（ムームードメインのネームサーバー設定）
+
+## アプリ化 進捗（2026/04/05 更新）
 
 ### リリース状況
-- **iOS**: 🟡 審査待ち（App Store Connect に提出済み、結果待ち 1〜3日）
-- **Android**: ⏳ クローズドテスト中（12人オプトイン済み、1/14日目 → 3/28頃完了）
+- **iOS**: 🟢 1.0.1 配信準備完了 / 1.0.2 配信準備完了 / 1.0.3 審査提出予定
+- **Android**: 🟢 製品版公開済み（Google Play）
 
-### 完了済み
-- Apple Developer 登録
-- Google Play Console 登録
-- iOS ビルド & App Store Connect アップロード
-- iOS スクリーンショット & メタデータ登録
-- iOS 審査提出
-- Android クローズドテスト版公開 & テスター12人オプトイン
-- プライバシーポリシー・利用規約 公開済み
-- Firebase 設定完了
-- 署名設定（iOS / Android）完了
-
-### 残りタスク
-1. iOS 審査結果対応（数日以内）
-2. Android 14日間テスト完了待ち（3/28頃）
-3. Android 製品版申請 & 審査（3/28以降）
-4. ドメイン移管（XServer → ムームードメイン）サポート返信待ち
-
-### 想定スケジュール
-- **3月中旬〜**: iOS App Store 公開（審査通過次第）
-- **3月末〜**: Android Play Store 製品版申請
-- **4月上旬**: 両ストアで公開完了（目標）
+### Macローカル環境
+- **fastlaneインストール済み**（Ruby 4.0.2 + fastlane 2.232.2）
+- iOS提出: `cd ~/Desktop/sofvo/ios && fastlane release`（全自動）
 
 ## スーパーアドミン（最高権限）設定手順
 1. [Firebase Console](https://console.firebase.google.com/) を開く

@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../profile/user_profile_screen.dart';
 import '../notification/notification_screen.dart';
 import '../../services/notification_service.dart';
+import '../../services/push_notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -155,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
@@ -1645,6 +1646,7 @@ class _HomeScreenState extends State<HomeScreen>
       batch.update(doc.reference, {'read': true});
     }
     await batch.commit();
+    PushNotificationService.updateBadgeCount();
   }
 
   Future<void> _onAnnouncementTap(Map<String, dynamic> data) async {

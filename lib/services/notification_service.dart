@@ -4,7 +4,7 @@ class NotificationService {
   static final _firestore = FirebaseFirestore.instance;
 
   /// 通知（ベルアイコン）に表示する対人アクション系タイプ
-  static const actionTypes = ['like', 'comment', 'follow'];
+  static const actionTypes = ['like', 'comment', 'follow', 'team_join', 'team_leave'];
 
   /// お知らせタブに表示する大会・システム系タイプ
   static const announcementTypes = [
@@ -15,6 +15,7 @@ class NotificationService {
     'tournament_created',
     'deadline_approaching',
     'slots_low',
+    'official',
   ];
 
   static Future<void> sendLikeNotification({
@@ -295,6 +296,60 @@ class NotificationService {
       'read': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// チームメンバー加入通知
+  static Future<void> sendTeamJoinNotification({
+    required String teamId,
+    required String teamName,
+    required String joinedUserId,
+    required String joinedUserName,
+    required List<String> memberUids,
+  }) async {
+    final batch = _firestore.batch();
+    for (final uid in memberUids) {
+      if (uid == joinedUserId) continue;
+      final notifRef = _firestore
+          .collection('users').doc(uid)
+          .collection('notifications').doc();
+      batch.set(notifRef, {
+        'type': 'team_join',
+        'senderId': joinedUserId,
+        'senderName': joinedUserName,
+        'senderAvatar': '',
+        'message': 'が「$teamName」に参加しました',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  /// チームメンバー退出通知
+  static Future<void> sendTeamLeaveNotification({
+    required String teamId,
+    required String teamName,
+    required String leftUserId,
+    required String leftUserName,
+    required List<String> memberUids,
+  }) async {
+    final batch = _firestore.batch();
+    for (final uid in memberUids) {
+      if (uid == leftUserId) continue;
+      final notifRef = _firestore
+          .collection('users').doc(uid)
+          .collection('notifications').doc();
+      batch.set(notifRef, {
+        'type': 'team_leave',
+        'senderId': leftUserId,
+        'senderName': leftUserName,
+        'senderAvatar': '',
+        'message': 'が「$teamName」から脱退しました',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   /// 通知（ベルアイコン）の未読数 — 対人アクションのみ

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
@@ -27,9 +28,22 @@ class _MainTabScreenState extends State<MainTabScreen> {
     const MyPageScreen(),
   ];
 
+  // ホーム・チャット = 白背景 → ダークアイコン, マイページ = 暗い背景 → ライトアイコン
+  // さがす・マイ大会 = AppBarが自動でハンドル
+  SystemUiOverlayStyle _statusBarStyle() {
+    switch (_currentIndex) {
+      case 4: // マイページ（ダークヘッダー）
+        return SystemUiOverlayStyle.light;
+      default: // ホーム・さがす・マイ大会・チャット
+        return SystemUiOverlayStyle.dark;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _statusBarStyle(),
+      child: Scaffold(
       body: ConnectivityBanner(
         child: IndexedStack(
           index: _currentIndex,
@@ -42,7 +56,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
           setState(() => _currentIndex = index);
         },
       ),
-    );
+    ));
   }
 }
 
@@ -70,17 +84,23 @@ class _BottomNav extends StatelessWidget {
             final data = doc.data() as Map<String, dynamic>;
             final lastMessage = (data['lastMessage'] as String?) ?? '';
             if (lastMessage.isEmpty) continue;
+            // lastRead vs lastMessageAt のタイムスタンプ比較で判定
             final lastRead = (data['lastRead'] as Map<String, dynamic>?)?[uid];
             final lastMsg = data['lastMessageAt'];
             if (lastMsg is Timestamp) {
               if (lastRead == null || (lastRead is Timestamp && lastMsg.toDate().isAfter(lastRead.toDate()))) {
-                unreadCount++;
+                // unreadCountマップから件数を取得（あれば）
+                final unreadMap = data['unreadCount'] as Map<String, dynamic>?;
+                final raw = unreadMap?[uid];
+                final cnt = (raw is int) ? raw : (raw is num) ? raw.toInt() : 0;
+                unreadCount += cnt > 0 ? cnt : 1;
               }
             }
           }
         }
 
         return NavigationBar(
+          height: 64,
           selectedIndex: currentIndex,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: onDestinationSelected,
@@ -88,18 +108,18 @@ class _BottomNav extends StatelessWidget {
           indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.1),
           destinations: [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.home, color: AppTheme.primaryColor),
+              icon: Icon(Icons.home_outlined, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.home, size: 22, color: AppTheme.primaryColor),
               label: 'ホーム',
             ),
             NavigationDestination(
-              icon: Icon(Icons.search_outlined, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.search, color: AppTheme.primaryColor),
+              icon: Icon(Icons.search_outlined, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.search, size: 22, color: AppTheme.primaryColor),
               label: 'さがす',
             ),
             NavigationDestination(
-              icon: Icon(Icons.calendar_today_outlined, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.calendar_today, color: AppTheme.primaryColor),
+              icon: Icon(Icons.calendar_today_outlined, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.calendar_today, size: 22, color: AppTheme.primaryColor),
               label: 'マイ大会',
             ),
             NavigationDestination(
@@ -108,8 +128,8 @@ class _BottomNav extends StatelessWidget {
               label: 'チャット',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.person, color: AppTheme.primaryColor),
+              icon: Icon(Icons.person_outline, size: 22, color: AppTheme.textSecondary),
+              selectedIcon: Icon(Icons.person, size: 22, color: AppTheme.primaryColor),
               label: 'マイページ',
             ),
           ],
@@ -123,7 +143,7 @@ class _BottomNav extends StatelessWidget {
       isLabelVisible: count > 0,
       label: Text('$count', style: const TextStyle(fontSize: 10, color: Colors.white)),
       backgroundColor: AppTheme.error,
-      child: Icon(icon, color: color),
+      child: Icon(icon, size: 22, color: color),
     );
   }
 }

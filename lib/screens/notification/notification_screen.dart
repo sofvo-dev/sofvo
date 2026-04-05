@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../services/notification_service.dart';
+import '../../services/push_notification_service.dart';
 import '../profile/user_profile_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -35,6 +36,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       batch.update(doc.reference, {'read': true});
     }
     await batch.commit();
+    PushNotificationService.updateBadgeCount();
   }
 
   @override
@@ -47,7 +49,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('通知'),
         actions: [
