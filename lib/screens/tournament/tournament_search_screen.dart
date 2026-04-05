@@ -1591,6 +1591,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final tournamentType = data['tournamentType'] ?? '';
     final isFollowing = _followingIds.contains(recruiterId) || recruiterId == _currentUser?.uid;
     final isSaved = _bookmarkedRecruits.contains(recruiterId);
+    // isOfficial チェック（recruiter）
+    if (recruiterId.isNotEmpty && !_officialCache.containsKey(recruiterId)) {
+      _fetchOrganizerData(recruiterId);
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1614,8 +1618,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(nickname,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),
+                Flexible(child: Text(nickname,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis)),
+                if (_officialCache[recruiterId] == true)
+                  const OfficialBadge(size: 15),
+                const Spacer(),
                 if (recruitCount > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
