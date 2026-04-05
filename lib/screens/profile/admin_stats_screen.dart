@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import 'admin_user_list_screen.dart';
+import '../tournament/tournament_management_screen.dart';
+import '../tournament/venue_search_screen.dart';
+import '../tournament/prize_search_screen.dart';
 
 /// ユーザー統計ダッシュボード（公式アカウント専用）
 class AdminStatsScreen extends StatefulWidget {
@@ -13,12 +16,25 @@ class AdminStatsScreen extends StatefulWidget {
 
 class _AdminStatsScreenState extends State<AdminStatsScreen> {
   final _stats = <_StatData>[
-    _StatData(icon: Icons.people_rounded, label: '総ユーザー数', collection: 'users', color: AppTheme.primaryColor, hasDetail: true),
+    _StatData(icon: Icons.people_rounded, label: '総ユーザー数', collection: 'users', color: AppTheme.primaryColor),
     _StatData(icon: Icons.emoji_events_rounded, label: '総大会数', collection: 'tournaments', color: AppTheme.accentColor),
     _StatData(icon: Icons.article_rounded, label: '総投稿数', collection: 'posts', color: Colors.teal),
     _StatData(icon: Icons.location_on_rounded, label: '総会場数', collection: 'venues', color: Colors.deepOrange),
     _StatData(icon: Icons.card_giftcard_rounded, label: '総景品数', collection: 'prizes', color: Colors.purple),
   ];
+
+  void _navigateTo(BuildContext context, int index) {
+    final routes = <int, Widget>{
+      0: const AdminUserListScreen(),
+      1: const TournamentManagementScreen(),
+      3: const VenueSearchScreen(),
+      4: const PrizeSearchScreen(),
+    };
+    final screen = routes[index];
+    if (screen != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    }
+  }
 
   bool _loading = true;
 
@@ -72,15 +88,14 @@ class _AdminStatsScreenState extends State<AdminStatsScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final s = _stats[index];
+                  final hasTap = [0, 1, 3, 4].contains(index); // users, tournaments, venues, prizes
                   return _StatItem(
                     icon: s.icon,
                     label: s.label,
                     count: s.count,
                     color: s.color,
                     error: s.error,
-                    onTap: s.hasDetail
-                        ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminUserListScreen()))
-                        : null,
+                    onTap: hasTap ? () => _navigateTo(context, index) : null,
                   );
                 },
               ),
@@ -94,7 +109,6 @@ class _StatData {
   final String label;
   final String collection;
   final Color color;
-  final bool hasDetail;
   int count = 0;
   bool error = false;
 
@@ -103,7 +117,6 @@ class _StatData {
     required this.label,
     required this.collection,
     required this.color,
-    this.hasDetail = false,
   });
 }
 
