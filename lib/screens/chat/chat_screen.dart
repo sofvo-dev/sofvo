@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import '../../widgets/official_badge.dart';
+import '../../widgets/link_preview_widget.dart';
 import '../profile/user_profile_screen.dart';
 import 'group_chat_settings_screen.dart';
 import '../../services/push_notification_service.dart';
@@ -1135,6 +1137,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
 
+    // URLを検出してリンク化 + プレビュー表示
+    final urlRegex = RegExp(
+      r'https?://[^\s\u3000\u3001\u3002\uFF0C\uFF0E]+',
+      caseSensitive: false,
+    );
+    final urls = urlRegex.allMatches(text).map((m) => m.group(0)!).toList();
+    final hasUrl = urls.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -1147,13 +1157,71 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
         border: isMe ? null : Border.all(color: Colors.grey[200]!),
       ),
-      child: Text(
-        text,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasUrl)
+            _buildRichTextWithLinks(text, urlRegex, isMe)
+          else
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                color: isMe ? Colors.white : AppTheme.textPrimary,
+                height: 1.4,
+              ),
+            ),
+          // URLプレビューカード
+          ...urls.map((url) => LinkPreviewWidget(url: url, isMe: isMe)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRichTextWithLinks(String text, RegExp urlRegex, bool isMe) {
+    final spans = <TextSpan>[];
+    int lastEnd = 0;
+
+    for (final match in urlRegex.allMatches(text)) {
+      // マッチ前のテキスト
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, match.start),
+        ));
+      }
+      // URLリンク
+      final url = match.group(0)!;
+      spans.add(TextSpan(
+        text: url,
+        style: TextStyle(
+          decoration: TextDecoration.underline,
+          decorationColor: isMe ? Colors.white70 : AppTheme.primaryColor,
+          color: isMe ? Colors.white : AppTheme.primaryColor,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+      ));
+      lastEnd = match.end;
+    }
+
+    // 残りのテキスト
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return RichText(
+      text: TextSpan(
         style: TextStyle(
           fontSize: 15,
           color: isMe ? Colors.white : AppTheme.textPrimary,
           height: 1.4,
         ),
+        children: spans,
       ),
     );
   }
