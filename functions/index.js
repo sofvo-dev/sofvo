@@ -799,6 +799,10 @@ async function doSyncVenuesToSheet() {
 
   const venueRows = venuesSnap.docs.map((doc) => {
     const v = doc.data();
+    const ts = v.timeSlots || {};
+    const am = ts.am || {};
+    const pm = ts.pm || {};
+    const night = ts.night || {};
     return [
       doc.id,
       v.name || "",
@@ -817,6 +821,13 @@ async function doSyncVenuesToSheet() {
       v.closeTime || "",
       v.fee || "",
       (v.equipments || []).map((eq) => `${eq.name}(${eq.qty}個${eq.fee > 0 ? "/¥" + eq.fee : "/無料"})`).join(", "),
+      v.floorType || "",
+      v.poleType || "",
+      v.poleAdjustable ? "可" : "不可",
+      v.notes || "",
+      am.start || "", am.end || "", am.fee || "",
+      pm.start || "", pm.end || "", pm.fee || "",
+      night.start || "", night.end || "", night.fee || "",
       v.rating || 0,
       v.reviewCount || 0,
       v.createdAt ? v.createdAt.toDate().toISOString().split("T")[0] : "",
@@ -827,7 +838,11 @@ async function doSyncVenuesToSheet() {
   const values = [
     ["会場ID", "会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
      "更衣室", "シャワー", "観覧席", "空調", "飲食エリア",
-     "開始時間", "終了時間", "料金", "貸出備品", "評価", "レビュー数", "登録日"],
+     "開始時間", "終了時間", "料金", "貸出備品",
+     "床タイプ", "ポールタイプ", "ポール高さ調整", "備考",
+     "午前開始", "午前終了", "午前料金", "午後開始", "午後終了", "午後料金",
+     "夜間開始", "夜間終了", "夜間料金",
+     "評価", "レビュー数", "登録日"],
     ...venueRows,
   ];
 
@@ -838,7 +853,7 @@ async function doSyncVenuesToSheet() {
     await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
   }
   const nextRow = values.length + 1;
-  await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A${nextRow}:T10000`);
+  await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A${nextRow}:AF10000`);
 
   return venueRows.length;
 }
@@ -893,7 +908,7 @@ exports.clearVenues = functions.https.onRequest(async (req, res) => {
 
     // 2. Google Sheets の会場一覧シートをヘッダーだけ残してクリア
     const sheetName = "会場一覧";
-    await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A2:T10000`);
+    await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A2:AF10000`);
 
     console.log(`Cleared ${deletedCount} venues from Firestore and Sheets`);
     res.json({ success: true, deletedFromFirestore: deletedCount });
@@ -1070,14 +1085,15 @@ exports.onVenueWrite = functions.firestore
     if (change.before.exists && change.after.exists) {
       const before = change.before.data();
       const after = change.after.data();
-      const strFields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee"];
+      const strFields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee", "floorType", "poleType", "notes"];
       const numFields = ["courts", "parking"];
-      const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+      const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC", "poleAdjustable"];
       const strChanged = strFields.some((f) => (before[f] || "") !== (after[f] || ""));
       const numChanged = numFields.some((f) => (before[f] || 0) !== (after[f] || 0));
       const boolChanged = boolFields.some((f) => !!before[f] !== !!after[f]);
       const eqChanged = JSON.stringify(before.equipments || []) !== JSON.stringify(after.equipments || []);
-      if (!strChanged && !numChanged && !boolChanged && !eqChanged) return;
+      const tsChanged = JSON.stringify(before.timeSlots || {}) !== JSON.stringify(after.timeSlots || {});
+      if (!strChanged && !numChanged && !boolChanged && !eqChanged && !tsChanged) return;
     }
     try {
       const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
@@ -1096,7 +1112,7 @@ exports.onVenueWrite = functions.firestore
 
 // 比較用: Firestore のデータとシートのデータが同じかチェック
 function isVenueDataEqual(existing, sheetData) {
-  const fields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee"];
+  const fields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee", "floorType", "poleType", "notes"];
   for (const f of fields) {
     if ((existing[f] || "") !== (sheetData[f] || "")) return false;
   }
@@ -1104,16 +1120,17 @@ function isVenueDataEqual(existing, sheetData) {
   for (const f of numFields) {
     if ((existing[f] || 0) !== (sheetData[f] || 0)) return false;
   }
-  const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+  const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC", "poleAdjustable"];
   for (const f of boolFields) {
     if (!!existing[f] !== !!sheetData[f]) return false;
   }
   if (JSON.stringify(existing.equipments || []) !== JSON.stringify(sheetData.equipments || [])) return false;
+  if (JSON.stringify(existing.timeSlots || {}) !== JSON.stringify(sheetData.timeSlots || {})) return false;
   return true;
 }
 
 async function doImportVenues() {
-  const rows = await sheetsRead(VENUE_SHEET_ID, "会場一覧!A:T");
+  const rows = await sheetsRead(VENUE_SHEET_ID, "会場一覧!A:AF");
   if (rows.length < 2) return { imported: 0, updated: 0, skipped: 0, total: 0 };
 
   const db = admin.firestore();
@@ -1153,6 +1170,17 @@ async function doImportVenues() {
         return { name: part, qty: 1, fee: 0 };
       });
     }
+
+    // 新規カラム（床タイプ、ポール、備考、時間帯別料金）
+    venueData.floorType = row[17] || "";
+    venueData.poleType = row[18] || "";
+    venueData.poleAdjustable = (row[19] || "").trim() === "可";
+    venueData.notes = row[20] || "";
+    venueData.timeSlots = {
+      am: { start: row[21] || "", end: row[22] || "", fee: row[23] || "" },
+      pm: { start: row[24] || "", end: row[25] || "", fee: row[26] || "" },
+      night: { start: row[27] || "", end: row[28] || "", fee: row[29] || "" },
+    };
 
     if (venueId) {
       const existing = await db.collection("venues").doc(venueId).get();
@@ -3384,3 +3412,95 @@ exports.onNoticeCreated = functions.firestore
     }
     return null;
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// アクセス解析データ取得（管理者/公式アカウント専用）
+// セキュリティルールを回避するため Admin SDK を使用
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.getAnalytics = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  }
+
+  const db = admin.firestore();
+  const userDoc = await db.collection("users").doc(context.auth.uid).get();
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError("permission-denied", "ユーザーが見つかりません");
+  }
+  const userData = userDoc.data();
+  if (!userData.isAdmin && !userData.isOfficial) {
+    throw new functions.https.HttpsError("permission-denied", "管理者または公式アカウントのみ利用可能です");
+  }
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fourteenDaysAgo = new Date(today.getTime() - 13 * 86400000);
+
+  const usersRef = db.collection("users");
+
+  // 累計ユーザー
+  const totalSnap = await usersRef.count().get();
+  const totalUsers = totalSnap.data().count || 0;
+
+  // 過去14日分の新規ユーザー
+  const recentUsersSnap = await usersRef
+    .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(fourteenDaysAgo))
+    .get();
+
+  const dailyCounts = {};
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(fourteenDaysAgo.getTime() + i * 86400000);
+    dailyCounts[`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`] = 0;
+  }
+
+  let todayCount = 0;
+  let weekCount = 0;
+  let monthCount = 0;
+
+  for (const doc of recentUsersSnap.docs) {
+    const createdAt = doc.data().createdAt;
+    if (!createdAt) continue;
+    const date = createdAt.toDate();
+    const dayKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+
+    if (dailyCounts[dayKey] !== undefined) {
+      dailyCounts[dayKey]++;
+    }
+
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (dayStart >= today) todayCount++;
+    if (dayStart >= weekAgo) weekCount++;
+    if (dayStart >= monthStart) monthCount++;
+  }
+
+  // monthStart が14日より前の場合、追加クエリ
+  if (monthStart < fourteenDaysAgo) {
+    const earlySnap = await usersRef
+      .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(monthStart))
+      .where("createdAt", "<", admin.firestore.Timestamp.fromDate(fourteenDaysAgo))
+      .get();
+    monthCount += earlySnap.size;
+  }
+
+  // コンテンツ統計（Admin SDK なのでセキュリティルール制限なし）
+  const monthTimestamp = admin.firestore.Timestamp.fromDate(monthStart);
+
+  const [postsSnap, tournamentsSnap, chatsSnap] = await Promise.all([
+    db.collection("posts").where("createdAt", ">=", monthTimestamp).count().get(),
+    db.collection("tournaments").where("createdAt", ">=", monthTimestamp).count().get(),
+    db.collection("chats").where("createdAt", ">=", monthTimestamp).count().get(),
+  ]);
+
+  return {
+    todayNew: todayCount,
+    weekNew: weekCount,
+    monthNew: monthCount,
+    totalUsers,
+    dailyCounts,
+    monthPosts: postsSnap.data().count || 0,
+    monthTournaments: tournamentsSnap.data().count || 0,
+    monthChats: chatsSnap.data().count || 0,
+  };
+});
