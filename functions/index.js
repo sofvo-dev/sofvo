@@ -3574,13 +3574,18 @@ exports.getAnalytics = functions.https.onCall(async (data, context) => {
     ? Math.round((retainedCount / prevWeekUids.size) * 100)
     : 0;
 
-  // 今月のチャットメッセージ数（collectionGroup）
-  const monthMessagesSnap = await db
-    .collectionGroup("messages")
-    .where("createdAt", ">=", monthTimestamp)
-    .count()
-    .get();
-  const monthMessages = monthMessagesSnap.data().count || 0;
+  // 今月のチャットメッセージ数（collectionGroup — インデックスが必要）
+  let monthMessages = 0;
+  try {
+    const monthMessagesSnap = await db
+      .collectionGroup("messages")
+      .where("createdAt", ">=", monthTimestamp)
+      .count()
+      .get();
+    monthMessages = monthMessagesSnap.data().count || 0;
+  } catch (e) {
+    console.warn("messages collectionGroup query failed (index may be building):", e.message);
+  }
 
   // チャット総数
   const totalChatsSnap = await db.collection("chats").count().get();
