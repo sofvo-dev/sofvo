@@ -3462,7 +3462,7 @@ exports.onNoticeCreated = functions.firestore
 // アクセス解析データ取得（管理者/公式アカウント専用）
 // セキュリティルールを回避するため Admin SDK を使用
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-exports.getAnalytics = functions.https.onRequest(async (req, res) => {
+exports.getAnalytics = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -3497,45 +3497,57 @@ exports.getAnalytics = functions.https.onRequest(async (req, res) => {
   const weekAgo = new Date(today.getTime() - 7 * 86400000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const fourteenDaysAgo = new Date(today.getTime() - 13 * 86400000);
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
 
   const usersRef = db.collection("users");
+  const monthTimestamp = admin.firestore.Timestamp.fromDate(monthStart);
+  const todayTimestamp = admin.firestore.Timestamp.fromDate(today);
+  const weekAgoTimestamp = admin.firestore.Timestamp.fromDate(weekAgo);
+  const thirtyDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
 
-  // 累計ユーザー
-  const totalSnap = await usersRef.count().get();
+  // 全クエリを並列実行
+  const [
+    totalSnap, recentUsersSnap,
+    postsSnap, tournamentsSnap, chatsSnap,
+    dauSnap, wauSnap, mauSnap,
+    totalChatsSnap,
+  ] = await Promise.all([
+    usersRef.count().get(),
+    usersRef.where("createdAt", ">=", admin.firestore.Timestamp.fromDate(fourteenDaysAgo)).get(),
+    db.collection("posts").where("createdAt", ">=", monthTimestamp).count().get(),
+    db.collection("tournaments").where("createdAt", ">=", monthTimestamp).count().get(),
+    db.collection("chats").where("createdAt", ">=", monthTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", todayTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", weekAgoTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", thirtyDaysAgoTimestamp).count().get(),
+    db.collection("chats").count().get(),
+  ]);
+
   const totalUsers = totalSnap.data().count || 0;
+  const dauCount = dauSnap.data().count || 0;
+  const wauCount = wauSnap.data().count || 0;
+  const mauCount = mauSnap.data().count || 0;
+  const totalChats = totalChatsSnap.data().count || 0;
 
-  // 過去14日分の新規ユーザー
-  const recentUsersSnap = await usersRef
-    .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(fourteenDaysAgo))
-    .get();
-
+  // 日別カウント計算
   const dailyCounts = {};
   for (let i = 0; i < 14; i++) {
     const d = new Date(fourteenDaysAgo.getTime() + i * 86400000);
     dailyCounts[`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`] = 0;
   }
-
-  let todayCount = 0;
-  let weekCount = 0;
-  let monthCount = 0;
-
+  let todayCount = 0, weekCount = 0, monthCount = 0;
   for (const doc of recentUsersSnap.docs) {
     const createdAt = doc.data().createdAt;
     if (!createdAt) continue;
     const date = createdAt.toDate();
     const dayKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-
-    if (dailyCounts[dayKey] !== undefined) {
-      dailyCounts[dayKey]++;
-    }
-
+    if (dailyCounts[dayKey] !== undefined) dailyCounts[dayKey]++;
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     if (dayStart >= today) todayCount++;
     if (dayStart >= weekAgo) weekCount++;
     if (dayStart >= monthStart) monthCount++;
   }
 
-  // monthStart が14日より前の場合、追加クエリ
   if (monthStart < fourteenDaysAgo) {
     const earlySnap = await usersRef
       .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(monthStart))
@@ -3544,51 +3556,17 @@ exports.getAnalytics = functions.https.onRequest(async (req, res) => {
     monthCount += earlySnap.size;
   }
 
-  // コンテンツ統計（Admin SDK なのでセキュリティルール制限なし）
-  const monthTimestamp = admin.firestore.Timestamp.fromDate(monthStart);
-
-  const [postsSnap, tournamentsSnap, chatsSnap] = await Promise.all([
-    db.collection("posts").where("createdAt", ">=", monthTimestamp).count().get(),
-    db.collection("tournaments").where("createdAt", ">=", monthTimestamp).count().get(),
-    db.collection("chats").where("createdAt", ">=", monthTimestamp).count().get(),
-  ]);
-
-  // DAU / WAU / MAU（lastActiveAt ベース）
-  const todayTimestamp = admin.firestore.Timestamp.fromDate(today);
-  const weekAgoTimestamp = admin.firestore.Timestamp.fromDate(weekAgo);
-  const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
-  const thirtyDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
-
-  const [dauSnap, wauSnap, mauSnap] = await Promise.all([
-    usersRef.where("lastActiveAt", ">=", todayTimestamp).count().get(),
-    usersRef.where("lastActiveAt", ">=", weekAgoTimestamp).count().get(),
-    usersRef.where("lastActiveAt", ">=", thirtyDaysAgoTimestamp).count().get(),
-  ]);
-  const dauCount = dauSnap.data().count || 0;
-  const wauCount = wauSnap.data().count || 0;
-  const mauCount = mauSnap.data().count || 0;
-
-  // リテンション率: 前の7日間にアクティブだったユーザーのうち、直近7日間もアクティブだったユーザーの割合
-  const prevWeekStart = new Date(weekAgo.getTime() - 7 * 86400000);
-  const prevWeekStartTimestamp = admin.firestore.Timestamp.fromDate(prevWeekStart);
-  const prevWeekUsersSnap = await usersRef
-    .where("lastActiveAt", ">=", prevWeekStartTimestamp)
-    .where("lastActiveAt", "<", weekAgoTimestamp)
-    .get();
-  const prevWeekUids = new Set(prevWeekUsersSnap.docs.map((d) => d.id));
-  let retainedCount = 0;
-  if (prevWeekUids.size > 0) {
-    const currentWeekSnap = await usersRef
-      .where("lastActiveAt", ">=", weekAgoTimestamp)
-      .get();
-    for (const doc of currentWeekSnap.docs) {
-      if (prevWeekUids.has(doc.id)) retainedCount++;
+  // リテンション率（簡易版）
+  let retentionRate = 0;
+  try {
+    const prevWeekStartTimestamp = admin.firestore.Timestamp.fromDate(new Date(weekAgo.getTime() - 7 * 86400000));
+    const prevSnap = await usersRef.where("lastActiveAt", ">=", prevWeekStartTimestamp).where("lastActiveAt", "<", weekAgoTimestamp).count().get();
+    const prevCount = prevSnap.data().count || 0;
+    if (prevCount > 0) {
+      const retainedSnap = await usersRef.where("lastActiveAt", ">=", weekAgoTimestamp).count().get();
+      retentionRate = Math.min(Math.round((retainedSnap.data().count / prevCount) * 100), 100);
     }
-  }
-  const retentionRate = prevWeekUids.size > 0
-    ? Math.round((retainedCount / prevWeekUids.size) * 100)
-    : 0;
-
+  } catch (e) { console.warn("retention calc failed:", e.message); }
   // 今月のチャットメッセージ数（collectionGroup — インデックスが必要）
   let monthMessages = 0;
   try {
@@ -3599,12 +3577,8 @@ exports.getAnalytics = functions.https.onRequest(async (req, res) => {
       .get();
     monthMessages = monthMessagesSnap.data().count || 0;
   } catch (e) {
-    console.warn("messages collectionGroup query failed (index may be building):", e.message);
+    console.warn("messages collectionGroup query failed:", e.message);
   }
-
-  // チャット総数
-  const totalChatsSnap = await db.collection("chats").count().get();
-  const totalChats = totalChatsSnap.data().count || 0;
 
   // ユーザーセグメント（experience フィールド別）
   const allUsersSnap = await usersRef.select("experience").get();
@@ -3767,7 +3741,7 @@ exports.broadcastChatMessage = functions.https.onCall(async (data, context) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ユーザーセグメント取得（管理者用 Callable Function）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-exports.getUserSegments = functions.https.onRequest(async (req, res) => {
+exports.getUserSegments = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
