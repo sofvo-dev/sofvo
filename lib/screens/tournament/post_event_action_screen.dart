@@ -125,6 +125,10 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
   Widget _buildReviewScreen() {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -258,6 +262,10 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
   Widget _buildFollowUpScreen() {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
