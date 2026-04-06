@@ -249,12 +249,12 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) {
+      builder: (routeContext) {
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
             backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
-            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(routeContext).pop()),
             title: const Text('新しいメッセージ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             centerTitle: true,
           ),
@@ -345,7 +345,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                           if (_officialCache[uid] == true) const OfficialBadge(size: 15),
                         ]),
                     onTap: () {
-                      Navigator.of(context).pop();
+                      Navigator.of(routeContext).pop();
                       _startDmWith(uid, name);
                     },
                   );

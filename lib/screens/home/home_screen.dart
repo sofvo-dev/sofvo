@@ -95,7 +95,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
-  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     FollowService.instance.removeListener(_onFollowChanged);
