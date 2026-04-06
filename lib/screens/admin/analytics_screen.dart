@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../config/app_theme.dart';
 
 /// アクセス解析画面（公式アカウント専用）
+/// Cloud Functions の getAnalytics を使用（Admin SDK でセキュリティルール制限なし）
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
 
@@ -11,7 +12,6 @@ class AnalyticsScreen extends StatefulWidget {
 }
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  final _firestore = FirebaseFirestore.instance;
   Future<_AnalyticsData>? _future;
 
   @override
@@ -21,93 +21,35 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<_AnalyticsData> _loadData() async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final weekAgo = today.subtract(const Duration(days: 7));
-    final monthStart = DateTime(now.year, now.month, 1);
-    final fourteenDaysAgo = today.subtract(const Duration(days: 13));
+    final callable = FirebaseFunctions.instance.httpsCallable('getAnalytics');
+    final result = await callable.call();
+    final data = result.data as Map<String, dynamic>;
 
-    // ── ユーザー関連 ──
-    final usersRef = _firestore.collection('users');
-
-    // 累計ユーザー
-    final totalSnap = await usersRef.count().get();
-    final totalUsers = totalSnap.count ?? 0;
-
-    // 過去14日分のユーザーを取得して日別にグループ化
-    final recentUsersSnap = await usersRef
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(fourteenDaysAgo))
-        .get();
-
-    // 日別カウント
-    final dailyCounts = <DateTime, int>{};
-    for (var i = 0; i < 14; i++) {
-      dailyCounts[fourteenDaysAgo.add(Duration(days: i))] = 0;
-    }
-
-    int todayCount = 0;
-    int weekCount = 0;
-    int monthCount = 0;
-
-    for (final doc in recentUsersSnap.docs) {
-      final data = doc.data();
-      final createdAt = data['createdAt'];
-      if (createdAt == null || createdAt is! Timestamp) continue;
-      final date = createdAt.toDate();
-      final dayKey = DateTime(date.year, date.month, date.day);
-
-      if (dailyCounts.containsKey(dayKey)) {
-        dailyCounts[dayKey] = dailyCounts[dayKey]! + 1;
+    // dailyCounts を日付順のリストに変換
+    final dailyMap = (data['dailyCounts'] as Map<String, dynamic>?) ?? {};
+    final dailyEntries = <MapEntry<DateTime, int>>[];
+    for (final entry in dailyMap.entries) {
+      final parts = entry.key.split('-');
+      if (parts.length == 3) {
+        final date = DateTime(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+          int.parse(parts[2]),
+        );
+        dailyEntries.add(MapEntry(date, (entry.value as num).toInt()));
       }
-
-      if (!dayKey.isBefore(today)) todayCount++;
-      if (!dayKey.isBefore(weekAgo)) weekCount++;
-      if (!dayKey.isBefore(monthStart)) monthCount++;
     }
-
-    // monthStart が14日より前の場合、追加でクエリ
-    if (monthStart.isBefore(fourteenDaysAgo)) {
-      final earlyMonthSnap = await usersRef
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart))
-          .where('createdAt', isLessThan: Timestamp.fromDate(fourteenDaysAgo))
-          .get();
-      monthCount += earlyMonthSnap.size;
-    }
-
-    // ── コンテンツ統計 ──
-    final monthTimestamp = Timestamp.fromDate(monthStart);
-
-    final postsSnap = await _firestore
-        .collection('posts')
-        .where('createdAt', isGreaterThanOrEqualTo: monthTimestamp)
-        .count()
-        .get();
-
-    final tournamentsSnap = await _firestore
-        .collection('tournaments')
-        .where('createdAt', isGreaterThanOrEqualTo: monthTimestamp)
-        .count()
-        .get();
-
-    final chatsSnap = await _firestore
-        .collection('chats')
-        .where('createdAt', isGreaterThanOrEqualTo: monthTimestamp)
-        .count()
-        .get();
-
-    // 日別データをソート済みリストに変換
-    final sortedDays = dailyCounts.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+    dailyEntries.sort((a, b) => a.key.compareTo(b.key));
 
     return _AnalyticsData(
-      todayNew: todayCount,
-      weekNew: weekCount,
-      monthNew: monthCount,
-      totalUsers: totalUsers,
-      dailyRegistrations: sortedDays,
-      monthPosts: postsSnap.count ?? 0,
-      monthTournaments: tournamentsSnap.count ?? 0,
-      monthChats: chatsSnap.count ?? 0,
+      todayNew: (data['todayNew'] as num?)?.toInt() ?? 0,
+      weekNew: (data['weekNew'] as num?)?.toInt() ?? 0,
+      monthNew: (data['monthNew'] as num?)?.toInt() ?? 0,
+      totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
+      dailyRegistrations: dailyEntries,
+      monthPosts: (data['monthPosts'] as num?)?.toInt() ?? 0,
+      monthTournaments: (data['monthTournaments'] as num?)?.toInt() ?? 0,
+      monthChats: (data['monthChats'] as num?)?.toInt() ?? 0,
     );
   }
 
