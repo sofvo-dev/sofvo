@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/official_badge.dart';
 import 'user_profile_screen.dart';
+import '../admin/admin_user_detail_screen.dart';
 
 /// 全登録ユーザー一覧（管理者用）
 class AdminUserListScreen extends StatefulWidget {
@@ -132,8 +133,9 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
 
                     return ListTile(
                       onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => AdminUserDetailScreen(userId: uid))),
+                      onLongPress: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => UserProfileScreen(userId: uid))),
-                      onLongPress: () => _showBanOptions(context, uid, nickname, isBanned),
                       leading: avatarUrl.isNotEmpty
                           ? CircleAvatar(
                               radius: 22,
