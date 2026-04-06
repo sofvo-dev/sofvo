@@ -799,6 +799,10 @@ async function doSyncVenuesToSheet() {
 
   const venueRows = venuesSnap.docs.map((doc) => {
     const v = doc.data();
+    const ts = v.timeSlots || {};
+    const am = ts.am || {};
+    const pm = ts.pm || {};
+    const night = ts.night || {};
     return [
       doc.id,
       v.name || "",
@@ -817,6 +821,13 @@ async function doSyncVenuesToSheet() {
       v.closeTime || "",
       v.fee || "",
       (v.equipments || []).map((eq) => `${eq.name}(${eq.qty}個${eq.fee > 0 ? "/¥" + eq.fee : "/無料"})`).join(", "),
+      v.floorType || "",
+      v.poleType || "",
+      v.poleAdjustable ? "可" : "不可",
+      v.notes || "",
+      am.start || "", am.end || "", am.fee || "",
+      pm.start || "", pm.end || "", pm.fee || "",
+      night.start || "", night.end || "", night.fee || "",
       v.rating || 0,
       v.reviewCount || 0,
       v.createdAt ? v.createdAt.toDate().toISOString().split("T")[0] : "",
@@ -827,7 +838,11 @@ async function doSyncVenuesToSheet() {
   const values = [
     ["会場ID", "会場名", "住所", "電話", "最寄り駅", "コート数", "駐車場", "トイレ",
      "更衣室", "シャワー", "観覧席", "空調", "飲食エリア",
-     "開始時間", "終了時間", "料金", "貸出備品", "評価", "レビュー数", "登録日"],
+     "開始時間", "終了時間", "料金", "貸出備品",
+     "床タイプ", "ポールタイプ", "ポール高さ調整", "備考",
+     "午前開始", "午前終了", "午前料金", "午後開始", "午後終了", "午後料金",
+     "夜間開始", "夜間終了", "夜間料金",
+     "評価", "レビュー数", "登録日"],
     ...venueRows,
   ];
 
@@ -838,7 +853,7 @@ async function doSyncVenuesToSheet() {
     await sheetsUpdate(VENUE_SHEET_ID, `${sheetName}!A1`, values);
   }
   const nextRow = values.length + 1;
-  await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A${nextRow}:T10000`);
+  await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A${nextRow}:AF10000`);
 
   return venueRows.length;
 }
@@ -893,7 +908,7 @@ exports.clearVenues = functions.https.onRequest(async (req, res) => {
 
     // 2. Google Sheets の会場一覧シートをヘッダーだけ残してクリア
     const sheetName = "会場一覧";
-    await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A2:T10000`);
+    await sheetsClear(VENUE_SHEET_ID, `${sheetName}!A2:AF10000`);
 
     console.log(`Cleared ${deletedCount} venues from Firestore and Sheets`);
     res.json({ success: true, deletedFromFirestore: deletedCount });
@@ -1070,14 +1085,15 @@ exports.onVenueWrite = functions.firestore
     if (change.before.exists && change.after.exists) {
       const before = change.before.data();
       const after = change.after.data();
-      const strFields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee"];
+      const strFields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee", "floorType", "poleType", "notes"];
       const numFields = ["courts", "parking"];
-      const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+      const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC", "poleAdjustable"];
       const strChanged = strFields.some((f) => (before[f] || "") !== (after[f] || ""));
       const numChanged = numFields.some((f) => (before[f] || 0) !== (after[f] || 0));
       const boolChanged = boolFields.some((f) => !!before[f] !== !!after[f]);
       const eqChanged = JSON.stringify(before.equipments || []) !== JSON.stringify(after.equipments || []);
-      if (!strChanged && !numChanged && !boolChanged && !eqChanged) return;
+      const tsChanged = JSON.stringify(before.timeSlots || {}) !== JSON.stringify(after.timeSlots || {});
+      if (!strChanged && !numChanged && !boolChanged && !eqChanged && !tsChanged) return;
     }
     try {
       const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
@@ -1096,7 +1112,7 @@ exports.onVenueWrite = functions.firestore
 
 // 比較用: Firestore のデータとシートのデータが同じかチェック
 function isVenueDataEqual(existing, sheetData) {
-  const fields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee"];
+  const fields = ["name", "address", "phone", "station", "eatArea", "openTime", "closeTime", "fee", "floorType", "poleType", "notes"];
   for (const f of fields) {
     if ((existing[f] || "") !== (sheetData[f] || "")) return false;
   }
@@ -1104,16 +1120,17 @@ function isVenueDataEqual(existing, sheetData) {
   for (const f of numFields) {
     if ((existing[f] || 0) !== (sheetData[f] || 0)) return false;
   }
-  const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC"];
+  const boolFields = ["hasToilet", "hasChangeRoom", "hasShower", "hasGallery", "hasAC", "poleAdjustable"];
   for (const f of boolFields) {
     if (!!existing[f] !== !!sheetData[f]) return false;
   }
   if (JSON.stringify(existing.equipments || []) !== JSON.stringify(sheetData.equipments || [])) return false;
+  if (JSON.stringify(existing.timeSlots || {}) !== JSON.stringify(sheetData.timeSlots || {})) return false;
   return true;
 }
 
 async function doImportVenues() {
-  const rows = await sheetsRead(VENUE_SHEET_ID, "会場一覧!A:T");
+  const rows = await sheetsRead(VENUE_SHEET_ID, "会場一覧!A:AF");
   if (rows.length < 2) return { imported: 0, updated: 0, skipped: 0, total: 0 };
 
   const db = admin.firestore();
@@ -1153,6 +1170,17 @@ async function doImportVenues() {
         return { name: part, qty: 1, fee: 0 };
       });
     }
+
+    // 新規カラム（床タイプ、ポール、備考、時間帯別料金）
+    venueData.floorType = row[17] || "";
+    venueData.poleType = row[18] || "";
+    venueData.poleAdjustable = (row[19] || "").trim() === "可";
+    venueData.notes = row[20] || "";
+    venueData.timeSlots = {
+      am: { start: row[21] || "", end: row[22] || "", fee: row[23] || "" },
+      pm: { start: row[24] || "", end: row[25] || "", fee: row[26] || "" },
+      night: { start: row[27] || "", end: row[28] || "", fee: row[29] || "" },
+    };
 
     if (venueId) {
       const existing = await db.collection("venues").doc(venueId).get();
@@ -3039,17 +3067,28 @@ async function sendFcmToTokens(tokens, payload) {
       const enrichedPayload = {
         ...payload,
         apns: {
+          headers: {
+            "apns-priority": "10",
+            "apns-push-type": "alert",
+          },
           payload: {
             aps: {
+              alert: {
+                title: payload.notification?.title || "",
+                body: payload.notification?.body || "",
+              },
               badge: badgeCount,
               sound: "default",
+              "mutable-content": 1,
             },
           },
           ...(payload.apns || {}),
         },
         android: {
+          priority: "high",
           notification: {
             sound: "default",
+            channelId: "chat_messages",
             ...(payload.android?.notification || {}),
           },
           ...(payload.android || {}),
@@ -3226,58 +3265,103 @@ exports.onNotificationCreatedPush = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 大会前日リマインダー（毎日9:00 JST実行）
+// 大会リマインダー（毎日9:00 JST実行 — config/reminderSettings で設定可能）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.sendTournamentReminders = functions.pubsub
   .schedule("0 0 * * *") // UTC 0:00 = JST 9:00
   .timeZone("Asia/Tokyo")
   .onRun(async () => {
     const db = admin.firestore();
-    // 明日の日付を取得 (YYYY/MM/DD形式)
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const yyyy = tomorrow.getFullYear();
-    const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
-    const dd = String(tomorrow.getDate()).padStart(2, "0");
-    const tomorrowStr = `${yyyy}/${mm}/${dd}`;
 
-    // 明日開催の大会を取得
-    const tournaments = await db.collection("tournaments")
-      .where("date", "==", tomorrowStr)
-      .where("status", "in", ["募集中", "締切"])
-      .get();
+    // リマインダー設定を読み込み
+    const configDoc = await db.collection("config").doc("reminderSettings").get();
+    const config = configDoc.exists ? configDoc.data() : null;
+    const messageTemplate = (config && config.messageTemplate) ? config.messageTemplate : null;
 
-    for (const tDoc of tournaments.docs) {
-      const tData = tDoc.data();
-      const tournamentName = tData.title || "大会";
+    // 有効なタイミングを取得（設定がない場合は前日のみ）
+    let enabledTimings = [{ key: "1day", label: "前日", enabled: true, daysBefore: 1, hoursBefore: 0 }];
+    if (config && Array.isArray(config.timings)) {
+      const active = config.timings.filter((t) => t.enabled);
+      if (active.length > 0) enabledTimings = active;
+    }
 
-      // 参加者を取得
-      const entries = await tDoc.ref.collection("entries").get();
-      const participantUids = new Set();
-      for (const entry of entries.docs) {
-        const eData = entry.data();
-        if (Array.isArray(eData.memberUids)) {
-          eData.memberUids.forEach((uid) => { if (uid) participantUids.add(uid); });
+    const now = new Date();
+
+    for (const timing of enabledTimings) {
+      const daysBefore = timing.daysBefore || 0;
+
+      // 対象日を計算
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + daysBefore);
+
+      const yyyy = targetDate.getFullYear();
+      const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(targetDate.getDate()).padStart(2, "0");
+      const targetDateStr = `${yyyy}/${mm}/${dd}`;
+
+      // 対象大会を取得
+      const tournaments = await db.collection("tournaments")
+        .where("date", "==", targetDateStr)
+        .where("status", "in", ["募集中", "締切"])
+        .get();
+
+      for (const tDoc of tournaments.docs) {
+        const tData = tDoc.data();
+        const tournamentName = tData.title || "大会";
+        const venue = tData.venue || tData.location || "";
+        const dateStr = tData.date || "";
+        const timeStr = tData.time || "";
+        const dateTimeStr = timeStr ? `${dateStr} ${timeStr}` : dateStr;
+
+        // メッセージ生成
+        let message;
+        if (messageTemplate) {
+          message = messageTemplate
+            .replace(/\{大会名\}/g, tournamentName)
+            .replace(/\{日時\}/g, dateTimeStr)
+            .replace(/\{会場\}/g, venue);
+        } else {
+          if (timing.key === "7days") {
+            message = `「${tournamentName}」の開催まであと1週間です！`;
+          } else if (timing.key === "3days") {
+            message = `「${tournamentName}」の開催まであと3日です！`;
+          } else if (timing.key === "morning") {
+            message = `本日「${tournamentName}」が開催されます！`;
+          } else if (timing.key === "1hour") {
+            message = `まもなく「${tournamentName}」が開始されます！`;
+          } else {
+            message = `明日は「${tournamentName}」の開催日です！`;
+          }
         }
-        if (eData.enteredBy) participantUids.add(eData.enteredBy);
-      }
 
-      // 各参加者にリマインダー通知
-      const batch = db.batch();
-      for (const uid of participantUids) {
-        const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
-        batch.set(notifRef, {
-          type: "deadline_approaching",
-          senderId: "system",
-          senderName: "",
-          senderAvatar: "",
-          message: `明日は「${tournamentName}」の開催日です！`,
-          tournamentId: tDoc.id,
-          read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        // 参加者を取得
+        const entries = await tDoc.ref.collection("entries").get();
+        const participantUids = new Set();
+        for (const entry of entries.docs) {
+          const eData = entry.data();
+          if (Array.isArray(eData.memberUids)) {
+            eData.memberUids.forEach((uid) => { if (uid) participantUids.add(uid); });
+          }
+          if (eData.enteredBy) participantUids.add(eData.enteredBy);
+        }
+
+        // 各参加者にリマインダー通知
+        const batch = db.batch();
+        for (const uid of participantUids) {
+          const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
+          batch.set(notifRef, {
+            type: "deadline_approaching",
+            senderId: "system",
+            senderName: "",
+            senderAvatar: "",
+            message: message,
+            tournamentId: tDoc.id,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
       }
-      await batch.commit();
     }
     return null;
   });
@@ -3373,3 +3457,405 @@ exports.onNoticeCreated = functions.firestore
     }
     return null;
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// アクセス解析データ取得（管理者/公式アカウント専用）
+// セキュリティルールを回避するため Admin SDK を使用
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.getAnalytics = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+  // 認証チェック
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "認証が必要です" }); return;
+  }
+  let uid;
+  try {
+    const decoded = await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+    uid = decoded.uid;
+  } catch (e) {
+    res.status(401).json({ error: "無効なトークンです" }); return;
+  }
+
+  const db = admin.firestore();
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists) {
+    res.status(403).json({ error: "ユーザーが見つかりません" }); return;
+  }
+  const userData = userDoc.data();
+  if (!userData.isAdmin && !userData.isOfficial) {
+    res.status(403).json({ error: "管理者または公式アカウントのみ利用可能です" }); return;
+  }
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fourteenDaysAgo = new Date(today.getTime() - 13 * 86400000);
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
+
+  const usersRef = db.collection("users");
+  const monthTimestamp = admin.firestore.Timestamp.fromDate(monthStart);
+  const todayTimestamp = admin.firestore.Timestamp.fromDate(today);
+  const weekAgoTimestamp = admin.firestore.Timestamp.fromDate(weekAgo);
+  const thirtyDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+
+  // 全クエリを並列実行
+  const [
+    totalSnap, recentUsersSnap,
+    postsSnap, tournamentsSnap, chatsSnap,
+    dauSnap, wauSnap, mauSnap,
+    totalChatsSnap,
+  ] = await Promise.all([
+    usersRef.count().get(),
+    usersRef.where("createdAt", ">=", admin.firestore.Timestamp.fromDate(fourteenDaysAgo)).get(),
+    db.collection("posts").where("createdAt", ">=", monthTimestamp).count().get(),
+    db.collection("tournaments").where("createdAt", ">=", monthTimestamp).count().get(),
+    db.collection("chats").where("createdAt", ">=", monthTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", todayTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", weekAgoTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", thirtyDaysAgoTimestamp).count().get(),
+    db.collection("chats").count().get(),
+  ]);
+
+  const totalUsers = totalSnap.data().count || 0;
+  const dauCount = dauSnap.data().count || 0;
+  const wauCount = wauSnap.data().count || 0;
+  const mauCount = mauSnap.data().count || 0;
+  const totalChats = totalChatsSnap.data().count || 0;
+
+  // 日別カウント計算
+  const dailyCounts = {};
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(fourteenDaysAgo.getTime() + i * 86400000);
+    dailyCounts[`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`] = 0;
+  }
+  let todayCount = 0, weekCount = 0, monthCount = 0;
+  for (const doc of recentUsersSnap.docs) {
+    const createdAt = doc.data().createdAt;
+    if (!createdAt) continue;
+    const date = createdAt.toDate();
+    const dayKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    if (dailyCounts[dayKey] !== undefined) dailyCounts[dayKey]++;
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (dayStart >= today) todayCount++;
+    if (dayStart >= weekAgo) weekCount++;
+    if (dayStart >= monthStart) monthCount++;
+  }
+
+  if (monthStart < fourteenDaysAgo) {
+    const earlySnap = await usersRef
+      .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(monthStart))
+      .where("createdAt", "<", admin.firestore.Timestamp.fromDate(fourteenDaysAgo))
+      .get();
+    monthCount += earlySnap.size;
+  }
+
+  // リテンション率（簡易版）
+  let retentionRate = 0;
+  try {
+    const prevWeekStartTimestamp = admin.firestore.Timestamp.fromDate(new Date(weekAgo.getTime() - 7 * 86400000));
+    const prevSnap = await usersRef.where("lastActiveAt", ">=", prevWeekStartTimestamp).where("lastActiveAt", "<", weekAgoTimestamp).count().get();
+    const prevCount = prevSnap.data().count || 0;
+    if (prevCount > 0) {
+      const retainedSnap = await usersRef.where("lastActiveAt", ">=", weekAgoTimestamp).count().get();
+      retentionRate = Math.min(Math.round((retainedSnap.data().count / prevCount) * 100), 100);
+    }
+  } catch (e) { console.warn("retention calc failed:", e.message); }
+  // 今月のチャットメッセージ数（collectionGroup — インデックスが必要）
+  let monthMessages = 0;
+  try {
+    const monthMessagesSnap = await db
+      .collectionGroup("messages")
+      .where("createdAt", ">=", monthTimestamp)
+      .count()
+      .get();
+    monthMessages = monthMessagesSnap.data().count || 0;
+  } catch (e) {
+    console.warn("messages collectionGroup query failed:", e.message);
+  }
+
+  // ユーザーセグメント（experience フィールド別）
+  const allUsersSnap = await usersRef.select("experience").get();
+  const segments = {};
+  for (const doc of allUsersSnap.docs) {
+    const exp = doc.data().experience || "unknown";
+    segments[exp] = (segments[exp] || 0) + 1;
+  }
+
+  return {
+    todayNew: todayCount,
+    weekNew: weekCount,
+    monthNew: monthCount,
+    totalUsers,
+    dailyCounts,
+    monthPosts: postsSnap.data().count || 0,
+    monthTournaments: tournamentsSnap.data().count || 0,
+    monthChats: chatsSnap.data().count || 0,
+    dau: dauCount,
+    wau: wauCount,
+    mau: mauCount,
+    retentionRate,
+    monthMessages,
+    totalChats,
+    segments,
+  };
+  res.json(result);
+
+  } catch (e) {
+    console.error("getAnalytics error:", e);
+    res.status(500).json({ error: e.message || "Unknown error" });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ブロードキャストチャットメッセージ送信
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.broadcastChatMessage = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  }
+
+  const db = admin.firestore();
+  const senderId = context.auth.uid;
+
+  // 権限チェック
+  const senderDoc = await db.collection("users").doc(senderId).get();
+  if (!senderDoc.exists) {
+    throw new functions.https.HttpsError("permission-denied", "ユーザーが見つかりません");
+  }
+  const senderData = senderDoc.data();
+  if (!senderData.isAdmin && !senderData.isOfficial) {
+    throw new functions.https.HttpsError("permission-denied", "管理者または公式アカウントのみ利用可能です");
+  }
+
+  const { message, target } = data;
+  if (!message || typeof message !== "string" || message.trim().length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "メッセージを入力してください");
+  }
+
+  const senderName = senderData.nickname || senderData.displayName || "公式";
+
+  // ターゲットユーザーを取得
+  const usersRef = db.collection("users");
+  let usersSnap;
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+  const thirtyDaysAgoTs = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+
+  switch (target) {
+    case "active":
+      usersSnap = await usersRef.where("lastActiveAt", ">=", thirtyDaysAgoTs).get();
+      break;
+    case "beginner":
+      usersSnap = await usersRef.where("experience", "==", "1年未満").get();
+      break;
+    case "dormant":
+      usersSnap = await usersRef.where("lastActiveAt", "<", thirtyDaysAgoTs).get();
+      break;
+    default:
+      usersSnap = await usersRef.get();
+  }
+
+  let sentCount = 0;
+  const batchSize = 500;
+  let batch = db.batch();
+  let batchCount = 0;
+
+  for (const userDoc of usersSnap.docs) {
+    const targetUserId = userDoc.id;
+    if (targetUserId === senderId) continue;
+
+    const targetData = userDoc.data();
+    const targetName = targetData.nickname || targetData.displayName || "ユーザー";
+
+    // 既存のDMチャットを検索
+    const existingChats = await db.collection("chats")
+      .where("type", "==", "dm")
+      .where("members", "array-contains", senderId)
+      .get();
+
+    let chatId = null;
+    for (const chatDoc of existingChats.docs) {
+      const members = chatDoc.data().members || [];
+      if (members.includes(targetUserId)) {
+        chatId = chatDoc.id;
+        break;
+      }
+    }
+
+    // DMチャットが存在しない場合は作成
+    if (!chatId) {
+      const chatRef = await db.collection("chats").add({
+        type: "dm",
+        members: [senderId, targetUserId],
+        memberNames: { [senderId]: senderName, [targetUserId]: targetName },
+        lastMessage: "",
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastRead: { [senderId]: admin.firestore.FieldValue.serverTimestamp() },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      chatId = chatRef.id;
+    }
+
+    // メッセージを送信
+    const messageRef = db.collection("chats").doc(chatId).collection("messages").doc();
+    batch.set(messageRef, {
+      text: message.trim(),
+      senderId: senderId,
+      senderName: senderName,
+      type: "text",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // チャットのlastMessageを更新
+    const chatRef = db.collection("chats").doc(chatId);
+    batch.update(chatRef, {
+      lastMessage: message.trim().substring(0, 100),
+      lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    batchCount += 2;
+    sentCount++;
+
+    // バッチサイズ上限でコミット
+    if (batchCount >= batchSize) {
+      await batch.commit();
+      batch = db.batch();
+      batchCount = 0;
+    }
+  }
+
+  if (batchCount > 0) {
+    await batch.commit();
+  }
+
+  return { sentCount };
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ユーザーセグメント取得（管理者用 Callable Function）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.getUserSegments = functions.runWith({ timeoutSeconds: 120, memory: "512MB" }).https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  try {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "認証が必要です" }); return;
+  }
+  let uid;
+  try {
+    const decoded = await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+    uid = decoded.uid;
+  } catch (e) {
+    res.status(401).json({ error: "無効なトークンです" }); return;
+  }
+
+  const db = admin.firestore();
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists) {
+    res.status(403).json({ error: "ユーザーが見つかりません" }); return;
+  }
+  const userData = userDoc.data();
+  if (!userData.isAdmin && !userData.isOfficial) {
+    res.status(403).json({ error: "管理者または公式アカウントのみ利用可能です" }); return;
+  }
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+  const thirtyDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+  const sevenDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(sevenDaysAgo);
+
+  // 全ユーザー取得（必要フィールドのみ）
+  const usersSnap = await db.collection("users")
+    .select("experience", "area", "gender", "lastActiveAt", "createdAt")
+    .get();
+
+  let totalUsers = 0;
+  let activeUsers = 0;
+  let inactiveUsers = 0;
+  let newUsers = 0;
+
+  const experienceSegments = {};
+  const areaSegments = {};
+  const genderSegments = {};
+
+  // 競技歴のマッピング
+  const experienceLabels = {
+    "lessThan1": "1年未満",
+    "1to3": "1-3年",
+    "3to5": "3-5年",
+    "5plus": "5年以上",
+    "beginner": "1年未満",
+    "intermediate": "1-3年",
+    "advanced": "3-5年",
+    "expert": "5年以上",
+  };
+
+  // 性別のマッピング
+  const genderLabels = {
+    "male": "男性",
+    "female": "女性",
+    "男性": "男性",
+    "女性": "女性",
+  };
+
+  for (const doc of usersSnap.docs) {
+    const d = doc.data();
+    totalUsers++;
+
+    // アクティブ/休眠判定
+    const lastActiveAt = d.lastActiveAt;
+    if (lastActiveAt && lastActiveAt.toDate() >= thirtyDaysAgo) {
+      activeUsers++;
+    } else {
+      inactiveUsers++;
+    }
+
+    // 新規判定
+    const createdAt = d.createdAt;
+    if (createdAt && createdAt.toDate() >= sevenDaysAgo) {
+      newUsers++;
+    }
+
+    // 競技歴
+    const rawExp = d.experience || "";
+    const expLabel = experienceLabels[rawExp] || rawExp || "未設定";
+    experienceSegments[expLabel] = (experienceSegments[expLabel] || 0) + 1;
+
+    // エリア
+    const area = d.area || "未設定";
+    areaSegments[area] = (areaSegments[area] || 0) + 1;
+
+    // 性別
+    const rawGender = d.gender || "";
+    const genderLabel = genderLabels[rawGender] || rawGender || "未設定";
+    genderSegments[genderLabel] = (genderSegments[genderLabel] || 0) + 1;
+  }
+
+  return {
+    totalUsers,
+    activeUsers,
+    inactiveUsers,
+    newUsers,
+    experienceSegments,
+    areaSegments,
+    genderSegments,
+  };
+  res.json(result);
+
+  } catch (e) {
+    console.error("getUserSegments error:", e);
+    res.status(500).json({ error: e.message || "Unknown error" });
+  }
+});

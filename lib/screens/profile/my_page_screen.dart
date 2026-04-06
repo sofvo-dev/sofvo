@@ -30,6 +30,12 @@ import '../admin/tournament_template_screen.dart';
 import '../admin/analytics_screen.dart';
 import '../admin/certification_screen.dart';
 import '../admin/article_list_screen.dart';
+import '../admin/broadcast_message_screen.dart';
+import '../admin/campaign_management_screen.dart';
+import '../admin/feedback_screen.dart';
+import '../admin/faq_management_screen.dart';
+import '../admin/reminder_settings_screen.dart';
+import '../admin/user_segment_screen.dart';
 import 'admin_user_list_screen.dart';
 import 'follow_list_screen.dart';
 import 'settings_screen.dart';
@@ -490,6 +496,71 @@ class MyPageScreen extends StatelessWidget {
                               color: Colors.deepPurple,
                               onTap: () => Navigator.push(context,
                                   MaterialPageRoute(builder: (_) => const ArticleListScreen())),
+                            ))],
+                          ),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // ── エンゲージメント ──
+                      _buildCardSection(
+                        context: context,
+                        title: 'エンゲージメント',
+                        icon: Icons.trending_up_rounded,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(children: [
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.campaign_outlined,
+                              title: '一斉配信',
+                              subtitle: 'チャット一斉送信',
+                              color: Colors.indigo,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const BroadcastMessageScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.event_note_rounded,
+                              title: 'キャンペーン',
+                              subtitle: 'バナー・ポップアップ',
+                              color: Colors.pink,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const CampaignManagementScreen())),
+                            ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.pie_chart_rounded,
+                              title: 'ユーザー分析',
+                              subtitle: 'セグメント・属性分析',
+                              color: Colors.teal,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const UserSegmentScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.alarm_rounded,
+                              title: 'リマインダー',
+                              subtitle: '自動通知タイミング設定',
+                              color: Colors.orange,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const ReminderSettingsScreen())),
+                            ))],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [Expanded(child: _buildMenuCard(
+                              icon: Icons.feedback_rounded,
+                              title: 'フィードバック',
+                              subtitle: 'ユーザーからの要望・報告',
+                              color: Colors.blue,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const FeedbackScreen())),
+                            )), const SizedBox(width: 12), Expanded(child: _buildMenuCard(
+                              icon: Icons.quiz_rounded,
+                              title: 'FAQ管理',
+                              subtitle: 'よくある質問の編集',
+                              color: Colors.green,
+                              onTap: () => Navigator.push(context,
+                                  MaterialPageRoute(builder: (_) => const FaqManagementScreen())),
                             ))],
                           ),
                           ]),

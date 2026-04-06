@@ -365,8 +365,19 @@ class _ChatListScreenState extends State<ChatListScreen>
       body: SafeArea(
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
-          Material(
-            color: Colors.white,
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  offset: const Offset(0, 1),
+                  blurRadius: 3,
+                ),
+              ],
+            ),
+            child: Material(
+            color: Colors.transparent,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 52),
@@ -498,13 +509,14 @@ class _ChatListScreenState extends State<ChatListScreen>
                 unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal),
                 indicatorColor: AppTheme.primaryColor,
                 indicatorWeight: 3,
-                dividerColor: Colors.grey[200],
+                dividerColor: Colors.grey[300],
                 tabs: const [
                   Tab(text: '個別チャット'),
                   Tab(text: 'グループチャット'),
                 ],
               ),
             ]),
+          ),
           ),
           Expanded(
             child: TabBarView(

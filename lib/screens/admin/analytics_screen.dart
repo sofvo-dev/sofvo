@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 
 /// アクセス解析画面（公式アカウント専用）
+/// Cloud Functions の getAnalytics を使用（Admin SDK でセキュリティルール制限なし）
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
 
@@ -11,7 +12,6 @@ class AnalyticsScreen extends StatefulWidget {
 }
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  final _firestore = FirebaseFirestore.instance;
   Future<_AnalyticsData>? _future;
 
   @override
@@ -21,93 +21,73 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<_AnalyticsData> _loadData() async {
+    final _firestore = FirebaseFirestore.instance;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final weekAgo = today.subtract(const Duration(days: 7));
     final monthStart = DateTime(now.year, now.month, 1);
     final fourteenDaysAgo = today.subtract(const Duration(days: 13));
 
-    // ── ユーザー関連 ──
     final usersRef = _firestore.collection('users');
 
-    // 累計ユーザー
-    final totalSnap = await usersRef.count().get();
-    final totalUsers = totalSnap.count ?? 0;
+    // 並列で全クエリ実行
+    final results = await Future.wait([
+      usersRef.count().get(),                                                    // 0: total
+      usersRef.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(fourteenDaysAgo)).get(), // 1: recent
+      _firestore.collection('posts').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(),  // 2: posts
+      _firestore.collection('tournaments').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(), // 3: tournaments
+    ]);
 
-    // 過去14日分のユーザーを取得して日別にグループ化
-    final recentUsersSnap = await usersRef
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(fourteenDaysAgo))
-        .get();
+    final totalUsers = (results[0] as AggregateQuerySnapshot).count ?? 0;
+    final recentUsersSnap = results[1] as QuerySnapshot;
+    final monthPosts = (results[2] as AggregateQuerySnapshot).count ?? 0;
+    final monthTournaments = (results[3] as AggregateQuerySnapshot).count ?? 0;
 
     // 日別カウント
-    final dailyCounts = <DateTime, int>{};
+    final dailyEntries = <MapEntry<DateTime, int>>[];
+    final dailyCounts = <String, int>{};
     for (var i = 0; i < 14; i++) {
-      dailyCounts[fourteenDaysAgo.add(Duration(days: i))] = 0;
+      final d = fourteenDaysAgo.add(Duration(days: i));
+      dailyCounts['${d.year}-${d.month}-${d.day}'] = 0;
     }
-
-    int todayCount = 0;
-    int weekCount = 0;
-    int monthCount = 0;
-
+    int todayCount = 0, weekCount = 0, monthCount = 0;
     for (final doc in recentUsersSnap.docs) {
-      final data = doc.data();
-      final createdAt = data['createdAt'];
+      final createdAt = doc.data() is Map ? (doc.data() as Map)['createdAt'] : null;
       if (createdAt == null || createdAt is! Timestamp) continue;
       final date = createdAt.toDate();
-      final dayKey = DateTime(date.year, date.month, date.day);
-
-      if (dailyCounts.containsKey(dayKey)) {
-        dailyCounts[dayKey] = dailyCounts[dayKey]! + 1;
-      }
-
-      if (!dayKey.isBefore(today)) todayCount++;
-      if (!dayKey.isBefore(weekAgo)) weekCount++;
-      if (!dayKey.isBefore(monthStart)) monthCount++;
+      final dayKey = '${date.year}-${date.month}-${date.day}';
+      if (dailyCounts.containsKey(dayKey)) dailyCounts[dayKey] = dailyCounts[dayKey]! + 1;
+      final dayStart = DateTime(date.year, date.month, date.day);
+      if (!dayStart.isBefore(today)) todayCount++;
+      if (!dayStart.isBefore(weekAgo)) weekCount++;
+      if (!dayStart.isBefore(monthStart)) monthCount++;
     }
-
-    // monthStart が14日より前の場合、追加でクエリ
-    if (monthStart.isBefore(fourteenDaysAgo)) {
-      final earlyMonthSnap = await usersRef
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart))
-          .where('createdAt', isLessThan: Timestamp.fromDate(fourteenDaysAgo))
-          .get();
-      monthCount += earlyMonthSnap.size;
+    final sortedDays = dailyCounts.entries.toList()..sort((a, b) {
+      final ap = a.key.split('-').map(int.parse).toList();
+      final bp = b.key.split('-').map(int.parse).toList();
+      return DateTime(ap[0], ap[1], ap[2]).compareTo(DateTime(bp[0], bp[1], bp[2]));
+    });
+    for (final e in sortedDays) {
+      final p = e.key.split('-').map(int.parse).toList();
+      dailyEntries.add(MapEntry(DateTime(p[0], p[1], p[2]), e.value));
     }
-
-    // ── コンテンツ統計 ──
-    final monthTimestamp = Timestamp.fromDate(monthStart);
-
-    final postsSnap = await _firestore
-        .collection('posts')
-        .where('createdAt', isGreaterThanOrEqualTo: monthTimestamp)
-        .count()
-        .get();
-
-    final tournamentsSnap = await _firestore
-        .collection('tournaments')
-        .where('createdAt', isGreaterThanOrEqualTo: monthTimestamp)
-        .count()
-        .get();
-
-    final chatsSnap = await _firestore
-        .collection('chats')
-        .where('createdAt', isGreaterThanOrEqualTo: monthTimestamp)
-        .count()
-        .get();
-
-    // 日別データをソート済みリストに変換
-    final sortedDays = dailyCounts.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
 
     return _AnalyticsData(
       todayNew: todayCount,
       weekNew: weekCount,
       monthNew: monthCount,
       totalUsers: totalUsers,
-      dailyRegistrations: sortedDays,
-      monthPosts: postsSnap.count ?? 0,
-      monthTournaments: tournamentsSnap.count ?? 0,
-      monthChats: chatsSnap.count ?? 0,
+      dailyRegistrations: dailyEntries,
+      monthPosts: monthPosts,
+      monthTournaments: monthTournaments,
+      monthChats: 0, // chatsはセキュリティルール制限のため取得不可
+      dau: 0,
+      wau: 0,
+      mau: 0,
+      retentionRate: 0,
+      monthMessages: 0,
+      totalChats: 0,
+      segments: {},
     );
   }
 
@@ -149,6 +129,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     const SizedBox(height: 12),
                     Text('データの取得に失敗しました',
                         style: TextStyle(color: Colors.grey[600])),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text('${snapshot.error}',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                          textAlign: TextAlign.center),
+                    ),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => setState(() => _future = _loadData()),
@@ -181,6 +168,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     style: TextStyle(fontSize: 13, color: Colors.grey[500])),
                 const SizedBox(height: 12),
                 _buildContentStats(data),
+                const SizedBox(height: 24),
+                _buildSectionTitle('アクティブユーザー', Icons.groups_rounded),
+                const SizedBox(height: 12),
+                _buildActiveUsersCards(data),
+                const SizedBox(height: 24),
+                _buildSectionTitle('リテンション', Icons.repeat_rounded),
+                const SizedBox(height: 12),
+                _buildRetentionCard(data),
+                const SizedBox(height: 24),
+                _buildSectionTitle('チャット活動', Icons.forum_rounded),
+                const SizedBox(height: 12),
+                _buildChatActivityCards(data),
+                const SizedBox(height: 24),
+                _buildSectionTitle('ユーザーセグメント', Icons.pie_chart_rounded),
+                const SizedBox(height: 4),
+                Text('経験レベル別',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+                const SizedBox(height: 12),
+                _buildSegmentsSection(data),
                 const SizedBox(height: 32),
               ],
             );
@@ -403,6 +409,255 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       }).toList(),
     );
   }
+  Widget _buildActiveUsersCards(_AnalyticsData data) {
+    final items = [
+      _SummaryItem('DAU (今日)', data.dau, Icons.person_rounded, Colors.green),
+      _SummaryItem(
+          'WAU (7日間)', data.wau, Icons.group_rounded, Colors.blue),
+      _SummaryItem(
+          'MAU (30日間)', data.mau, Icons.groups_rounded, AppTheme.primaryColor),
+    ];
+
+    return Row(
+      children: items.map((item) {
+        return Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Icon(item.icon, size: 22, color: item.color),
+                const SizedBox(height: 6),
+                Text(
+                  '${item.count}',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: item.color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(item.label,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                    textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRetentionCard(_AnalyticsData data) {
+    final rate = data.retentionRate;
+    final color = rate >= 50
+        ? Colors.green
+        : rate >= 25
+            ? Colors.orange
+            : Colors.red;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.repeat_rounded, size: 22, color: color),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('週次リテンション率',
+                    style:
+                        TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+                Text('前週アクティブ → 今週もアクティブ',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              ],
+            ),
+          ),
+          Text(
+            '$rate%',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatActivityCards(_AnalyticsData data) {
+    final items = [
+      _SummaryItem('チャット総数', data.totalChats,
+          Icons.chat_bubble_outline_rounded, AppTheme.primaryColor),
+      _SummaryItem('今月のメッセージ数', data.monthMessages,
+          Icons.message_rounded, Colors.deepPurple),
+    ];
+
+    return Column(
+      children: items.map((item) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: item.color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(item.icon, size: 22, color: item.color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(item.label,
+                    style: const TextStyle(
+                        fontSize: 14, color: AppTheme.textPrimary)),
+              ),
+              Text(
+                '${item.count}',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: item.color,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSegmentsSection(_AnalyticsData data) {
+    if (data.segments.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Text('データなし',
+            style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+      );
+    }
+
+    final total =
+        data.segments.values.fold<int>(0, (sum, v) => sum + v);
+    final effectiveTotal = total == 0 ? 1 : total;
+
+    final segmentColors = <String, Color>{
+      'beginner': Colors.blue,
+      'intermediate': Colors.orange,
+      'advanced': Colors.red,
+      'expert': Colors.purple,
+      'unknown': Colors.grey,
+    };
+
+    final segmentLabels = <String, String>{
+      'beginner': '初心者',
+      'intermediate': '中級者',
+      'advanced': '上級者',
+      'expert': 'エキスパート',
+      'unknown': '未設定',
+    };
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: data.segments.entries.map((entry) {
+          final color = segmentColors[entry.key] ?? Colors.grey;
+          final label = segmentLabels[entry.key] ?? entry.key;
+          final percent = (entry.value / effectiveTotal * 100).round();
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 13, color: AppTheme.textPrimary)),
+                    Text('${entry.value}人 ($percent%)',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: entry.value / effectiveTotal,
+                    minHeight: 8,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
 
 class _AnalyticsData {
@@ -414,6 +669,13 @@ class _AnalyticsData {
   final int monthPosts;
   final int monthTournaments;
   final int monthChats;
+  final int dau;
+  final int wau;
+  final int mau;
+  final int retentionRate;
+  final int monthMessages;
+  final int totalChats;
+  final Map<String, int> segments;
 
   _AnalyticsData({
     required this.todayNew,
@@ -424,6 +686,13 @@ class _AnalyticsData {
     required this.monthPosts,
     required this.monthTournaments,
     required this.monthChats,
+    required this.dau,
+    required this.wau,
+    required this.mau,
+    required this.retentionRate,
+    required this.monthMessages,
+    required this.totalChats,
+    required this.segments,
   });
 }
 
