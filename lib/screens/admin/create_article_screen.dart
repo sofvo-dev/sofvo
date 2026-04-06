@@ -128,7 +128,7 @@ class _CreateArticleScreenState extends State<CreateArticleScreen> {
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(_isEditing ? '記事編集' : '記事作成',
