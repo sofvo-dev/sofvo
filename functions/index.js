@@ -3467,6 +3467,7 @@ exports.getAnalytics = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
   }
 
+  try {
   const db = admin.firestore();
   const userDoc = await db.collection("users").doc(context.auth.uid).get();
   if (!userDoc.exists) {
@@ -3616,6 +3617,11 @@ exports.getAnalytics = functions.https.onCall(async (data, context) => {
     totalChats,
     segments,
   };
+
+  } catch (e) {
+    console.error("getAnalytics error:", e);
+    throw new functions.https.HttpsError("internal", e.message || "Unknown error");
+  }
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3751,6 +3757,7 @@ exports.getUserSegments = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
   }
 
+  try {
   const db = admin.firestore();
   const userDoc = await db.collection("users").doc(context.auth.uid).get();
   if (!userDoc.exists) {
@@ -3843,4 +3850,9 @@ exports.getUserSegments = functions.https.onCall(async (data, context) => {
     areaSegments,
     genderSegments,
   };
+
+  } catch (e) {
+    console.error("getUserSegments error:", e);
+    throw new functions.https.HttpsError("internal", e.message || "Unknown error");
+  }
 });
