@@ -3047,22 +3047,44 @@ async function getFcmTokenIfEnabled(userId, settingKey) {
 /**
  * 複数トークンにFCM送信 + 無効トークン自動削除
  */
+async function calcBadgeCount(db, userId) {
+  let total = 0;
+  const chats = await db.collection("chats")
+    .where("members", "array-contains", userId)
+    .get();
+  for (const doc of chats.docs) {
+    const unreadMap = doc.data().unreadCount || {};
+    const cnt = unreadMap[userId];
+    if (typeof cnt === "number" && cnt > 0) total += cnt;
+  }
+  const notifs = await db.collection("users").doc(userId)
+    .collection("notifications")
+    .where("read", "==", false)
+    .count()
+    .get();
+  total += notifs.data().count || 0;
+  return total;
+}
+
 async function sendFcmToTokens(tokens, payload) {
   if (tokens.length === 0) return;
   const db = admin.firestore();
 
-  // ユーザーごとにバッジカウントをインクリメントしてから送信
+  // ユーザーごとに実際の未読数を計算してバッジに反映
+  const badgeCache = {};
   const results = await Promise.allSettled(
     tokens.map(async (t) => {
-      // badgeCount をインクリメント
+      if (!(t.userId in badgeCache)) {
+        badgeCache[t.userId] = await calcBadgeCount(db, t.userId);
+      }
+      const badgeCount = badgeCache[t.userId];
+
       const privateRef = db.collection("users").doc(t.userId)
         .collection("private").doc("info");
       await privateRef.set(
-        { badgeCount: admin.firestore.FieldValue.increment(1) },
+        { badgeCount: badgeCount },
         { merge: true }
       );
-      const privateDoc = await privateRef.get();
-      const badgeCount = privateDoc.data()?.badgeCount || 1;
 
       const enrichedPayload = {
         ...payload,
