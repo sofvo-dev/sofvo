@@ -65,7 +65,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         .collection('chats')
         .doc(widget.chatId)
         .collection('messages')
-        .orderBy('createdAt', descending: false)
+        .orderBy('createdAt', descending: true)
         .snapshots();
 
     // チャットドキュメントの変更をリスナーで監視（StreamBuilder外で処理）
@@ -552,7 +552,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     Future.delayed(const Duration(milliseconds: 300), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0.0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -733,24 +733,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   );
                 }
 
-                // 新着メッセージが来たら自動スクロール
-                if (messages.length > _previousMessageCount && _previousMessageCount > 0) {
-                  _scrollToBottom();
-                }
                 _previousMessageCount = messages.length;
 
                 return ListView.builder(
                   controller: _scrollController,
+                  reverse: true,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
+                    // reverse: true なので index 0 = 最新メッセージ（descending順の先頭）
                     final doc = messages[index];
                     final data = doc.data() as Map<String, dynamic>;
                     final isMe = data['senderId'] == _currentUser?.uid;
                     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+                    // 日付セパレーター: 表示上の「1つ上」= descending順の次のindex
                     DateTime? prevCreatedAt;
-                    if (index > 0) {
-                      final prevData = messages[index - 1].data() as Map<String, dynamic>;
+                    if (index < messages.length - 1) {
+                      final prevData = messages[index + 1].data() as Map<String, dynamic>;
                       prevCreatedAt = (prevData['createdAt'] as Timestamp?)?.toDate();
                     }
                     final dateSep = createdAt != null ? _dateSeparatorLabel(createdAt, prevCreatedAt) : null;
