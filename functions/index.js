@@ -3493,6 +3493,62 @@ exports.getAnalytics = functions.https.onCall(async (data, context) => {
     db.collection("chats").where("createdAt", ">=", monthTimestamp).count().get(),
   ]);
 
+  // DAU / WAU / MAU（lastActiveAt ベース）
+  const todayTimestamp = admin.firestore.Timestamp.fromDate(today);
+  const weekAgoTimestamp = admin.firestore.Timestamp.fromDate(weekAgo);
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
+  const thirtyDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+
+  const [dauSnap, wauSnap, mauSnap] = await Promise.all([
+    usersRef.where("lastActiveAt", ">=", todayTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", weekAgoTimestamp).count().get(),
+    usersRef.where("lastActiveAt", ">=", thirtyDaysAgoTimestamp).count().get(),
+  ]);
+  const dauCount = dauSnap.data().count || 0;
+  const wauCount = wauSnap.data().count || 0;
+  const mauCount = mauSnap.data().count || 0;
+
+  // リテンション率: 前の7日間にアクティブだったユーザーのうち、直近7日間もアクティブだったユーザーの割合
+  const prevWeekStart = new Date(weekAgo.getTime() - 7 * 86400000);
+  const prevWeekStartTimestamp = admin.firestore.Timestamp.fromDate(prevWeekStart);
+  const prevWeekUsersSnap = await usersRef
+    .where("lastActiveAt", ">=", prevWeekStartTimestamp)
+    .where("lastActiveAt", "<", weekAgoTimestamp)
+    .get();
+  const prevWeekUids = new Set(prevWeekUsersSnap.docs.map((d) => d.id));
+  let retainedCount = 0;
+  if (prevWeekUids.size > 0) {
+    const currentWeekSnap = await usersRef
+      .where("lastActiveAt", ">=", weekAgoTimestamp)
+      .get();
+    for (const doc of currentWeekSnap.docs) {
+      if (prevWeekUids.has(doc.id)) retainedCount++;
+    }
+  }
+  const retentionRate = prevWeekUids.size > 0
+    ? Math.round((retainedCount / prevWeekUids.size) * 100)
+    : 0;
+
+  // 今月のチャットメッセージ数（collectionGroup）
+  const monthMessagesSnap = await db
+    .collectionGroup("messages")
+    .where("createdAt", ">=", monthTimestamp)
+    .count()
+    .get();
+  const monthMessages = monthMessagesSnap.data().count || 0;
+
+  // チャット総数
+  const totalChatsSnap = await db.collection("chats").count().get();
+  const totalChats = totalChatsSnap.data().count || 0;
+
+  // ユーザーセグメント（experience フィールド別）
+  const allUsersSnap = await usersRef.select("experience").get();
+  const segments = {};
+  for (const doc of allUsersSnap.docs) {
+    const exp = doc.data().experience || "unknown";
+    segments[exp] = (segments[exp] || 0) + 1;
+  }
+
   return {
     todayNew: todayCount,
     weekNew: weekCount,
@@ -3502,5 +3558,12 @@ exports.getAnalytics = functions.https.onCall(async (data, context) => {
     monthPosts: postsSnap.data().count || 0,
     monthTournaments: tournamentsSnap.data().count || 0,
     monthChats: chatsSnap.data().count || 0,
+    dau: dauCount,
+    wau: wauCount,
+    mau: mauCount,
+    retentionRate,
+    monthMessages,
+    totalChats,
+    segments,
   };
 });
