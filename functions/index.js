@@ -3039,17 +3039,28 @@ async function sendFcmToTokens(tokens, payload) {
       const enrichedPayload = {
         ...payload,
         apns: {
+          headers: {
+            "apns-priority": "10",
+            "apns-push-type": "alert",
+          },
           payload: {
             aps: {
+              alert: {
+                title: payload.notification?.title || "",
+                body: payload.notification?.body || "",
+              },
               badge: badgeCount,
               sound: "default",
+              "mutable-content": 1,
             },
           },
           ...(payload.apns || {}),
         },
         android: {
+          priority: "high",
           notification: {
             sound: "default",
+            channelId: "chat_messages",
             ...(payload.android?.notification || {}),
           },
           ...(payload.android || {}),
