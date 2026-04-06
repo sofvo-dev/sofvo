@@ -39,6 +39,12 @@ fastlane release
 ```
 - git pull → flutter clean → flutter pub get → pod install → ビルド → App Store Connect アップロード → 審査提出まで全自動
 - 未コミットの変更がある場合は先に `git stash` してから実行、完了後 `git stash pop`
+- **App用パスワード（App-Specific Password）が必要**: `~/.zshrc` に以下を設定済み
+  ```bash
+  export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="wilr-bfjb-mhlo-aulp"
+  ```
+  - Apple Account（info@sofvo.com）→ サインインとセキュリティ → アプリ用パスワード で生成
+  - パスワードが無効になった場合は再生成して `~/.zshrc` を更新する
 
 #### 注意事項
 - **バージョンコード（pubspec.yaml の `+` 以降の数字）を上げてからmainにマージすること**
