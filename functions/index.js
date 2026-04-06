@@ -3265,58 +3265,103 @@ exports.onNotificationCreatedPush = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 大会前日リマインダー（毎日9:00 JST実行）
+// 大会リマインダー（毎日9:00 JST実行 — config/reminderSettings で設定可能）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.sendTournamentReminders = functions.pubsub
   .schedule("0 0 * * *") // UTC 0:00 = JST 9:00
   .timeZone("Asia/Tokyo")
   .onRun(async () => {
     const db = admin.firestore();
-    // 明日の日付を取得 (YYYY/MM/DD形式)
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const yyyy = tomorrow.getFullYear();
-    const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
-    const dd = String(tomorrow.getDate()).padStart(2, "0");
-    const tomorrowStr = `${yyyy}/${mm}/${dd}`;
 
-    // 明日開催の大会を取得
-    const tournaments = await db.collection("tournaments")
-      .where("date", "==", tomorrowStr)
-      .where("status", "in", ["募集中", "締切"])
-      .get();
+    // リマインダー設定を読み込み
+    const configDoc = await db.collection("config").doc("reminderSettings").get();
+    const config = configDoc.exists ? configDoc.data() : null;
+    const messageTemplate = (config && config.messageTemplate) ? config.messageTemplate : null;
 
-    for (const tDoc of tournaments.docs) {
-      const tData = tDoc.data();
-      const tournamentName = tData.title || "大会";
+    // 有効なタイミングを取得（設定がない場合は前日のみ）
+    let enabledTimings = [{ key: "1day", label: "前日", enabled: true, daysBefore: 1, hoursBefore: 0 }];
+    if (config && Array.isArray(config.timings)) {
+      const active = config.timings.filter((t) => t.enabled);
+      if (active.length > 0) enabledTimings = active;
+    }
 
-      // 参加者を取得
-      const entries = await tDoc.ref.collection("entries").get();
-      const participantUids = new Set();
-      for (const entry of entries.docs) {
-        const eData = entry.data();
-        if (Array.isArray(eData.memberUids)) {
-          eData.memberUids.forEach((uid) => { if (uid) participantUids.add(uid); });
+    const now = new Date();
+
+    for (const timing of enabledTimings) {
+      const daysBefore = timing.daysBefore || 0;
+
+      // 対象日を計算
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + daysBefore);
+
+      const yyyy = targetDate.getFullYear();
+      const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(targetDate.getDate()).padStart(2, "0");
+      const targetDateStr = `${yyyy}/${mm}/${dd}`;
+
+      // 対象大会を取得
+      const tournaments = await db.collection("tournaments")
+        .where("date", "==", targetDateStr)
+        .where("status", "in", ["募集中", "締切"])
+        .get();
+
+      for (const tDoc of tournaments.docs) {
+        const tData = tDoc.data();
+        const tournamentName = tData.title || "大会";
+        const venue = tData.venue || tData.location || "";
+        const dateStr = tData.date || "";
+        const timeStr = tData.time || "";
+        const dateTimeStr = timeStr ? `${dateStr} ${timeStr}` : dateStr;
+
+        // メッセージ生成
+        let message;
+        if (messageTemplate) {
+          message = messageTemplate
+            .replace(/\{大会名\}/g, tournamentName)
+            .replace(/\{日時\}/g, dateTimeStr)
+            .replace(/\{会場\}/g, venue);
+        } else {
+          if (timing.key === "7days") {
+            message = `「${tournamentName}」の開催まであと1週間です！`;
+          } else if (timing.key === "3days") {
+            message = `「${tournamentName}」の開催まであと3日です！`;
+          } else if (timing.key === "morning") {
+            message = `本日「${tournamentName}」が開催されます！`;
+          } else if (timing.key === "1hour") {
+            message = `まもなく「${tournamentName}」が開始されます！`;
+          } else {
+            message = `明日は「${tournamentName}」の開催日です！`;
+          }
         }
-        if (eData.enteredBy) participantUids.add(eData.enteredBy);
-      }
 
-      // 各参加者にリマインダー通知
-      const batch = db.batch();
-      for (const uid of participantUids) {
-        const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
-        batch.set(notifRef, {
-          type: "deadline_approaching",
-          senderId: "system",
-          senderName: "",
-          senderAvatar: "",
-          message: `明日は「${tournamentName}」の開催日です！`,
-          tournamentId: tDoc.id,
-          read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        // 参加者を取得
+        const entries = await tDoc.ref.collection("entries").get();
+        const participantUids = new Set();
+        for (const entry of entries.docs) {
+          const eData = entry.data();
+          if (Array.isArray(eData.memberUids)) {
+            eData.memberUids.forEach((uid) => { if (uid) participantUids.add(uid); });
+          }
+          if (eData.enteredBy) participantUids.add(eData.enteredBy);
+        }
+
+        // 各参加者にリマインダー通知
+        const batch = db.batch();
+        for (const uid of participantUids) {
+          const notifRef = db.collection("users").doc(uid).collection("notifications").doc();
+          batch.set(notifRef, {
+            type: "deadline_approaching",
+            senderId: "system",
+            senderName: "",
+            senderAvatar: "",
+            message: message,
+            tournamentId: tDoc.id,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
       }
-      await batch.commit();
     }
     return null;
   });
@@ -3691,4 +3736,106 @@ exports.broadcastChatMessage = functions.https.onCall(async (data, context) => {
   }
 
   return { sentCount };
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ユーザーセグメント取得（管理者用 Callable Function）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.getUserSegments = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  }
+
+  const db = admin.firestore();
+  const userDoc = await db.collection("users").doc(context.auth.uid).get();
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError("permission-denied", "ユーザーが見つかりません");
+  }
+  const userData = userDoc.data();
+  if (!userData.isAdmin && !userData.isOfficial) {
+    throw new functions.https.HttpsError("permission-denied", "管理者または公式アカウントのみ利用可能です");
+  }
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+  const thirtyDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+  const sevenDaysAgoTimestamp = admin.firestore.Timestamp.fromDate(sevenDaysAgo);
+
+  // 全ユーザー取得（必要フィールドのみ）
+  const usersSnap = await db.collection("users")
+    .select("experience", "area", "gender", "lastActiveAt", "createdAt")
+    .get();
+
+  let totalUsers = 0;
+  let activeUsers = 0;
+  let inactiveUsers = 0;
+  let newUsers = 0;
+
+  const experienceSegments = {};
+  const areaSegments = {};
+  const genderSegments = {};
+
+  // 競技歴のマッピング
+  const experienceLabels = {
+    "lessThan1": "1年未満",
+    "1to3": "1-3年",
+    "3to5": "3-5年",
+    "5plus": "5年以上",
+    "beginner": "1年未満",
+    "intermediate": "1-3年",
+    "advanced": "3-5年",
+    "expert": "5年以上",
+  };
+
+  // 性別のマッピング
+  const genderLabels = {
+    "male": "男性",
+    "female": "女性",
+    "男性": "男性",
+    "女性": "女性",
+  };
+
+  for (const doc of usersSnap.docs) {
+    const d = doc.data();
+    totalUsers++;
+
+    // アクティブ/休眠判定
+    const lastActiveAt = d.lastActiveAt;
+    if (lastActiveAt && lastActiveAt.toDate() >= thirtyDaysAgo) {
+      activeUsers++;
+    } else {
+      inactiveUsers++;
+    }
+
+    // 新規判定
+    const createdAt = d.createdAt;
+    if (createdAt && createdAt.toDate() >= sevenDaysAgo) {
+      newUsers++;
+    }
+
+    // 競技歴
+    const rawExp = d.experience || "";
+    const expLabel = experienceLabels[rawExp] || rawExp || "未設定";
+    experienceSegments[expLabel] = (experienceSegments[expLabel] || 0) + 1;
+
+    // エリア
+    const area = d.area || "未設定";
+    areaSegments[area] = (areaSegments[area] || 0) + 1;
+
+    // 性別
+    const rawGender = d.gender || "";
+    const genderLabel = genderLabels[rawGender] || rawGender || "未設定";
+    genderSegments[genderLabel] = (genderSegments[genderLabel] || 0) + 1;
+  }
+
+  return {
+    totalUsers,
+    activeUsers,
+    inactiveUsers,
+    newUsers,
+    experienceSegments,
+    areaSegments,
+    genderSegments,
+  };
 });
