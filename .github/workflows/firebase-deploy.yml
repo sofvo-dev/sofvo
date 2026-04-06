@@ -20,18 +20,29 @@ jobs:
       - name: Install Functions dependencies
         run: cd functions && npm install
 
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy Cloud Functions
-        run: npx firebase-tools deploy --only functions --project sofvo-19d84 --force
+        run: firebase deploy --only functions --project sofvo-19d84 --force
 
   deploy-firestore:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -39,7 +50,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy Firestore rules & indexes
-        run: npx firebase-tools deploy --only firestore --project sofvo-19d84 --force
+        run: firebase deploy --only firestore --project sofvo-19d84 --force
 
   update-app-version:
     runs-on: ubuntu-latest
@@ -69,13 +80,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy Storage rules
-        run: npx firebase-tools deploy --only storage --project sofvo-19d84 --force
+        run: firebase deploy --only storage --project sofvo-19d84 --force
 
   build-and-deploy:
     runs-on: ubuntu-latest
