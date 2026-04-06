@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../config/app_theme.dart';
 
 /// アクセス解析画面（公式アカウント専用）
@@ -21,9 +23,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<_AnalyticsData> _loadData() async {
-    final callable = FirebaseFunctions.instance.httpsCallable('getAnalytics');
-    final result = await callable.call();
-    final data = result.data as Map<String, dynamic>;
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final response = await http.get(
+      Uri.parse('https://us-central1-sofvo-19d84.cloudfunctions.net/getAnalytics'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception(response.body);
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
 
     // dailyCounts を日付順のリストに変換
     final dailyMap = (data['dailyCounts'] as Map<String, dynamic>?) ?? {};

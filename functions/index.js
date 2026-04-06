@@ -3462,20 +3462,34 @@ exports.onNoticeCreated = functions.firestore
 // アクセス解析データ取得（管理者/公式アカウント専用）
 // セキュリティルールを回避するため Admin SDK を使用
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-exports.getAnalytics = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
-  }
+exports.getAnalytics = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
+  // 認証チェック
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "認証が必要です" }); return;
+  }
+  let uid;
+  try {
+    const decoded = await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+    uid = decoded.uid;
+  } catch (e) {
+    res.status(401).json({ error: "無効なトークンです" }); return;
+  }
+
   const db = admin.firestore();
-  const userDoc = await db.collection("users").doc(context.auth.uid).get();
+  const userDoc = await db.collection("users").doc(uid).get();
   if (!userDoc.exists) {
-    throw new functions.https.HttpsError("permission-denied", "ユーザーが見つかりません");
+    res.status(403).json({ error: "ユーザーが見つかりません" }); return;
   }
   const userData = userDoc.data();
   if (!userData.isAdmin && !userData.isOfficial) {
-    throw new functions.https.HttpsError("permission-denied", "管理者または公式アカウントのみ利用可能です");
+    res.status(403).json({ error: "管理者または公式アカウントのみ利用可能です" }); return;
   }
 
   const now = new Date();
@@ -3617,10 +3631,11 @@ exports.getAnalytics = functions.https.onCall(async (data, context) => {
     totalChats,
     segments,
   };
+  res.json(result);
 
   } catch (e) {
     console.error("getAnalytics error:", e);
-    throw new functions.https.HttpsError("internal", e.message || "Unknown error");
+    res.status(500).json({ error: e.message || "Unknown error" });
   }
 });
 
@@ -3752,20 +3767,33 @@ exports.broadcastChatMessage = functions.https.onCall(async (data, context) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ユーザーセグメント取得（管理者用 Callable Function）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-exports.getUserSegments = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
-  }
+exports.getUserSegments = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
 
   try {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "認証が必要です" }); return;
+  }
+  let uid;
+  try {
+    const decoded = await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+    uid = decoded.uid;
+  } catch (e) {
+    res.status(401).json({ error: "無効なトークンです" }); return;
+  }
+
   const db = admin.firestore();
-  const userDoc = await db.collection("users").doc(context.auth.uid).get();
+  const userDoc = await db.collection("users").doc(uid).get();
   if (!userDoc.exists) {
-    throw new functions.https.HttpsError("permission-denied", "ユーザーが見つかりません");
+    res.status(403).json({ error: "ユーザーが見つかりません" }); return;
   }
   const userData = userDoc.data();
   if (!userData.isAdmin && !userData.isOfficial) {
-    throw new functions.https.HttpsError("permission-denied", "管理者または公式アカウントのみ利用可能です");
+    res.status(403).json({ error: "管理者または公式アカウントのみ利用可能です" }); return;
   }
 
   const now = new Date();
@@ -3850,9 +3878,10 @@ exports.getUserSegments = functions.https.onCall(async (data, context) => {
     areaSegments,
     genderSegments,
   };
+  res.json(result);
 
   } catch (e) {
     console.error("getUserSegments error:", e);
-    throw new functions.https.HttpsError("internal", e.message || "Unknown error");
+    res.status(500).json({ error: e.message || "Unknown error" });
   }
 });

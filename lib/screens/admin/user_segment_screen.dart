@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../config/app_theme.dart';
 
 /// ユーザーセグメント画面（管理者用）
@@ -20,9 +22,15 @@ class _UserSegmentScreenState extends State<UserSegmentScreen> {
   }
 
   Future<_SegmentData> _loadData() async {
-    final callable = FirebaseFunctions.instance.httpsCallable('getUserSegments');
-    final result = await callable.call();
-    final data = result.data as Map<String, dynamic>;
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    final response = await http.get(
+      Uri.parse('https://us-central1-sofvo-19d84.cloudfunctions.net/getUserSegments'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception(response.body);
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
 
     return _SegmentData(
       totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
