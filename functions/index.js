@@ -3567,3 +3567,128 @@ exports.getAnalytics = functions.https.onCall(async (data, context) => {
     segments,
   };
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ブロードキャストチャットメッセージ送信
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.broadcastChatMessage = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  }
+
+  const db = admin.firestore();
+  const senderId = context.auth.uid;
+
+  // 権限チェック
+  const senderDoc = await db.collection("users").doc(senderId).get();
+  if (!senderDoc.exists) {
+    throw new functions.https.HttpsError("permission-denied", "ユーザーが見つかりません");
+  }
+  const senderData = senderDoc.data();
+  if (!senderData.isAdmin && !senderData.isOfficial) {
+    throw new functions.https.HttpsError("permission-denied", "管理者または公式アカウントのみ利用可能です");
+  }
+
+  const { message, target } = data;
+  if (!message || typeof message !== "string" || message.trim().length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "メッセージを入力してください");
+  }
+
+  const senderName = senderData.nickname || senderData.displayName || "公式";
+
+  // ターゲットユーザーを取得
+  const usersRef = db.collection("users");
+  let usersSnap;
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+  const thirtyDaysAgoTs = admin.firestore.Timestamp.fromDate(thirtyDaysAgo);
+
+  switch (target) {
+    case "active":
+      usersSnap = await usersRef.where("lastActiveAt", ">=", thirtyDaysAgoTs).get();
+      break;
+    case "beginner":
+      usersSnap = await usersRef.where("experience", "==", "1年未満").get();
+      break;
+    case "dormant":
+      usersSnap = await usersRef.where("lastActiveAt", "<", thirtyDaysAgoTs).get();
+      break;
+    default:
+      usersSnap = await usersRef.get();
+  }
+
+  let sentCount = 0;
+  const batchSize = 500;
+  let batch = db.batch();
+  let batchCount = 0;
+
+  for (const userDoc of usersSnap.docs) {
+    const targetUserId = userDoc.id;
+    if (targetUserId === senderId) continue;
+
+    const targetData = userDoc.data();
+    const targetName = targetData.nickname || targetData.displayName || "ユーザー";
+
+    // 既存のDMチャットを検索
+    const existingChats = await db.collection("chats")
+      .where("type", "==", "dm")
+      .where("members", "array-contains", senderId)
+      .get();
+
+    let chatId = null;
+    for (const chatDoc of existingChats.docs) {
+      const members = chatDoc.data().members || [];
+      if (members.includes(targetUserId)) {
+        chatId = chatDoc.id;
+        break;
+      }
+    }
+
+    // DMチャットが存在しない場合は作成
+    if (!chatId) {
+      const chatRef = await db.collection("chats").add({
+        type: "dm",
+        members: [senderId, targetUserId],
+        memberNames: { [senderId]: senderName, [targetUserId]: targetName },
+        lastMessage: "",
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastRead: { [senderId]: admin.firestore.FieldValue.serverTimestamp() },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      chatId = chatRef.id;
+    }
+
+    // メッセージを送信
+    const messageRef = db.collection("chats").doc(chatId).collection("messages").doc();
+    batch.set(messageRef, {
+      text: message.trim(),
+      senderId: senderId,
+      senderName: senderName,
+      type: "text",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // チャットのlastMessageを更新
+    const chatRef = db.collection("chats").doc(chatId);
+    batch.update(chatRef, {
+      lastMessage: message.trim().substring(0, 100),
+      lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    batchCount += 2;
+    sentCount++;
+
+    // バッチサイズ上限でコミット
+    if (batchCount >= batchSize) {
+      await batch.commit();
+      batch = db.batch();
+      batchCount = 0;
+    }
+  }
+
+  if (batchCount > 0) {
+    await batch.commit();
+  }
+
+  return { sentCount };
+});
