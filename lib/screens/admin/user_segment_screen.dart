@@ -80,6 +80,13 @@ class _UserSegmentScreenState extends State<UserSegmentScreen> {
                     const SizedBox(height: 12),
                     Text('データの取得に失敗しました',
                         style: TextStyle(color: Colors.grey[600])),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text('${snapshot.error}',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                          textAlign: TextAlign.center),
+                    ),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => setState(() => _future = _loadData()),
