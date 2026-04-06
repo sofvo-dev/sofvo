@@ -48,6 +48,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _resolvedTitle = '';
   final Map<String, bool> _officialCache = {};
   String _otherUserAvatarUrl = '';
+  Timestamp? _myLastReadBefore; // 画面を開いた時点のlastRead（未読境界用）
+  bool _initialScrollDone = false;
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -57,7 +59,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.initState();
     _resolvedTitle = widget.chatTitle;
     WidgetsBinding.instance.addObserver(this);
-    _markAsRead();
+    _loadLastReadAndMarkAsRead();
     _loadMuteState();
 
     // メッセージストリームを一度だけ生成（再生成による無限ローディングを防止）
@@ -179,6 +181,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _markAsRead();
+  }
+
+  /// 画面を開いた時点のlastReadを保存してから既読にする
+  Future<void> _loadLastReadAndMarkAsRead() async {
+    if (_currentUser == null) return;
+    try {
+      final chatDoc = await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .get();
+      if (chatDoc.exists) {
+        final data = chatDoc.data() ?? {};
+        final lastReadMap = (data['lastRead'] as Map<String, dynamic>?) ?? {};
+        final myLastRead = lastReadMap[_currentUser!.uid];
+        if (myLastRead is Timestamp) {
+          _myLastReadBefore = myLastRead;
+        }
+      }
+    } catch (_) {}
+    _markAsRead();
   }
 
   void _markAsRead() {
@@ -735,6 +757,43 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
                 _previousMessageCount = messages.length;
 
+                // 未読境界のindexを計算（descending順なので、lastReadより新しいメッセージの最後のindex）
+                // messages[0]=最新, messages[n-1]=最古
+                // 未読 = createdAt > _myLastReadBefore のメッセージ群
+                // 未読の最も古いメッセージ（=descending順で最大index）の位置にバナーを出す
+                int? unreadBoundaryIndex;
+                if (_myLastReadBefore != null) {
+                  final lastReadDate = _myLastReadBefore!.toDate();
+                  for (int i = 0; i < messages.length; i++) {
+                    final msgData = messages[i].data() as Map<String, dynamic>;
+                    final msgTime = (msgData['createdAt'] as Timestamp?)?.toDate();
+                    final senderId = msgData['senderId'] as String?;
+                    // 自分のメッセージは未読カウントしない
+                    if (senderId == _currentUser?.uid) continue;
+                    if (msgTime != null && msgTime.isAfter(lastReadDate)) {
+                      unreadBoundaryIndex = i; // 最後に見つかったものが最古の未読
+                    }
+                  }
+                }
+
+                // 初回ロード時、未読メッセージがあればその位置にスクロール
+                if (!_initialScrollDone && unreadBoundaryIndex != null) {
+                  _initialScrollDone = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      // 未読境界indexの位置に大まかにスクロール
+                      // reverse: trueなのでindexが大きいほど上にある
+                      final estimatedOffset = unreadBoundaryIndex! * 72.0;
+                      final maxOffset = _scrollController.position.maxScrollExtent;
+                      _scrollController.jumpTo(
+                        estimatedOffset > maxOffset ? maxOffset : estimatedOffset,
+                      );
+                    }
+                  });
+                } else if (!_initialScrollDone) {
+                  _initialScrollDone = true;
+                }
+
                 return ListView.builder(
                   controller: _scrollController,
                   reverse: true,
@@ -753,6 +812,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       prevCreatedAt = (prevData['createdAt'] as Timestamp?)?.toDate();
                     }
                     final dateSep = createdAt != null ? _dateSeparatorLabel(createdAt, prevCreatedAt) : null;
+
+                    // 未読バナー: 未読境界のメッセージの上（=表示上の上）に表示
+                    final showUnreadBanner = (index == unreadBoundaryIndex);
+
                     return Column(
                       children: [
                         if (dateSep != null)
@@ -765,6 +828,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(dateSep, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                            ),
+                          ),
+                        if (showUnreadBanner)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(child: Divider(color: AppTheme.primaryColor.withValues(alpha: 0.4), thickness: 1)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text(
+                                    'ここから未読メッセージ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(child: Divider(color: AppTheme.primaryColor.withValues(alpha: 0.4), thickness: 1)),
+                              ],
                             ),
                           ),
                         _buildMessageBubble(data, isMe, messageId: doc.id),
