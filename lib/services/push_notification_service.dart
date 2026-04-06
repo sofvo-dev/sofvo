@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/profile/user_profile_screen.dart';
@@ -17,7 +18,12 @@ class PushNotificationService {
   /// グローバルScaffoldMessengerキー
   static GlobalKey<ScaffoldMessengerState>? scaffoldMessengerKey;
 
+  /// 重複初期化を防止
+  static bool _initialized = false;
+
   static Future<void> initialize() async {
+    if (_initialized) return;
+
     try {
       final settings = await _messaging.requestPermission(
         alert: true,
@@ -26,7 +32,8 @@ class PushNotificationService {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        await _saveToken();
+        // トークン保存（失敗しても他の初期化は続行）
+        _saveTokenWithRetry();
 
         // 全ユーザー向けお知らせ通知トピックを購読
         await _messaging.subscribeToTopic('all_users');
@@ -51,6 +58,8 @@ class PushNotificationService {
         if (initialMessage != null) {
           _handleMessageTap(initialMessage);
         }
+
+        _initialized = true;
       }
     } catch (e) {
       debugPrint('Push notification initialization failed: $e');
@@ -60,21 +69,51 @@ class PushNotificationService {
   /// Web Push用VAPIDキー（Firebase Console → Cloud Messaging → Web構成で生成）
   static String? vapidKey;
 
-  static Future<void> _saveToken() async {
-    try {
-      // Web: VAPIDキーが必要
-      final token = kIsWeb
-          ? await _messaging.getToken(vapidKey: vapidKey)
-          : await _messaging.getToken();
-      if (token != null) await _saveTokenToFirestore(token);
-    } catch (e) {
-      debugPrint('Failed to get FCM token: $e');
+  /// トークン保存（リトライ付き）
+  /// iOS ではAPNsトークンが届くまで getToken() が null を返すため、
+  /// リトライで確実にトークンを取得・保存する
+  static Future<void> _saveTokenWithRetry() async {
+    for (int attempt = 0; attempt < 5; attempt++) {
+      try {
+        // iOS: APNsトークンが届くまで待機
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+          final apnsToken = await _messaging.getAPNSToken();
+          if (apnsToken == null) {
+            debugPrint('FCM: APNs token not ready, retry ${attempt + 1}/5');
+            await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+            continue;
+          }
+        }
+
+        final token = kIsWeb
+            ? await _messaging.getToken(vapidKey: vapidKey)
+            : await _messaging.getToken();
+
+        if (token == null) {
+          debugPrint('FCM: token is null, retry ${attempt + 1}/5');
+          await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+          continue;
+        }
+
+        await _saveTokenToFirestore(token);
+        debugPrint('FCM: token saved successfully');
+        return;
+      } catch (e) {
+        debugPrint('FCM: save token failed (attempt ${attempt + 1}/5): $e');
+        if (attempt < 4) {
+          await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+        }
+      }
     }
+    debugPrint('FCM: failed to save token after 5 attempts');
   }
 
   static Future<void> _saveTokenToFirestore(String token) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null) {
+      debugPrint('FCM: uid is null, cannot save token');
+      return;
+    }
 
     // 複数デバイス対応: fcmTokens配列にトークンを追加（重複防止）
     // 旧フィールド(fcmToken)も互換性のため更新
@@ -86,6 +125,7 @@ class PushNotificationService {
       'fcmTokens': FieldValue.arrayUnion([token]),
       'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    debugPrint('FCM: token written to Firestore for uid=$uid');
   }
 
   /// フォアグラウンドでの通知 → SnackBarバナーで表示
