@@ -121,7 +121,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('リマインダー設定',
