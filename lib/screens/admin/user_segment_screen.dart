@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 
 /// ユーザーセグメント画面（管理者用）
@@ -22,31 +20,53 @@ class _UserSegmentScreenState extends State<UserSegmentScreen> {
   }
 
   Future<_SegmentData> _loadData() async {
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-    final response = await http.get(
-      Uri.parse('https://us-central1-sofvo-19d84.cloudfunctions.net/getUserSegments'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-    if (response.statusCode != 200) {
-      throw Exception(response.body);
+    final db = FirebaseFirestore.instance;
+    final usersSnap = await db.collection('users').get();
+
+    final now = DateTime.now();
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+    int totalUsers = 0, activeUsers = 0, inactiveUsers = 0, newUsers = 0;
+    final experienceSegments = <String, int>{};
+    final areaSegments = <String, int>{};
+    final genderSegments = <String, int>{};
+
+    for (final doc in usersSnap.docs) {
+      final d = doc.data();
+      totalUsers++;
+
+      final lastActiveAt = d['lastActiveAt'];
+      if (lastActiveAt is Timestamp && lastActiveAt.toDate().isAfter(thirtyDaysAgo)) {
+        activeUsers++;
+      } else {
+        inactiveUsers++;
+      }
+
+      final createdAt = d['createdAt'];
+      if (createdAt is Timestamp && createdAt.toDate().isAfter(sevenDaysAgo)) {
+        newUsers++;
+      }
+
+      final exp = (d['experience'] as String?) ?? '未設定';
+      experienceSegments[exp] = (experienceSegments[exp] ?? 0) + 1;
+
+      final area = (d['area'] as String?) ?? '未設定';
+      areaSegments[area] = (areaSegments[area] ?? 0) + 1;
+
+      final gender = (d['gender'] as String?) ?? '未設定';
+      genderSegments[gender] = (genderSegments[gender] ?? 0) + 1;
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
 
     return _SegmentData(
-      totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
-      activeUsers: (data['activeUsers'] as num?)?.toInt() ?? 0,
-      inactiveUsers: (data['inactiveUsers'] as num?)?.toInt() ?? 0,
-      newUsers: (data['newUsers'] as num?)?.toInt() ?? 0,
-      experienceSegments: _parseMap(data['experienceSegments']),
-      areaSegments: _parseMap(data['areaSegments']),
-      genderSegments: _parseMap(data['genderSegments']),
+      totalUsers: totalUsers,
+      activeUsers: activeUsers,
+      inactiveUsers: inactiveUsers,
+      newUsers: newUsers,
+      experienceSegments: experienceSegments,
+      areaSegments: areaSegments,
+      genderSegments: genderSegments,
     );
-  }
-
-  Map<String, int> _parseMap(dynamic raw) {
-    if (raw == null) return {};
-    final map = raw as Map<String, dynamic>;
-    return map.map((key, value) => MapEntry(key, (value as num).toInt()));
   }
 
   @override

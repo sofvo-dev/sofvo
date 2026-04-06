@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 
 /// アクセス解析画面（公式アカウント専用）
@@ -23,54 +21,73 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<_AnalyticsData> _loadData() async {
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-    final response = await http.get(
-      Uri.parse('https://us-central1-sofvo-19d84.cloudfunctions.net/getAnalytics'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-    if (response.statusCode != 200) {
-      throw Exception(response.body);
-    }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final _firestore = FirebaseFirestore.instance;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekAgo = today.subtract(const Duration(days: 7));
+    final monthStart = DateTime(now.year, now.month, 1);
+    final fourteenDaysAgo = today.subtract(const Duration(days: 13));
 
-    // dailyCounts を日付順のリストに変換
-    final dailyMap = (data['dailyCounts'] as Map<String, dynamic>?) ?? {};
+    final usersRef = _firestore.collection('users');
+
+    // 並列で全クエリ実行
+    final results = await Future.wait([
+      usersRef.count().get(),                                                    // 0: total
+      usersRef.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(fourteenDaysAgo)).get(), // 1: recent
+      _firestore.collection('posts').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(),  // 2: posts
+      _firestore.collection('tournaments').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(), // 3: tournaments
+    ]);
+
+    final totalUsers = (results[0] as AggregateQuerySnapshot).count ?? 0;
+    final recentUsersSnap = results[1] as QuerySnapshot;
+    final monthPosts = (results[2] as AggregateQuerySnapshot).count ?? 0;
+    final monthTournaments = (results[3] as AggregateQuerySnapshot).count ?? 0;
+
+    // 日別カウント
     final dailyEntries = <MapEntry<DateTime, int>>[];
-    for (final entry in dailyMap.entries) {
-      final parts = entry.key.split('-');
-      if (parts.length == 3) {
-        final date = DateTime(
-          int.parse(parts[0]),
-          int.parse(parts[1]),
-          int.parse(parts[2]),
-        );
-        dailyEntries.add(MapEntry(date, (entry.value as num).toInt()));
-      }
+    final dailyCounts = <String, int>{};
+    for (var i = 0; i < 14; i++) {
+      final d = fourteenDaysAgo.add(Duration(days: i));
+      dailyCounts['${d.year}-${d.month}-${d.day}'] = 0;
     }
-    dailyEntries.sort((a, b) => a.key.compareTo(b.key));
-
-    // セグメントデータ
-    final segmentsRaw =
-        (data['segments'] as Map<String, dynamic>?) ?? {};
-    final segments = segmentsRaw
-        .map((key, value) => MapEntry(key, (value as num).toInt()));
+    int todayCount = 0, weekCount = 0, monthCount = 0;
+    for (final doc in recentUsersSnap.docs) {
+      final createdAt = doc.data() is Map ? (doc.data() as Map)['createdAt'] : null;
+      if (createdAt == null || createdAt is! Timestamp) continue;
+      final date = createdAt.toDate();
+      final dayKey = '${date.year}-${date.month}-${date.day}';
+      if (dailyCounts.containsKey(dayKey)) dailyCounts[dayKey] = dailyCounts[dayKey]! + 1;
+      final dayStart = DateTime(date.year, date.month, date.day);
+      if (!dayStart.isBefore(today)) todayCount++;
+      if (!dayStart.isBefore(weekAgo)) weekCount++;
+      if (!dayStart.isBefore(monthStart)) monthCount++;
+    }
+    final sortedDays = dailyCounts.entries.toList()..sort((a, b) {
+      final ap = a.key.split('-').map(int.parse).toList();
+      final bp = b.key.split('-').map(int.parse).toList();
+      return DateTime(ap[0], ap[1], ap[2]).compareTo(DateTime(bp[0], bp[1], bp[2]));
+    });
+    for (final e in sortedDays) {
+      final p = e.key.split('-').map(int.parse).toList();
+      dailyEntries.add(MapEntry(DateTime(p[0], p[1], p[2]), e.value));
+    }
 
     return _AnalyticsData(
-      todayNew: (data['todayNew'] as num?)?.toInt() ?? 0,
-      weekNew: (data['weekNew'] as num?)?.toInt() ?? 0,
-      monthNew: (data['monthNew'] as num?)?.toInt() ?? 0,
-      totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
+      todayNew: todayCount,
+      weekNew: weekCount,
+      monthNew: monthCount,
+      totalUsers: totalUsers,
       dailyRegistrations: dailyEntries,
-      monthPosts: (data['monthPosts'] as num?)?.toInt() ?? 0,
-      monthTournaments: (data['monthTournaments'] as num?)?.toInt() ?? 0,
-      monthChats: (data['monthChats'] as num?)?.toInt() ?? 0,
-      dau: (data['dau'] as num?)?.toInt() ?? 0,
-      wau: (data['wau'] as num?)?.toInt() ?? 0,
-      mau: (data['mau'] as num?)?.toInt() ?? 0,
-      retentionRate: (data['retentionRate'] as num?)?.toInt() ?? 0,
-      monthMessages: (data['monthMessages'] as num?)?.toInt() ?? 0,
-      totalChats: (data['totalChats'] as num?)?.toInt() ?? 0,
-      segments: segments,
+      monthPosts: monthPosts,
+      monthTournaments: monthTournaments,
+      monthChats: 0, // chatsはセキュリティルール制限のため取得不可
+      dau: 0,
+      wau: 0,
+      mau: 0,
+      retentionRate: 0,
+      monthMessages: 0,
+      totalChats: 0,
+      segments: {},
     );
   }
 
