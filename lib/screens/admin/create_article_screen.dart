@@ -96,7 +96,6 @@ class _CreateArticleScreenState extends State<CreateArticleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isEditing ? '記事を更新しました' : '記事を作成しました'),
-          behavior: SnackBarBehavior.floating,
           backgroundColor: AppTheme.success,
         ),
       );
@@ -113,7 +112,6 @@ class _CreateArticleScreenState extends State<CreateArticleScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior: SnackBarBehavior.floating,
         backgroundColor: AppTheme.error,
       ),
     );

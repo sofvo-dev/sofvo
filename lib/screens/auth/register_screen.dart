@@ -150,9 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           content: Text('Google: $errorStr',
               maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     } finally {
@@ -205,9 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SnackBar(
           content: Text(message, maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     } finally {
@@ -253,10 +249,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SnackBar(
           content: Text(message),
           backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
         ),
       );
     } finally {

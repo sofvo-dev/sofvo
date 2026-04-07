@@ -135,7 +135,7 @@ class _ChatListScreenState extends State<ChatListScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('チャットを削除しました'),
-          backgroundColor: AppTheme.textSecondary,
+          backgroundColor: AppTheme.success,
         ),
       );
     }
@@ -945,7 +945,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text('チャットを非表示にしました'),
-                    backgroundColor: AppTheme.textSecondary,
+                    backgroundColor: AppTheme.primaryColor,
                     action: SnackBarAction(
                       label: '元に戻す',
                       textColor: Colors.white,
@@ -980,7 +980,6 @@ class _ChatListScreenState extends State<ChatListScreen>
               ? 'このトークルームを削除しますか？\nメッセージ履歴は相手側には残ります。'
               : 'このグループから退出しますか？',
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),

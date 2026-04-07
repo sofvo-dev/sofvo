@@ -172,8 +172,7 @@ class _ArticleCard extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('記事を削除しました'),
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: AppTheme.textSecondary,
+                backgroundColor: AppTheme.success,
               ),
             );
           }

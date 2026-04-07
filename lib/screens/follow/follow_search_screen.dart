@@ -160,7 +160,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
             content: Text(wasFollowing
                 ? '$targetNameさんのフォローを解除しました'
                 : '$targetNameさんをフォローしました！'),
-            backgroundColor: wasFollowing ? AppTheme.textSecondary : AppTheme.success));
+            backgroundColor: wasFollowing ? AppTheme.warning : AppTheme.success));
       }
     } catch (e) {
       debugPrint('フォロー切替エラー: $e');
