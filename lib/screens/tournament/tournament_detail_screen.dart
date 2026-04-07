@@ -8727,7 +8727,7 @@ class _RecruitFullScreenState extends State<_RecruitFullScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (await _confirmDiscard()) Navigator.pop(context);
+        if (await _confirmDiscard() && mounted) Navigator.pop(context);
       },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
@@ -8735,7 +8735,7 @@ class _RecruitFullScreenState extends State<_RecruitFullScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
-              if (await _confirmDiscard()) Navigator.pop(context);
+              if (await _confirmDiscard() && mounted) Navigator.pop(context);
             },
           ),
           title: const Text('メンバー募集する', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
