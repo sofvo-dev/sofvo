@@ -507,7 +507,7 @@ class _TournamentParticipantsScreenState extends State<_TournamentParticipantsSc
         title: const Text('参加者をフォロー', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _participants.isEmpty
               ? Center(
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

@@ -102,8 +102,6 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           SnackBar(
             content: const Text('大会の読み込みに失敗しました。下に引いて再読み込みしてください。'),
             backgroundColor: AppTheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
       }
@@ -249,7 +247,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('下のメニューから「さがす」タブで大会を探せます'),
-                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: AppTheme.primaryColor,
                 ),
               );
             },

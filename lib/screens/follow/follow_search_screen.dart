@@ -412,7 +412,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     if (!code.startsWith('sofvo://friend/')) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('友達追加用のQRコードではありません'), backgroundColor: Colors.orange),
+          const SnackBar(content: Text('友達追加用のQRコードではありません'), backgroundColor: AppTheme.warning),
         );
       }
       return;
@@ -422,7 +422,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     if (searchId.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('QRコードの形式が正しくありません'), backgroundColor: Colors.orange),
+          const SnackBar(content: Text('QRコードの形式が正しくありません'), backgroundColor: AppTheme.warning),
         );
       }
       return;
@@ -448,7 +448,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     if (snap.docs.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ユーザーが見つかりませんでした'), backgroundColor: Colors.orange),
+          const SnackBar(content: Text('ユーザーが見つかりませんでした'), backgroundColor: AppTheme.warning),
         );
       }
       return;

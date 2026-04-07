@@ -185,7 +185,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
             stream: FirebaseFirestore.instance.collection('prizes').orderBy('name').snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
               }
               final docs = snapshot.data?.docs ?? [];
               final filtered = docs.where((d) {
@@ -468,7 +468,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                       if (!reviewSnapshot.hasData) {
                         return const Center(child: Padding(
                           padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
                         ));
                       }
                       final reviews = reviewSnapshot.data!.docs;
@@ -596,6 +596,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
               leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
                 if (commentCtrl.text.trim().isNotEmpty) {
                   showDialog(context: ctx, builder: (c) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     title: const Text('入力内容を破棄しますか？'),
                     content: const Text('入力した内容は保存されません。'),
                     actions: [
@@ -700,7 +701,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
                       } catch (e) {
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('エラー: $e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
                           );
                         }
                       } finally {
@@ -983,7 +984,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
   Future<void> _savePrize() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('景品名を入力してください')),
+        const SnackBar(content: Text('景品名を入力してください'), backgroundColor: AppTheme.warning),
       );
       return;
     }
@@ -1038,6 +1039,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           final action = await showDialog<String>(
             context: context,
             builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('同じ景品が登録済みです'),
               content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('「${existingData['name'] ?? name}」はすでに登録されています。',
@@ -1090,7 +1092,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e'), backgroundColor: Colors.red));
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1112,6 +1114,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
               leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
                 if (commentCtrl.text.trim().isNotEmpty) {
                   showDialog(context: ctx, builder: (c) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     title: const Text('入力内容を破棄しますか？'),
                     content: const Text('入力した内容は保存されません。'),
                     actions: [
@@ -1212,7 +1215,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
                       } catch (e) {
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('エラー: $e'), backgroundColor: Colors.red),
+                            SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error),
                           );
                         }
                       } finally {
@@ -1564,7 +1567,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
               borderRadius: BorderRadius.circular(7),
               child: CachedNetworkImage(
                 imageUrl: product.imageUrl, fit: BoxFit.contain,
-                placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 1.5)),
+                placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor)),
                 errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, size: 24),
               ),
             ),

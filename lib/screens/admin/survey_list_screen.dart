@@ -141,8 +141,7 @@ class _SurveyCard extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(active ? 'アンケートを終了しました' : 'アンケートを再開しました'),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: active ? AppTheme.textSecondary : AppTheme.success,
+              backgroundColor: active ? AppTheme.warning : AppTheme.success,
             ),
           );
         }

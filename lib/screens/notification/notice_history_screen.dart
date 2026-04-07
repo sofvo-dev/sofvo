@@ -28,7 +28,7 @@ class NoticeHistoryScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }
 
           final docs = snapshot.data?.docs ?? [];
@@ -173,13 +173,13 @@ class NoticeHistoryScreen extends StatelessWidget {
     FirebaseFirestore.instance.collection('notices').doc(docId).delete().then((_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('お知らせを削除しました'), behavior: SnackBarBehavior.floating),
+          const SnackBar(content: Text('お知らせを削除しました'), backgroundColor: AppTheme.success),
         );
       }
     }).catchError((e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('削除に失敗しました: $e'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text('削除に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
       }
     });

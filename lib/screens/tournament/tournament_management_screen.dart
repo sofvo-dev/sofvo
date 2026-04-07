@@ -294,6 +294,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         Future<bool> onWillPop() async {
           if (!hasChanges()) return true;
           final result = await showDialog<String>(context: ctx, builder: (dlgCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('編集内容の保存'), content: const Text('変更が保存されていません。保存してから閉じますか？'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dlgCtx, 'discard'), child: const Text('保存しない', style: TextStyle(color: AppTheme.textSecondary))),
@@ -522,6 +523,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           Future<bool> onWillPop() async {
             if (!hasInput()) return true;
             final result = await showDialog<bool>(context: ctx, builder: (dlgCtx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('入力内容の破棄'), content: const Text('入力した内容が失われますが、よろしいですか？'),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: const Text('編集に戻る')),

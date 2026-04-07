@@ -147,6 +147,7 @@ class _ArticleCard extends StatelessWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('記事を削除'),
             content: const Text('この記事を削除しますか？この操作は取り消せません。'),
             actions: [

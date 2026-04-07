@@ -140,6 +140,7 @@ class CampaignManagementScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('キャンペーンを削除'),
         content: Text(
             '「${data['title'] ?? ''}」を削除しますか？この操作は取り消せません。'),

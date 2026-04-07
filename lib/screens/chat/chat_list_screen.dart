@@ -266,7 +266,7 @@ class _ChatListScreenState extends State<ChatListScreen>
               if (followSnap.connectionState ==
                   ConnectionState.waiting) {
                 return const Center(
-                    child: CircularProgressIndicator());
+                    child: CircularProgressIndicator(color: AppTheme.primaryColor));
               }
               final followDocs = followSnap.data?.docs ?? [];
               if (followDocs.isEmpty) {
@@ -973,6 +973,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('チャットを削除'),
         content: Text(
           type == 'dm'

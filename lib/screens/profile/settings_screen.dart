@@ -532,6 +532,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('ユーザーIDをコピーしました'),
+                  backgroundColor: AppTheme.success,
                   duration: Duration(seconds: 2),
                 ),
               );
@@ -586,7 +587,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ページを開けませんでした')),
+          const SnackBar(content: Text('ページを開けませんでした'), backgroundColor: AppTheme.error),
         );
       }
     }
@@ -607,6 +608,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final result = await showDialog<bool>(
             context: ctx,
             builder: (dlgCtx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('入力内容の破棄'),
               content: const Text('入力した内容が失われますが、よろしいですか？'),
               actions: [
@@ -723,12 +725,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Navigator.of(ctx).popUntil((route) => route.isFirst);
               }
               scaffoldMessengerKey.currentState?.showSnackBar(
-                SnackBar(
-                  content: const Text('ログアウトしました'),
-                  backgroundColor: const Color(0xFF2E7D32),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  duration: const Duration(seconds: 2),
+                const SnackBar(
+                  content: Text('ログアウトしました'),
+                  backgroundColor: AppTheme.success,
+                  duration: Duration(seconds: 2),
                 ),
               );
             },
@@ -763,7 +763,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(height: 16),
-                  CircularProgressIndicator(),
+                  CircularProgressIndicator(color: AppTheme.primaryColor),
                   SizedBox(height: 24),
                   Text('アカウントを削除しています...',
                       style: TextStyle(fontSize: 15)),

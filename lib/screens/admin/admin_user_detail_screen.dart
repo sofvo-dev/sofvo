@@ -389,7 +389,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
           ? const SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
             )
           : Icon(Icons.chevron_right, color: Colors.grey[400]),
       onTap: _loadingAction ? null : onTap,
@@ -446,6 +446,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(currentValue ? disableLabel : enableLabel),
           content: Text(currentValue ? disableMessage : enableMessage),
           actions: [

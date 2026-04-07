@@ -733,6 +733,7 @@ class MyPageScreen extends StatelessWidget {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('リンクをコピーしました'),
+                                      backgroundColor: AppTheme.success,
                                       duration: Duration(seconds: 2),
                                     ),
                                   );
@@ -975,12 +976,10 @@ class MyPageScreen extends StatelessWidget {
 
   void _showComingSoon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('この機能は準備中です'),
+      const SnackBar(
+        content: Text('この機能は準備中です'),
         backgroundColor: AppTheme.warning,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -1243,7 +1242,7 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           );
         }
         if (!snapshot.hasData) {
-          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
 
         final tournaments = snapshot.data!;
@@ -1400,7 +1399,7 @@ class _HostedTournamentCardsRowState extends State<_HostedTournamentCardsRow> {
           );
         }
         if (!snapshot.hasData) {
-          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
 
         final tournaments = snapshot.data!;
@@ -1500,7 +1499,7 @@ class _GadgetCardsRow extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
 
         final gadgets = (snapshot.data?.docs ?? []).toList()
@@ -1642,7 +1641,7 @@ class _GadgetCardsRow extends StatelessWidget {
                     imageUrl: imageUrl,
                     height: 200,
                     fit: BoxFit.contain,
-                    placeholder: (_, __) => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                    placeholder: (_, __) => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))),
                     errorWidget: (_, __, ___) => const SizedBox(height: 200, child: Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey))),
                   ),
                 )
@@ -1859,7 +1858,7 @@ class _RankingPreview extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
 
         final users = snapshot.data?.docs ?? [];
@@ -2158,7 +2157,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             child: _isSaving
                 ? const SizedBox(
                     width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
                 : const Text('保存',
                     style: TextStyle(
                         fontSize: 16,
@@ -2467,7 +2466,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   Future<void> _saveProfile() async {
     if (_nicknameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ニックネームを入力してください')));
+          const SnackBar(content: Text('ニックネームを入力してください'), backgroundColor: AppTheme.warning));
       return;
     }
 

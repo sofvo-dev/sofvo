@@ -135,6 +135,7 @@ class _TemplateCard extends StatelessWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('テンプレートを削除'),
             content: Text('「$name」を削除しますか？'),
             actions: [

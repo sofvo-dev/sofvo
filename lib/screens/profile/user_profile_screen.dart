@@ -843,7 +843,7 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           return _buildEmptyCard('データの取得に失敗しました', Icons.error_outline);
         }
         if (!snapshot.hasData) {
-          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
 
         final tournaments = snapshot.data!;
@@ -987,7 +987,7 @@ class _HostedTournamentCardsRowState extends State<_HostedTournamentCardsRow> {
           return _buildEmptyCard('データの取得に失敗しました', Icons.error_outline);
         }
         if (!snapshot.hasData) {
-          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
 
         final tournaments = snapshot.data!;
@@ -1253,7 +1253,7 @@ class _GadgetCardsRow extends StatelessWidget {
           return _buildEmptyCard('ガジェットがまだありません', Icons.devices_other_outlined);
         }
         if (!snapshot.hasData) {
-          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
 
         final gadgets = (snapshot.data?.docs ?? []).toList()
@@ -1532,6 +1532,7 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
             leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
               if (commentController.text.trim().isNotEmpty) {
                 showDialog(context: context, builder: (c) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Text('入力内容を破棄しますか？'),
                   content: const Text('入力した内容は保存されません。'),
                   actions: [
@@ -1705,7 +1706,7 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
                 .get(),
             builder: (context, futureSnap) {
               if (!futureSnap.hasData) {
-                return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
               }
               final posts = futureSnap.data?.docs ?? [];
               if (posts.isEmpty) return _buildEmptyCard('まだ投稿がありません', Icons.article_outlined);
@@ -1714,7 +1715,7 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
           );
         }
         if (!snapshot.hasData) {
-          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
         }
         final posts = snapshot.data?.docs ?? [];
         if (posts.isEmpty) return _buildEmptyCard('まだ投稿がありません', Icons.article_outlined);

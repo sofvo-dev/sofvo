@@ -637,7 +637,7 @@ class _GadgetListScreenState extends State<GadgetListScreen> {
                     imageUrl: imageUrl,
                     height: 200,
                     fit: BoxFit.contain,
-                    placeholder: (_, __) => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                    placeholder: (_, __) => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))),
                     errorWidget: (_, __, ___) => const SizedBox(height: 200, child: Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey))),
                   ),
                 )

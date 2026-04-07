@@ -158,7 +158,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     if (_myEntryTeamId.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('この大会にエントリーしていないためチェックインできません'), backgroundColor: Colors.orange),
+          const SnackBar(content: Text('この大会にエントリーしていないためチェックインできません'), backgroundColor: AppTheme.warning),
         );
       }
       return;
@@ -169,7 +169,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     if (existing.docs.isNotEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('すでにチェックイン済みです'), backgroundColor: Colors.orange),
+          const SnackBar(content: Text('すでにチェックイン済みです'), backgroundColor: AppTheme.warning),
         );
       }
       return;
@@ -968,7 +968,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return StreamBuilder<DocumentSnapshot>(
       stream: _firestore.collection('tournaments').doc(_tournamentId).snapshots(),
       builder: (context, tournSnap) {
-        if (!tournSnap.hasData) return const Center(child: CircularProgressIndicator());
+        if (!tournSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         final tournData = tournSnap.data!.data() as Map<String, dynamic>? ?? {};
         final tournEditors = List<String>.from(tournData['editors'] ?? []);
         final isOrganizer = tournData['organizerId'] == uid || tournEditors.contains(uid) || _isAdmin;
@@ -1056,7 +1056,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore.collection('tournaments').doc(_tournamentId).collection('rounds').snapshots(),
       builder: (context, roundsSnap) {
-        if (!roundsSnap.hasData) return const Center(child: CircularProgressIndicator());
+        if (!roundsSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         final rounds = roundsSnap.data!.docs;
         if (rounds.isEmpty) {
           return const Center(child: Text('予選がまだ生成されていません', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)));
@@ -1201,6 +1201,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           final result = await showDialog<String>(
             context: ctx,
             builder: (dlgCtx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('編集内容の保存'),
               content: const Text('変更が保存されていません。保存してから閉じますか？'),
               actions: [
@@ -2429,7 +2430,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               StreamBuilder<DocumentSnapshot>(
                 stream: _firestore.collection('tournaments').doc(_tournamentId).snapshots(),
                 builder: (context, snap) {
-                  if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+                  if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                   final tournData = snap.data!.data() as Map<String, dynamic>? ?? {};
                   final editors = List<String>.from(tournData['editors'] ?? []);
 
@@ -2484,7 +2485,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               StreamBuilder<QuerySnapshot>(
                 stream: _firestore.collection('users').doc(uid).collection('following').snapshots(),
                 builder: (context, followSnap) {
-                  if (!followSnap.hasData) return const Center(child: CircularProgressIndicator());
+                  if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                   final followings = followSnap.data!.docs;
                   if (followings.isEmpty) {
                     return Container(
@@ -2562,7 +2563,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.all(24),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(teamName,
@@ -2844,7 +2845,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             .collection('rounds').doc(roundId)
             .collection('matches').orderBy('matchOrder').snapshots(),
         builder: (context, matchSnap) {
-          if (!matchSnap.hasData) return const Center(child: CircularProgressIndicator());
+          if (!matchSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
           final matches = matchSnap.data!.docs;
           if (matches.isEmpty) return const Text('試合がありません');
 
@@ -2966,16 +2967,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           return InkWell(
             onTap: () {
               if (tournamentStatus != '開催中') {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: Colors.orange));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: AppTheme.warning));
                 return;
               }
               if (isCompleted && !isOrganizer) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです。編集は大会主催者のみ可能です"), backgroundColor: Colors.orange));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです。編集は大会主催者のみ可能です"), backgroundColor: AppTheme.warning));
                 return;
               }
               if (!canInput) return;
               if (!prevDone) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: Colors.orange));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: AppTheme.warning));
                 return;
               }
               Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
@@ -3330,17 +3331,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             return InkWell(
               onTap: () {
                 if (tournamentStatus != '開催中') {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: Colors.orange));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: AppTheme.warning));
                   return;
                 }
                 if (isWaiting) return;
                 if (isCompleted && !isOrganizer) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです"), backgroundColor: Colors.orange));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("この試合は確定済みです"), backgroundColor: AppTheme.warning));
                   return;
                 }
                 if (!canInput) return;
                 if (!prevDone) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: Colors.orange));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("前の試合が完了してから入力してください"), backgroundColor: AppTheme.warning));
                   return;
                 }
                 Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
@@ -4465,7 +4466,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore.collection('tournaments').doc(_tournamentId).collection('entries').snapshots(),
       builder: (context, entriesSnap) {
-        if (!entriesSnap.hasData) return const Center(child: CircularProgressIndicator());
+        if (!entriesSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         final entries = entriesSnap.data?.docs ?? [];
 
         if (entries.isEmpty) {
@@ -4748,7 +4749,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     .collection('timeline').orderBy('createdAt', descending: true).snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) return Center(child: Text('読み込みに失敗しました', style: TextStyle(color: AppTheme.textSecondary)));
-              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
               final rawPosts = snapshot.data?.docs ?? [];
               final posts = List<QueryDocumentSnapshot>.from(rawPosts);
               if (!_isBoardTeam) {
@@ -5404,6 +5405,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
                   if (teamNameCtrl.text.trim() != currentTeamName || selectedMembers.length != currentMemberNames.entries.where((e) => e.key != uid).length) {
                     showDialog(context: ctx, builder: (c) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       title: const Text('入力内容を破棄しますか？'),
                       content: const Text('入力した内容は保存されません。'),
                       actions: [
@@ -5446,7 +5448,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       stream: _firestore.collection('users').doc(uid)
                           .collection('following').snapshots(),
                       builder: (context, followSnap) {
-                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator());
+                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                         final followings = followSnap.data!.docs;
                         if (followings.isEmpty) {
                           return Container(
@@ -5458,7 +5460,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         return FutureBuilder<List<DocumentSnapshot>>(
                           future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
                           builder: (context, userSnaps) {
-                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppTheme.primaryColor)));
                             final activeIndexes = <int>[];
                             for (int i = 0; i < followings.length; i++) {
                               if (userSnaps.data![i].exists) activeIndexes.add(i);
@@ -5623,6 +5625,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
                   if (teamNameCtrl.text.trim().isNotEmpty || selectedMembers.isNotEmpty) {
                     showDialog(context: ctx, builder: (c) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       title: const Text('入力内容を破棄しますか？'),
                       content: const Text('入力した内容は保存されません。'),
                       actions: [
@@ -5681,7 +5684,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       stream: _firestore.collection('users').doc(uid)
                           .collection('following').snapshots(),
                       builder: (context, followSnap) {
-                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator());
+                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                         final followings = followSnap.data!.docs;
                         if (followings.isEmpty) {
                           return Container(
@@ -5693,7 +5696,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         return FutureBuilder<List<DocumentSnapshot>>(
                           future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
                           builder: (context, userSnaps) {
-                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppTheme.primaryColor)));
                             final activeIndexes = <int>[];
                             for (int i = 0; i < followings.length; i++) {
                               if (userSnaps.data![i].exists) activeIndexes.add(i);
@@ -6527,6 +6530,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
               if (teamNameCtrl.text.trim().isNotEmpty) {
                 showDialog(context: ctx, builder: (c) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Text('入力内容を破棄しますか？'),
                   content: const Text('入力した内容は保存されません。'),
                   actions: [
@@ -6739,11 +6743,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   final url = _buildShareUrl();
                   Clipboard.setData(ClipboardData(text: url));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('URL\u3092\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f'),
+                    const SnackBar(
+                      content: Text('URL\u3092\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f'),
                       backgroundColor: AppTheme.success,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   );
                 },
@@ -6775,7 +6777,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               subtitle: const Text('\u57fa\u672c\u60c5\u5831\u30fb\u30eb\u30fc\u30eb\u30fb\u30b9\u30b1\u30b8\u30e5\u30fc\u30eb'),
               onTap: () async {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...'), backgroundColor: AppTheme.primaryColor));
                 final bytes = await PdfGenerator().generateTournamentSummary(_tournamentId);
                 await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u8981\u9805');
               },
@@ -6786,7 +6788,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               subtitle: const Text('\u30b3\u30fc\u30c8\u5225\u8a66\u5408\u4e00\u89a7\u30fb\u9806\u4f4d\u8868'),
               onTap: () async {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...'), backgroundColor: AppTheme.primaryColor));
                 final bytes = await PdfGenerator().generateMatchTable(_tournamentId);
                 await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u5bfe\u6226\u8868');
               },
@@ -6797,7 +6799,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               subtitle: const Text('\u6c7a\u52dd\u30d6\u30e9\u30b1\u30c3\u30c8\u30fb\u7d50\u679c'),
               onTap: () async {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...'), backgroundColor: AppTheme.primaryColor));
                 final bytes = await PdfGenerator().generateBracketPdf(_tournamentId);
                 await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u30c8\u30fc\u30ca\u30e1\u30f3\u30c8');
               },
@@ -7457,7 +7459,7 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+    if (!_loaded) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppTheme.primaryColor)));
 
     // Aggregate: sum matchPoints/pointDiff/totalPoints per teamId across all rounds & courts
     final Map<String, Map<String, dynamic>> merged = {};
@@ -8675,6 +8677,7 @@ class _RecruitFullScreenState extends State<_RecruitFullScreen> {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('入力内容を破棄しますか？'),
         content: const Text('入力した内容は保存されません。'),
         actions: [
@@ -8715,7 +8718,7 @@ class _RecruitFullScreenState extends State<_RecruitFullScreen> {
       if (mounted) {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('投稿に失敗しました: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('投稿に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
       }
     }
@@ -9044,7 +9047,7 @@ class _EditorsScreenState extends State<_EditorsScreen> {
           StreamBuilder<DocumentSnapshot>(
             stream: _firestore.collection('tournaments').doc(widget.tournamentId).snapshots(),
             builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+              if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
               final tournData = snap.data!.data() as Map<String, dynamic>? ?? {};
               final editors = List<String>.from(tournData['editors'] ?? []);
 
@@ -9095,7 +9098,7 @@ class _EditorsScreenState extends State<_EditorsScreen> {
           StreamBuilder<QuerySnapshot>(
             stream: _firestore.collection('users').doc(uid).collection('following').snapshots(),
             builder: (context, followSnap) {
-              if (!followSnap.hasData) return const Center(child: CircularProgressIndicator());
+              if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
               final followings = followSnap.data!.docs;
               if (followings.isEmpty) {
                 return Container(
