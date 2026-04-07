@@ -4105,3 +4105,29 @@ exports.getUserSegments = functions.runWith({ timeoutSeconds: 120, memory: "512M
     res.status(500).json({ error: e.message || "Unknown error" });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 管理者用: ユーザーのメール・パスワード変更
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.updateUserAuth = functions.https.onRequest(async (req, res) => {
+  try {
+    const { uid, email, password } = req.body;
+    if (!uid) return res.status(400).json({ error: "uid is required" });
+
+    const updateData = {};
+    if (email) updateData.email = email;
+    if (password) updateData.password = password;
+
+    await admin.auth().updateUser(uid, updateData);
+
+    // Firestoreのemailも同期
+    if (email) {
+      await admin.firestore().collection("users").doc(uid).update({ email });
+    }
+
+    res.json({ success: true, message: "Updated successfully", updated: Object.keys(updateData) });
+  } catch (e) {
+    console.error("updateUserAuth error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
