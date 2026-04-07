@@ -698,7 +698,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
                   imageUrl: product.imageUrl,
                   fit: BoxFit.contain,
                   placeholder: (_, __) => const Center(
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                    child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.primaryColor),
                   ),
                   errorWidget: (_, __, ___) => const Icon(Icons.image_not_supported, size: 24),
                 ),

@@ -549,6 +549,7 @@ class _ReportManagementScreenState extends State<ReportManagementScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('ユーザーを凍結'),
         content: const Text('このユーザーのアカウントを凍結しますか？凍結するとログインできなくなります。'),
         actions: [

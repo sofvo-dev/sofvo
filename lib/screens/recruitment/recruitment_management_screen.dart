@@ -296,7 +296,7 @@ class _RecruitmentManagementScreenState
                 .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
               }
               final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
               final isActive = data['status'] == '募集中';

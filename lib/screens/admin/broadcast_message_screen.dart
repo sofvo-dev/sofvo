@@ -90,6 +90,7 @@ class _BroadcastMessageScreenState extends State<BroadcastMessageScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('メッセージを送信'),
         content: Text(
           '${_targetLabels[_selectedTarget]}（推定${_estimatedCount ?? "?"}人）にメッセージを送信しますか？\n\n「$message」',

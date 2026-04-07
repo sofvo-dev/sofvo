@@ -246,7 +246,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       _uniformRequired = false; _snsVideoAllowed = true; _lunchBreak = 'なし';
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('デフォルト設定に戻しました'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('デフォルト設定に戻しました'), backgroundColor: AppTheme.success, duration: Duration(seconds: 1)),
     );
   }
 
@@ -264,7 +264,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
       _uniformRequired = true; _snsVideoAllowed = false; _lunchBreak = 'なし';
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('かびるんるんかっぷ設定を適用しました'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('かびるんるんかっぷ設定を適用しました'), backgroundColor: AppTheme.success, duration: Duration(seconds: 1)),
     );
   }
 
@@ -552,7 +552,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     if (uid == null) return;
     await FirebaseFirestore.instance.collection('users').doc(uid)
         .collection('ruleTemplates').add({'name': name, 'rules': _buildRules(), 'createdAt': FieldValue.serverTimestamp()});
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('「$name」を保存しました')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('「$name」を保存しました'), backgroundColor: AppTheme.success));
   }
 
   Future<void> _loadTemplate() async {
@@ -562,7 +562,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
         .collection('ruleTemplates').orderBy('createdAt', descending: true).get();
     if (!mounted) return;
     if (snap.docs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存済みテンプレートがありません')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存済みテンプレートがありません'), backgroundColor: AppTheme.warning));
       return;
     }
     final selected = await showDialog<Map<String, dynamic>>(context: context, builder: (ctx) {
@@ -589,7 +589,7 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     });
     if (selected != null) {
       _loadRules(selected);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('テンプレートを適用しました')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('テンプレートを適用しました'), backgroundColor: AppTheme.success));
     }
   }
 

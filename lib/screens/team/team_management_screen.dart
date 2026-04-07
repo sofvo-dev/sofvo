@@ -444,6 +444,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           final result = await showDialog<bool>(
             context: ctx,
             builder: (dlgCtx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('入力内容の破棄'),
               content: const Text('入力した内容が失われますが、よろしいですか？'),
               actions: [

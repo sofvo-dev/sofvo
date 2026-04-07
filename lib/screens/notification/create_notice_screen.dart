@@ -66,7 +66,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
   Future<void> _send() async {
     if (_titleController.text.trim().isEmpty || _bodyController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('タイトルと本文を入力してください'), behavior: SnackBarBehavior.floating),
+        const SnackBar(content: Text('タイトルと本文を入力してください'), backgroundColor: AppTheme.warning),
       );
       return;
     }
@@ -82,7 +82,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('お知らせを配信しました'), behavior: SnackBarBehavior.floating),
+          const SnackBar(content: Text('お知らせを配信しました'), backgroundColor: AppTheme.success),
         );
         Navigator.pop(context);
       }
@@ -90,7 +90,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
       if (mounted) {
         setState(() => _isSending = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('配信に失敗しました: $e'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text('配信に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
       }
     }

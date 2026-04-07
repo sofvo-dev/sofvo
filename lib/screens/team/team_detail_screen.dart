@@ -320,7 +320,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                         content: Text(
-                            '${member['name']}さんをオーナーに変更しました')),
+                            '${member['name']}さんをオーナーに変更しました'),
+                        backgroundColor: AppTheme.success),
                   );
                 } else if (value == 'remove') {
                   _showRemoveMemberDialog(member, index);
@@ -475,8 +476,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                                           .showSnackBar(SnackBar(
                                         content: Text(
                                             '${u['name']}さんに招待を送りました'),
-                                        behavior:
-                                            SnackBarBehavior.floating,
+                                        backgroundColor: AppTheme.success,
                                       ));
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -531,7 +531,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text('${member['name']}さんを除外しました')),
+                    content: Text('${member['name']}さんを除外しました'),
+                    backgroundColor: AppTheme.success),
               );
             },
             style: ElevatedButton.styleFrom(
@@ -566,7 +567,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text('${widget.teamName}から脱退しました')),
+                    content: Text('${widget.teamName}から脱退しました'),
+                    backgroundColor: AppTheme.success),
               );
             },
             style: ElevatedButton.styleFrom(
@@ -601,7 +603,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text('${widget.teamName}を削除しました')),
+                    content: Text('${widget.teamName}を削除しました'),
+                    backgroundColor: AppTheme.success),
               );
             },
             style: ElevatedButton.styleFrom(

@@ -97,13 +97,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedPrefecture.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('活動エリアを選択してください'),
+        const SnackBar(
+          content: Text('活動エリアを選択してください'),
           backgroundColor: AppTheme.warning,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
         ),
       );
       return;
@@ -205,10 +201,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               return errorMessage;
             }()),
             backgroundColor: AppTheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
           ),
         );
       }
@@ -387,7 +379,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
                             ),
                           )
                         : _isIdAvailable == true

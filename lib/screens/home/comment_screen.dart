@@ -52,11 +52,9 @@ class _CommentScreenState extends State<CommentScreen> {
     if (ContentFilterService.containsProhibitedContent(text)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('不適切な表現が含まれています。内容を修正してください。'),
+          const SnackBar(
+            content: Text('不適切な表現が含まれています。内容を修正してください。'),
             backgroundColor: AppTheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
       }
@@ -423,7 +421,7 @@ class _CommentScreenState extends State<CommentScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('報告を受け付けました。ご協力ありがとうございます。')),
+          const SnackBar(content: Text('報告を受け付けました。ご協力ありがとうございます。'), backgroundColor: AppTheme.success),
         );
       }
     } catch (e) {

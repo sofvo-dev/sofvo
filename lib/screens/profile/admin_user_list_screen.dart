@@ -256,6 +256,7 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(isBanned ? '凍結を解除' : 'アカウントを凍結'),
           content: Text(
             isBanned

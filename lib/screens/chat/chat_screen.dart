@@ -240,14 +240,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         await ref.delete();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('通知をオンにしました')),
+            const SnackBar(content: Text('通知をオンにしました'), backgroundColor: AppTheme.success),
           );
         }
       } else {
         await ref.set({'mutedAt': FieldValue.serverTimestamp()});
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('このチャットの通知をオフにしました')),
+            const SnackBar(content: Text('このチャットの通知をオフにしました'), backgroundColor: AppTheme.warning),
           );
         }
       }

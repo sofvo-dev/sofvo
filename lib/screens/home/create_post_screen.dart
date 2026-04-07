@@ -87,8 +87,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? AppTheme.error : AppTheme.warning,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

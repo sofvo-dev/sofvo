@@ -184,7 +184,7 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
             stream: FirebaseFirestore.instance.collection('venues').orderBy('name').snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
               }
               final docs = snapshot.data?.docs ?? [];
               final filtered = docs.where((d) {
@@ -910,7 +910,7 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e'), backgroundColor: Colors.red));
+          SnackBar(content: Text('エラー: $e'), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

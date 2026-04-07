@@ -979,6 +979,7 @@ class _HomeScreenState extends State<HomeScreen>
             leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
               if (commentController.text.trim().isNotEmpty) {
                 showDialog(context: context, builder: (c) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Text('入力内容を破棄しますか？'),
                   content: const Text('入力した内容は保存されません。'),
                   actions: [
@@ -1302,7 +1303,7 @@ class _HomeScreenState extends State<HomeScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('報告を受け付けました。ご協力ありがとうございます。')),
+          const SnackBar(content: Text('報告を受け付けました。ご協力ありがとうございます。'), backgroundColor: AppTheme.success),
         );
       }
     } catch (e) {
@@ -1325,7 +1326,7 @@ class _HomeScreenState extends State<HomeScreen>
           .set({'hiddenAt': FieldValue.serverTimestamp()});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('この投稿を非表示にしました')),
+          const SnackBar(content: Text('この投稿を非表示にしました'), backgroundColor: AppTheme.success),
         );
       }
     } catch (e) {

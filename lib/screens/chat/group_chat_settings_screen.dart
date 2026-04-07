@@ -545,6 +545,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
           final result = await showDialog<String>(
             context: ctx,
             builder: (dlgCtx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('編集内容の保存'),
               content: const Text('変更が保存されていません。保存してから閉じますか？'),
               actions: [
