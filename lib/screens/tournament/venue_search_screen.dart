@@ -670,7 +670,8 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
       _notesCtrl.text = (v['notes'] as String?) ?? '';
       _floorType = (v['floorType'] as String?) ?? '';
       _poleType = (v['poleType'] as String?) ?? '';
-      _poleAdjustable = (v['poleAdjustable'] as String?) ?? '';
+      final pa = v['poleAdjustable'];
+      _poleAdjustable = pa is bool ? (pa ? '可' : '') : (pa as String?) ?? '';
       _hasToilet = v['hasToilet'] ?? false;
       _hasChangeRoom = v['hasChangeRoom'] ?? false;
       _hasShower = v['hasShower'] ?? false;

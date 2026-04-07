@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../config/app_theme.dart';
 import '../../main.dart';
 import '../../services/auth_service.dart';
@@ -32,12 +33,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _searchId = '';
   bool _isAdmin = false;
   bool _osNotificationDenied = false;
+  String _appVersion = '';
 
   @override
   void initState() {
     super.initState();
     _loadNotificationSettings();
     _checkOsNotificationPermission();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _appVersion = '${info.version}+${info.buildNumber}');
+    } catch (_) {}
   }
 
   Future<void> _checkOsNotificationPermission() async {
@@ -375,7 +385,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildInfoTile(
                   Icons.info_outline,
                   'バージョン',
-                  '1.0.0',
+                  _appVersion.isNotEmpty ? _appVersion : '...',
                 ),
                 _buildDivider(),
                 ListTile(
