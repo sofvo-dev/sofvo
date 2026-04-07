@@ -69,7 +69,7 @@ class FaqManagementScreen extends StatelessWidget {
                 onEdit: () =>
                     _showFaqForm(context, docId: doc.id, data: data),
                 onDelete: () => _confirmDelete(context, doc.id, data),
-                onToggleActive: () => _toggleActive(doc.id, data),
+                onToggleActive: () => _toggleActive(context, doc.id, data),
               );
             },
           );
@@ -98,11 +98,19 @@ class FaqManagementScreen extends StatelessWidget {
     await batch.commit();
   }
 
-  Future<void> _toggleActive(String docId, Map<String, dynamic> data) async {
-    await FirebaseFirestore.instance
-        .collection('faq')
-        .doc(docId)
-        .update({'active': !(data['active'] == true)});
+  Future<void> _toggleActive(BuildContext context, String docId, Map<String, dynamic> data) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('faq')
+          .doc(docId)
+          .update({'active': !(data['active'] == true)});
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('操作に失敗しました'),
+            backgroundColor: AppTheme.error));
+      }
+    }
   }
 
   Future<void> _confirmDelete(
@@ -127,7 +135,15 @@ class FaqManagementScreen extends StatelessWidget {
       ),
     );
     if (confirmed == true) {
-      await FirebaseFirestore.instance.collection('faq').doc(docId).delete();
+      try {
+        await FirebaseFirestore.instance.collection('faq').doc(docId).delete();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('操作に失敗しました'),
+              backgroundColor: AppTheme.error));
+        }
+      }
     }
   }
 

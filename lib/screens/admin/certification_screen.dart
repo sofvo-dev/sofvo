@@ -183,17 +183,25 @@ class _CertificationScreenState extends State<CertificationScreen>
             ),
             onPressed: () async {
               Navigator.pop(ctx);
-              await FirebaseFirestore.instance
-                  .collection('tournaments')
-                  .doc(docId)
-                  .update({'isCertified': !currentStatus});
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(
-                      '「$title」を${currentStatus ? '認定解除' : '認定'}しました'),
-                  backgroundColor:
-                      currentStatus ? AppTheme.textSecondary : Colors.amber[700],
-                ));
+              try {
+                await FirebaseFirestore.instance
+                    .collection('tournaments')
+                    .doc(docId)
+                    .update({'isCertified': !currentStatus});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(
+                        '「$title」を${currentStatus ? '認定解除' : '認定'}しました'),
+                    backgroundColor:
+                        currentStatus ? AppTheme.textSecondary : Colors.amber[700],
+                  ));
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('操作に失敗しました'),
+                      backgroundColor: AppTheme.error));
+                }
               }
             },
             child: Text(action),

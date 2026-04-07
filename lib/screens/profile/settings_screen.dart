@@ -101,21 +101,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    await FirebaseFirestore.instance.collection('users').doc(uid).set({
-      'notificationSettings': {
-        'push': _pushNotification,
-        'email': _emailNotification,
-        'tournament': _tournamentNotification,
-        'follow': _followNotification,
-        'match': _matchNotification,
-        'chat': _chatNotification,
-        'likeComment': _likeCommentNotification,
-        'organizer': _organizerNotification,
-        'official': _officialNotification,
-        'reminder': _reminderNotification,
-        'team': _teamNotification,
-      },
-    }, SetOptions(merge: true));
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'notificationSettings': {
+          'push': _pushNotification,
+          'email': _emailNotification,
+          'tournament': _tournamentNotification,
+          'follow': _followNotification,
+          'match': _matchNotification,
+          'chat': _chatNotification,
+          'likeComment': _likeCommentNotification,
+          'organizer': _organizerNotification,
+          'official': _officialNotification,
+          'reminder': _reminderNotification,
+          'team': _teamNotification,
+        },
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('操作に失敗しました'),
+            backgroundColor: AppTheme.error));
+      }
+    }
   }
 
   @override
