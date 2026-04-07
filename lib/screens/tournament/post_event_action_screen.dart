@@ -126,7 +126,7 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
       body: SafeArea(
@@ -263,7 +263,7 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
       body: SafeArea(
