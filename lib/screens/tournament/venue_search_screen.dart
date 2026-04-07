@@ -76,10 +76,9 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('会場を探す', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.add_location_alt),
             onPressed: () async {
@@ -691,11 +690,10 @@ class _VenueRegisterScreenState extends State<VenueRegisterScreen> {
   Widget build(BuildContext context) {
     final canSave = _nameCtrl.text.trim().isNotEmpty && _addressCtrl.text.trim().isNotEmpty;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Text(_isEditing ? '会場を編集' : '会場を登録',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

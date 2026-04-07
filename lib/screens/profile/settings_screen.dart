@@ -590,7 +590,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirmPwCtrl = TextEditingController();
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
         bool hasInput() => currentPwCtrl.text.isNotEmpty || newPwCtrl.text.isNotEmpty || confirmPwCtrl.text.isNotEmpty;
 
@@ -622,10 +622,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
           },
           child: Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppTheme.backgroundColor,
             appBar: AppBar(
-              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
-              leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () async {
                 final shouldPop = await onWillPop();
                 if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
               }),

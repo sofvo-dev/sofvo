@@ -248,7 +248,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     if (_currentUser == null) return;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (routeContext) {
         return Scaffold(
           backgroundColor: AppTheme.backgroundColor,
@@ -359,13 +359,13 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.backgroundColor,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
