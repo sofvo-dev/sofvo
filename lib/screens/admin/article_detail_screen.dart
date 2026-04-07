@@ -27,15 +27,11 @@ class ArticleDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
         title: Text(title,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
         centerTitle: true,
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Column(

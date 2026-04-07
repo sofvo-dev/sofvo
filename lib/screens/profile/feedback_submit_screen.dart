@@ -82,13 +82,9 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
         title: const Text('フィードバック',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),

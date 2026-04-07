@@ -193,7 +193,6 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: const Text('画像を切り抜き'),
-      ),
         actions: [
           _isProcessing
               ? const Padding(

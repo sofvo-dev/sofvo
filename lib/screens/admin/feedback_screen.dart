@@ -34,13 +34,9 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
         title: const Text('フィードバック管理',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        elevation: 0,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,

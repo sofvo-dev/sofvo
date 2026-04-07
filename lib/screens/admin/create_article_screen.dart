@@ -124,17 +124,9 @@ class _CreateArticleScreenState extends State<CreateArticleScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(_isEditing ? '記事編集' : '記事作成',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        elevation: 0,
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _save,

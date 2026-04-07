@@ -616,10 +616,9 @@ class _TournamentRulesScreenState extends State<TournamentRulesScreen> {
     final fits = calc['fits'] as bool;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('ルール設定', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context, _buildRules())),
         actions: [
           IconButton(icon: const Icon(Icons.folder_open), tooltip: '過去の設定を読込', onPressed: _loadTemplate),
