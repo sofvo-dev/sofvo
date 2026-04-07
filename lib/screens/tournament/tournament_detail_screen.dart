@@ -1249,7 +1249,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
                 },
               ),
-              title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               centerTitle: true,
             ),
             body: SingleChildScrollView(
@@ -5419,7 +5419,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     Navigator.pop(ctx);
                   }
                 }),
-                title: const Text('エントリー編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                title: const Text('エントリー編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 centerTitle: true,
               ),
               body: SingleChildScrollView(
@@ -5639,7 +5639,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     ));
                   } else { Navigator.pop(ctx); }
                 }),
-                title: const Text('大会にエントリー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                title: const Text('大会にエントリー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 centerTitle: true, elevation: 0.5,
               ),
               body: SingleChildScrollView(
@@ -6545,7 +6545,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 Navigator.pop(ctx);
               }
             }),
-            title: const Text('補欠エントリー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            title: const Text('補欠エントリー', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             centerTitle: true,
           ),
           body: SingleChildScrollView(
@@ -8157,7 +8157,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('大会主催者メニュー', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('大会主催者メニュー', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimary,
         elevation: 0,
@@ -8563,7 +8563,7 @@ class _CsvImportMenuScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('CSVインポート', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('CSVインポート', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimary,
         elevation: 0,
@@ -8755,7 +8755,7 @@ class _RecruitFullScreenState extends State<_RecruitFullScreen> {
               if (await _confirmDiscard()) Navigator.pop(context);
             },
           ),
-          title: const Text('メンバー募集する', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          title: const Text('メンバー募集する', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
           centerTitle: true,
           elevation: 0.5,
         ),
@@ -8864,7 +8864,7 @@ class _StatusChangeScreenState extends State<_StatusChangeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('ステータス変更', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('ステータス変更', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
         elevation: 0, surfaceTintColor: Colors.transparent,
       ),
@@ -8888,12 +8888,21 @@ class _StatusChangeScreenState extends State<_StatusChangeScreen> {
           child: ElevatedButton(
             onPressed: _selected == widget.currentStatus || _saving ? null : () async {
               setState(() => _saving = true);
-              await FirebaseFirestore.instance.collection('tournaments').doc(widget.tournamentId).update({'status': _selected});
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('ステータスを「$_selected」に変更しました'), backgroundColor: AppTheme.success),
-                );
-                Navigator.pop(context);
+              try {
+                await FirebaseFirestore.instance.collection('tournaments').doc(widget.tournamentId).update({'status': _selected});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('ステータスを「$_selected」に変更しました'), backgroundColor: AppTheme.success),
+                  );
+                  Navigator.pop(context);
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _saving = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('変更に失敗しました: $e'), backgroundColor: AppTheme.error),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -8935,7 +8944,7 @@ class _AnnouncementScreenState extends State<_AnnouncementScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('お知らせ送信', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('お知らせ送信', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
         elevation: 0, surfaceTintColor: Colors.transparent,
       ),
@@ -9037,7 +9046,7 @@ class _EditorsScreenState extends State<_EditorsScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     if (uid.isEmpty) return Scaffold(
       appBar: AppBar(
-        title: const Text('権限管理', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('権限管理', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
         elevation: 0, surfaceTintColor: Colors.transparent,
       ),
@@ -9047,7 +9056,7 @@ class _EditorsScreenState extends State<_EditorsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('権限管理', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('権限管理', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
         elevation: 0, surfaceTintColor: Colors.transparent,
       ),

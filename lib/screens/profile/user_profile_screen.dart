@@ -1527,10 +1527,9 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
       fullscreenDialog: true,
       builder: (_) {
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppTheme.backgroundColor,
           appBar: AppBar(
-            backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
-            leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
               if (commentController.text.trim().isNotEmpty) {
                 showDialog(context: context, builder: (c) => AlertDialog(
                   title: const Text('入力内容を破棄しますか？'),

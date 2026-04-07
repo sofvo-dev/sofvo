@@ -57,10 +57,9 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('景品をさがす', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.add_circle_outline),
             onPressed: () async {
@@ -592,10 +591,9 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppTheme.backgroundColor,
             appBar: AppBar(
-              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
-              leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
                 if (commentCtrl.text.trim().isNotEmpty) {
                   showDialog(context: ctx, builder: (c) => AlertDialog(
                     title: const Text('入力内容を破棄しますか？'),
@@ -1109,10 +1107,9 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppTheme.backgroundColor,
             appBar: AppBar(
-              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
-              leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {
                 if (commentCtrl.text.trim().isNotEmpty) {
                   showDialog(context: ctx, builder: (c) => AlertDialog(
                     title: const Text('入力内容を破棄しますか？'),

@@ -273,6 +273,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final origMaxTeams = maxTeamsCtrl.text; final origCourts = courtsCtrl.text; final origType = selectedType;
     final origDate = selectedDate; final origRules = tournamentRules; final origVenue = selectedVenue;
     final origDeadline = selectedDeadline; final origDescription = descriptionCtrl.text;
+    bool saving = false;
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
@@ -326,7 +327,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               final shouldPop = await onWillPop();
               if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
             }),
-            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
+            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -429,8 +430,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                   padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
               const SizedBox(height: 24),
               SizedBox(width: double.infinity, child: ElevatedButton(
-                onPressed: titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty && locationCtrl.text.trim().isNotEmpty
+                onPressed: !saving && titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty && locationCtrl.text.trim().isNotEmpty
                     ? () async {
+                        setPageState(() => saving = true);
                         try {
                           await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
                             'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
@@ -444,13 +446,15 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           if (ctx.mounted) { Navigator.pop(ctx); }
                           if (mounted) { ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
                         } catch (e) {
-                          if (ctx.mounted) { ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error)); }
+                          if (ctx.mounted) { setPageState(() => saving = false); ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error)); }
                         }
                       } : null,
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('保存する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))),
+                child: saving
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('保存する', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))),
             ])),
         ));
       }),
@@ -531,7 +535,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 final shouldPop = await onWillPop();
                 if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
               }),
-              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
+              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
             body: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
