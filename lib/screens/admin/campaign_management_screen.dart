@@ -465,7 +465,7 @@ class _CampaignFormScreenState extends State<_CampaignFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存に失敗しました: $e')),
+          SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
       }
     } finally {

@@ -363,7 +363,7 @@ class _FaqFormScreenState extends State<_FaqFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存に失敗しました: $e')),
+          SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
       }
     } finally {
