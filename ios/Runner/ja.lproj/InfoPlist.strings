@@ -1,0 +1,5 @@
+CFBundleDisplayName = "Sofvo";
+CFBundleName = "Sofvo";
+NSCameraUsageDescription = "QRコードを読み取るためにカメラを使用します";
+NSPhotoLibraryUsageDescription = "プロフィール写真を選択するためにフォトライブラリを使用します";
+NSPhotoLibraryAddOnlyUsageDescription = "画像を保存するためにフォトライブラリを使用します";
