@@ -225,7 +225,7 @@ class _ArticleCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis),
                           ),
                           const SizedBox(width: 8),
-                          _buildStatusBadge(published),
+                          _buildStatusBadge(context, published),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -272,13 +272,21 @@ class _ArticleCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge(bool published) {
+  Widget _buildStatusBadge(BuildContext context, bool published) {
     return GestureDetector(
       onTap: () async {
-        await FirebaseFirestore.instance
-            .collection('articles')
-            .doc(docId)
-            .update({'published': !published});
+        try {
+          await FirebaseFirestore.instance
+              .collection('articles')
+              .doc(docId)
+              .update({'published': !published});
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('操作に失敗しました'),
+                backgroundColor: AppTheme.error));
+          }
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

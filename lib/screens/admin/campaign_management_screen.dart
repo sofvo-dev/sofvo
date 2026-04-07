@@ -157,10 +157,18 @@ class CampaignManagementScreen extends StatelessWidget {
       ),
     );
     if (confirmed == true) {
-      await FirebaseFirestore.instance
-          .collection('campaigns')
-          .doc(docId)
-          .delete();
+      try {
+        await FirebaseFirestore.instance
+            .collection('campaigns')
+            .doc(docId)
+            .delete();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('操作に失敗しました'),
+              backgroundColor: AppTheme.error));
+        }
+      }
     }
   }
 

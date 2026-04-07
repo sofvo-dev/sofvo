@@ -188,8 +188,16 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             final isSelected = (currentIcon ?? 'emoji_events') == entry.key;
             return GestureDetector(
               onTap: () async {
-                await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({'icon': entry.key});
-                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({'icon': entry.key});
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                        content: Text('操作に失敗しました'),
+                        backgroundColor: AppTheme.error));
+                  }
+                }
               },
               child: Container(
                 width: 48, height: 48,

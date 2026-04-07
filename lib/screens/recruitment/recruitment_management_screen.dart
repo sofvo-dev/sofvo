@@ -464,7 +464,15 @@ class _RecruitmentManagementScreenState
                                               Expanded(
                                                 child: OutlinedButton(
                                                   onPressed: () async {
-                                                    await aDoc.reference.update({'status': '拒否'});
+                                                    try {
+                                                      await aDoc.reference.update({'status': '拒否'});
+                                                    } catch (e) {
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                                            content: Text('操作に失敗しました'),
+                                                            backgroundColor: AppTheme.error));
+                                                      }
+                                                    }
                                                   },
                                                   style: OutlinedButton.styleFrom(
                                                     foregroundColor: AppTheme.error,
@@ -479,14 +487,22 @@ class _RecruitmentManagementScreenState
                                               Expanded(
                                                 child: ElevatedButton(
                                                   onPressed: () async {
-                                                    await aDoc.reference.update({'status': '承認済'});
-                                                    if (context.mounted) {
-                                                      ScaffoldMessenger.of(context)
-                                                          .showSnackBar(SnackBar(
-                                                              content: Text(
-                                                                  '$nameさんを承認しました！'),
-                                                              backgroundColor:
-                                                                  AppTheme.success));
+                                                    try {
+                                                      await aDoc.reference.update({'status': '承認済'});
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context)
+                                                            .showSnackBar(SnackBar(
+                                                                content: Text(
+                                                                    '$nameさんを承認しました！'),
+                                                                backgroundColor:
+                                                                    AppTheme.success));
+                                                      }
+                                                    } catch (e) {
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                                            content: Text('操作に失敗しました'),
+                                                            backgroundColor: AppTheme.error));
+                                                      }
                                                     }
                                                   },
                                                   child: const Text('承認する'),
@@ -509,15 +525,23 @@ class _RecruitmentManagementScreenState
                           width: double.infinity,
                           child: OutlinedButton(
                             onPressed: () async {
-                              await FirebaseFirestore.instance
-                                  .collection('recruitments')
-                                  .doc(docId)
-                                  .update({'status': '締切'});
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(const SnackBar(
-                                        content: Text('募集を締め切りました'),
-                                        backgroundColor: AppTheme.success));
+                              try {
+                                await FirebaseFirestore.instance
+                                    .collection('recruitments')
+                                    .doc(docId)
+                                    .update({'status': '締切'});
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(const SnackBar(
+                                          content: Text('募集を締め切りました'),
+                                          backgroundColor: AppTheme.success));
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      content: Text('操作に失敗しました'),
+                                      backgroundColor: AppTheme.error));
+                                }
                               }
                             },
                             style: OutlinedButton.styleFrom(
