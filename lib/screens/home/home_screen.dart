@@ -971,7 +971,7 @@ class _HomeScreenState extends State<HomeScreen>
   void _showCommentSheet(String postId, String postOwnerName) {
     final commentController = TextEditingController();
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) {
         return Scaffold(
           backgroundColor: AppTheme.backgroundColor,

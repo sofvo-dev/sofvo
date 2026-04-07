@@ -281,7 +281,7 @@ class _RecruitmentManagementScreenState
     if (docId == null) return;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (routeContext) {
         return Scaffold(
           backgroundColor: AppTheme.backgroundColor,

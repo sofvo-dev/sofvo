@@ -217,7 +217,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
   // ━━━ メンバー追加 ━━━
   void _showAddMemberSheet() {
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (routeContext) {
         final currentMemberIds =
             _members.map((m) => m['uid'] as String).toSet();
@@ -536,7 +536,7 @@ class _GroupChatSettingsScreenState extends State<GroupChatSettingsScreen> {
     final origContent = contentController.text;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
         bool hasChanges() => titleController.text != origTitle || contentController.text != origContent;
 
