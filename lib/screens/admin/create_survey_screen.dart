@@ -103,7 +103,6 @@ class _CreateSurveyScreenState extends State<CreateSurveyScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('アンケートを作成しました'),
-          behavior: SnackBarBehavior.floating,
           backgroundColor: AppTheme.success,
         ),
       );
@@ -120,7 +119,6 @@ class _CreateSurveyScreenState extends State<CreateSurveyScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior: SnackBarBehavior.floating,
         backgroundColor: AppTheme.error,
       ),
     );
