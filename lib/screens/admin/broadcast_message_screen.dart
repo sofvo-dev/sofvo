@@ -124,7 +124,6 @@ class _BroadcastMessageScreenState extends State<BroadcastMessageScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$sentCount 人にメッセージを送信しました'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.success,
           ),
         );
@@ -135,7 +134,6 @@ class _BroadcastMessageScreenState extends State<BroadcastMessageScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('送信に失敗しました: $e'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.error,
           ),
         );

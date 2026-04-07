@@ -227,7 +227,7 @@ class _GadgetRegisterScreenState extends State<GadgetRegisterScreen> {
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('商品名を入力してください')),
+        const SnackBar(content: Text('商品名を入力してください'), backgroundColor: AppTheme.warning),
       );
       return;
     }

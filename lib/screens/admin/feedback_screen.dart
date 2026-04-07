@@ -190,9 +190,8 @@ class _FeedbackCardState extends State<_FeedbackCard> {
             SnackBar(
               content:
                   Text(isResolved ? '未対応に戻しました' : '対応済みにしました'),
-              behavior: SnackBarBehavior.floating,
               backgroundColor:
-                  isResolved ? AppTheme.textSecondary : AppTheme.success,
+                  isResolved ? AppTheme.warning : AppTheme.success,
             ),
           );
         }

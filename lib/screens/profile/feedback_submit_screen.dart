@@ -56,7 +56,6 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('フィードバックを送信しました。ありがとうございます！'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.success,
           ),
         );
@@ -67,7 +66,6 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('送信に失敗しました: $e'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.error,
           ),
         );

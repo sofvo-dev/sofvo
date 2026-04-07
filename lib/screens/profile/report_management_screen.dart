@@ -529,7 +529,7 @@ class _ReportManagementScreenState extends State<ReportManagementScreen> {
           SnackBar(
             content: Text(newStatus == 'resolved' ? '対応済みに更新しました' : '却下しました'),
             backgroundColor:
-                newStatus == 'resolved' ? AppTheme.success : AppTheme.textSecondary,
+                newStatus == 'resolved' ? AppTheme.success : AppTheme.warning,
           ),
         );
       }

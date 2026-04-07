@@ -53,9 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text(message),
           backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     } finally {
@@ -68,9 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
       SnackBar(
         content: Text('この${provider}アカウントは未登録です。\n下の「新規登録」ボタンから登録してください。'),
         backgroundColor: AppTheme.error,
-        behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -109,9 +104,6 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text(message),
           backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     } finally {
@@ -156,10 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text(message, maxLines: 5, overflow: TextOverflow.ellipsis),
           backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 8),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     } finally {
@@ -443,22 +432,18 @@ class _LoginScreenState extends State<LoginScreen> {
               final email = resetEmailController.text.trim();
               if (email.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('メールアドレスを入力してください'),
+                  const SnackBar(
+                    content: Text('メールアドレスを入力してください'),
                     backgroundColor: AppTheme.warning,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 );
                 return;
               }
               if (!email.contains('@')) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('正しいメールアドレスを入力してください'),
+                  const SnackBar(
+                    content: Text('正しいメールアドレスを入力してください'),
                     backgroundColor: AppTheme.warning,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 );
                 return;
@@ -470,26 +455,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('リセットメールを送信しました'),
+                      const SnackBar(
+                        content: Text('リセットメールを送信しました'),
                         backgroundColor: AppTheme.success,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
                       ),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('メール送信に失敗しました'),
+                      const SnackBar(
+                        content: Text('メール送信に失敗しました'),
                         backgroundColor: AppTheme.error,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
                       ),
                     );
                   }

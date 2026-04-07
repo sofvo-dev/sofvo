@@ -158,10 +158,9 @@ class _TemplateCard extends StatelessWidget {
               .delete();
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('テンプレートを削除しました'),
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: AppTheme.textSecondary,
+              const SnackBar(
+                content: Text('テンプレートを削除しました'),
+                backgroundColor: AppTheme.success,
               ),
             );
           }
@@ -310,7 +309,6 @@ class _TournamentTemplateFormScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_isEditing ? 'テンプレートを更新しました' : 'テンプレートを作成しました'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.success,
           ),
         );
@@ -321,7 +319,6 @@ class _TournamentTemplateFormScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('保存に失敗しました: $e'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.error,
           ),
         );

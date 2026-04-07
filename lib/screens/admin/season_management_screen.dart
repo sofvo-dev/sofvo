@@ -167,9 +167,8 @@ class _SeasonCard extends StatelessWidget {
             SnackBar(
               content:
                   Text(active ? 'シーズンを終了しました' : 'シーズンを再開しました'),
-              behavior: SnackBarBehavior.floating,
               backgroundColor:
-                  active ? AppTheme.textSecondary : AppTheme.success,
+                  active ? AppTheme.warning : AppTheme.success,
             ),
           );
         }
@@ -342,7 +341,6 @@ class _CreateSeasonPageState extends State<_CreateSeasonPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('開始日と終了日を選択してください'),
-          behavior: SnackBarBehavior.floating,
           backgroundColor: AppTheme.error,
         ),
       );
@@ -367,7 +365,6 @@ class _CreateSeasonPageState extends State<_CreateSeasonPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('シーズンを作成しました'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.success,
           ),
         );
@@ -377,7 +374,6 @@ class _CreateSeasonPageState extends State<_CreateSeasonPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('エラー: $e'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: AppTheme.error,
           ),
         );

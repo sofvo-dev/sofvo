@@ -193,7 +193,7 @@ class _CertificationScreenState extends State<CertificationScreen>
                     content: Text(
                         '「$title」を${currentStatus ? '認定解除' : '認定'}しました'),
                     backgroundColor:
-                        currentStatus ? AppTheme.textSecondary : Colors.amber[700],
+                        currentStatus ? AppTheme.warning : AppTheme.success,
                   ));
                 }
               } catch (e) {
