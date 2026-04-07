@@ -192,13 +192,8 @@ class _WebImageCropperDialogState extends State<WebImageCropperDialog> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
         title: const Text('画像を切り抜き'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+      ),
         actions: [
           _isProcessing
               ? const Padding(

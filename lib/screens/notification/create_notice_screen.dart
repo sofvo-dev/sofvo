@@ -101,12 +101,8 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
     final templates = _noticeTemplates[_selectedType] ?? _noticeTemplates['info']!;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text('お知らせ配信', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),

@@ -285,7 +285,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
   Widget build(BuildContext context) {
     if (_match == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('スコア入力'), backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+        appBar: AppBar(title: const Text('スコア入力')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
