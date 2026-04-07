@@ -435,7 +435,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     bool isMain = false;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
         bool hasInput() => nameController.text.isNotEmpty;
 
@@ -542,7 +542,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     bool searching = false;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (routeContext) {
         return StatefulBuilder(
           builder: (sheetCtx, setModalState) {

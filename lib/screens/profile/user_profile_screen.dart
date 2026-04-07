@@ -1524,7 +1524,7 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
   void _showCommentSheet(String postId) {
     final commentController = TextEditingController();
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) {
         return Scaffold(
           backgroundColor: AppTheme.backgroundColor,
@@ -1920,7 +1920,7 @@ class _ImageViewerScreenState extends State<_ImageViewerScreen> {
             ? Text('${_currentIndex + 1} / ${widget.images.length}', style: const TextStyle(fontSize: 15))
             : null,
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),

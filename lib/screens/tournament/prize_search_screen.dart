@@ -587,7 +587,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
     bool isSaving = false;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Scaffold(
@@ -1103,7 +1103,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
     bool isSaving = false;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Scaffold(

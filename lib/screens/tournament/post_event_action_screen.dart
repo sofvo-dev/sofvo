@@ -259,11 +259,8 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
   // ━━━ Step2: ついでにもう1つ画面 ━━━
   Widget _buildFollowUpScreen() {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
-        elevation: 0,
-      ),
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -505,13 +502,9 @@ class _TournamentParticipantsScreenState extends State<_TournamentParticipantsSc
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('参加者をフォロー', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimary,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
+        title: const Text('参加者をフォロー', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

@@ -234,7 +234,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: Column(children: [
           _buildHeader(),

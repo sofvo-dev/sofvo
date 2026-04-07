@@ -399,7 +399,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     ];
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (routeContext) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {

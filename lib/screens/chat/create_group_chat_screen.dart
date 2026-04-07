@@ -195,7 +195,7 @@ class _CreateGroupChatScreenState extends State<CreateGroupChatScreen> {
       appBar: AppBar(
         title: const Text('メンバーを選択'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [

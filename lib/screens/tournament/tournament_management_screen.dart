@@ -47,7 +47,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           body: const Center(child: Text('ログインしてください')));
     }
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(title: const Text('大会管理')),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('tournaments')
@@ -276,7 +276,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     bool saving = false;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) => StatefulBuilder(builder: (ctx, setPageState) {
         bool hasChanges() => titleCtrl.text != origTitle || locationCtrl.text != origLocation || feeCtrl.text != origFee ||
             maxTeamsCtrl.text != origMaxTeams || courtsCtrl.text != origCourts || selectedType != origType ||
@@ -321,13 +321,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           final shouldPop = await onWillPop();
           if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
         }, child: Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
-            leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
+          backgroundColor: AppTheme.backgroundColor,
+          appBar: AppBar(
+            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () async {
               final shouldPop = await onWillPop();
               if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
             }),
-            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
+            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -506,7 +506,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     bool isUploadingPdf = false;
 
     Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
+      fullscreenDialog: false,
       builder: (_) {
         return StatefulBuilder(builder: (ctx, setSheetState) {
           bool hasInput() => titleCtrl.text.isNotEmpty || locationCtrl.text.isNotEmpty || selectedDate.isNotEmpty;
@@ -529,13 +529,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             final shouldPop = await onWillPop();
             if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
           }, child: Scaffold(
-            backgroundColor: Colors.white,
-            appBar: AppBar(backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
-              leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
+            backgroundColor: AppTheme.backgroundColor,
+            appBar: AppBar(
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () async {
                 final shouldPop = await onWillPop();
                 if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
               }),
-              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
+              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
             body: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
