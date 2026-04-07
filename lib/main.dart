@@ -400,7 +400,7 @@ class _AuthGateState extends State<AuthGate> {
   void _openStore() {
     final uri = Uri.parse(
       Theme.of(context).platform == TargetPlatform.iOS
-          ? 'https://apps.apple.com/app/sofvo/id6742827798'
+          ? 'https://apps.apple.com/app/sofvo/id6760548582'
           : 'https://play.google.com/store/apps/details?id=com.sofvo.app',
     );
     launchUrl(uri, mode: LaunchMode.externalApplication);
