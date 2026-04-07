@@ -293,7 +293,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('投稿を作成'),
-      ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
