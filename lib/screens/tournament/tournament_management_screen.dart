@@ -326,7 +326,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               final shouldPop = await onWillPop();
               if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
             }),
-            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
+            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -531,7 +531,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 final shouldPop = await onWillPop();
                 if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
               }),
-              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
+              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
             body: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -5404,7 +5404,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             return Scaffold(
               backgroundColor: Colors.white,
               appBar: AppBar(
-                backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+                backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
                 leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
                   if (teamNameCtrl.text.trim() != currentTeamName || selectedMembers.length != currentMemberNames.entries.where((e) => e.key != uid).length) {
                     showDialog(context: ctx, builder: (c) => AlertDialog(
@@ -6530,7 +6530,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+            backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
             leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
               if (teamNameCtrl.text.trim().isNotEmpty) {
                 showDialog(context: ctx, builder: (c) => AlertDialog(

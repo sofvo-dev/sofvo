@@ -1529,7 +1529,7 @@ class _RecentPostsSectionState extends State<_RecentPostsSection> {
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+            backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
             leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
               if (commentController.text.trim().isNotEmpty) {
                 showDialog(context: context, builder: (c) => AlertDialog(

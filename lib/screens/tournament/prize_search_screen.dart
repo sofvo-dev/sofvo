@@ -594,7 +594,7 @@ class _PrizeSearchScreenState extends State<PrizeSearchScreen> {
           return Scaffold(
             backgroundColor: Colors.white,
             appBar: AppBar(
-              backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
               leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
                 if (commentCtrl.text.trim().isNotEmpty) {
                   showDialog(context: ctx, builder: (c) => AlertDialog(
@@ -1111,7 +1111,7 @@ class _PrizeRegisterScreenState extends State<PrizeRegisterScreen> {
           return Scaffold(
             backgroundColor: Colors.white,
             appBar: AppBar(
-              backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
+              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
               leading: IconButton(icon: const Icon(Icons.close), onPressed: () {
                 if (commentCtrl.text.trim().isNotEmpty) {
                   showDialog(context: ctx, builder: (c) => AlertDialog(
