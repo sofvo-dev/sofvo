@@ -124,10 +124,8 @@ class _PostEventActionScreenState extends State<PostEventActionScreen> {
   // ━━━ Step1: ふりかえり投稿画面 ━━━
   Widget _buildReviewScreen() {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
-        elevation: 0,
       ),
       body: SafeArea(
         child: Padding(
@@ -509,7 +507,7 @@ class _TournamentParticipantsScreenState extends State<_TournamentParticipantsSc
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('参加者をフォロー', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('参加者をフォロー', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimary,
         elevation: 0,

@@ -62,6 +62,7 @@ class AppTheme {
         titleTextStyle: GoogleFonts.notoSansJp(
           fontSize: 18,
           fontWeight: FontWeight.w600,
+          color: Colors.white,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

@@ -251,10 +251,8 @@ class _ChatListScreenState extends State<ChatListScreen>
       fullscreenDialog: true,
       builder: (routeContext) {
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppTheme.backgroundColor,
           appBar: AppBar(
-            backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
-            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(routeContext).pop()),
             title: const Text('新しいメッセージ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             centerTitle: true,
           ),

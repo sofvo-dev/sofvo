@@ -465,10 +465,9 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
             if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
           },
           child: Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppTheme.backgroundColor,
             appBar: AppBar(
-              backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, elevation: 0,
-              leading: IconButton(icon: const Icon(Icons.close), onPressed: () async {
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () async {
                 final shouldPop = await onWillPop();
                 if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
               }),
@@ -575,10 +574,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
             }
 
             return Scaffold(
-              backgroundColor: Colors.white,
+              backgroundColor: AppTheme.backgroundColor,
               appBar: AppBar(
-                backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary, surfaceTintColor: Colors.transparent,
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(routeContext).pop()),
                 title: const Text('メンバー追加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 centerTitle: true,
               ),
