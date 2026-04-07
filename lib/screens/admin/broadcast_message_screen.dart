@@ -149,13 +149,9 @@ class _BroadcastMessageScreenState extends State<BroadcastMessageScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
         title: const Text('ブロードキャスト送信',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
