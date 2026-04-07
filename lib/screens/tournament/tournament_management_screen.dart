@@ -295,17 +295,22 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             ],
           ));
           if (result == 'save') {
-            await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
-              'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
-              'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-              'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
-              'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
-              'area': _extractArea(selectedVenue?['address'] ?? ''),
-              'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
-              'rules': tournamentRules ?? {},
-            });
-            if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success));
-            return true;
+            try {
+              await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
+                'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
+                'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
+                'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
+                'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
+                'area': _extractArea(selectedVenue?['address'] ?? ''),
+                'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
+                'rules': tournamentRules ?? {},
+              });
+              if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success));
+              return true;
+            } catch (e) {
+              if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error));
+              return false;
+            }
           }
           return result == 'discard';
         }
@@ -321,7 +326,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               final shouldPop = await onWillPop();
               if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
             }),
-            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
+            title: const Text('大会を編集', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -426,16 +431,21 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
               SizedBox(width: double.infinity, child: ElevatedButton(
                 onPressed: titleCtrl.text.trim().isNotEmpty && selectedDate.isNotEmpty && locationCtrl.text.trim().isNotEmpty
                     ? () async {
-                        await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
-                          'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
-                          'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
-                          'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
-                          'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
-                          'area': _extractArea(selectedVenue?['address'] ?? ''),
-                          'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
-                          'rules': tournamentRules ?? {},
-                        });
-                        if (ctx.mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
+                        try {
+                          await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
+                            'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
+                            'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
+                            'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
+                            'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
+                            'area': _extractArea(selectedVenue?['address'] ?? ''),
+                            'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
+                            'rules': tournamentRules ?? {},
+                          });
+                          if (ctx.mounted) { Navigator.pop(ctx); }
+                          if (mounted) { ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
+                        } catch (e) {
+                          if (ctx.mounted) { ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error)); }
+                        }
                       } : null,
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16),
@@ -521,7 +531,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 final shouldPop = await onWillPop();
                 if (shouldPop && ctx.mounted) Navigator.of(ctx).pop();
               }),
-              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), centerTitle: true),
+              title: Text(templateData != null ? 'テンプレートから作成' : '新しい大会を作成', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)), centerTitle: true),
             body: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
