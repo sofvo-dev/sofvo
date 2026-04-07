@@ -282,12 +282,12 @@ class _RecruitmentManagementScreenState
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) {
+      builder: (routeContext) {
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
             backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
-            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(routeContext).pop()),
             title: const Text('募集詳細', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             centerTitle: true,
           ),

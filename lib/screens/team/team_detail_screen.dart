@@ -400,14 +400,14 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) {
+      builder: (routeContext) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             return Scaffold(
               backgroundColor: Colors.white,
               appBar: AppBar(
                 backgroundColor: Colors.white, surfaceTintColor: Colors.transparent,
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(routeContext).pop()),
                 title: const Text('メンバー追加', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 centerTitle: true,
               ),

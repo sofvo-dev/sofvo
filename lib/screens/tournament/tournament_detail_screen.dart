@@ -9035,7 +9035,14 @@ class _EditorsScreenState extends State<_EditorsScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    if (uid.isEmpty) return const Scaffold(body: Center(child: Text('ログインしてください')));
+    if (uid.isEmpty) return Scaffold(
+      appBar: AppBar(
+        title: const Text('権限管理', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white, foregroundColor: AppTheme.textPrimary,
+        elevation: 0, surfaceTintColor: Colors.transparent,
+      ),
+      body: const Center(child: Text('ログインしてください')),
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,

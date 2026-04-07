@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import '../../widgets/official_badge.dart';
+import '../../widgets/link_preview_widget.dart';
 import '../profile/user_profile_screen.dart';
 import 'group_chat_settings_screen.dart';
 import '../../services/push_notification_service.dart';
@@ -46,6 +48,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _resolvedTitle = '';
   final Map<String, bool> _officialCache = {};
   String _otherUserAvatarUrl = '';
+  Timestamp? _myLastReadBefore; // 画面を開いた時点のlastRead（未読境界用）
+  bool _initialScrollDone = false;
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -55,7 +59,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.initState();
     _resolvedTitle = widget.chatTitle;
     WidgetsBinding.instance.addObserver(this);
-    _markAsRead();
+    _loadLastReadAndMarkAsRead();
     _loadMuteState();
 
     // メッセージストリームを一度だけ生成（再生成による無限ローディングを防止）
@@ -63,7 +67,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         .collection('chats')
         .doc(widget.chatId)
         .collection('messages')
-        .orderBy('createdAt', descending: false)
+        .orderBy('createdAt', descending: true)
         .snapshots();
 
     // チャットドキュメントの変更をリスナーで監視（StreamBuilder外で処理）
@@ -177,6 +181,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _markAsRead();
+  }
+
+  /// 画面を開いた時点のlastReadを保存してから既読にする
+  Future<void> _loadLastReadAndMarkAsRead() async {
+    if (_currentUser == null) return;
+    try {
+      final chatDoc = await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .get();
+      if (chatDoc.exists) {
+        final data = chatDoc.data() ?? {};
+        final lastReadMap = (data['lastRead'] as Map<String, dynamic>?) ?? {};
+        final myLastRead = lastReadMap[_currentUser!.uid];
+        if (myLastRead is Timestamp) {
+          _myLastReadBefore = myLastRead;
+        }
+      }
+    } catch (_) {}
+    _markAsRead();
   }
 
   void _markAsRead() {
@@ -550,7 +574,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     Future.delayed(const Duration(milliseconds: 300), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0.0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -731,27 +755,67 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   );
                 }
 
-                // 新着メッセージが来たら自動スクロール
-                if (messages.length > _previousMessageCount && _previousMessageCount > 0) {
-                  _scrollToBottom();
-                }
                 _previousMessageCount = messages.length;
+
+                // 未読境界のindexを計算（descending順なので、lastReadより新しいメッセージの最後のindex）
+                // messages[0]=最新, messages[n-1]=最古
+                // 未読 = createdAt > _myLastReadBefore のメッセージ群
+                // 未読の最も古いメッセージ（=descending順で最大index）の位置にバナーを出す
+                int? unreadBoundaryIndex;
+                if (_myLastReadBefore != null) {
+                  final lastReadDate = _myLastReadBefore!.toDate();
+                  for (int i = 0; i < messages.length; i++) {
+                    final msgData = messages[i].data() as Map<String, dynamic>;
+                    final msgTime = (msgData['createdAt'] as Timestamp?)?.toDate();
+                    final senderId = msgData['senderId'] as String?;
+                    // 自分のメッセージは未読カウントしない
+                    if (senderId == _currentUser?.uid) continue;
+                    if (msgTime != null && msgTime.isAfter(lastReadDate)) {
+                      unreadBoundaryIndex = i; // 最後に見つかったものが最古の未読
+                    }
+                  }
+                }
+
+                // 初回ロード時、未読メッセージがあればその位置にスクロール
+                if (!_initialScrollDone && unreadBoundaryIndex != null) {
+                  _initialScrollDone = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      // 未読境界indexの位置に大まかにスクロール
+                      // reverse: trueなのでindexが大きいほど上にある
+                      final estimatedOffset = unreadBoundaryIndex! * 72.0;
+                      final maxOffset = _scrollController.position.maxScrollExtent;
+                      _scrollController.jumpTo(
+                        estimatedOffset > maxOffset ? maxOffset : estimatedOffset,
+                      );
+                    }
+                  });
+                } else if (!_initialScrollDone) {
+                  _initialScrollDone = true;
+                }
 
                 return ListView.builder(
                   controller: _scrollController,
+                  reverse: true,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
+                    // reverse: true なので index 0 = 最新メッセージ（descending順の先頭）
                     final doc = messages[index];
                     final data = doc.data() as Map<String, dynamic>;
                     final isMe = data['senderId'] == _currentUser?.uid;
                     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+                    // 日付セパレーター: 表示上の「1つ上」= descending順の次のindex
                     DateTime? prevCreatedAt;
-                    if (index > 0) {
-                      final prevData = messages[index - 1].data() as Map<String, dynamic>;
+                    if (index < messages.length - 1) {
+                      final prevData = messages[index + 1].data() as Map<String, dynamic>;
                       prevCreatedAt = (prevData['createdAt'] as Timestamp?)?.toDate();
                     }
                     final dateSep = createdAt != null ? _dateSeparatorLabel(createdAt, prevCreatedAt) : null;
+
+                    // 未読バナー: 未読境界のメッセージの上（=表示上の上）に表示
+                    final showUnreadBanner = (index == unreadBoundaryIndex);
+
                     return Column(
                       children: [
                         if (dateSep != null)
@@ -764,6 +828,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(dateSep, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                            ),
+                          ),
+                        if (showUnreadBanner)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(child: Divider(color: AppTheme.primaryColor.withValues(alpha: 0.4), thickness: 1)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text(
+                                    'ここから未読メッセージ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(child: Divider(color: AppTheme.primaryColor.withValues(alpha: 0.4), thickness: 1)),
+                              ],
                             ),
                           ),
                         _buildMessageBubble(data, isMe, messageId: doc.id),
@@ -1135,6 +1220,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
 
+    // URLを検出してリンク化 + プレビュー表示
+    final urlRegex = RegExp(
+      r'https?://[^\s\u3000\u3001\u3002\uFF0C\uFF0E]+',
+      caseSensitive: false,
+    );
+    final urls = urlRegex.allMatches(text).map((m) => m.group(0)!).toList();
+    final hasUrl = urls.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -1147,13 +1240,71 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
         border: isMe ? null : Border.all(color: Colors.grey[200]!),
       ),
-      child: Text(
-        text,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasUrl)
+            _buildRichTextWithLinks(text, urlRegex, isMe)
+          else
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                color: isMe ? Colors.white : AppTheme.textPrimary,
+                height: 1.4,
+              ),
+            ),
+          // URLプレビューカード
+          ...urls.map((url) => LinkPreviewWidget(url: url, isMe: isMe)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRichTextWithLinks(String text, RegExp urlRegex, bool isMe) {
+    final spans = <TextSpan>[];
+    int lastEnd = 0;
+
+    for (final match in urlRegex.allMatches(text)) {
+      // マッチ前のテキスト
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, match.start),
+        ));
+      }
+      // URLリンク
+      final url = match.group(0)!;
+      spans.add(TextSpan(
+        text: url,
+        style: TextStyle(
+          decoration: TextDecoration.underline,
+          decorationColor: isMe ? Colors.white70 : AppTheme.primaryColor,
+          color: isMe ? Colors.white : AppTheme.primaryColor,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+      ));
+      lastEnd = match.end;
+    }
+
+    // 残りのテキスト
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return RichText(
+      text: TextSpan(
         style: TextStyle(
           fontSize: 15,
           color: isMe ? Colors.white : AppTheme.textPrimary,
           height: 1.4,
         ),
+        children: spans,
       ),
     );
   }

@@ -217,21 +217,52 @@ class _VenueSearchScreenState extends State<VenueSearchScreen> {
                 }
               });
               if (filtered.isEmpty) {
+                final isFiltered = _filterPrefecture != 'すべて';
                 return Center(child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.location_off, size: 48, color: Colors.grey[300]),
                     const SizedBox(height: 12),
-                    const Text('会場が見つかりません', style: TextStyle(color: AppTheme.textSecondary)),
+                    Text(
+                      isFiltered
+                          ? '$_filterPrefectureの会場はまだ登録されていません'
+                          : '会場が見つかりません',
+                      style: const TextStyle(color: AppTheme.textSecondary),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final result = await Navigator.push<bool>(context,
-                          MaterialPageRoute(builder: (_) => const VenueRegisterScreen()));
-                        if (result == true) setState(() {});
-                      },
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('新しい会場を登録'),
+                    if (isFiltered) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() => _filterPrefecture = 'すべて'),
+                          icon: const Icon(Icons.public, size: 18),
+                          label: const Text('全国の会場を見る'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: BorderSide(color: AppTheme.primaryColor),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.push<bool>(context,
+                            MaterialPageRoute(builder: (_) => const VenueRegisterScreen()));
+                          if (result == true) setState(() {});
+                        },
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('新しい会場を登録'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
                     ),
                   ]),
                 ));

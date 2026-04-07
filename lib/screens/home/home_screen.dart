@@ -27,7 +27,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   late TabController _noticeSubTabController;
   final Set<String> _hiddenPostIds = {};
@@ -60,6 +60,16 @@ class _HomeScreenState extends State<HomeScreen>
     _noticeSubTabController = TabController(length: 2, vsync: this);
     _loadInitialData();
     FollowService.instance.addListener(_onFollowChanged);
+    WidgetsBinding.instance.addObserver(this);
+    // アプリ起動時にバッジを正確な未読数に同期
+    PushNotificationService.updateBadgeCount();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      PushNotificationService.updateBadgeCount();
+    }
   }
 
   void _onFollowChanged() {
@@ -86,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     FollowService.instance.removeListener(_onFollowChanged);
     _tabController.dispose();
     _noticeSubTabController.dispose();
