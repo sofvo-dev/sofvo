@@ -104,7 +104,11 @@ service cloud.firestore {
     match /tournaments/{tournamentId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && (resource.data.organizerId == request.auth.uid || (resource.data.keys().hasAny(['editors']) && request.auth.uid in resource.data.editors));
+      allow update, delete: if isAuthenticated() && (
+        resource.data.organizerId == request.auth.uid
+        || (resource.data.keys().hasAny(['editors']) && request.auth.uid in resource.data.editors)
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+      );
 
       // エントリー
       match /entries/{entryId} {
