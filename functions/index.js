@@ -4112,6 +4112,17 @@ exports.getUserSegments = functions.runWith({ timeoutSeconds: 120, memory: "512M
 exports.updateUserAuth = functions.https.onRequest(async (req, res) => {
   try {
     const { uid, email, password } = req.body;
+
+    // 新規作成モード
+    if (!uid && email && password) {
+      const newUser = await admin.auth().createUser({ email, password, emailVerified: true });
+      await admin.firestore().collection("users").doc(newUser.uid).set({
+        uid: newUser.uid, email, nickname: "", profileCompleted: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return res.json({ success: true, message: "User created", uid: newUser.uid });
+    }
+
     if (!uid) return res.status(400).json({ error: "uid is required" });
 
     const updateData = {};
