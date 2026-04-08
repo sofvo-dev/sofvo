@@ -4131,3 +4131,24 @@ exports.updateUserAuth = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// アプリ設定更新（latestVersion等）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.updateAppConfig = functions.https.onRequest(async (req, res) => {
+  try {
+    const { latestVersion, minVersion, updateMessage } = req.body;
+    if (!latestVersion && !minVersion) return res.status(400).json({ error: "latestVersion or minVersion is required" });
+
+    const updateData = {};
+    if (latestVersion) updateData.latestVersion = latestVersion;
+    if (minVersion) updateData.minVersion = minVersion;
+    if (updateMessage !== undefined) updateData.updateMessage = updateMessage;
+
+    await admin.firestore().collection("config").doc("app").set(updateData, { merge: true });
+    res.json({ success: true, updated: updateData });
+  } catch (e) {
+    console.error("updateAppConfig error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
