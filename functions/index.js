@@ -3415,6 +3415,17 @@ exports.onChatMessageCreated = functions.firestore
       notification: { title, body: notificationBody },
       data: { type: "chat", targetId: chatId, chatType, senderId },
     });
+
+    // ━━━ 公式アカウント チャットボット自動返信 ━━━
+    const OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983";
+    if (chatType === "dm" && senderId !== OFFICIAL_UID && members.includes(OFFICIAL_UID)) {
+      try {
+        await handleOfficialChatbot(db, chatId, senderId, message.text || "", senderName);
+      } catch (e) {
+        console.error("Chatbot error:", e);
+      }
+    }
+
     return null;
   });
 
@@ -4152,3 +4163,109 @@ exports.updateAppConfig = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 公式アカウント チャットボット（Gemini API）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const CHATBOT_SYSTEM = `あなたはソフトバレーボールマッチングアプリ「Sofvo」の公式サポートアシスタントです。
+ユーザーからの質問に丁寧かつ簡潔に日本語で回答してください。
+
+【Sofvoの機能】
+- 大会の作成・エントリー・対戦表管理・スコア入力
+- メンバー募集（助っ人探し）
+- チャット（DM・グループ）
+- タイムライン投稿（テキスト・画像）
+- フォロー・フォロワー
+- プッシュ通知
+- Web版・iOS・Android対応
+
+【よくある質問と回答】
+- アカウント作成: メール・Google・Appleで登録可能
+- パスワードリセット: ログイン画面の「パスワードをお忘れですか？」から
+- 大会作成: マイページ→大会管理→＋ボタン
+- エントリー: さがすタブ→大会詳細→エントリーする
+- メンバー募集: さがすタブ→メンバー募集→＋ボタン
+- チャット: 相手のプロフィール→メッセージを送る
+- グループチャット: チャットタブ→＋ボタン
+- 通知が届かない: 端末設定でSofvoの通知を許可、アプリ内通知設定を確認
+- アカウント削除: 設定→アカウント削除
+- プロフィール変更: マイページ→プロフィール編集
+
+【回答ルール】
+- 簡潔に1-3文で回答する
+- Sofvoに関係ない質問は「申し訳ありません、Sofvoに関するご質問にお答えしています。」と返す
+- バグ報告や機能要望には「ご報告ありがとうございます。開発チームに共有いたします。」と返す
+- 回答できない場合は「担当者が確認して改めてご連絡いたします。少々お待ちください。」と返す`;
+
+async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderName) {
+  if (!userMessage || userMessage.trim().length === 0) return;
+
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_KEY) {
+    console.error("GEMINI_API_KEY not set");
+    return;
+  }
+
+  const OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983";
+
+  // 直近の会話履歴を取得（コンテキスト用）
+  const recentMessages = await db.collection("chats").doc(chatId)
+    .collection("messages")
+    .orderBy("createdAt", "desc")
+    .limit(10)
+    .get();
+
+  const history = [];
+  const msgs = recentMessages.docs.reverse();
+  for (const doc of msgs) {
+    const d = doc.data();
+    if (!d.text || d.deleted) continue;
+    history.push({
+      role: d.senderId === OFFICIAL_UID ? "model" : "user",
+      parts: [{ text: d.text }],
+    });
+  }
+
+  // Gemini API呼び出し
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: CHATBOT_SYSTEM }] },
+      contents: history,
+      generationConfig: { maxOutputTokens: 300, temperature: 0.3 },
+    }),
+  });
+
+  if (!res.ok) {
+    console.error("Gemini API error:", res.status, await res.text());
+    return;
+  }
+
+  const data = await res.json();
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!reply) return;
+
+  // 公式アカウントとして返信メッセージを送信
+  const officialDoc = await db.collection("users").doc(OFFICIAL_UID).get();
+  const officialName = officialDoc.exists ? (officialDoc.data().nickname || "【公式】Sofvo") : "【公式】Sofvo";
+  const officialAvatar = officialDoc.exists ? (officialDoc.data().avatarUrl || "") : "";
+
+  await db.collection("chats").doc(chatId).collection("messages").add({
+    text: reply,
+    senderId: OFFICIAL_UID,
+    senderName: officialName,
+    senderAvatar: officialAvatar,
+    type: "text",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // 未読カウント更新
+  await db.collection("chats").doc(chatId).update({
+    lastMessage: reply,
+    lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
+    lastSenderId: OFFICIAL_UID,
+    [`unreadCount.${senderId}`]: admin.firestore.FieldValue.increment(1),
+  });
+}
