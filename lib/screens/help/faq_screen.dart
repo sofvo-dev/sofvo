@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../chat/chat_screen.dart';
 
@@ -267,12 +269,7 @@ class FaqScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
-                const officialUid = 'zlBy8aWUlCYjyy0NUU9HidrQu983';
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => const ChatScreen(otherUserId: officialUid, otherUserName: '【公式】Sofvo'),
-                ));
-              },
+              onPressed: () => _openOfficialChat(context),
               icon: const Icon(Icons.chat_bubble_outline, size: 18),
               label: const Text('公式アカウントにチャットする'),
             ),
@@ -280,6 +277,48 @@ class FaqScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openOfficialChat(BuildContext context) async {
+    const officialUid = 'zlBy8aWUlCYjyy0NUU9HidrQu983';
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (myUid == null) return;
+
+    final existing = await FirebaseFirestore.instance
+        .collection('chats')
+        .where('type', isEqualTo: 'dm')
+        .where('members', arrayContains: myUid)
+        .get();
+
+    String? chatId;
+    for (final doc in existing.docs) {
+      final members = List<String>.from(doc['members'] ?? []);
+      if (members.contains(officialUid)) {
+        chatId = doc.id;
+        break;
+      }
+    }
+
+    if (chatId == null) {
+      final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+      final myName = (myDoc.data()?['nickname'] as String?) ?? '自分';
+      final ref = await FirebaseFirestore.instance.collection('chats').add({
+        'type': 'dm',
+        'members': [myUid, officialUid],
+        'memberNames': {myUid: myName, officialUid: '【公式】Sofvo'},
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastRead': {myUid: FieldValue.serverTimestamp()},
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      chatId = ref.id;
+    }
+
+    if (context.mounted) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatScreen(chatId: chatId!, chatTitle: '【公式】Sofvo', chatType: 'dm', otherUserId: officialUid),
+      ));
+    }
   }
 }
 

@@ -39,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _picker = ImagePicker();
   bool _isSending = false;
   bool _isMuted = false;
+  bool _showQuickReplies = false;
   Map<String, dynamic> _lastReadMap = {};
   List<String> _memberIds = [];
   Map<String, String> _memberNames = {};
@@ -61,6 +62,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _loadLastReadAndMarkAsRead();
     _loadMuteState();
+    // 公式アカウントDMの場合、クイックリプライを表示
+    if (widget.chatType == 'dm' && widget.otherUserId == 'zlBy8aWUlCYjyy0NUU9HidrQu983') {
+      _checkShowQuickReplies();
+    }
 
     // メッセージストリームを一度だけ生成（再生成による無限ローディングを防止）
     _messagesStream = FirebaseFirestore.instance
@@ -254,6 +259,81 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (e) {
       if (mounted) setState(() => _isMuted = wasMuted);
     }
+  }
+
+  Future<void> _checkShowQuickReplies() async {
+    // メッセージが少ない場合のみ表示（初回 or 会話が少ない時）
+    final msgs = await FirebaseFirestore.instance
+        .collection('chats').doc(widget.chatId)
+        .collection('messages').limit(3).get();
+    if (mounted && msgs.docs.length < 3) {
+      setState(() => _showQuickReplies = true);
+    }
+  }
+
+  void _sendQuickReply(String text) {
+    _messageController.text = text;
+    _sendMessage();
+    setState(() => _showQuickReplies = false);
+  }
+
+  Widget _buildQuickReplies() {
+    final options = [
+      ('使い方を知りたい', Icons.help_outline, AppTheme.primaryColor),
+      ('バグ・不具合を報告', Icons.bug_report_outlined, AppTheme.error),
+      ('機能の改善要望', Icons.lightbulb_outline, AppTheme.warning),
+      ('その他の質問', Icons.chat_outlined, AppTheme.success),
+    ];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+            ),
+            child: const Text(
+              'こんにちは！Sofvoサポートです。\nお困りのことを選んでください：',
+              style: TextStyle(fontSize: 14, height: 1.5, color: AppTheme.textPrimary),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: options.map((opt) {
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _sendQuickReply(opt.$1),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: opt.$3.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: opt.$3.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(opt.$2, size: 16, color: opt.$3),
+                        const SizedBox(width: 6),
+                        Text(opt.$1, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: opt.$3)),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _sendMessage() async {
@@ -859,6 +939,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               },
             ),
           ),
+          if (_showQuickReplies)
+            _buildQuickReplies(),
           if (_isSending)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
