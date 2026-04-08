@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/app_theme.dart';
+import '../chat/chat_screen.dart';
 
 class FaqScreen extends StatelessWidget {
   const FaqScreen({super.key});
@@ -163,7 +164,7 @@ class FaqScreen extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 24),
-          _buildContactSection(),
+          _buildContactSection(context),
           const SizedBox(height: 32),
         ],
       ),
@@ -232,7 +233,7 @@ class FaqScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildContactSection() {
+  Widget _buildContactSection(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -254,12 +255,26 @@ class FaqScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '解決しない場合は、公式アカウント(@sofvo)に\nお気軽にお問い合わせください。',
+            '解決しない場合は、公式アカウントに\nお気軽にお問い合わせください。',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
               color: AppTheme.textSecondary,
               height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                const officialUid = 'zlBy8aWUlCYjyy0NUU9HidrQu983';
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => const ChatScreen(otherUserId: officialUid, otherUserName: '【公式】Sofvo'),
+                ));
+              },
+              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+              label: const Text('公式アカウントにチャットする'),
             ),
           ),
         ],

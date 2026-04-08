@@ -10,6 +10,7 @@ import '../../config/app_theme.dart';
 import '../../main.dart';
 import '../../services/auth_service.dart';
 import '../help/faq_screen.dart';
+import '../chat/chat_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -427,13 +428,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _buildDivider(),
                 ListTile(
-                  leading: Icon(Icons.mail_outline,
+                  leading: Icon(Icons.chat_bubble_outline,
                       color: AppTheme.primaryColor, size: 22),
                   title: const Text('ヘルプ・お問い合わせ',
                       style: TextStyle(fontSize: 15)),
-                  trailing: Icon(Icons.open_in_new,
+                  trailing: Icon(Icons.chevron_right,
                       color: Colors.grey[400], size: 18),
-                  onTap: () => _openUrl('https://sofvo.com/contact.html'),
+                  onTap: () {
+                    const officialUid = 'zlBy8aWUlCYjyy0NUU9HidrQu983';
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => const ChatScreen(otherUserId: officialUid, otherUserName: '【公式】Sofvo'),
+                    ));
+                  },
                 ),
               ],
             ),
