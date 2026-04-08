@@ -14,6 +14,12 @@ import FirebaseMessaging
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // アプリがフォアグラウンドに来た時にバッジをクリア
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    application.applicationIconBadgeNumber = 0
+    super.applicationDidBecomeActive(application)
+  }
+
   override func application(
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
