@@ -262,11 +262,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _checkShowQuickReplies() async {
-    // メッセージが少ない場合のみ表示（初回 or 会話が少ない時）
+    // 初回は自動表示
     final msgs = await FirebaseFirestore.instance
         .collection('chats').doc(widget.chatId)
-        .collection('messages').limit(3).get();
-    if (mounted && msgs.docs.length < 3) {
+        .collection('messages').limit(1).get();
+    if (mounted && msgs.docs.isEmpty) {
       setState(() => _showQuickReplies = true);
     }
   }
@@ -977,6 +977,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         color: AppTheme.textSecondary),
                     onPressed: _isSending ? null : _showAttachMenu,
                   ),
+                  if (widget.chatType == 'dm' && widget.otherUserId == 'zlBy8aWUlCYjyy0NUU9HidrQu983')
+                    IconButton(
+                      icon: Icon(Icons.help_outline,
+                          color: _showQuickReplies ? AppTheme.primaryColor : AppTheme.textSecondary),
+                      onPressed: () => setState(() => _showQuickReplies = !_showQuickReplies),
+                    ),
                   Expanded(
                     child: Container(
                       padding:
