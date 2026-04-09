@@ -6144,6 +6144,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         onCsvMenu: _showCsvImportMenu,
         onDeleteTeams: _deleteEntryTeams,
         onFinance: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TournamentFinanceScreen(tournamentId: _tournamentId, tournamentData: tournData))),
+        onGenerateRound1: () => _generateMatches(1),
         onGenerateRound2: () => _generateMatches(2),
         onGenerateFinals: _generateFinals,
         onReset: _showResetMenu,
@@ -8113,6 +8114,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
   final VoidCallback onCsvMenu;
   final VoidCallback onDeleteTeams;
   final VoidCallback onFinance;
+  final VoidCallback onGenerateRound1;
   final VoidCallback onGenerateRound2;
   final VoidCallback onGenerateFinals;
   final VoidCallback onReset;
@@ -8131,6 +8133,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     required this.onCsvMenu,
     required this.onDeleteTeams,
     required this.onFinance,
+    required this.onGenerateRound1,
     required this.onGenerateRound2,
     required this.onGenerateFinals,
     required this.onReset,
@@ -8204,7 +8207,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
                   final hasBrackets = bracketsSnap.hasData && bracketsSnap.data!.docs.isNotEmpty;
 
                   if (lastRoundNum == 0) {
-                    return const SizedBox();
+                    return _menuTile(context, Icons.auto_awesome, '予選1の対戦表を生成', 'エントリーチームからコート別の対戦表を自動生成', onGenerateRound1, color: AppTheme.info);
                   }
 
                   // 該当ラウンドの試合完了状況をリアルタイムで監視
