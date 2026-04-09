@@ -21,6 +21,7 @@
   3. **`ios/fastlane/metadata/ja/`** の説明文・キーワード等も必要に応じて更新（fastlane が自動反映する）
   4. コミット＆プッシュ（mainにマージ）
 - ユーザーはMacで `cd ~/Desktop/sofvo/ios && fastlane release` を実行するだけで審査提出まで全自動
+- **次回審査時リマインド**: App Store Connectで年齢制限レーティングを16+ → 12+に変更する（アプリ情報 → 年齢制限レーティング → 編集 → 「無制限のWebアクセス」を「いいえ」に変更）
 
 ### fastlane メタデータ自動反映（v1.0.9で導入）
 - `ios/fastlane/metadata/ja/` に以下のファイルを配置済み:
