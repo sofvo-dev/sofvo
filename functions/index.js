@@ -4165,6 +4165,122 @@ exports.updateAppConfig = functions.https.onRequest(async (req, res) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ストアの最新バージョンを取得して Firestore に反映
+// App Store / Google Play に公開済みの最新バージョンを直接取得する
+// ことで、pubspec のバージョンとストア公開のタイミングが
+// ずれていても誤ったアップデート案内を出さないようにする。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function fetchIosStoreVersion(bundleId) {
+  const url = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=jp`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`iTunes Lookup HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data.results || data.results.length === 0) {
+    throw new Error("App not found on iTunes Lookup");
+  }
+  const version = data.results[0].version;
+  if (!version) throw new Error("version field missing in iTunes Lookup response");
+  return version;
+}
+
+async function fetchAndroidStoreVersion(packageName) {
+  const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}&hl=en&gl=US`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    },
+  });
+  if (!res.ok) throw new Error(`Play Store HTTP ${res.status}`);
+  const html = await res.text();
+  // Play Store HTML は頻繁に構造が変わるので複数パターンで試行
+  const patterns = [
+    /\[\[\["(\d+(?:\.\d+){1,3})"\]\]/,
+    /"softwareVersion"\s*:\s*"(\d+(?:\.\d+){1,3})"/,
+    /Current Version[\s\S]{0,300}?(\d+\.\d+\.\d+)/i,
+  ];
+  for (const p of patterns) {
+    const m = html.match(p);
+    if (m) return m[1];
+  }
+  throw new Error("Could not parse version from Play Store HTML");
+}
+
+async function doSyncStoreVersions() {
+  const updates = {};
+  const errors = {};
+  try {
+    updates.latestVersionIos = await fetchIosStoreVersion("com.sofvo.app");
+    console.log("[syncStoreVersions] iOS:", updates.latestVersionIos);
+  } catch (e) {
+    errors.ios = e.message;
+    console.error("[syncStoreVersions] iOS error:", e.message);
+  }
+  try {
+    updates.latestVersionAndroid = await fetchAndroidStoreVersion("com.sofvo.app");
+    console.log("[syncStoreVersions] Android:", updates.latestVersionAndroid);
+  } catch (e) {
+    errors.android = e.message;
+    console.error("[syncStoreVersions] Android error:", e.message);
+  }
+  // 旧バージョンのアプリ（単一 latestVersion フィールドのみ見る）向けの
+  // 後方互換: iOS/Android の最小値を latestVersion に書き込む。
+  // 最小値にするのは、ストア間でバージョンがずれている場合に
+  // 「ストアにまだない新バージョンを案内してしまう」誤通知を防ぐため。
+  if (updates.latestVersionIos && updates.latestVersionAndroid) {
+    updates.latestVersion =
+      compareSemver(updates.latestVersionIos, updates.latestVersionAndroid) <= 0
+        ? updates.latestVersionIos
+        : updates.latestVersionAndroid;
+  } else if (updates.latestVersionIos) {
+    updates.latestVersion = updates.latestVersionIos;
+  } else if (updates.latestVersionAndroid) {
+    updates.latestVersion = updates.latestVersionAndroid;
+  }
+  if (Object.keys(updates).length > 0) {
+    updates.lastSyncedAt = admin.firestore.FieldValue.serverTimestamp();
+    await admin.firestore().collection("config").doc("app").set(updates, { merge: true });
+  }
+  return { updates, errors };
+}
+
+function compareSemver(a, b) {
+  const ap = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const bp = b.split(".").map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(ap.length, bp.length);
+  for (let i = 0; i < len; i++) {
+    const av = ap[i] || 0;
+    const bv = bp[i] || 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+
+// 6時間ごとに自動実行
+exports.syncStoreVersions = functions.pubsub
+  .schedule("every 6 hours")
+  .onRun(async () => {
+    try {
+      const result = await doSyncStoreVersions();
+      console.log("[syncStoreVersions] done:", JSON.stringify(result));
+    } catch (e) {
+      console.error("[syncStoreVersions] fatal:", e);
+    }
+  });
+
+// 手動実行用（管理者がデプロイ直後などに叩く想定）
+exports.syncStoreVersionsNow = functions.https.onRequest(async (req, res) => {
+  try {
+    const result = await doSyncStoreVersions();
+    res.json({ success: true, ...result });
+  } catch (e) {
+    console.error("syncStoreVersionsNow error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 公式アカウント チャットボット（Gemini API）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const CHATBOT_SYSTEM = `あなたは「Sofvo（ソフボ）」の公式サポートアシスタントです。

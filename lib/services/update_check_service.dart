@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:package_info_plus/package_info_plus.dart';
 
 enum UpdateStatus { none, optional, force }
@@ -31,7 +32,17 @@ class UpdateCheckService {
 
       final data = doc.data()!;
       final minVersion = data['minVersion'] as String?;
-      final latestVersion = data['latestVersion'] as String?;
+      // プラットフォーム別のストア公開バージョンを優先的に利用する。
+      // Cloud Functions の syncStoreVersions が App Store / Google Play から
+      // 実際に公開されている最新バージョンを取得して書き込んでいる。
+      String? platformLatest;
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        platformLatest = data['latestVersionIos'] as String?;
+      } else if (defaultTargetPlatform == TargetPlatform.android) {
+        platformLatest = data['latestVersionAndroid'] as String?;
+      }
+      final latestVersion =
+          platformLatest ?? data['latestVersion'] as String?;
       final updateMessage = data['updateMessage'] as String?;
 
       if (minVersion == null && latestVersion == null) {
