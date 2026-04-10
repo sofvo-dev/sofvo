@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/profile/user_profile_screen.dart';
 import '../screens/tournament/tournament_detail_screen.dart';
@@ -11,6 +12,24 @@ import '../screens/tournament/tournament_detail_screen.dart';
 class PushNotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static final _firestore = FirebaseFirestore.instance;
+
+  /// iOS ネイティブバッジ操作用 MethodChannel
+  static const MethodChannel _badgeChannel = MethodChannel('com.sofvo.app/badge');
+
+  /// iOS アプリアイコンのバッジを指定値に設定（iOS のみ）
+  static Future<void> _setNativeBadge(int count) async {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    try {
+      if (count <= 0) {
+        await _badgeChannel.invokeMethod('clearBadge');
+      } else {
+        await _badgeChannel.invokeMethod('setBadge', {'count': count});
+      }
+    } catch (e) {
+      debugPrint('Failed to set native badge: $e');
+    }
+  }
 
   /// グローバルナビゲーターキー（main.dartで設定）
   static GlobalKey<NavigatorState>? navigatorKey;
@@ -304,6 +323,9 @@ class PushNotificationService {
           .collection('users').doc(uid)
           .collection('private').doc('info')
           .set({'badgeCount': totalUnread}, SetOptions(merge: true));
+
+      // iOS アプリアイコンのバッジも即時反映
+      await _setNativeBadge(totalUnread);
     } catch (e) {
       debugPrint('Failed to update badge count: $e');
     }

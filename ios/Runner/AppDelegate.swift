@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import UserNotifications
 import FirebaseMessaging
 
 @main
@@ -11,13 +12,60 @@ import FirebaseMessaging
     // プッシュ通知の登録
     UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()
+
+    // Dart 側からバッジをクリアするための MethodChannel
+    let controller = window?.rootViewController as? FlutterViewController
+    if let controller = controller {
+      let channel = FlutterMethodChannel(
+        name: "com.sofvo.app/badge",
+        binaryMessenger: controller.binaryMessenger)
+      channel.setMethodCallHandler { (call, result) in
+        if call.method == "clearBadge" {
+          Self.clearBadge()
+          result(nil)
+        } else if call.method == "setBadge", let args = call.arguments as? [String: Any], let count = args["count"] as? Int {
+          Self.setBadge(count)
+          result(nil)
+        } else {
+          result(FlutterMethodNotImplemented)
+        }
+      }
+    }
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   // アプリがフォアグラウンドに来た時にバッジをクリア
   override func applicationDidBecomeActive(_ application: UIApplication) {
-    application.applicationIconBadgeNumber = 0
+    Self.clearBadge()
     super.applicationDidBecomeActive(application)
+  }
+
+  // iOS 17+ 対応のバッジクリア（非推奨 API を回避）
+  static func clearBadge() {
+    if #available(iOS 16.0, *) {
+      UNUserNotificationCenter.current().setBadgeCount(0) { error in
+        if let error = error {
+          print("Failed to clear badge: \(error)")
+        }
+      }
+    } else {
+      UIApplication.shared.applicationIconBadgeNumber = 0
+    }
+    // 配信済み通知も削除（通知センターから消去）
+    UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+  }
+
+  static func setBadge(_ count: Int) {
+    if #available(iOS 16.0, *) {
+      UNUserNotificationCenter.current().setBadgeCount(count) { error in
+        if let error = error {
+          print("Failed to set badge: \(error)")
+        }
+      }
+    } else {
+      UIApplication.shared.applicationIconBadgeNumber = count
+    }
   }
 
   override func application(
