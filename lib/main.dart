@@ -113,7 +113,7 @@ class AuthGate extends StatefulWidget {
   State<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   bool _navigatedToTournament = false;
   bool _processedReferral = false;
   // 現在の認証ユーザー（StreamBuilderを使わず手動で管理）
@@ -126,6 +126,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentUser = FirebaseAuth.instance.currentUser;
     // 永続化された認証状態がある場合は初期ロード完了
     if (_currentUser != null) {
@@ -154,8 +155,21 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // アプリがフォアグラウンドに戻ったタイミングで未読数を再計算し
+    // iOS アプリアイコンのバッジを実際の未読数と同期させる。
+    // （バックグラウンドで FCM が来てもバッジが更新されないケースや、
+    //   iOS 側の applicationDidBecomeActive が触らないケースの保険）
+    if (state == AppLifecycleState.resumed && _currentUser != null) {
+      PushNotificationService.updateBadgeCount();
+    }
+    super.didChangeAppLifecycleState(state);
   }
 
   /// ログイン/登録成功時に即座に画面を切り替える

@@ -79,6 +79,11 @@ class PushNotificationService {
         }
 
         _initialized = true;
+
+        // 起動時に iOS バッジを実際の未読数と同期する
+        // （バックグラウンドで届いたプッシュで進んだバッジ値や、
+        //   逆に未読が残っているのに 0 になっているケースを補正）
+        await updateBadgeCount();
       }
     } catch (e) {
       debugPrint('Push notification initialization failed: $e');

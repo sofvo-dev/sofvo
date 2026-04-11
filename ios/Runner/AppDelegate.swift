@@ -35,13 +35,18 @@ import FirebaseMessaging
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // アプリがフォアグラウンドに来た時にバッジをクリア
+  // アプリがフォアグラウンドに来た時に通知センターを掃除する。
+  // ⚠️ ここでバッジを 0 にしてはいけない。未読チャットが残っている
+  // 状態で 0 にすると「アプリ内 3 件未読・iOS バッジ 0」のズレが
+  // 発生する。バッジは Dart 側 (PushNotificationService.updateBadgeCount)
+  // が AppLifecycleState.resumed をフックして実際の未読数で再計算する。
   override func applicationDidBecomeActive(_ application: UIApplication) {
-    Self.clearBadge()
+    UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     super.applicationDidBecomeActive(application)
   }
 
   // iOS 17+ 対応のバッジクリア（非推奨 API を回避）
+  // Dart 側からの clearBadge MethodChannel 呼び出しから利用する。
   static func clearBadge() {
     if #available(iOS 16.0, *) {
       UNUserNotificationCenter.current().setBadgeCount(0) { error in
