@@ -149,6 +149,12 @@ class PushNotificationService {
 
   /// フォアグラウンドでの通知 → SnackBarバナーで表示
   static void _handleForegroundMessage(RemoteMessage message) {
+    // フォアグラウンド受信時、iOS は自動でバッジを更新しないため
+    // Firestore の最新状態から再計算してネイティブバッジを同期する。
+    // （これを呼ばないと「アプリ内では未読3、iOSバッジは1」のような
+    //   ズレが発生する）
+    updateBadgeCount();
+
     final notification = message.notification;
     if (notification == null) return;
 

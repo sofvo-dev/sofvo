@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../services/push_notification_service.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/official_badge.dart';
 import 'chat_screen.dart';
@@ -32,6 +33,10 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   void initState() {
     super.initState();
+    // チャット一覧を開いたタイミングで iOS バッジを再同期
+    // （フォアグラウンドで受信したプッシュなどで iOS 側のバッジが
+    //   実際の未読数とズレているケースをここで補正する）
+    PushNotificationService.updateBadgeCount();
     _tabController = TabController(
       length: 2,
       vsync: this,
