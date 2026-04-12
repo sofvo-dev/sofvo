@@ -210,12 +210,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _markAsRead() {
     if (_currentUser == null) return;
+    // Firestore の書き込み完了を待ってからバッジを再計算する。
+    // fire-and-forget で updateBadgeCount を呼ぶと、.get() が
+    // update 前の値を読み取って iOS バッジが古い値のまま残る
+    // （アプリ内は real-time stream なので正しい値になるが、
+    //   iOS ネイティブバッジは updateBadgeCount の結果に依存する）。
     FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
       'lastRead.${_currentUser!.uid}': FieldValue.serverTimestamp(),
       'unreadCount.${_currentUser!.uid}': 0,
+    }).then((_) {
+      // アプリアイコンバッジを未読数に合わせて更新
+      PushNotificationService.updateBadgeCount();
     });
-    // アプリアイコンバッジを未読数に合わせて更新
-    PushNotificationService.updateBadgeCount();
   }
 
   Future<void> _loadMuteState() async {
