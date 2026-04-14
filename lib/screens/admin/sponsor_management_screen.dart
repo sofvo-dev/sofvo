@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/sponsor_banner.dart' show normalizeSponsorImageUrl;
 
 /// スポンサー管理画面（公式アカウント用）
 class SponsorManagementScreen extends StatelessWidget {
@@ -74,17 +75,23 @@ class SponsorManagementScreen extends StatelessWidget {
         child: const Icon(Icons.add),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('sponsors')
-            .orderBy('order')
-            .snapshots(),
+        // orderBy('order') は order フィールドが無いドキュメントを除外してしまうため使わない。
+        // 代わりにクライアント側でソートする。
+        stream: FirebaseFirestore.instance.collection('sponsors').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
                 child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }
 
-          final docs = snapshot.data?.docs ?? [];
+          final docs = (snapshot.data?.docs ?? []).toList()
+            ..sort((a, b) {
+              final da = a.data() as Map<String, dynamic>;
+              final db = b.data() as Map<String, dynamic>;
+              final oa = (da['order'] as num?)?.toInt() ?? 0;
+              final ob = (db['order'] as num?)?.toInt() ?? 0;
+              return oa.compareTo(ob);
+            });
 
           if (docs.isEmpty) {
             return Center(
@@ -298,12 +305,12 @@ class _SponsorCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      imageUrl,
-                      height: 60,
+                      normalizeSponsorImageUrl(imageUrl),
+                      height: 80,
                       width: double.infinity,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        height: 60,
+                        height: 80,
                         color: Colors.grey[100],
                         child: Center(
                           child: Icon(Icons.broken_image,
@@ -409,10 +416,16 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
   late final TextEditingController _linkUrlController;
   late final TextEditingController _orderController;
   late final TextEditingController _priorityController;
+  late final TextEditingController _commentController;
+  late final TextEditingController _targetAreasController;
+  late final TextEditingController _minAgeController;
+  late final TextEditingController _maxAgeController;
   late bool _active;
   late String _placement;
   DateTime? _startDate;
   DateTime? _endDate;
+  // ターゲット性別（空リスト = 全性別対象）
+  final Set<String> _targetGenders = {};
   bool _saving = false;
 
   // Read-only analytics
@@ -429,6 +442,8 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
     {'value': 'all', 'label': '全画面'},
   ];
 
+  static const _genderOptions = ['男性', '女性', 'その他'];
+
   @override
   void initState() {
     super.initState();
@@ -442,6 +457,25 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
         TextEditingController(text: '${d?['order'] as int? ?? 0}');
     _priorityController =
         TextEditingController(text: '${(d?['priority'] as num?)?.toInt() ?? 5}');
+    _commentController =
+        TextEditingController(text: d?['comment'] as String? ?? '');
+
+    final initAreas =
+        (d?['targetAreas'] as List?)?.cast<String>() ?? const <String>[];
+    _targetAreasController =
+        TextEditingController(text: initAreas.join(', '));
+
+    final minAge = (d?['minAge'] as num?)?.toInt();
+    final maxAge = (d?['maxAge'] as num?)?.toInt();
+    _minAgeController =
+        TextEditingController(text: minAge != null ? '$minAge' : '');
+    _maxAgeController =
+        TextEditingController(text: maxAge != null ? '$maxAge' : '');
+
+    final initGenders =
+        (d?['targetGenders'] as List?)?.cast<String>() ?? const <String>[];
+    _targetGenders.addAll(initGenders);
+
     _active = d?['active'] == true;
     _placement = d?['placement'] as String? ?? 'home_top';
     _startDate = (d?['startDate'] as Timestamp?)?.toDate();
@@ -457,6 +491,10 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
     _linkUrlController.dispose();
     _orderController.dispose();
     _priorityController.dispose();
+    _commentController.dispose();
+    _targetAreasController.dispose();
+    _minAgeController.dispose();
+    _maxAgeController.dispose();
     super.dispose();
   }
 
@@ -498,10 +536,21 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final data = {
+    // エリアはカンマ区切りで入力 → リストに変換
+    final targetAreas = _targetAreasController.text
+        .split(RegExp(r'[、,]'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    final minAge = int.tryParse(_minAgeController.text.trim());
+    final maxAge = int.tryParse(_maxAgeController.text.trim());
+
+    final data = <String, dynamic>{
       'name': _nameController.text.trim(),
       'imageUrl': _imageUrlController.text.trim(),
       'linkUrl': _linkUrlController.text.trim(),
+      'comment': _commentController.text.trim(),
       'order': int.tryParse(_orderController.text.trim()) ?? 0,
       'active': _active,
       'placement': _placement,
@@ -509,6 +558,11 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
       'startDate':
           _startDate != null ? Timestamp.fromDate(_startDate!) : null,
       'endDate': _endDate != null ? Timestamp.fromDate(_endDate!) : null,
+      // セグメント（空 = 全員対象）
+      'targetAreas': targetAreas,
+      'targetGenders': _targetGenders.toList(),
+      'minAge': minAge,
+      'maxAge': maxAge,
     };
 
     try {
@@ -619,15 +673,21 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
               controller: _imageUrlController,
               decoration: _inputDecoration('https://example.com/banner.png'),
               keyboardType: TextInputType.url,
+              onChanged: (_) => setState(() {}),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? '画像URLを入力してください' : null,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Googleドライブ共有URLも貼り付けOK（自動で直リンク化されます）',
+              style: TextStyle(fontSize: 11, color: AppTheme.textHint),
             ),
             if (_imageUrlController.text.trim().isNotEmpty) ...[
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  _imageUrlController.text.trim(),
+                  normalizeSponsorImageUrl(_imageUrlController.text.trim()),
                   height: 80,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -646,6 +706,14 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
                 ),
               ),
             ],
+            const SizedBox(height: 20),
+            _buildLabel('コメント（任意・画像下に表示）'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _commentController,
+              maxLength: 40,
+              decoration: _inputDecoration('例: 新商品キャンペーン実施中！'),
+            ),
             const SizedBox(height: 20),
             _buildLabel('リンクURL'),
             const SizedBox(height: 6),
@@ -678,6 +746,95 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
                     if (v != null) setState(() => _placement = v);
                   },
                 ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // ━━━ セグメント設定 ━━━
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppTheme.accentColor.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.people_alt_outlined,
+                          size: 18, color: AppTheme.accentColor),
+                      SizedBox(width: 6),
+                      Text('配信セグメント（任意）',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.accentColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text('空欄の場合は全ユーザーに表示されます',
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary)),
+                  const SizedBox(height: 16),
+                  _buildLabel('対象エリア（カンマ区切り・都道府県名）'),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _targetAreasController,
+                    decoration: _inputDecoration('例: 東京都, 神奈川県, 千葉県'),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildLabel('対象性別'),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    children: _genderOptions.map((g) {
+                      final selected = _targetGenders.contains(g);
+                      return FilterChip(
+                        label: Text(g),
+                        selected: selected,
+                        onSelected: (v) {
+                          setState(() {
+                            if (v) {
+                              _targetGenders.add(g);
+                            } else {
+                              _targetGenders.remove(g);
+                            }
+                          });
+                        },
+                        selectedColor:
+                            AppTheme.accentColor.withValues(alpha: 0.2),
+                        checkmarkColor: AppTheme.accentColor,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildLabel('対象年齢'),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _minAgeController,
+                          decoration: _inputDecoration('下限'),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('〜'),
+                      ),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _maxAgeController,
+                          decoration: _inputDecoration('上限'),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),

@@ -2,14 +2,44 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/app_theme.dart';
 
+/// スポンサー画像URL正規化（Googleドライブ等を直リンクに変換）
+///
+/// 対応パターン:
+///   - https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+///   - https://drive.google.com/open?id=FILE_ID
+///   - https://drive.google.com/uc?id=FILE_ID&export=view
+/// いずれも `https://lh3.googleusercontent.com/d/FILE_ID` に変換する。
+/// （`lh3.googleusercontent.com` は CORS / Flutter の CachedNetworkImage と相性が良い）
+String normalizeSponsorImageUrl(String url) {
+  if (url.isEmpty) return url;
+  final trimmed = url.trim();
+  if (!trimmed.contains('drive.google.com')) return trimmed;
+
+  String? fileId;
+  // /file/d/FILE_ID/...
+  final fileDMatch = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(trimmed);
+  if (fileDMatch != null) {
+    fileId = fileDMatch.group(1);
+  }
+  // ?id=FILE_ID
+  if (fileId == null) {
+    final idMatch = RegExp(r'[?&]id=([a-zA-Z0-9_-]+)').firstMatch(trimmed);
+    if (idMatch != null) fileId = idMatch.group(1);
+  }
+  if (fileId == null || fileId.isEmpty) return trimmed;
+  return 'https://lh3.googleusercontent.com/d/$fileId';
+}
+
 /// スポンサーバナーウィジェット
 ///
 /// [placement] に一致する（または "all" の）アクティブなスポンサーを表示。
-/// 日付範囲フィルタ、優先度ソート、インプレッション/クリック計測に対応。
+/// 日付範囲フィルタ、優先度ソート、セグメント（エリア/年齢/性別）フィルタ、
+/// インプレッション/クリック計測に対応。
 class SponsorBanner extends StatefulWidget {
   /// 表示位置: "home_top", "home_bottom", "tournament_list", "chat_list"
   final String placement;
@@ -29,6 +59,67 @@ class _SponsorBannerState extends State<SponsorBanner> {
   /// Track which sponsor IDs have already been counted for impressions
   /// in this widget session to avoid duplicate counting.
   final Set<String> _impressionTracked = {};
+
+  // ━━━ セグメント判定用の現在ユーザー情報 ━━━
+  String? _userArea; // "東京都" などの都道府県文字列
+  String? _userGender; // "男性" / "女性" / "その他"
+  int? _userAge;
+  bool _profileLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSegment();
+  }
+
+  Future<void> _loadUserSegment() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        if (mounted) setState(() => _profileLoaded = true);
+        return;
+      }
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = userDoc.data();
+      if (data != null) {
+        final rawArea = data['area'];
+        if (rawArea is String) {
+          _userArea = rawArea;
+        } else if (rawArea is Map) {
+          _userArea = (rawArea['prefecture'] as String?) ?? '';
+        }
+      }
+
+      // gender / birthDate は private/info に入っている
+      final privateDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('private')
+          .doc('info')
+          .get();
+      final pd = privateDoc.data();
+      if (pd != null) {
+        _userGender = pd['gender'] as String?;
+        final bd = pd['birthDate'];
+        if (bd is Timestamp) {
+          final date = bd.toDate();
+          final now = DateTime.now();
+          int age = now.year - date.year;
+          if (now.month < date.month ||
+              (now.month == date.month && now.day < date.day)) {
+            age -= 1;
+          }
+          _userAge = age;
+        }
+      }
+    } catch (_) {
+      // 失敗時は無視（フィルタ無しで全件表示）
+    }
+    if (mounted) setState(() => _profileLoaded = true);
+  }
 
   @override
   void dispose() {
@@ -73,11 +164,43 @@ class _SponsorBannerState extends State<SponsorBanner> {
         .update({'impressionCount': FieldValue.increment(1)});
   }
 
-  /// Filter and sort sponsors by placement, date range, and priority
+  /// セグメントマッチ判定（該当しないなら false）
+  bool _matchesSegment(Map<String, dynamic> data) {
+    // エリア: targetAreas が空なら全員対象
+    final targetAreas = (data['targetAreas'] as List?)?.cast<String>() ?? [];
+    if (targetAreas.isNotEmpty) {
+      if (_userArea == null || _userArea!.isEmpty) return false;
+      final matched = targetAreas.any((a) => _userArea!.contains(a));
+      if (!matched) return false;
+    }
+
+    // 性別
+    final targetGenders =
+        (data['targetGenders'] as List?)?.cast<String>() ?? [];
+    if (targetGenders.isNotEmpty) {
+      if (_userGender == null || _userGender!.isEmpty) return false;
+      if (!targetGenders.contains(_userGender)) return false;
+    }
+
+    // 年齢
+    final minAge = (data['minAge'] as num?)?.toInt();
+    final maxAge = (data['maxAge'] as num?)?.toInt();
+    if (minAge != null || maxAge != null) {
+      if (_userAge == null) return false;
+      if (minAge != null && _userAge! < minAge) return false;
+      if (maxAge != null && _userAge! > maxAge) return false;
+    }
+
+    return true;
+  }
+
+  /// Filter and sort sponsors by placement, date range, priority, segment
   List<QueryDocumentSnapshot> _filterAndSort(List<QueryDocumentSnapshot> docs) {
     final now = DateTime.now();
     final filtered = docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
+      // active フラグ（クエリ側で where を使うとインデックス要件が出るのでクライアント側で）
+      if (data['active'] != true) return false;
       // Filter by placement
       final placement = data['placement'] as String? ?? 'home_top';
       if (placement != 'all' && placement != widget.placement) return false;
@@ -86,6 +209,8 @@ class _SponsorBannerState extends State<SponsorBanner> {
       final endDate = (data['endDate'] as Timestamp?)?.toDate();
       if (startDate != null && now.isBefore(startDate)) return false;
       if (endDate != null && now.isAfter(endDate)) return false;
+      // セグメントフィルタ
+      if (!_matchesSegment(data)) return false;
       return true;
     }).toList();
 
@@ -103,12 +228,13 @@ class _SponsorBannerState extends State<SponsorBanner> {
 
   @override
   Widget build(BuildContext context) {
+    // プロフィール読み込み完了前はセグメントフィルタが未確定のため描画しない
+    if (!_profileLoaded) return const SizedBox.shrink();
+
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('sponsors')
-          .where('active', isEqualTo: true)
-          .orderBy('order')
-          .snapshots(),
+      // where/orderBy を使わず全件取得 → クライアント側でフィルタ
+      // （複合インデックスが無いとクエリが失敗してバナーが表示されなかったバグの対策）
+      stream: FirebaseFirestore.instance.collection('sponsors').snapshots(),
       builder: (context, snapshot) {
         final allDocs = snapshot.data?.docs ?? [];
         final docs = _filterAndSort(allDocs);
@@ -129,6 +255,14 @@ class _SponsorBannerState extends State<SponsorBanner> {
         });
         _totalPages = docs.length;
 
+        // いずれかのスポンサーに comment がある場合は高さを拡張
+        final hasAnyComment = docs.any((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          return (d['comment'] as String? ?? '').trim().isNotEmpty;
+        });
+        final pagerHeight = hasAnyComment ? 104.0 : 80.0;
+        const imageHeight = 80.0;
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
@@ -136,7 +270,7 @@ class _SponsorBannerState extends State<SponsorBanner> {
             children: [
               const SizedBox(height: 8),
               SizedBox(
-                height: 80,
+                height: pagerHeight,
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: docs.length,
@@ -146,41 +280,61 @@ class _SponsorBannerState extends State<SponsorBanner> {
                   itemBuilder: (context, index) {
                     final doc = docs[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    final imageUrl = data['imageUrl'] as String? ?? '';
+                    final imageUrl = normalizeSponsorImageUrl(
+                        data['imageUrl'] as String? ?? '');
                     final linkUrl = data['linkUrl'] as String? ?? '';
+                    final comment = (data['comment'] as String? ?? '').trim();
 
                     return GestureDetector(
                       onTap: linkUrl.isNotEmpty
                           ? () => _openLink(linkUrl, doc.id)
                           : null,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          width: double.infinity,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            color: Colors.grey[100],
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppTheme.primaryColor,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: double.infinity,
+                              height: imageHeight,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(
+                                color: Colors.grey[100],
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => Container(
+                                color: Colors.grey[100],
+                                child: Center(
+                                  child: Icon(Icons.broken_image,
+                                      color: AppTheme.textHint, size: 28),
                                 ),
                               ),
                             ),
                           ),
-                          errorWidget: (_, __, ___) => Container(
-                            color: Colors.grey[100],
-                            child: Center(
-                              child: Icon(Icons.broken_image,
-                                  color: AppTheme.textHint, size: 28),
+                          if (comment.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              comment,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ),
+                          ],
+                        ],
                       ),
                     );
                   },

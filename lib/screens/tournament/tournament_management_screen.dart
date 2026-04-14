@@ -818,6 +818,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
                           'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                           'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
+                          'isCertified': false,
                           if (pdfUrl != null) 'rulesPdfUrl': pdfUrl,
                           if (pdfName != null) 'rulesPdfName': pdfName,
                         };
