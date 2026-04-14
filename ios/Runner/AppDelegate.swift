@@ -13,24 +13,11 @@ import FirebaseMessaging
     UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()
 
-    // Dart 側からバッジをクリアするための MethodChannel
-    let controller = window?.rootViewController as? FlutterViewController
-    if let controller = controller {
-      let channel = FlutterMethodChannel(
-        name: "com.sofvo.app/badge",
-        binaryMessenger: controller.binaryMessenger)
-      channel.setMethodCallHandler { (call, result) in
-        if call.method == "clearBadge" {
-          Self.clearBadge()
-          result(nil)
-        } else if call.method == "setBadge", let args = call.arguments as? [String: Any], let count = args["count"] as? Int {
-          Self.setBadge(count)
-          result(nil)
-        } else {
-          result(FlutterMethodNotImplemented)
-        }
-      }
-    }
+    // ⚠️ MethodChannel の登録はここではなく didInitializeImplicitFlutterEngine で行う。
+    // Sofvo は FlutterImplicitEngineDelegate を使っているため、この時点では
+    // FlutterViewController がまだ生成されていない（= window?.rootViewController が nil）。
+    // ここで登録しようとしても nil になって登録されず、Dart から invokeMethod しても
+    // MissingPluginException が throw される（catch 側で握りつぶされるためサイレント失敗）。
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -100,5 +87,30 @@ import FirebaseMessaging
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Dart 側からバッジを制御するための MethodChannel を engine 初期化時に登録する。
+    // didFinishLaunchingWithOptions の時点では FlutterViewController がまだ
+    // 存在しないため、ここで pluginRegistry 経由で登録するのが正しい。
+    // これをやらないと Dart からの invokeMethod が MissingPluginException で
+    // サイレント失敗し、iOS ネイティブバッジが全く更新されない（1.0.10〜1.0.12 で
+    // 発生していた「バッジが未読数とズレる」バグの真因）。
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SofvoBadgeChannel") {
+      let channel = FlutterMethodChannel(
+        name: "com.sofvo.app/badge",
+        binaryMessenger: registrar.messenger())
+      channel.setMethodCallHandler { (call, result) in
+        if call.method == "clearBadge" {
+          Self.clearBadge()
+          result(nil)
+        } else if call.method == "setBadge",
+                  let args = call.arguments as? [String: Any],
+                  let count = args["count"] as? Int {
+          Self.setBadge(count)
+          result(nil)
+        } else {
+          result(FlutterMethodNotImplemented)
+        }
+      }
+    }
   }
 }
