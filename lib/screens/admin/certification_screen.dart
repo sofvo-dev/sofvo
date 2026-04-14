@@ -58,9 +58,9 @@ class _CertificationScreenState extends State<CertificationScreen>
 
   Widget _buildTournamentList({required bool certified}) {
     return StreamBuilder<QuerySnapshot>(
+      // orderBy は使わない: createdAt フィールドが無い古い大会も対象にするため
       stream: FirebaseFirestore.instance
           .collection('tournaments')
-          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -77,7 +77,18 @@ class _CertificationScreenState extends State<CertificationScreen>
           final data = doc.data() as Map<String, dynamic>;
           final isCertified = data['isCertified'] == true;
           return certified ? isCertified : !isCertified;
-        }).toList();
+        }).toList()
+          // 作成日時降順でクライアント側ソート（createdAt 欠損ドキュメントも末尾に表示）
+          ..sort((a, b) {
+            final da = a.data() as Map<String, dynamic>;
+            final db = b.data() as Map<String, dynamic>;
+            final ta = da['createdAt'] as Timestamp?;
+            final tb = db['createdAt'] as Timestamp?;
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return tb.compareTo(ta);
+          });
 
         if (docs.isEmpty) {
           return Center(
