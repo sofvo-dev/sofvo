@@ -249,6 +249,37 @@ firebase deploy --only hosting    # Hosting のデプロイ
 - **fastlaneインストール済み**（Ruby 4.0.2 + fastlane 2.232.2）
 - iOS提出: `cd ~/Desktop/sofvo/ios && fastlane release`（全自動）
 
+## 審査メール自動通知（2026/04/15 稼働開始）
+
+### 概要
+`info@sofvo.com` に届く Apple / Google Play からの審査関連メールを
+**Google Apps Script** が定期的にスキャンし、`sofvo-dev/sofvo` リポジトリに
+GitHub Issue を自動作成する仕組み。Claude Code は GitHub MCP 経由で Issue を
+読めるため、審査ステータスを即座に確認して次のアクションに繋げられる。
+
+### 構成
+- **スクリプト本体**: `scripts/apps-script/app-review-notifier.gs`
+- **セットアップ手順**: `scripts/apps-script/README.md`
+- **実行環境**: Google Apps Script（`info@sofvo.com` の Google Workspace 内）
+- **定期実行**: 1時間ごとのトリガー
+- **対象送信元**: `no_reply@email.apple.com`, `noreply@email.apple.com`, `googleplay-noreply@google.com`, `googleplay-developer-noreply@google.com`
+- **重複防止**: Gmail に `AppReview/Processed` ラベルを付与
+
+### 使い方
+- 審査メールが届く → 1時間以内に GitHub Issue が自動作成される（ラベル: `app-review`）
+- Claude Code に「最近の app-review Issue を見せて」と聞けば取得してくれる
+- 審査通過 → CLAUDE.md のバージョン履歴表を「リリース済み」に更新するトリガーにもなる
+
+### メリット
+- **新規ツール登録ゼロ**: Google Workspace + GitHub のみ（Zapier などは不要）
+- **無料**: Apps Script の無料枠で完結
+- **履歴が GitHub に残る**: 審査の流れが Issue として時系列で追える
+
+### トラブルシュート
+- Issue が作成されない → Apps Script の「実行数」で実行ログを確認
+- 再処理したいメールがある → Gmail で `AppReview/Processed` ラベルを外せばOK
+- GitHub Token の期限切れ → Script Properties の `GITHUB_TOKEN` を更新
+
 ## スーパーアドミン（最高権限）設定手順
 1. [Firebase Console](https://console.firebase.google.com/) を開く
 2. プロジェクト **sofvo-19d84** を選択
