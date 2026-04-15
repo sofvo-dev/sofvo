@@ -7,6 +7,26 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/app_theme.dart';
 
+/// 表示位置ごとのスポンサー画像の基本高さ（px）
+///
+/// 位置によって存在感を変えるため意図的に異なる高さを返す。
+/// 管理画面プレビューやバナー本体表示で共通利用する。
+double sponsorImageHeightFor(String placement) {
+  switch (placement) {
+    case 'home_top':
+      return 100;
+    case 'home_bottom':
+      return 90;
+    case 'tournament_list':
+      return 80;
+    case 'chat_list':
+      return 60;
+    case 'all':
+    default:
+      return 80;
+  }
+}
+
 /// スポンサー画像URL正規化（Googleドライブ等を直リンクに変換）
 ///
 /// 対応パターン:
@@ -260,8 +280,14 @@ class _SponsorBannerState extends State<SponsorBanner> {
           final d = doc.data() as Map<String, dynamic>;
           return (d['comment'] as String? ?? '').trim().isNotEmpty;
         });
-        final pagerHeight = hasAnyComment ? 104.0 : 80.0;
-        const imageHeight = 80.0;
+        // 表示位置ごとに基本画像高さを変える
+        //   home_top        : 大きめ（目立たせたい）     — 100
+        //   home_bottom     : やや大きめ                  — 90
+        //   tournament_list : 中                          — 80
+        //   chat_list       : 小さめ（邪魔にならない）    — 60
+        //   all / その他    : 中                          — 80
+        final imageHeight = sponsorImageHeightFor(widget.placement);
+        final pagerHeight = hasAnyComment ? (imageHeight + 24) : imageHeight;
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
