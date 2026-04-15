@@ -275,19 +275,20 @@ class _SponsorBannerState extends State<SponsorBanner> {
         });
         _totalPages = docs.length;
 
-        // いずれかのスポンサーに comment がある場合は高さを拡張
+        // バナー総高さは表示位置ごとに完全固定（コメント有無で変動させない）
+        //   home_top        : 100   home_bottom     : 90
+        //   tournament_list : 80    chat_list       : 60    all : 80
+        // コメントがある場合は同じ枠内で画像を縮めて余白を作る
+        final pagerHeight = sponsorImageHeightFor(widget.placement);
         final hasAnyComment = docs.any((doc) {
           final d = doc.data() as Map<String, dynamic>;
           return (d['comment'] as String? ?? '').trim().isNotEmpty;
         });
-        // 表示位置ごとに基本画像高さを変える
-        //   home_top        : 大きめ（目立たせたい）     — 100
-        //   home_bottom     : やや大きめ                  — 90
-        //   tournament_list : 中                          — 80
-        //   chat_list       : 小さめ（邪魔にならない）    — 60
-        //   all / その他    : 中                          — 80
-        final imageHeight = sponsorImageHeightFor(widget.placement);
-        final pagerHeight = hasAnyComment ? (imageHeight + 24) : imageHeight;
+        // コメント行に必要な高さ（text ~14 + 余白 4）
+        const commentAreaHeight = 18.0;
+        final imageHeight = hasAnyComment
+            ? (pagerHeight - commentAreaHeight).clamp(32.0, pagerHeight)
+            : pagerHeight;
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
