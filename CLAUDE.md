@@ -166,6 +166,7 @@ cd ..
 | 1.0.11 | 24 | 配信準備完了 | iOSバッジ同期の根本原因修正（build 24 はアップロード済みだが未リリース） |
 | 1.0.12 | 26 | リリース済み | 1.0.11 + チャット既読時のバッジ同期レース修正（でも MethodChannel 未登録バグで無効化） |
 | 1.0.13 | 27 | 審査提出準備 | **真の根本原因修正**: AppDelegate の MethodChannel 登録を didInitializeImplicitFlutterEngine に移動（1.0.10〜1.0.12 ではバッジ同期コードが一切動いていなかった） |
+| 1.0.14 | 28 | 審査提出準備 | お知らせ配信にリンク機能・予約配信・OS別配信対象（iOS/Android/全員）を追加 |
 
 ### iOS提出時のリリースノート
 - **iOSアップロード時は必ず「このバージョンの最新情報」も一緒に出すこと**
@@ -242,12 +243,43 @@ firebase deploy --only hosting    # Hosting のデプロイ
 ## アプリ化 進捗（2026/04/05 更新）
 
 ### リリース状況
-- **iOS**: 🟢 1.0.12 リリース済み / 1.0.13 審査提出準備（バッジ同期の MethodChannel 未登録バグ修正）
+- **iOS**: 🟢 1.0.12 リリース済み / 1.0.14 審査提出準備（お知らせ配信にリンク・予約・OS別対象機能を追加）
 - **Android**: 🟢 製品版公開済み（Google Play）
 
 ### Macローカル環境
 - **fastlaneインストール済み**（Ruby 4.0.2 + fastlane 2.232.2）
 - iOS提出: `cd ~/Desktop/sofvo/ios && fastlane release`（全自動）
+
+## 審査メール自動通知（2026/04/15 稼働開始）
+
+### 概要
+`info@sofvo.com` に届く Apple / Google Play からの審査関連メールを
+**Google Apps Script** が定期的にスキャンし、`sofvo-dev/sofvo` リポジトリに
+GitHub Issue を自動作成する仕組み。Claude Code は GitHub MCP 経由で Issue を
+読めるため、審査ステータスを即座に確認して次のアクションに繋げられる。
+
+### 構成
+- **スクリプト本体**: `scripts/apps-script/app-review-notifier.gs`
+- **セットアップ手順**: `scripts/apps-script/README.md`
+- **実行環境**: Google Apps Script（`info@sofvo.com` の Google Workspace 内）
+- **定期実行**: 1時間ごとのトリガー
+- **対象送信元**: `no_reply@email.apple.com`, `noreply@email.apple.com`, `googleplay-noreply@google.com`, `googleplay-developer-noreply@google.com`
+- **重複防止**: Gmail に `AppReview/Processed` ラベルを付与
+
+### 使い方
+- 審査メールが届く → 1時間以内に GitHub Issue が自動作成される（ラベル: `app-review`）
+- Claude Code に「最近の app-review Issue を見せて」と聞けば取得してくれる
+- 審査通過 → CLAUDE.md のバージョン履歴表を「リリース済み」に更新するトリガーにもなる
+
+### メリット
+- **新規ツール登録ゼロ**: Google Workspace + GitHub のみ（Zapier などは不要）
+- **無料**: Apps Script の無料枠で完結
+- **履歴が GitHub に残る**: 審査の流れが Issue として時系列で追える
+
+### トラブルシュート
+- Issue が作成されない → Apps Script の「実行数」で実行ログを確認
+- 再処理したいメールがある → Gmail で `AppReview/Processed` ラベルを外せばOK
+- GitHub Token の期限切れ → Script Properties の `GITHUB_TOKEN` を更新
 
 ## スーパーアドミン（最高権限）設定手順
 1. [Firebase Console](https://console.firebase.google.com/) を開く

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/profile/user_profile_screen.dart';
 import '../screens/tournament/tournament_detail_screen.dart';
@@ -56,6 +57,15 @@ class PushNotificationService {
 
         // 全ユーザー向けお知らせ通知トピックを購読
         await _messaging.subscribeToTopic('all_users');
+
+        // OS別のお知らせ配信用トピックを購読（iOS/Android のみ）
+        if (!kIsWeb) {
+          if (defaultTargetPlatform == TargetPlatform.iOS) {
+            await _messaging.subscribeToTopic('ios_users');
+          } else if (defaultTargetPlatform == TargetPlatform.android) {
+            await _messaging.subscribeToTopic('android_users');
+          }
+        }
 
         // iOS: フォアグラウンド表示オプション
         await _messaging.setForegroundNotificationPresentationOptions(
@@ -237,7 +247,17 @@ class PushNotificationService {
         // チーム画面への遷移（将来実装）
         break;
       case 'notice':
-        // お知らせ通知はタップ時に特別遷移なし（通知一覧を開く）
+        // リンク付きのお知らせはブラウザで開く
+        final link = data['link'] as String?;
+        if (link != null && link.isNotEmpty) {
+          final uri = Uri.tryParse(link);
+          if (uri != null) {
+            launchUrl(uri, mode: LaunchMode.externalApplication).catchError((e) {
+              debugPrint('Failed to open notice link: $e');
+              return false;
+            });
+          }
+        }
         break;
       case 'official':
         // 公式通知はタップ時に特別遷移なし（通知一覧を開く）

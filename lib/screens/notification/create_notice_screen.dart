@@ -13,10 +13,19 @@ class CreateNoticeScreen extends StatefulWidget {
 class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
+  final _linkController = TextEditingController();
   String _selectedType = 'info';
   int _selectedTemplateIndex = 0;
   bool _isPinned = false;
   bool _isSending = false;
+  DateTime? _scheduledAt;
+  String _targetPlatform = 'all'; // 'all' | 'ios' | 'android'
+
+  static const _targetOptions = [
+    {'value': 'all', 'label': '全員', 'icon': Icons.public},
+    {'value': 'ios', 'label': 'iOS', 'icon': Icons.phone_iphone},
+    {'value': 'android', 'label': 'Android', 'icon': Icons.phone_android},
+  ];
 
   static const _noticeTemplates = <String, List<Map<String, String>>>{
     'info': [
@@ -52,7 +61,53 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
+    _linkController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickScheduledAt() async {
+    final now = DateTime.now();
+    final initial = _scheduledAt ?? now.add(const Duration(hours: 1));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(now) ? now : initial,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      locale: const Locale('ja', 'JP'),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null) return;
+    final picked = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (picked.isBefore(DateTime.now().add(const Duration(minutes: 1)))) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('配信時刻は現在時刻より後を選択してください'), backgroundColor: AppTheme.warning),
+        );
+      }
+      return;
+    }
+    setState(() => _scheduledAt = picked);
+  }
+
+  String _formatScheduled(DateTime dt) {
+    final y = dt.year;
+    final m = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '$y/$m/$d $hh:$mm';
+  }
+
+  bool _isValidUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    if (!uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) return false;
+    if (uri.host.isEmpty) return false;
+    return true;
   }
 
   void _applyTemplate(int index) {
@@ -71,18 +126,46 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
       return;
     }
 
+    final linkText = _linkController.text.trim();
+    if (linkText.isNotEmpty && !_isValidUrl(linkText)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('リンクURLが正しくありません（http/https）'), backgroundColor: AppTheme.warning),
+      );
+      return;
+    }
+
+    final isScheduled = _scheduledAt != null;
+
     setState(() => _isSending = true);
     try {
-      await FirebaseFirestore.instance.collection('notices').add({
+      final data = <String, dynamic>{
         'type': _selectedType,
         'title': _titleController.text.trim(),
         'body': _bodyController.text.trim(),
-        'createdAt': FieldValue.serverTimestamp(),
+        'platform': _targetPlatform,
         if (_isPinned) 'pinned': true,
-      });
+        if (linkText.isNotEmpty) 'link': linkText,
+      };
+
+      if (isScheduled) {
+        // 予約配信: createdAt は未設定のままにして home_screen の orderBy から除外する
+        data['status'] = 'scheduled';
+        data['scheduledAt'] = Timestamp.fromDate(_scheduledAt!);
+      } else {
+        data['status'] = 'published';
+        data['createdAt'] = FieldValue.serverTimestamp();
+      }
+
+      await FirebaseFirestore.instance.collection('notices').add(data);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('お知らせを配信しました'), backgroundColor: AppTheme.success),
+          SnackBar(
+            content: Text(isScheduled
+                ? '${_formatScheduled(_scheduledAt!)} に配信予約しました'
+                : 'お知らせを配信しました'),
+            backgroundColor: AppTheme.success,
+          ),
         );
         Navigator.pop(context);
       }
@@ -153,6 +236,53 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                           color: isSelected ? color : AppTheme.textSecondary,
                         )),
                       ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // 配信対象
+            Text('配信対象', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            const SizedBox(height: 8),
+            Row(
+              children: _targetOptions.map((opt) {
+                final value = opt['value'] as String;
+                final label = opt['label'] as String;
+                final icon = opt['icon'] as IconData;
+                final isSelected = value == _targetPlatform;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: value == 'android' ? 0 : 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _targetPlatform = value),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                              : AppTheme.backgroundColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(icon, size: 16, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary),
+                            const SizedBox(width: 6),
+                            Text(label, style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                            )),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -255,6 +385,92 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
               maxLength: 500,
               style: const TextStyle(fontSize: 14),
             ),
+            const SizedBox(height: 12),
+
+            // リンクURL（任意）
+            Text('リンクURL（任意）', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _linkController,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: InputDecoration(
+                hintText: 'https://example.com',
+                hintStyle: TextStyle(color: AppTheme.textHint),
+                prefixIcon: const Icon(Icons.link, color: AppTheme.textSecondary, size: 20),
+                filled: true,
+                fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4),
+              child: Text(
+                '指定するとお知らせをタップした際にブラウザで開きます',
+                style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 配信時刻（任意）
+            Text('配信時刻', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _isSending ? null : _pickScheduledAt,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _scheduledAt != null ? AppTheme.primaryColor : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _scheduledAt != null ? Icons.schedule : Icons.flash_on,
+                      size: 20,
+                      color: _scheduledAt != null ? AppTheme.primaryColor : AppTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _scheduledAt != null
+                            ? '${_formatScheduled(_scheduledAt!)} に配信'
+                            : '即時配信（今すぐ送信）',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: _scheduledAt != null ? AppTheme.primaryColor : AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (_scheduledAt != null)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
+                        onPressed: _isSending ? null : () => setState(() => _scheduledAt = null),
+                        tooltip: '予約を解除',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      )
+                    else
+                      const Icon(Icons.chevron_right, size: 20, color: AppTheme.textHint),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
 
             // 配信ボタン
@@ -271,7 +487,8 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                 ),
                 child: _isSending
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('配信する', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    : Text(_scheduledAt != null ? '配信予約する' : '配信する',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

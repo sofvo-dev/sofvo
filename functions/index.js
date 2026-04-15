@@ -3679,38 +3679,100 @@ exports.onNoticeCreated = functions.firestore
     const data = snap.data();
     if (!data) return null;
 
-    const title = data.title || "お知らせ";
-    const body = (data.body || "").substring(0, 100);
+    // 予約配信はこの時点ではプッシュを送らない（publishScheduledNotices で送る）
+    if (data.status === "scheduled") {
+      functions.logger.info(`Notice ${context.params.noticeId} is scheduled, skipping push`);
+      return null;
+    }
 
-    const message = {
-      topic: "all_users",
-      notification: {
-        title,
-        body,
-      },
-      data: {
-        type: "notice",
-        noticeId: context.params.noticeId,
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: "default",
-          },
-        },
-      },
-      android: {
-        notification: {
-          sound: "default",
-        },
-      },
-    };
+    await sendNoticePush(context.params.noticeId, data);
+    return null;
+  });
 
-    try {
-      await admin.messaging().send(message);
-      functions.logger.info(`Notice push sent to topic all_users: ${title}`);
-    } catch (err) {
-      functions.logger.error("Failed to send notice push:", err);
+/**
+ * お知らせドキュメントをFCMトピック all_users に配信する共通関数
+ * @param {string} noticeId
+ * @param {FirebaseFirestore.DocumentData} data
+ */
+async function sendNoticePush(noticeId, data) {
+  const title = data.title || "お知らせ";
+  const body = (data.body || "").substring(0, 100);
+
+  const payload = {
+    type: "notice",
+    noticeId,
+  };
+  if (typeof data.link === "string" && data.link.length > 0) {
+    payload.link = data.link;
+  }
+
+  // 配信対象の OS を判定（'all' | 'ios' | 'android'）
+  let topic = "all_users";
+  if (data.platform === "ios") {
+    topic = "ios_users";
+  } else if (data.platform === "android") {
+    topic = "android_users";
+  }
+
+  const message = {
+    topic,
+    notification: { title, body },
+    data: payload,
+    apns: {
+      payload: {
+        aps: { sound: "default" },
+      },
+    },
+    android: {
+      notification: { sound: "default" },
+    },
+  };
+
+  try {
+    await admin.messaging().send(message);
+    functions.logger.info(`Notice push sent to topic ${topic}: ${title}`);
+  } catch (err) {
+    functions.logger.error("Failed to send notice push:", err);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 予約配信されたお知らせを定期的に公開する
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.publishScheduledNotices = functions.pubsub
+  .schedule("every 1 minutes")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snap = await admin
+      .firestore()
+      .collection("notices")
+      .where("status", "==", "scheduled")
+      .get();
+
+    if (snap.empty) return null;
+
+    let publishedCount = 0;
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      const scheduledAt = data.scheduledAt;
+      if (!scheduledAt || typeof scheduledAt.toMillis !== "function") continue;
+      if (scheduledAt.toMillis() > now.toMillis()) continue;
+
+      try {
+        await doc.ref.update({
+          status: "published",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          publishedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        await sendNoticePush(doc.id, data);
+        publishedCount++;
+      } catch (err) {
+        functions.logger.error(`Failed to publish scheduled notice ${doc.id}:`, err);
+      }
+    }
+
+    if (publishedCount > 0) {
+      functions.logger.info(`Published ${publishedCount} scheduled notice(s)`);
     }
     return null;
   });

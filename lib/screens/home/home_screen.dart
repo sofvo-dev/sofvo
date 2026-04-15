@@ -8,6 +8,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../../config/app_theme.dart';
 import '../../services/follow_service.dart';
 import '../../widgets/official_badge.dart';
@@ -1483,7 +1485,17 @@ class _HomeScreenState extends State<HomeScreen>
         if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
-        final docs = snap.data!.docs;
+        final allDocs = snap.data!.docs;
+        // 配信対象 OS でフィルタ（iOS/Android 指定のお知らせは該当ユーザのみ表示）
+        final docs = allDocs.where((d) {
+          final data = d.data() as Map<String, dynamic>? ?? {};
+          final platform = data['platform'] as String?;
+          if (platform == null || platform == 'all') return true;
+          if (kIsWeb) return false;
+          if (platform == 'ios') return defaultTargetPlatform == TargetPlatform.iOS;
+          if (platform == 'android') return defaultTargetPlatform == TargetPlatform.android;
+          return true;
+        }).toList();
         if (docs.isEmpty) {
           return const EmptyStateView(
             icon: Icons.campaign_outlined,
@@ -1526,6 +1538,8 @@ class _HomeScreenState extends State<HomeScreen>
                 icon = Icons.info_outline;
                 color = AppTheme.primaryColor;
             }
+            final rawLink = data['link'];
+            final link = (rawLink is String && rawLink.isNotEmpty) ? rawLink : null;
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _buildOfficialNotice(
@@ -1536,6 +1550,8 @@ class _HomeScreenState extends State<HomeScreen>
                 time: _formatTime(data['createdAt'] as Timestamp?),
                 isRead: true,
                 isPinned: isPinned,
+                link: link,
+                onTap: link != null ? () => _openNoticeLink(link) : null,
               ),
             );
           },
@@ -1751,6 +1767,25 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _openNoticeLink(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('リンクを開けませんでした'), backgroundColor: AppTheme.error),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('リンクを開けませんでした'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
   Widget _buildOfficialNotice({
     required IconData icon,
     required Color color,
@@ -1759,6 +1794,7 @@ class _HomeScreenState extends State<HomeScreen>
     required String time,
     bool isRead = true,
     bool isPinned = false,
+    String? link,
     VoidCallback? onTap,
   }) {
     return GestureDetector(
@@ -1817,6 +1853,28 @@ class _HomeScreenState extends State<HomeScreen>
                       style: const TextStyle(
                           fontSize: 14,
                           color: AppTheme.textSecondary)),
+                  if (link != null && link.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.link, size: 14, color: color),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            link,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   Text(time,
                       style: const TextStyle(
