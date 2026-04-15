@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
-import '../../widgets/sponsor_banner.dart' show normalizeSponsorImageUrl;
+import '../../widgets/sponsor_banner.dart'
+    show normalizeSponsorImageUrl, sponsorImageHeightFor;
 
 /// スポンサー管理画面（公式アカウント用）
 class SponsorManagementScreen extends StatelessWidget {
@@ -302,23 +303,27 @@ class _SponsorCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 if (imageUrl.isNotEmpty) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      normalizeSponsorImageUrl(imageUrl),
-                      height: 80,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 80,
-                        color: Colors.grey[100],
-                        child: Center(
-                          child: Icon(Icons.broken_image,
-                              color: AppTheme.textHint),
+                  Builder(builder: (_) {
+                    final previewHeight =
+                        sponsorImageHeightFor(placement ?? 'all');
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        normalizeSponsorImageUrl(imageUrl),
+                        height: previewHeight,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: previewHeight,
+                          color: Colors.grey[100],
+                          child: Center(
+                            child: Icon(Icons.broken_image,
+                                color: AppTheme.textHint),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                   const SizedBox(height: 8),
                 ],
                 // Analytics row
@@ -684,27 +689,43 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
             ),
             if (_imageUrlController.text.trim().isNotEmpty) ...[
               const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  normalizeSponsorImageUrl(_imageUrlController.text.trim()),
-                  height: 80,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
+              // プレビュー高さは選択中の表示位置に合わせる
+              Builder(builder: (_) {
+                final previewHeight = sponsorImageHeightFor(_placement);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
                       borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        normalizeSponsorImageUrl(
+                            _imageUrlController.text.trim()),
+                        height: previewHeight,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: previewHeight,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text('画像を読み込めません',
+                                style: TextStyle(
+                                    fontSize: 12, color: AppTheme.textHint)),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Center(
-                      child: Text('画像を読み込めません',
-                          style: TextStyle(
-                              fontSize: 12, color: AppTheme.textHint)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '※ この位置での表示高さ: ${previewHeight.toInt()}px',
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.textHint),
                     ),
-                  ),
-                ),
-              ),
+                  ],
+                );
+              }),
             ],
             const SizedBox(height: 20),
             _buildLabel('コメント（任意・画像下に表示）'),
