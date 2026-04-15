@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/sponsor_banner.dart'
-    show normalizeSponsorImageUrl, sponsorImageHeightFor;
+    show
+        normalizeSponsorImageUrl,
+        sponsorImageHeightFor,
+        sponsorRecommendedSizeFor;
 
 /// スポンサー管理画面（公式アカウント用）
 class SponsorManagementScreen extends StatelessWidget {
@@ -674,6 +677,49 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
             const SizedBox(height: 20),
             _buildLabel('バナー画像URL'),
             const SizedBox(height: 6),
+            // 推奨サイズ案内（選択中の表示位置に連動）
+            Builder(builder: (_) {
+              final size = sponsorRecommendedSizeFor(_placement);
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.photo_size_select_large,
+                        size: 18, color: AppTheme.primaryColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '推奨画像サイズ: ${size.width} × ${size.height} px',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'この表示位置ではこの比率で画像を制作してください',
+                            style: TextStyle(
+                                fontSize: 11, color: AppTheme.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
             TextFormField(
               controller: _imageUrlController,
               decoration: _inputDecoration('https://example.com/banner.png'),

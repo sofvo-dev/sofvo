@@ -27,6 +27,26 @@ double sponsorImageHeightFor(String placement) {
   }
 }
 
+/// 表示位置ごとに制作すべき画像の推奨サイズ（px, 幅×高さ）
+///
+/// どの機種でも綺麗に表示されるよう 3x 相当の高解像度を指定。
+/// アップロードする画像はこの比率で用意するとトリミングなしで表示される。
+({int width, int height}) sponsorRecommendedSizeFor(String placement) {
+  switch (placement) {
+    case 'home_top':
+      return (width: 1080, height: 300); // 3.6:1
+    case 'home_bottom':
+      return (width: 1080, height: 270); // 4:1
+    case 'tournament_list':
+      return (width: 1080, height: 240); // 4.5:1
+    case 'chat_list':
+      return (width: 1080, height: 180); // 6:1
+    case 'all':
+    default:
+      return (width: 1080, height: 240); // 4.5:1
+  }
+}
+
 /// スポンサー画像URL正規化（Googleドライブ等を直リンクに変換）
 ///
 /// 対応パターン:
