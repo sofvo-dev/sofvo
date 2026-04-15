@@ -58,6 +58,15 @@ class PushNotificationService {
         // 全ユーザー向けお知らせ通知トピックを購読
         await _messaging.subscribeToTopic('all_users');
 
+        // OS別のお知らせ配信用トピックを購読（iOS/Android のみ）
+        if (!kIsWeb) {
+          if (defaultTargetPlatform == TargetPlatform.iOS) {
+            await _messaging.subscribeToTopic('ios_users');
+          } else if (defaultTargetPlatform == TargetPlatform.android) {
+            await _messaging.subscribeToTopic('android_users');
+          }
+        }
+
         // iOS: フォアグラウンド表示オプション
         await _messaging.setForegroundNotificationPresentationOptions(
           alert: true,

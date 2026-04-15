@@ -3706,8 +3706,16 @@ async function sendNoticePush(noticeId, data) {
     payload.link = data.link;
   }
 
+  // 配信対象の OS を判定（'all' | 'ios' | 'android'）
+  let topic = "all_users";
+  if (data.platform === "ios") {
+    topic = "ios_users";
+  } else if (data.platform === "android") {
+    topic = "android_users";
+  }
+
   const message = {
-    topic: "all_users",
+    topic,
     notification: { title, body },
     data: payload,
     apns: {
@@ -3722,7 +3730,7 @@ async function sendNoticePush(noticeId, data) {
 
   try {
     await admin.messaging().send(message);
-    functions.logger.info(`Notice push sent to topic all_users: ${title}`);
+    functions.logger.info(`Notice push sent to topic ${topic}: ${title}`);
   } catch (err) {
     functions.logger.error("Failed to send notice push:", err);
   }
