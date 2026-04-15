@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../../config/app_theme.dart';
 import '../../services/follow_service.dart';
 import '../../widgets/official_badge.dart';
@@ -1484,7 +1485,17 @@ class _HomeScreenState extends State<HomeScreen>
         if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         }
-        final docs = snap.data!.docs;
+        final allDocs = snap.data!.docs;
+        // 配信対象 OS でフィルタ（iOS/Android 指定のお知らせは該当ユーザのみ表示）
+        final docs = allDocs.where((d) {
+          final data = d.data() as Map<String, dynamic>? ?? {};
+          final platform = data['platform'] as String?;
+          if (platform == null || platform == 'all') return true;
+          if (kIsWeb) return false;
+          if (platform == 'ios') return defaultTargetPlatform == TargetPlatform.iOS;
+          if (platform == 'android') return defaultTargetPlatform == TargetPlatform.android;
+          return true;
+        }).toList();
         if (docs.isEmpty) {
           return const EmptyStateView(
             icon: Icons.campaign_outlined,

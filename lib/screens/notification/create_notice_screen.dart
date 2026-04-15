@@ -19,6 +19,13 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
   bool _isPinned = false;
   bool _isSending = false;
   DateTime? _scheduledAt;
+  String _targetPlatform = 'all'; // 'all' | 'ios' | 'android'
+
+  static const _targetOptions = [
+    {'value': 'all', 'label': '全員', 'icon': Icons.public},
+    {'value': 'ios', 'label': 'iOS', 'icon': Icons.phone_iphone},
+    {'value': 'android', 'label': 'Android', 'icon': Icons.phone_android},
+  ];
 
   static const _noticeTemplates = <String, List<Map<String, String>>>{
     'info': [
@@ -135,6 +142,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
         'type': _selectedType,
         'title': _titleController.text.trim(),
         'body': _bodyController.text.trim(),
+        'platform': _targetPlatform,
         if (_isPinned) 'pinned': true,
         if (linkText.isNotEmpty) 'link': linkText,
       };
@@ -228,6 +236,53 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
                           color: isSelected ? color : AppTheme.textSecondary,
                         )),
                       ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // 配信対象
+            Text('配信対象', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            const SizedBox(height: 8),
+            Row(
+              children: _targetOptions.map((opt) {
+                final value = opt['value'] as String;
+                final label = opt['label'] as String;
+                final icon = opt['icon'] as IconData;
+                final isSelected = value == _targetPlatform;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: value == 'android' ? 0 : 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _targetPlatform = value),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                              : AppTheme.backgroundColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(icon, size: 16, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary),
+                            const SizedBox(width: 6),
+                            Text(label, style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                            )),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 );

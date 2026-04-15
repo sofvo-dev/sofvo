@@ -83,6 +83,7 @@ class NoticeHistoryScreen extends StatelessWidget {
                 final data = doc.data() as Map<String, dynamic>;
                 final title = data['title'] as String? ?? '';
                 final scheduledAt = data['scheduledAt'] as Timestamp?;
+                final platform = data['platform'] as String?;
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
@@ -91,13 +92,27 @@ class NoticeHistoryScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(title,
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(title,
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                                if (platform == 'ios' || platform == 'android') ...[
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    platform == 'ios' ? Icons.phone_iphone : Icons.phone_android,
+                                    size: 12,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ],
+                              ],
+                            ),
                             Text(_formatScheduledAt(scheduledAt),
                                 style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                           ],
@@ -196,6 +211,7 @@ class NoticeHistoryScreen extends StatelessWidget {
               final createdAt = data['createdAt'] as Timestamp?;
               final pinned = data['pinned'] == true;
               final link = data['link'] as String?;
+              final platform = data['platform'] as String?;
 
               return Dismissible(
                 key: ValueKey(doc.id),
@@ -249,6 +265,35 @@ class NoticeHistoryScreen extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                if (platform == 'ios' || platform == 'android') ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          platform == 'ios' ? Icons.phone_iphone : Icons.phone_android,
+                                          size: 11,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          platform == 'ios' ? 'iOS' : 'Android',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 if (pinned) ...[
                                   const SizedBox(width: 6),
                                   Icon(Icons.push_pin, size: 14, color: AppTheme.textSecondary),
