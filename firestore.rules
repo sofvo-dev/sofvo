@@ -28,6 +28,12 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // チャットボット履歴 — 本人と管理者のみ
+      match /chatbotHistory/{historyId} {
+        allow read: if isOwner(userId) || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+        allow write: if false;
+      }
+
       // フォロー
       match /following/{followId} {
         allow read: if isAuthenticated();
@@ -297,6 +303,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ チャットボットログ（全体分析用、管理者のみ閲覧可） ━━━
+    match /chatbotLogs/{logId} {
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow write: if false;
     }
   }
 }

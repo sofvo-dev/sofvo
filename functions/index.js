@@ -4441,7 +4441,9 @@ Web版（sofvo.com）・iOS（App Store）・Android（Google Play）で利用�
 「すみません、Sofvoに関するご質問にお答えしています！他にSofvoで困っていることがあれば何でも聞いてくださいね😊」
 - 堅苦しい敬語は避け、フレンドリーだけど丁寧な口調で話す
 - 適度に絵文字を使う（😊🙏✨👍 程度。使いすぎない）
-- 回答の最後に関連する操作への案内を付ける（例:「大会の作成は マイページ → 大会管理 → ＋ボタン からできますよ！」）`;
+- 回答の最後に関連する操作への案内を付ける（例:「大会の作成は マイページ → 大会管理 → ＋ボタン からできますよ！」）
+- 読みやすいように適切に改行する（文章が長い時は2-3文ごとに空行を入れる\\n\\n、箇条書きは改行で区切る）
+- 手順を説明する時は番号付きリスト（1. 2. 3.）を使って改行する`;
 
 async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderName) {
   if (!userMessage || userMessage.trim().length === 0) return;
@@ -4454,11 +4456,11 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
 
   const OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983";
 
-  // 直近の会話履歴を取得（コンテキスト用）
+  // 直近の会話履歴を取得（コンテキスト用、最大20件）
   const recentMessages = await db.collection("chats").doc(chatId)
     .collection("messages")
     .orderBy("createdAt", "desc")
-    .limit(10)
+    .limit(20)
     .get();
 
   const history = [];
@@ -4472,7 +4474,7 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
     });
   }
 
-  // Gemini API呼び出し
+  // Gemini API呼び出し（thinkingBudget:0で高速化）
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
   const res = await fetch(url, {
     method: "POST",
@@ -4480,7 +4482,11 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
     body: JSON.stringify({
       system_instruction: { parts: [{ text: CHATBOT_SYSTEM }] },
       contents: history,
-      generationConfig: { maxOutputTokens: 300, temperature: 0.3 },
+      generationConfig: {
+        maxOutputTokens: 500,
+        temperature: 0.5,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     }),
   });
 
@@ -4493,25 +4499,42 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
   const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!reply) return;
 
-  // 公式アカウントとして返信メッセージを送信
+  // 公式アカウントとして返信メッセージを送信 & ログ保存を並列実行
   const officialDoc = await db.collection("users").doc(OFFICIAL_UID).get();
   const officialName = officialDoc.exists ? (officialDoc.data().nickname || "【公式】Sofvo") : "【公式】Sofvo";
   const officialAvatar = officialDoc.exists ? (officialDoc.data().avatarUrl || "") : "";
 
-  await db.collection("chats").doc(chatId).collection("messages").add({
-    text: reply,
-    senderId: OFFICIAL_UID,
-    senderName: officialName,
-    senderAvatar: officialAvatar,
-    type: "text",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  // 未読カウント更新
-  await db.collection("chats").doc(chatId).update({
-    lastMessage: reply,
-    lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
-    lastSenderId: OFFICIAL_UID,
-    [`unreadCount.${senderId}`]: admin.firestore.FieldValue.increment(1),
-  });
+  await Promise.all([
+    // メッセージ送信
+    db.collection("chats").doc(chatId).collection("messages").add({
+      text: reply,
+      senderId: OFFICIAL_UID,
+      senderName: officialName,
+      senderAvatar: officialAvatar,
+      type: "text",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }),
+    // 未読カウント更新
+    db.collection("chats").doc(chatId).update({
+      lastMessage: reply,
+      lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
+      lastSenderId: OFFICIAL_UID,
+      [`unreadCount.${senderId}`]: admin.firestore.FieldValue.increment(1),
+    }),
+    // チャットボットログ保存（個人履歴 + 全体分析用）
+    db.collection("chatbotLogs").add({
+      userId: senderId,
+      userName: senderName,
+      chatId: chatId,
+      userMessage: userMessage,
+      botReply: reply,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }),
+    // ユーザー別の質問履歴も保存
+    db.collection("users").doc(senderId).collection("chatbotHistory").add({
+      userMessage: userMessage,
+      botReply: reply,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }),
+  ]);
 }
