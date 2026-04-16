@@ -675,6 +675,30 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
                   (v == null || v.trim().isEmpty) ? '企業名を入力してください' : null,
             ),
             const SizedBox(height: 20),
+            _buildLabel('表示位置'),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _placement,
+                  isExpanded: true,
+                  items: _placements
+                      .map((p) => DropdownMenuItem(
+                          value: p['value'], child: Text(p['label']!)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _placement = v);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
             _buildLabel('バナー画像URL'),
             const SizedBox(height: 6),
             // 推奨サイズ案内（選択中の表示位置に連動）
@@ -790,30 +814,6 @@ class _SponsorFormScreenState extends State<_SponsorFormScreen> {
               keyboardType: TextInputType.url,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'リンクURLを入力してください' : null,
-            ),
-            const SizedBox(height: 20),
-            _buildLabel('表示位置'),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _placement,
-                  isExpanded: true,
-                  items: _placements
-                      .map((p) => DropdownMenuItem(
-                          value: p['value'], child: Text(p['label']!)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _placement = v);
-                  },
-                ),
-              ),
             ),
             const SizedBox(height: 24),
             // ━━━ セグメント設定 ━━━
