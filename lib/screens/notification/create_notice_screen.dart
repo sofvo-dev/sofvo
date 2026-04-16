@@ -14,6 +14,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   final _linkController = TextEditingController();
+  final _linkLabelController = TextEditingController();
   String _selectedType = 'info';
   int _selectedTemplateIndex = 0;
   bool _isPinned = false;
@@ -62,6 +63,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
     _titleController.dispose();
     _bodyController.dispose();
     _linkController.dispose();
+    _linkLabelController.dispose();
     super.dispose();
   }
 
@@ -127,6 +129,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
     }
 
     final linkText = _linkController.text.trim();
+    final linkLabelText = _linkLabelController.text.trim();
     if (linkText.isNotEmpty && !_isValidUrl(linkText)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('リンクURLが正しくありません（http/https）'), backgroundColor: AppTheme.warning),
@@ -145,6 +148,7 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
         'platform': _targetPlatform,
         if (_isPinned) 'pinned': true,
         if (linkText.isNotEmpty) 'link': linkText,
+        if (linkText.isNotEmpty && linkLabelText.isNotEmpty) 'linkLabel': linkLabelText,
       };
 
       if (isScheduled) {
@@ -412,10 +416,33 @@ class _CreateNoticeScreenState extends State<CreateNoticeScreen> {
               ),
               style: const TextStyle(fontSize: 14),
             ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _linkLabelController,
+              decoration: InputDecoration(
+                hintText: 'ボタンの表示文字（例: 詳細を見る）',
+                hintStyle: TextStyle(color: AppTheme.textHint),
+                prefixIcon: const Icon(Icons.label_outline, color: AppTheme.textSecondary, size: 20),
+                filled: true,
+                fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                counterText: '',
+              ),
+              maxLength: 20,
+              style: const TextStyle(fontSize: 14),
+            ),
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 4),
               child: Text(
-                '指定するとお知らせをタップした際にブラウザで開きます',
+                'URLを指定するとお知らせ内にボタンが表示されます（未入力時は「詳細を見る」）',
                 style: TextStyle(fontSize: 11, color: AppTheme.textHint),
               ),
             ),

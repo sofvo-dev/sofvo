@@ -1540,6 +1540,10 @@ class _HomeScreenState extends State<HomeScreen>
             }
             final rawLink = data['link'];
             final link = (rawLink is String && rawLink.isNotEmpty) ? rawLink : null;
+            final rawLinkLabel = data['linkLabel'];
+            final linkLabel = (rawLinkLabel is String && rawLinkLabel.isNotEmpty)
+                ? rawLinkLabel
+                : null;
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _buildOfficialNotice(
@@ -1551,6 +1555,7 @@ class _HomeScreenState extends State<HomeScreen>
                 isRead: true,
                 isPinned: isPinned,
                 link: link,
+                linkLabel: linkLabel,
                 onTap: link != null ? () => _openNoticeLink(link) : null,
               ),
             );
@@ -1795,6 +1800,7 @@ class _HomeScreenState extends State<HomeScreen>
     bool isRead = true,
     bool isPinned = false,
     String? link,
+    String? linkLabel,
     VoidCallback? onTap,
   }) {
     return GestureDetector(
@@ -1854,26 +1860,35 @@ class _HomeScreenState extends State<HomeScreen>
                           fontSize: 14,
                           color: AppTheme.textSecondary)),
                   if (link != null && link.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.link, size: 14, color: color),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            link,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: color,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
+                    const SizedBox(height: 10),
+                    Builder(builder: (_) {
+                      final String url = link;
+                      final String label = (linkLabel != null && linkLabel.isNotEmpty)
+                          ? linkLabel
+                          : '詳細を見る';
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _openNoticeLink(url),
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: Text(
+                            label,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: color,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            minimumSize: const Size(0, 34),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ],
-                    ),
+                      );
+                    }),
                   ],
                   const SizedBox(height: 6),
                   Text(time,
@@ -1882,8 +1897,6 @@ class _HomeScreenState extends State<HomeScreen>
                 ],
               ),
             ),
-            if (onTap != null)
-              const Icon(Icons.chevron_right, color: AppTheme.textHint, size: 20),
           ],
         ),
       ),
