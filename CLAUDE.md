@@ -23,6 +23,16 @@
 - ユーザーはMacで `cd ~/Desktop/sofvo/ios && fastlane release` を実行するだけで審査提出まで全自動
 - **次回審査時リマインド**: App Store Connectで年齢制限レーティングを16+ → 12+に変更する（アプリ情報 → 年齢制限レーティング → 編集 → 「無制限のWebアクセス」を「いいえ」に変更）
 
+### 審査通過時の対応ルール
+- ユーザーが「審査通過」「審査通った」等のメッセージを送ったら、以下を即座に実行すること：
+  1. **バージョン履歴表**（CLAUDE.md 下部）と **リリース状況**（アプリ化 進捗セクション）を「リリース済み」に更新
+  2. **`syncStoreVersionsNow` エンドポイントを curl で叩いて Firestore の `config/app.latestVersionIos` を最新に同期**：
+     ```bash
+     curl -s -m 30 "https://us-central1-sofvo-19d84.cloudfunctions.net/syncStoreVersionsNow"
+     ```
+     これを叩かないと、既存ユーザーにアプリ内アップデート案内が最大6時間表示されない（`syncStoreVersions` は 6時間おきの自動実行なので、リリース直後のタイムラグを解消するため）
+  3. コミット＆プッシュ
+
 ### fastlane メタデータ自動反映（v1.0.9で導入）
 - `ios/fastlane/metadata/ja/` に以下のファイルを配置済み:
   - `description.txt` — App Store 説明文
