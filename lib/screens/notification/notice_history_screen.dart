@@ -211,6 +211,7 @@ class NoticeHistoryScreen extends StatelessWidget {
               final createdAt = data['createdAt'] as Timestamp?;
               final pinned = data['pinned'] == true;
               final link = data['link'] as String?;
+              final linkLabel = data['linkLabel'] as String?;
               final platform = data['platform'] as String?;
 
               return Dismissible(
@@ -309,23 +310,40 @@ class NoticeHistoryScreen extends StatelessWidget {
                             ),
                             if (link != null && link.isNotEmpty) ...[
                               const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Icon(Icons.link, size: 12, color: color),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      link,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: color,
-                                        fontWeight: FontWeight.w600,
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.open_in_new, size: 11, color: color),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        (linkLabel != null && linkLabel.isNotEmpty)
+                                            ? linkLabel
+                                            : '詳細を見る',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: color,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                link,
+                                style: TextStyle(fontSize: 10, color: AppTheme.textHint),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                             const SizedBox(height: 6),
