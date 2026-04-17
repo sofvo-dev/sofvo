@@ -33,7 +33,12 @@
      - `?iosVersion=X.Y.Z` で iTunes API の CDN キャッシュ遅延を回避して直接 Firestore に書き込む
      - パラメータなしで叩くと iTunes/Play Store から自動取得するが、Apple CDN は反映まで最大24-48時間かかる場合がある
      - Android も同時に更新する場合: `?iosVersion=X.Y.Z&androidVersion=A.B.C`
-  3. コミット＆プッシュ
+  3. **ユーザーに以下のURLを提示する**（デプロイ後にブラウザで開いてもらう）：
+     ```
+     https://us-central1-sofvo-19d84.cloudfunctions.net/syncStoreVersionsNow?iosVersion=X.Y.Z
+     ```
+     ※ X.Y.Z はリリースしたバージョン番号に置き換える
+  4. コミット＆プッシュ
 
 ### fastlane メタデータ自動反映（v1.0.9で導入）
 - `ios/fastlane/metadata/ja/` に以下のファイルを配置済み:
