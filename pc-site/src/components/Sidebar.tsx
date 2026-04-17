@@ -140,6 +140,20 @@ export default function Sidebar() {
         </div>
       </nav>
 
+      {/* UI switch */}
+      <div className="px-3 pb-2 flex-shrink-0">
+        <button
+          onClick={() => {
+            try { localStorage.setItem("sofvo-ui", "mobile"); } catch {}
+            const rest = window.location.pathname.replace(/^\/pc/, "") || "/";
+            window.location.replace(rest + window.location.search);
+          }}
+          className="w-full text-[11px] text-white/40 hover:text-white/70 transition-colors py-1.5 border border-white/10 rounded-lg"
+        >
+          モバイル版に切替
+        </button>
+      </div>
+
       {/* User */}
       <div className="border-t border-white/10 p-3 flex-shrink-0">
         {user && profile ? (

@@ -34,6 +34,30 @@
   <title>sofvo</title>
   <link rel="manifest" href="manifest.json">
 
+  <!-- PC / Mobile 自動切替 (画面幅判定 + 手動選択尊重) -->
+  <script>
+    (function() {
+      try {
+        var PC_BREAKPOINT = 1024;
+        var manual = localStorage.getItem('sofvo-ui'); // 'pc' | 'mobile' | null
+        var path = location.pathname;
+        var onPc = path === '/pc' || path.indexOf('/pc/') === 0;
+
+        // 手動選択の優先 (PC選択中はモバイルUIに居ても/pcへ)
+        if (manual === 'pc' && !onPc) {
+          location.replace('/pc' + path + location.search + location.hash);
+          return;
+        }
+        if (manual === 'mobile' && onPc) return; // すでにモバイル側
+
+        // 初回のみサイズ判定
+        if (!manual && window.innerWidth >= PC_BREAKPOINT && !onPc) {
+          location.replace('/pc' + path + location.search + location.hash);
+        }
+      } catch (e) { /* storage blocked etc */ }
+    })();
+  </script>
+
   <!-- cropper.js（image_cropper Web版に必要） -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
