@@ -31,7 +31,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await signUp(email, password, nickname);
-      router.push("/");
+      router.push("/onboarding");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "登録に失敗しました";
       if (message.includes("email-already-in-use")) {
@@ -48,7 +48,7 @@ export default function RegisterPage() {
     setError("");
     try {
       await signInWithGoogle();
-      router.push("/");
+      router.push("/onboarding");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Googleログインに失敗しました";
       setError(message);
@@ -59,7 +59,7 @@ export default function RegisterPage() {
     setError("");
     try {
       await signInWithApple();
-      router.push("/");
+      router.push("/onboarding");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Appleログインに失敗しました";
       setError(message);
