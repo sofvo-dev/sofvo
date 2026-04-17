@@ -54,6 +54,11 @@ jobs:
             echo "functions=${{ inputs.deploy_functions }}" >> $GITHUB_OUTPUT
             echo "firestore=${{ inputs.deploy_firestore }}" >> $GITHUB_OUTPUT
             echo "pc_site=${{ inputs.deploy_pc_site }}" >> $GITHUB_OUTPUT
+            if [ "${{ inputs.deploy_flutter }}" = "true" ] || [ "${{ inputs.deploy_pc_site }}" = "true" ]; then
+              echo "hosting=true" >> $GITHUB_OUTPUT
+            else
+              echo "hosting=false" >> $GITHUB_OUTPUT
+            fi
             echo "Manual dispatch: flutter=${{ inputs.deploy_flutter }}, functions=${{ inputs.deploy_functions }}, firestore=${{ inputs.deploy_firestore }}, pc_site=${{ inputs.deploy_pc_site }}"
             exit 0
           fi
@@ -74,6 +79,16 @@ jobs:
             echo "flutter=true" >> $GITHUB_OUTPUT
           else
             echo "flutter=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Hosting = sofvo.com にデプロイが必要 (Flutter or pc-site が変更された場合)
+          # 単一ホスティングサイト (build/web + build/web/pc) なのでどちらか変わったら両方ビルドする
+          FLUTTER_OUT=$(grep -E '^flutter=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          PC_OUT=$(grep -E '^pc_site=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          if [ "$FLUTTER_OUT" = "true" ] || [ "$PC_OUT" = "true" ]; then
+            echo "hosting=true" >> $GITHUB_OUTPUT
+          else
+            echo "hosting=false" >> $GITHUB_OUTPUT
           fi
 
           if echo "$CHANGED" | grep -q '^functions/'; then
@@ -128,9 +143,13 @@ jobs:
           git fetch origin main
           git checkout origin/main
 
-      # ========== Flutter ビルド & デプロイ ==========
+      # ========== Hosting (Flutter Web + Next.js pc-site) 統合ビルド ==========
+      # sofvo.com/ → Flutter Web (モバイル UI)
+      # sofvo.com/pc/** → Next.js (PC UI)
+      # 片方だけ変わっても両方ビルドしてまとめてデプロイする必要がある
+
       - name: Setup Flutter
-        if: steps.detect.outputs.flutter == 'true'
+        if: steps.detect.outputs.hosting == 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.0'
@@ -138,15 +157,15 @@ jobs:
           cache: true
 
       - name: Flutter - Install dependencies
-        if: steps.detect.outputs.flutter == 'true'
+        if: steps.detect.outputs.hosting == 'true'
         run: flutter pub get
 
       - name: Flutter - Build web
-        if: steps.detect.outputs.flutter == 'true'
+        if: steps.detect.outputs.hosting == 'true'
         run: flutter build web --release
 
       - name: Flutter - Copy website files
-        if: steps.detect.outputs.flutter == 'true'
+        if: steps.detect.outputs.hosting == 'true'
         run: |
           mkdir -p build/web/lp
           cp website/index.html build/web/lp/
@@ -159,33 +178,41 @@ jobs:
           mkdir -p build/web/invite
           cp website/invite.html build/web/invite/index.html
 
-      - name: Flutter - Deploy to Firebase Hosting
-        if: steps.detect.outputs.flutter == 'true'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: sofvo-19d84
-
-      # ========== Next.js (pc-site) ビルド & デプロイ ==========
-      - name: Setup Node.js
-        if: steps.detect.outputs.pc_site == 'true'
+      - name: Setup Node.js (pc-site)
+        if: steps.detect.outputs.hosting == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: pc-site/package-lock.json
 
-      - name: Next.js - Install dependencies
-        if: steps.detect.outputs.pc_site == 'true'
+      - name: pc-site - Install dependencies
+        if: steps.detect.outputs.hosting == 'true'
         run: npm ci
         working-directory: pc-site
 
-      - name: Next.js - Build
-        if: steps.detect.outputs.pc_site == 'true'
+      - name: pc-site - Build (static export)
+        if: steps.detect.outputs.hosting == 'true'
         run: npm run build
         working-directory: pc-site
+
+      - name: Merge pc-site output into build/web/pc
+        if: steps.detect.outputs.hosting == 'true'
+        run: |
+          rm -rf build/web/pc
+          mkdir -p build/web/pc
+          cp -r pc-site/out/. build/web/pc/
+          echo "Contents of build/web/pc:"
+          ls build/web/pc | head -20
+
+      - name: Hosting - Deploy to Firebase (sofvo.com)
+        if: steps.detect.outputs.hosting == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: sofvo-19d84
 
       # ========== Cloud Functions デプロイ ==========
       - name: Functions - Setup Node.js

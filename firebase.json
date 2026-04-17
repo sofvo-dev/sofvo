@@ -92,6 +92,30 @@
         "source": "/invite",
         "destination": "/invite.html"
       },
+
+      { "source": "/pc/tournament/*/score", "destination": "/pc/tournament/_/score/index.html" },
+      { "source": "/pc/tournament/*/score/**", "destination": "/pc/tournament/_/score/index.html" },
+      { "source": "/pc/tournament/*/notices", "destination": "/pc/tournament/_/notices/index.html" },
+      { "source": "/pc/tournament/*/notices/**", "destination": "/pc/tournament/_/notices/index.html" },
+      { "source": "/pc/tournament/*/finance", "destination": "/pc/tournament/_/finance/index.html" },
+      { "source": "/pc/tournament/*/finance/**", "destination": "/pc/tournament/_/finance/index.html" },
+      { "source": "/pc/tournament/*/checkin", "destination": "/pc/tournament/_/checkin/index.html" },
+      { "source": "/pc/tournament/*/checkin/**", "destination": "/pc/tournament/_/checkin/index.html" },
+      { "source": "/pc/tournament/*/post-event", "destination": "/pc/tournament/_/post-event/index.html" },
+      { "source": "/pc/tournament/*/post-event/**", "destination": "/pc/tournament/_/post-event/index.html" },
+      { "source": "/pc/tournament/*/manage", "destination": "/pc/tournament/_/manage/index.html" },
+      { "source": "/pc/tournament/*/manage/**", "destination": "/pc/tournament/_/manage/index.html" },
+      { "source": "/pc/tournament/*", "destination": "/pc/tournament/_/index.html" },
+
+      { "source": "/pc/gadgets/*/edit", "destination": "/pc/gadgets/_/edit/index.html" },
+      { "source": "/pc/gadgets/*/edit/**", "destination": "/pc/gadgets/_/edit/index.html" },
+
+      { "source": "/pc/admin/surveys/*", "destination": "/pc/admin/surveys/_/index.html" },
+
+      { "source": "/pc/chat/*", "destination": "/pc/chat/_/index.html" },
+      { "source": "/pc/teams/*", "destination": "/pc/teams/_/index.html" },
+      { "source": "/pc/profile/*", "destination": "/pc/profile/_/index.html" },
+
       {
         "source": "/app/**",
         "destination": "/index.html"

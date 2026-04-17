@@ -84,6 +84,27 @@ jobs:
           mkdir -p build/web/invite
           cp website/invite.html build/web/invite/index.html
 
+      - name: Setup Node.js (pc-site)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: pc-site/package-lock.json
+
+      - name: pc-site - Install dependencies
+        run: npm ci
+        working-directory: pc-site
+
+      - name: pc-site - Build (static export)
+        run: npm run build
+        working-directory: pc-site
+
+      - name: Merge pc-site into build/web/pc
+        run: |
+          rm -rf build/web/pc
+          mkdir -p build/web/pc
+          cp -r pc-site/out/. build/web/pc/
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
