@@ -199,7 +199,9 @@ export default function MyPage() {
       </div>
 
       {/* Action tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <ActionTile href="/mypage/matches" label="試合履歴" bg="bg-indigo-500/10" color="text-indigo-600" />
+        <ActionTile href="/mypage/posts" label="投稿履歴" bg="bg-teal-500/10" color="text-teal-600" />
         <ActionTile href="/bookmarks" label="ブックマーク" bg="bg-blue-500/10" color="text-blue-600" />
         <ActionTile href="/badges" label="バッジ" bg="bg-amber-500/10" color="text-amber-600" />
         <ActionTile href="/gadgets" label="ガジェット" bg="bg-purple-500/10" color="text-purple-600" />

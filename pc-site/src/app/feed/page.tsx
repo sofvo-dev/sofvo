@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   collection,
   query,
@@ -17,7 +17,8 @@ import {
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Post, PostComment, Notice } from "@/types/firestore";
 import Link from "next/link";
@@ -84,7 +85,44 @@ export default function FeedPage() {
   const [showPostForm, setShowPostForm] = useState(false);
   const [newPostText, setNewPostText] = useState("");
   const [newPostImage, setNewPostImage] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [posting, setPosting] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload image file to Firebase Storage
+  const handleImageFile = useCallback(async (file: File) => {
+    if (!user) return;
+    if (file.size > 8 * 1024 * 1024) {
+      alert("画像は8MB以下にしてください");
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `posts/${user.uid}/${Date.now()}.${ext}`;
+      const ref = storageRef(storage, path);
+      await uploadBytes(ref, file);
+      const url = await getDownloadURL(ref);
+      setNewPostImage(url);
+    } catch {
+      alert("画像のアップロードに失敗しました");
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }, [user]);
+
+  // Delete a post (own posts only)
+  const handleDeletePost = useCallback(async (postId: string, ownerId: string) => {
+    if (!user || user.uid !== ownerId) return;
+    if (!confirm("この投稿を削除しますか？")) return;
+    try {
+      await deleteDoc(doc(db, "posts", postId));
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch {
+      alert("投稿の削除に失敗しました");
+    }
+  }, [user]);
 
   // Load posts
   useEffect(() => {
@@ -348,16 +386,39 @@ export default function FeedPage() {
                   rows={3}
                 />
                 <div className="flex items-center gap-2 mt-3">
-                  <svg className="w-4 h-4 text-muted flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
                   <input
-                    type="text"
-                    value={newPostImage}
-                    onChange={(e) => setNewPostImage(e.target.value)}
-                    placeholder="画像URL (任意)"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleImageFile(f);
+                    }}
+                    className="hidden"
                   />
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-xs text-muted hover:text-primary hover:border-primary/30 transition-colors disabled:opacity-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {uploadingImage ? "アップロード中..." : "画像を追加"}
+                  </button>
+                  {newPostImage && (
+                    <>
+                      <img src={newPostImage} alt="" className="w-10 h-10 rounded object-cover border border-gray-200" />
+                      <button
+                        type="button"
+                        onClick={() => setNewPostImage("")}
+                        className="text-xs text-error hover:underline"
+                      >
+                        削除
+                      </button>
+                    </>
+                  )}
                 </div>
                 <div className="flex justify-end mt-4 gap-2">
                   <button
@@ -437,6 +498,17 @@ export default function FeedPage() {
                         {relativeTime(post.createdAt)}
                       </p>
                     </div>
+                    {user && user.uid === post.userId && (
+                      <button
+                        onClick={() => handleDeletePost(post.id, post.userId)}
+                        className="text-xs text-muted hover:text-error transition-colors"
+                        title="投稿を削除"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
 
                   {/* Post Body */}
