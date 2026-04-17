@@ -10,14 +10,19 @@ import { usePathname } from "next/navigation";
 const adminNav = [
   { href: "/admin", label: "ダッシュボード" },
   { href: "/admin/stats", label: "統計・分析" },
+  { href: "/admin/segments", label: "セグメント" },
   { href: "/admin/users", label: "ユーザー" },
+  { href: "/admin/certification", label: "公式認証" },
   { href: "/admin/broadcast", label: "ブロードキャスト" },
   { href: "/admin/articles", label: "記事" },
   { href: "/admin/faq", label: "FAQ管理" },
   { href: "/admin/feedback", label: "フィードバック" },
+  { href: "/admin/reports", label: "通報管理" },
   { href: "/admin/campaigns", label: "キャンペーン" },
   { href: "/admin/sponsors", label: "スポンサー" },
   { href: "/admin/surveys", label: "アンケート" },
+  { href: "/admin/seasons", label: "シーズン" },
+  { href: "/admin/reminders", label: "リマインダー" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

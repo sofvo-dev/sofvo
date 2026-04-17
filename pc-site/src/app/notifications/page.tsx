@@ -50,11 +50,12 @@ export default function NotificationsPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<"all" | AppNotification["type"]>("all");
 
   useEffect(() => {
     if (!user) {
-      setLoading(false);
-      return;
+      const t = setTimeout(() => setLoading(false), 0);
+      return () => clearTimeout(t);
     }
     async function loadNotifications() {
       const q = query(
@@ -156,7 +157,36 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {notifications.length === 0 ? (
+      {notifications.length > 0 && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {([
+            { key: "all", label: "すべて" },
+            { key: "like", label: "いいね" },
+            { key: "comment", label: "コメント" },
+            { key: "follow", label: "フォロー" },
+            { key: "system", label: "システム" },
+          ] as const).map((t) => {
+            const count = t.key === "all" ? notifications.length : notifications.filter((n) => n.type === t.key).length;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTypeFilter(t.key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  typeFilter === t.key
+                    ? "bg-primary text-white"
+                    : "bg-white border border-gray-200 text-muted hover:text-foreground hover:border-gray-300"
+                }`}
+              >
+                {t.label} <span className="ml-1 opacity-70">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {(() => {
+        const visible = typeFilter === "all" ? notifications : notifications.filter((n) => n.type === typeFilter);
+        return visible.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-gray-200">
           <div className="text-4xl mb-4">🔔</div>
           <h3 className="text-base font-bold text-foreground mb-1">通知はありません</h3>
@@ -164,7 +194,7 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
-          {notifications.map((notif) => {
+          {visible.map((notif) => {
             const { icon, bg } = getNotificationIcon(notif.type);
             const createdAt =
               notif.createdAt && typeof notif.createdAt === "object" && "toDate" in notif.createdAt
@@ -216,7 +246,8 @@ export default function NotificationsPage() {
             );
           })}
         </div>
-      )}
+      );
+      })()}
     </div>
   );
 }

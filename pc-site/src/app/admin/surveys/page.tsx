@@ -14,6 +14,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Link from "next/link";
 
 interface Survey {
   id: string;
@@ -161,6 +162,9 @@ export default function AdminSurveysPage() {
                   <option value="open">公開中</option>
                   <option value="closed">終了</option>
                 </select>
+                <Link href={`/admin/surveys/${s.id}`} className="text-xs text-primary hover:underline">
+                  結果を見る
+                </Link>
                 <button onClick={() => remove(s)} className="text-xs text-error hover:underline">削除</button>
               </div>
             </div>

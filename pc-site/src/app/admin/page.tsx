@@ -81,10 +81,15 @@ export default function AdminDashboard() {
         <AdminTile href="/admin/articles" title="記事管理" desc="お知らせ・記事の投稿" />
         <AdminTile href="/admin/faq" title="FAQ管理" desc="よくある質問の編集" />
         <AdminTile href="/admin/feedback" title="フィードバック" desc="ユーザー投稿を確認" />
+        <AdminTile href="/admin/reports" title="通報管理" desc="不適切コンテンツ対応" />
         <AdminTile href="/admin/campaigns" title="キャンペーン" desc="開催中のキャンペーン" />
         <AdminTile href="/admin/sponsors" title="スポンサー" desc="スポンサー枠の管理" />
         <AdminTile href="/admin/surveys" title="アンケート" desc="ユーザー調査の実施" />
         <AdminTile href="/admin/users" title="ユーザー" desc="ユーザー一覧・検索" />
+        <AdminTile href="/admin/certification" title="公式認証" desc="公式バッジの付与" />
+        <AdminTile href="/admin/segments" title="セグメント" desc="属性別ユーザー集計" />
+        <AdminTile href="/admin/seasons" title="シーズン" desc="シーズン期間・ポイント管理" />
+        <AdminTile href="/admin/reminders" title="リマインダー" desc="自動通知の設定" />
         <AdminTile href="/admin/stats" title="統計・分析" desc="利用状況の詳細" />
       </div>
     </div>

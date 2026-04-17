@@ -92,10 +92,18 @@ export default function TournamentManagePage() {
           <h1 className="text-2xl font-bold text-foreground">大会管理</h1>
           <p className="text-sm text-muted mt-1">あなたが主催する大会を管理</p>
         </div>
-        <Link href="/tournaments/create" className="btn-primary">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-          新しい大会を作成
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/tournaments/templates"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-muted hover:text-foreground hover:border-gray-400 transition-colors"
+          >
+            テンプレート
+          </Link>
+          <Link href="/tournaments/create" className="btn-primary">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            新しい大会を作成
+          </Link>
+        </div>
       </div>
 
       {/* Quick Stats */}
