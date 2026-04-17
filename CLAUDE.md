@@ -26,11 +26,13 @@
 ### 審査通過時の対応ルール
 - ユーザーが「審査通過」「審査通った」等のメッセージを送ったら、以下を即座に実行すること：
   1. **バージョン履歴表**（CLAUDE.md 下部）と **リリース状況**（アプリ化 進捗セクション）を「リリース済み」に更新
-  2. **`syncStoreVersionsNow` エンドポイントを curl で叩いて Firestore の `config/app.latestVersionIos` を最新に同期**：
+  2. **`syncStoreVersionsNow` エンドポイントにバージョン番号を直接指定して Firestore を更新**：
      ```bash
-     curl -s -m 30 "https://us-central1-sofvo-19d84.cloudfunctions.net/syncStoreVersionsNow"
+     curl -s -m 30 "https://us-central1-sofvo-19d84.cloudfunctions.net/syncStoreVersionsNow?iosVersion=X.Y.Z"
      ```
-     これを叩かないと、既存ユーザーにアプリ内アップデート案内が最大6時間表示されない（`syncStoreVersions` は 6時間おきの自動実行なので、リリース直後のタイムラグを解消するため）
+     - `?iosVersion=X.Y.Z` で iTunes API の CDN キャッシュ遅延を回避して直接 Firestore に書き込む
+     - パラメータなしで叩くと iTunes/Play Store から自動取得するが、Apple CDN は反映まで最大24-48時間かかる場合がある
+     - Android も同時に更新する場合: `?iosVersion=X.Y.Z&androidVersion=A.B.C`
   3. コミット＆プッシュ
 
 ### fastlane メタデータ自動反映（v1.0.9で導入）
