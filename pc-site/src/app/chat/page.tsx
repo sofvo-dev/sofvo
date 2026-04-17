@@ -161,9 +161,12 @@ export default function ChatListPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">チャット</h1>
-        <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors">
+        <Link
+          href="/chat/new"
+          className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+        >
           新しいチャット
-        </button>
+        </Link>
       </div>
 
       {/* Tabs */}
