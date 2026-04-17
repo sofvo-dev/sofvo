@@ -156,9 +156,10 @@ export default function TeamsPage() {
     const memberEntries = Object.entries(team.memberNames || {});
 
     return (
-      <div
+      <Link
         key={team.id}
-        className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow"
+        href={`/teams/${team.id}`}
+        className="block bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2 min-w-0">
@@ -183,7 +184,7 @@ export default function TeamsPage() {
 
         {/* Avatars row */}
         {renderMemberList(team)}
-      </div>
+      </Link>
     );
   };
 

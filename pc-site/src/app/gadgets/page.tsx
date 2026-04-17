@@ -6,6 +6,10 @@ import {
   query,
   orderBy,
   onSnapshot,
+  doc,
+  deleteDoc,
+  updateDoc,
+  increment,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -115,6 +119,17 @@ export default function GadgetsPage() {
 
     return sorted;
   }, [gadgets, categoryFilter, sortKey]);
+
+  const handleDelete = async (g: Gadget) => {
+    if (!user) return;
+    if (!confirm(`「${g.name}」を削除しますか？`)) return;
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "gadgets", g.id));
+      await updateDoc(doc(db, "users", user.uid), { gadgetCount: increment(-1) });
+    } catch {
+      alert("ガジェットの削除に失敗しました");
+    }
+  };
 
   if (authLoading) {
     return (
@@ -326,8 +341,22 @@ export default function GadgetsPage() {
                   </a>
                 )}
 
-                <div className="text-xs text-muted pt-2 border-t border-gray-100">
-                  <span>{formatDate(g.createdAt)}</span>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <span className="text-xs text-muted">{formatDate(g.createdAt)}</span>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/gadgets/${g.id}/edit`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      編集
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(g)}
+                      className="text-xs text-error hover:underline"
+                    >
+                      削除
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -350,6 +379,9 @@ export default function GadgetsPage() {
                 </th>
                 <th className="text-left text-xs font-medium text-muted px-5 py-3">
                   登録日
+                </th>
+                <th className="text-right text-xs font-medium text-muted px-5 py-3">
+                  操作
                 </th>
               </tr>
             </thead>
@@ -422,6 +454,22 @@ export default function GadgetsPage() {
                     <span className="text-sm text-muted">
                       {formatDate(g.createdAt)}
                     </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-right">
+                    <div className="inline-flex items-center gap-3">
+                      <Link
+                        href={`/gadgets/${g.id}/edit`}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        編集
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(g)}
+                        className="text-xs text-error hover:underline"
+                      >
+                        削除
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

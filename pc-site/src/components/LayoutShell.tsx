@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 
-const noSidebarPaths = ["/login", "/register"];
+const noSidebarPaths = ["/login", "/register", "/onboarding"];
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
