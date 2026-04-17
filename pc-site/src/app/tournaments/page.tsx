@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tournament } from "@/types/firestore";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
@@ -16,6 +17,7 @@ const typeColor: Record<string, string> = {
 const statusFilters = ["すべて", "募集中", "準備中", "開催中", "決勝中", "終了"];
 
 export default function TournamentsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,17 +25,30 @@ export default function TournamentsPage() {
   const [typeFilter, setTypeFilter] = useState("すべて");
 
   useEffect(() => {
-    const q = query(collection(db, "tournaments"), orderBy("date", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Tournament[];
-      setTournaments(list);
+    if (authLoading) return;
+    if (!user) {
       setLoading(false);
-    });
-    return () => unsub();
-  }, []);
+      return;
+    }
+    const q = query(collection(db, "tournaments"), orderBy("date", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Tournament[];
+        setTournaments(list);
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
+    const timeout = setTimeout(() => setLoading(false), 5000);
+    return () => {
+      unsub();
+      clearTimeout(timeout);
+    };
+  }, [user, authLoading]);
 
   const filtered = tournaments.filter((t) => {
     if (searchQuery) {

@@ -65,21 +65,36 @@ const BADGE_DEFS = [
 ];
 
 export default function HomePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [recentTournaments, setRecentTournaments] = useState<Tournament[]>([]);
   const [gadgets, setGadgets] = useState<Gadget[]>([]);
   const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch tournaments
+  // Fetch tournaments (requires auth per Firestore rules)
   useEffect(() => {
-    const q = query(collection(db, "tournaments"), orderBy("date", "desc"), limit(50));
-    const unsub = onSnapshot(q, (snap) => {
-      setRecentTournaments(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Tournament)));
+    if (authLoading) return;
+    if (!user) {
       setLoading(false);
-    });
-    return () => unsub();
-  }, []);
+      return;
+    }
+    const q = query(collection(db, "tournaments"), orderBy("date", "desc"), limit(50));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setRecentTournaments(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Tournament)));
+        setLoading(false);
+      },
+      () => {
+        setLoading(false);
+      }
+    );
+    const timeout = setTimeout(() => setLoading(false), 5000);
+    return () => {
+      unsub();
+      clearTimeout(timeout);
+    };
+  }, [user, authLoading]);
 
   // Fetch user's gadgets
   useEffect(() => {
