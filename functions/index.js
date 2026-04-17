@@ -4332,8 +4332,32 @@ exports.syncStoreVersions = functions.pubsub
   });
 
 // 手動実行用（管理者がデプロイ直後などに叩く想定）
+// ?iosVersion=1.0.15&androidVersion=1.0.10 のようにクエリパラメータで
+// バージョンを直接指定できる（iTunes/Play の CDN キャッシュ遅延を回避）
 exports.syncStoreVersionsNow = functions.https.onRequest(async (req, res) => {
   try {
+    const iosOverride = req.query.iosVersion || null;
+    const androidOverride = req.query.androidVersion || null;
+
+    if (iosOverride || androidOverride) {
+      const updates = { lastSyncedAt: admin.firestore.FieldValue.serverTimestamp() };
+      if (iosOverride) updates.latestVersionIos = iosOverride;
+      if (androidOverride) updates.latestVersionAndroid = androidOverride;
+      if (updates.latestVersionIos && updates.latestVersionAndroid) {
+        updates.latestVersion =
+          compareSemver(updates.latestVersionIos, updates.latestVersionAndroid) <= 0
+            ? updates.latestVersionIos
+            : updates.latestVersionAndroid;
+      } else if (updates.latestVersionIos) {
+        updates.latestVersion = updates.latestVersionIos;
+      } else if (updates.latestVersionAndroid) {
+        updates.latestVersion = updates.latestVersionAndroid;
+      }
+      await admin.firestore().collection("config").doc("app").set(updates, { merge: true });
+      res.json({ success: true, mode: "manual", updates });
+      return;
+    }
+
     const result = await doSyncStoreVersions();
     res.json({ success: true, ...result });
   } catch (e) {
