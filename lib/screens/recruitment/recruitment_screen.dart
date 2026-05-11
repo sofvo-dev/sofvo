@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/empty_state_view.dart';
 import '../tournament/tournament_detail_screen.dart';
-import '../tournament/tournament_management_screen.dart';
 
 class RecruitmentScreen extends StatefulWidget {
   const RecruitmentScreen({super.key});
@@ -190,8 +189,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           constraints: const BoxConstraints(minHeight: 52),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Text(_isOfficialAccount ? '主催大会' : 'マイ大会',
-                style: const TextStyle(
+            child: const Text('マイ大会',
+                style: TextStyle(
                     fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
           ),
         ),
@@ -273,23 +272,10 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   Widget _buildUpcomingTab() {
     if (_upcoming.isEmpty) {
       if (_isOfficialAccount) {
-        return EmptyStateView(
-          icon: Icons.emoji_events_outlined,
-          title: '主催予定の大会はありません',
-          subtitle: '大会管理から新しい大会を作成できます。',
-          actions: [
-            EmptyStateAction(
-              label: '大会管理を開く',
-              icon: Icons.settings_suggest_outlined,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const TournamentManagementScreen()),
-                );
-              },
-            ),
-          ],
+        return const EmptyStateView(
+          icon: Icons.event_note_outlined,
+          title: '予定されている大会はありません',
+          subtitle: '公式アカウントが主催する大会は少ないため、ここはシンプルにしています。必要なときはマイページの「大会主催者メニュー」から作成・管理できます。',
         );
       }
       return EmptyStateView(
@@ -313,9 +299,6 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       );
     }
 
-    final otherSectionTitle =
-        _isOfficialAccount ? 'その他の主催予定' : 'その他の予定';
-
     return RefreshIndicator(
       onRefresh: _loadMyTournaments,
       child: ListView(
@@ -323,7 +306,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         children: [
           _buildNextHighlight(_upcoming.first),
           const SizedBox(height: 20),
-          _sectionHeader(Icons.calendar_month, otherSectionTitle, _upcoming.length - 1),
+          _sectionHeader(Icons.calendar_month, 'その他の予定', _upcoming.length - 1),
           const SizedBox(height: 10),
           ..._upcoming.skip(1).map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -385,8 +368,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
               const Icon(Icons.star_rounded,
                   size: 15, color: Colors.white),
               const SizedBox(width: 5),
-              Text(_isOfficialAccount ? '次に開催する大会' : '次の大会',
-                  style: const TextStyle(
+              const Text('次の大会',
+                  style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.white)),
@@ -653,8 +636,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       if (_isOfficialAccount) {
         return const EmptyStateView(
           icon: Icons.history,
-          title: '終了した主催大会はありません',
-          subtitle: '開催が終了した大会がここに表示されます。',
+          title: '過去の大会はありません',
+          subtitle: '終了した大会があればここに表示されます。',
         );
       }
       return const EmptyStateView(
@@ -664,45 +647,13 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       );
     }
 
-    final historySectionTitle =
-        _isOfficialAccount ? '主催履歴' : '参加履歴';
-
     return RefreshIndicator(
       onRefresh: _loadMyTournaments,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          // サマリーカード
-          if (_isOfficialAccount)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.grey[200]!),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2))
-                ],
-              ),
-              child: Row(children: [
-                Icon(Icons.emoji_events_outlined,
-                    size: 28, color: AppTheme.accentColor.withValues(alpha: 0.85)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '終了した主催大会が ${_past.length} 件あります',
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary),
-                  ),
-                ),
-              ]),
-            )
-          else
+          // サマリー（一般ユーザーのみ。公式は年に数回程度の想定のため枠を省く）
+          if (!_isOfficialAccount)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -734,8 +685,11 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                         AppTheme.success)),
               ]),
             ),
-          const SizedBox(height: 20),
-          _sectionHeader(Icons.history, historySectionTitle, _past.length),
+          if (!_isOfficialAccount) const SizedBox(height: 20),
+          _sectionHeader(
+              Icons.history,
+              _isOfficialAccount ? '過去の大会' : '参加履歴',
+              _past.length),
           const SizedBox(height: 10),
           ..._past.map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
