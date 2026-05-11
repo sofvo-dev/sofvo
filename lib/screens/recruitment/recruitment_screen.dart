@@ -169,19 +169,29 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       default:
         statusColor = AppTheme.textSecondary;
     }
-    final orgId = (t['organizerId'] ?? '') as String;
-    final uid = _currentUser?.uid ?? '';
-    final isFollowing =
-        orgId.isEmpty || orgId == uid || FollowService.instance.isFollowing(orgId);
+    final Map<String, dynamic> payload;
+    if (_isOfficialAccount) {
+      final orgId = (t['organizerId'] ?? '') as String;
+      final uid = _currentUser?.uid ?? '';
+      final isFollowing =
+          orgId.isEmpty || orgId == uid || FollowService.instance.isFollowing(orgId);
+      payload = {
+        ...t,
+        'name': t['title'] ?? '',
+        'isFollowing': isFollowing,
+      };
+    } else {
+      payload = {
+        ...t,
+        'name': t['title'] ?? '',
+        'isFollowing': true,
+      };
+    }
     Navigator.push(
         context,
         MaterialPageRoute(
             builder: (_) => TournamentDetailScreen(
-                  tournament: {
-                    ...t,
-                    'name': t['title'] ?? '',
-                    'isFollowing': isFollowing,
-                  },
+                  tournament: payload,
                 )));
   }
 
