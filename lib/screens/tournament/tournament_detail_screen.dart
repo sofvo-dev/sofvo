@@ -41,6 +41,37 @@ class TournamentDetailScreen extends StatefulWidget {
 
 class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     with SingleTickerProviderStateMixin {
+  void _syncFollowingFromService() {
+    if (!mounted) return;
+    final v = _computeIsFollowingOrganizer();
+    if (v != _isFollowing) setState(() => _isFollowing = v);
+  }
+
+  bool _computeIsFollowingOrganizer() {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final oid = widget.tournament['organizerId'] as String? ?? '';
+    if (uid.isEmpty || oid.isEmpty) return true;
+    if (oid == uid) return true;
+    return FollowService.instance.isFollowing(oid);
+  }
+
+  /// エントリーに必要なときだけ主催者をフォローする（閲覧だけなら不要）
+  Future<bool> _ensureFollowingForEntry() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final oid = widget.tournament['organizerId'] as String? ?? '';
+    if (uid.isEmpty) return false;
+    if (oid.isEmpty || oid == uid) return true;
+    if (FollowService.instance.isFollowing(oid)) {
+      if (!_isFollowing) setState(() => _isFollowing = true);
+      return true;
+    }
+    await _followOrganizer();
+    if (!mounted) return false;
+    final ok = FollowService.instance.isFollowing(oid);
+    if (ok) setState(() => _isFollowing = true);
+    return ok;
+  }
+
   late TabController _tabController;
   late bool _isEntryDeadlinePassed;
   late bool _isFollowing;
@@ -94,7 +125,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     super.initState();
     final status = (widget.tournament['status'] as String?) ?? '';
     _isEntryDeadlinePassed = status == 'エントリー締切' || status == '試合準備中' || status == '試合準備' || status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid || _isAdmin;
-    _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
+    _isFollowing = _computeIsFollowingOrganizer();
+    FollowService.instance.addListener(_syncFollowingFromService);
     _tabController = TabController(
       length: _isEntryDeadlinePassed ? 6 : 4,
       vsync: this,
@@ -108,6 +140,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   @override
   void dispose() {
+    FollowService.instance.removeListener(_syncFollowingFromService);
     _tabController.dispose();
     _postController.dispose();
     super.dispose();
@@ -423,7 +456,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         children: [
           Icon(Icons.info_outline, size: 18, color: AppTheme.warning),
           const SizedBox(width: 10),
-          Expanded(child: Text('大会主催者をフォローするとエントリーできます', style: TextStyle(fontSize: 13, color: AppTheme.warning))),
+          Expanded(child: Text('大会情報の閲覧はこのままでも可能です。エントリーやメンバー募集には主催者のフォローが必要です。', style: TextStyle(fontSize: 13, color: AppTheme.warning))),
           TextButton(
             onPressed: () async {
               await _followOrganizer();
@@ -6461,8 +6494,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             color: Colors.white,
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
           ),
-          child: _isFollowing
-              ? Row(
+          child: Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
@@ -6480,7 +6512,22 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: isDisabled ? null : () => _showEntrySheet(context),
+                        onPressed: isDisabled
+                            ? null
+                            : () async {
+                                final ok = await _ensureFollowingForEntry();
+                                if (!mounted) return;
+                                if (ok) {
+                                  _showEntrySheet(context);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('主催者をフォローできなかったためエントリーできませんでした'),
+                                      backgroundColor: AppTheme.warning,
+                                    ),
+                                  );
+                                }
+                              },
                         icon: const Icon(Icons.how_to_reg, size: 18),
                         label: Text(
                           isDisabled ? (status == '満員' ? '満員です' : '開催済み') : 'エントリー',
@@ -6496,26 +6543,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                       ),
                     ),
                   ],
-                )
-              : SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      await _followOrganizer();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('大会主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.person_add, size: 18),
-                    label: const Text('フォローしてエントリー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
                 ),
         );
           },
