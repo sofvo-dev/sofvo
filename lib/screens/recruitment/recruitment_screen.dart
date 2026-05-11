@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/empty_state_view.dart';
 import '../tournament/tournament_detail_screen.dart';
+import '../tournament/tournament_management_screen.dart';
 
 class RecruitmentScreen extends StatefulWidget {
   const RecruitmentScreen({super.key});
@@ -18,6 +19,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   List<Map<String, dynamic>> _upcoming = [];
   List<Map<String, dynamic>> _past = [];
   bool _loading = true;
+  /// Sofvo公式など：参加者としてのエントリーは想定せず、主催大会のみ表示する。
+  bool _isOfficialAccount = false;
 
   @override
   void initState() {
@@ -36,47 +39,79 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     if (mounted) setState(() => _loading = true);
 
     try {
-      final tournSnap =
-          await FirebaseFirestore.instance.collection('tournaments').get();
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final isOfficial = userDoc.data()?['isOfficial'] == true;
+
       final upcoming = <Map<String, dynamic>>[];
       final past = <Map<String, dynamic>>[];
 
-      for (final doc in tournSnap.docs) {
-        final data = doc.data();
-        final isOrganizer = data['organizerId'] == uid;
-        final entriesSnap = await doc.reference
-            .collection('entries')
+      if (isOfficial) {
+        final hostedSnap = await FirebaseFirestore.instance
+            .collection('tournaments')
+            .where('organizerId', isEqualTo: uid)
             .get();
 
-        // enteredBy OR memberUids にUIDが含まれるエントリーを検索
-        final myEntry = entriesSnap.docs.where((e) {
-          final d = e.data();
-          if (d['enteredBy'] == uid) return true;
-          final memberUids = d['memberUids'];
-          if (memberUids is List && memberUids.contains(uid)) return true;
-          return false;
-        });
-        final isEntered = myEntry.isNotEmpty;
+        for (final doc in hostedSnap.docs) {
+          final data = doc.data();
+          final status = data['status'] ?? '準備中';
+          final entryCountSnap =
+              await doc.reference.collection('entries').count().get();
+          final entryCount = entryCountSnap.count ?? 0;
+          final entry = {
+            ...data,
+            'id': doc.id,
+            'teamName': '',
+            'isOrganizer': true,
+            'isEntered': false,
+            'entryCount': entryCount,
+          };
+          if (status == '終了') {
+            past.add(entry);
+          } else {
+            upcoming.add(entry);
+          }
+        }
+      } else {
+        final tournSnap =
+            await FirebaseFirestore.instance.collection('tournaments').get();
 
-        if (!isEntered && !isOrganizer) continue;
+        for (final doc in tournSnap.docs) {
+          final data = doc.data();
+          final isOrganizer = data['organizerId'] == uid;
+          final entriesSnap =
+              await doc.reference.collection('entries').get();
 
-        final teamName = isEntered
-            ? (myEntry.first.data()['teamName'] ?? '')
-            : '';
-        final status = data['status'] ?? '準備中';
-        final entry = {
-          ...data,
-          'id': doc.id,
-          'teamName': teamName,
-          'isOrganizer': isOrganizer,
-          'isEntered': isEntered,
-          'entryCount': entriesSnap.docs.length,
-        };
+          // enteredBy OR memberUids にUIDが含まれるエントリーを検索
+          final myEntry = entriesSnap.docs.where((e) {
+            final d = e.data();
+            if (d['enteredBy'] == uid) return true;
+            final memberUids = d['memberUids'];
+            if (memberUids is List && memberUids.contains(uid)) return true;
+            return false;
+          });
+          final isEntered = myEntry.isNotEmpty;
 
-        if (status == '終了') {
-          past.add(entry);
-        } else {
-          upcoming.add(entry);
+          if (!isEntered && !isOrganizer) continue;
+
+          final teamName = isEntered
+              ? (myEntry.first.data()['teamName'] ?? '')
+              : '';
+          final status = data['status'] ?? '準備中';
+          final entry = {
+            ...data,
+            'id': doc.id,
+            'teamName': teamName,
+            'isOrganizer': isOrganizer,
+            'isEntered': isEntered,
+            'entryCount': entriesSnap.docs.length,
+          };
+
+          if (status == '終了') {
+            past.add(entry);
+          } else {
+            upcoming.add(entry);
+          }
         }
       }
 
@@ -85,6 +120,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
 
       if (mounted) {
         setState(() {
+          _isOfficialAccount = isOfficial;
           _upcoming = upcoming;
           _past = past;
           _loading = false;
@@ -94,6 +130,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       debugPrint('大会読み込みエラー: $e');
       if (mounted) {
         setState(() {
+          _isOfficialAccount = false;
           _upcoming = [];
           _past = [];
           _loading = false;
@@ -151,11 +188,11 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 52),
-          child: const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Text('マイ大会',
-                style:
-                    TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Text(_isOfficialAccount ? '主催大会' : 'マイ大会',
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
           ),
         ),
         const SizedBox(height: 12),
@@ -235,6 +272,26 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   // ━━━ 開催予定タブ ━━━
   Widget _buildUpcomingTab() {
     if (_upcoming.isEmpty) {
+      if (_isOfficialAccount) {
+        return EmptyStateView(
+          icon: Icons.emoji_events_outlined,
+          title: '主催予定の大会はありません',
+          subtitle: '大会管理から新しい大会を作成できます。',
+          actions: [
+            EmptyStateAction(
+              label: '大会管理を開く',
+              icon: Icons.settings_suggest_outlined,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const TournamentManagementScreen()),
+                );
+              },
+            ),
+          ],
+        );
+      }
       return EmptyStateView(
         icon: Icons.event_note_outlined,
         title: '参加予定の大会はありません',
@@ -256,6 +313,9 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       );
     }
 
+    final otherSectionTitle =
+        _isOfficialAccount ? 'その他の主催予定' : 'その他の予定';
+
     return RefreshIndicator(
       onRefresh: _loadMyTournaments,
       child: ListView(
@@ -263,7 +323,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         children: [
           _buildNextHighlight(_upcoming.first),
           const SizedBox(height: 20),
-          _sectionHeader(Icons.calendar_month, 'その他の予定', _upcoming.length - 1),
+          _sectionHeader(Icons.calendar_month, otherSectionTitle, _upcoming.length - 1),
           const SizedBox(height: 10),
           ..._upcoming.skip(1).map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -325,8 +385,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
               const Icon(Icons.star_rounded,
                   size: 15, color: Colors.white),
               const SizedBox(width: 5),
-              const Text('次の大会',
-                  style: TextStyle(
+              Text(_isOfficialAccount ? '次に開催する大会' : '次の大会',
+                  style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.white)),
@@ -426,8 +486,11 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                       ]),
                       const SizedBox(height: 4),
                     ],
-                    _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
-                    const SizedBox(height: 10),
+                    if (((t['teamName'] ?? '') as String).trim().isNotEmpty) ...[
+                      _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
+                      const SizedBox(height: 10),
+                    ] else
+                      const SizedBox(height: 10),
                     // 参加費・チーム数
                     Row(children: [
                       if (() {
@@ -574,8 +637,8 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                     ]),
                     const SizedBox(height: 4),
                   ],
-                  _infoRow(
-                      Icons.groups_outlined, t['teamName'] ?? ''),
+                  if (((t['teamName'] ?? '') as String).trim().isNotEmpty)
+                    _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
                 ])),
             Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
           ]),
@@ -587,6 +650,13 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   // ━━━ 過去の大会タブ ━━━
   Widget _buildPastTab() {
     if (_past.isEmpty) {
+      if (_isOfficialAccount) {
+        return const EmptyStateView(
+          icon: Icons.history,
+          title: '終了した主催大会はありません',
+          subtitle: '開催が終了した大会がここに表示されます。',
+        );
+      }
       return const EmptyStateView(
         icon: Icons.history,
         title: '過去の大会はありません',
@@ -594,45 +664,78 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       );
     }
 
+    final historySectionTitle =
+        _isOfficialAccount ? '主催履歴' : '参加履歴';
+
     return RefreshIndicator(
       onRefresh: _loadMyTournaments,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           // サマリーカード
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey[200]!),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2))
-              ],
+          if (_isOfficialAccount)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey[200]!),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2))
+                ],
+              ),
+              child: Row(children: [
+                Icon(Icons.emoji_events_outlined,
+                    size: 28, color: AppTheme.accentColor.withValues(alpha: 0.85)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '終了した主催大会が ${_past.length} 件あります',
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary),
+                  ),
+                ),
+              ]),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey[200]!),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2))
+                ],
+              ),
+              child: Row(children: [
+                Expanded(
+                    child: _summaryItem(
+                        '参加大会', '${_past.length}', AppTheme.primaryColor)),
+                Container(width: 1, height: 40, color: Colors.grey[200]),
+                Expanded(
+                    child: _summaryItem(
+                        '主催',
+                        '${_past.where((t) => t['isOrganizer'] == true).length}',
+                        AppTheme.accentColor)),
+                Container(width: 1, height: 40, color: Colors.grey[200]),
+                Expanded(
+                    child: _summaryItem(
+                        '出場',
+                        '${_past.where((t) => t['isEntered'] == true).length}',
+                        AppTheme.success)),
+              ]),
             ),
-            child: Row(children: [
-              Expanded(
-                  child: _summaryItem(
-                      '参加大会', '${_past.length}', AppTheme.primaryColor)),
-              Container(width: 1, height: 40, color: Colors.grey[200]),
-              Expanded(
-                  child: _summaryItem(
-                      '主催',
-                      '${_past.where((t) => t['isOrganizer'] == true).length}',
-                      AppTheme.accentColor)),
-              Container(width: 1, height: 40, color: Colors.grey[200]),
-              Expanded(
-                  child: _summaryItem(
-                      '出場',
-                      '${_past.where((t) => t['isEntered'] == true).length}',
-                      AppTheme.success)),
-            ]),
-          ),
           const SizedBox(height: 20),
-          _sectionHeader(Icons.history, '参加履歴', _past.length),
+          _sectionHeader(Icons.history, historySectionTitle, _past.length),
           const SizedBox(height: 10),
           ..._past.map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -709,8 +812,11 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
                   const SizedBox(height: 6),
                   _infoRow(Icons.location_on_outlined, t['location'] ?? ''),
                   const SizedBox(height: 4),
-                  _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
-                  const SizedBox(height: 8),
+                  if (((t['teamName'] ?? '') as String).trim().isNotEmpty) ...[
+                    _infoRow(Icons.groups_outlined, t['teamName'] ?? ''),
+                    const SizedBox(height: 8),
+                  ] else
+                    const SizedBox(height: 8),
                   Row(children: [
                     const Spacer(),
                     Container(
