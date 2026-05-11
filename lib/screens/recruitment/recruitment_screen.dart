@@ -275,7 +275,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         return const EmptyStateView(
           icon: Icons.event_note_outlined,
           title: '予定されている大会はありません',
-          subtitle: '公式アカウントが主催する大会は少ないため、ここはシンプルにしています。必要なときはマイページの「大会主催者メニュー」から作成・管理できます。',
+          subtitle: '大会の作成・管理はマイページの「大会主催者メニュー」から行えます。',
         );
       }
       return EmptyStateView(
