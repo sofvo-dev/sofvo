@@ -1215,7 +1215,6 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           final oid = data['organizerId'] ?? '';
           final status = data['status'] ?? '準備中';
           final isF = _followingIds.contains(oid) || oid == _currentUser?.uid;
-          if (status == 'エントリー締切' || status == '開催中' || status == '決勝中' || status == '順位決定中') return false;
           if (friendsOnly ? !isF : isF) return false;
           if (status == '終了' && !_showPastTournaments) return false;
           if (status == '準備中') return false;

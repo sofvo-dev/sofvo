@@ -2752,6 +2752,64 @@ exports.checkBookmarkAlerts = functions.pubsub
     return null;
   });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// エントリー締切日（deadline）経過後も募集中/満員のままの大会 → エントリー締切（毎日 JST 0:15）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function normalizeTournamentDeadlineSlash_(deadline) {
+  const m = String(deadline).trim().match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (!m) return null;
+  return `${m[1]}/${String(m[2]).padStart(2, "0")}/${String(m[3]).padStart(2, "0")}`;
+}
+
+function jstTodaySlashString_() {
+  const s = new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" });
+  const d = new Date(s);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd}`;
+}
+
+exports.autoCloseTournamentEntriesByDeadline = functions.pubsub
+  .schedule("15 0 * * *")
+  .timeZone("Asia/Tokyo")
+  .onRun(async () => {
+    const db = admin.firestore();
+    const todayStr = jstTodaySlashString_();
+    const snap = await db.collection("tournaments")
+      .where("status", "in", ["募集中", "満員"])
+      .get();
+    if (snap.empty) {
+      functions.logger.info("autoCloseTournamentEntriesByDeadline: no open tournaments");
+      return null;
+    }
+
+    let batch = db.batch();
+    let pending = 0;
+    let updated = 0;
+
+    for (const doc of snap.docs) {
+      const dl = doc.data().deadline;
+      if (!dl) continue;
+      const norm = normalizeTournamentDeadlineSlash_(dl);
+      if (!norm || norm >= todayStr) continue;
+      batch.update(doc.ref, { status: "エントリー締切" });
+      pending++;
+      updated++;
+      if (pending >= 450) {
+        await batch.commit();
+        batch = db.batch();
+        pending = 0;
+      }
+    }
+    if (pending > 0) await batch.commit();
+
+    functions.logger.info(
+      `autoCloseTournamentEntriesByDeadline: todayStr=${todayStr} updated=${updated} scanned=${snap.size}`
+    );
+    return null;
+  });
+
 // ── テスト送信用（管理者のみ） ──
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 招待ページ用: 公開プロフィール取得（未認証OK）

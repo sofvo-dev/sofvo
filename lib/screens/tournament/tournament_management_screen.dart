@@ -11,6 +11,19 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../config/app_theme.dart';
 
+/// エントリー締切日（`yyyy/M/d`）がローカル暦で「今日より前」なら true（当日はまだ募集中扱い）
+bool _tournamentDeadlineDatePassed(String deadline) {
+  final m = RegExp(r'^(\d{4})/(\d{1,2})/(\d{1,2})$').firstMatch(deadline.trim());
+  if (m == null) return false;
+  final y = int.parse(m.group(1)!);
+  final mo = int.parse(m.group(2)!);
+  final d = int.parse(m.group(3)!);
+  final deadlineDate = DateTime(y, mo, d);
+  final n = DateTime.now();
+  final today = DateTime(n.year, n.month, n.day);
+  return deadlineDate.isBefore(today);
+}
+
 class TournamentManagementScreen extends StatefulWidget {
   const TournamentManagementScreen({super.key});
   @override
@@ -306,7 +319,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           ));
           if (result == 'save') {
             try {
-              await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
+              final currentStatus = (data['status'] ?? '') as String;
+              final updateMap = <String, dynamic>{
                 'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                 'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
                 'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
@@ -314,7 +328,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 'area': _extractArea(selectedVenue?['address'] ?? ''),
                 'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
                 'rules': tournamentRules ?? {},
-              });
+              };
+              if (selectedDeadline.isNotEmpty &&
+                  _tournamentDeadlineDatePassed(selectedDeadline) &&
+                  (currentStatus == '募集中' || currentStatus == '満員')) {
+                updateMap['status'] = 'エントリー締切';
+              }
+              await FirebaseFirestore.instance.collection('tournaments').doc(docId).update(updateMap);
               if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success));
               return true;
             } catch (e) {
@@ -443,7 +463,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     ? () async {
                         setPageState(() => saving = true);
                         try {
-                          await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({
+                          final currentStatus = (data['status'] ?? '') as String;
+                          final updateMap = <String, dynamic>{
                             'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                             'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
                             'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
@@ -451,7 +472,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                             'area': _extractArea(selectedVenue?['address'] ?? ''),
                             'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
                             'rules': tournamentRules ?? {},
-                          });
+                          };
+                          if (selectedDeadline.isNotEmpty &&
+                              _tournamentDeadlineDatePassed(selectedDeadline) &&
+                              (currentStatus == '募集中' || currentStatus == '満員')) {
+                            updateMap['status'] = 'エントリー締切';
+                          }
+                          await FirebaseFirestore.instance.collection('tournaments').doc(docId).update(updateMap);
                           if (ctx.mounted) { Navigator.pop(ctx); }
                           if (mounted) { ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
                         } catch (e) {
@@ -807,6 +834,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           }
                         }
 
+                        final initialStatus = selectedDeadline.isNotEmpty &&
+                                _tournamentDeadlineDatePassed(selectedDeadline)
+                            ? 'エントリー締切'
+                            : '募集中';
+
                         final tournamentData = <String, dynamic>{
                           'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                           'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
@@ -814,7 +846,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           'currentTeams': 0, 'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
                           'deadline': selectedDeadline, 'description': descriptionCtrl.text.trim(),
                           'area': _extractArea(selectedVenue?['address'] ?? ''),
-                          'status': '募集中', 'organizerId': _currentUser!.uid, 'organizerName': nickname,
+                          'status': initialStatus, 'organizerId': _currentUser!.uid, 'organizerName': nickname,
                           'openTime': openTime, 'receptionTime': receptionTime, 'captainMeetingTime': captainMeetingTime, 'openingTime': openingTime,
                           'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                           'entryTeamIds': [], 'rules': tournamentRules ?? {}, 'createdAt': FieldValue.serverTimestamp(),
