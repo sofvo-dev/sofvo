@@ -10,7 +10,8 @@ platform :ios do
     # flutter build ios + gym の二重ビルドは避け、archive + export を一度に行う
     sh("cd ../.. && flutter build ipa --export-method app-store")
 
-    ipa_dir = File.expand_path("../build/ios/ipa", Dir.pwd)
+    # Dir.pwd は ios/fastlane になることが多く、../build が ios/build に誤解決する。Flutter の出力はリポジトリルートの build/ios/ipa。
+    ipa_dir = File.expand_path("../../build/ios/ipa", __dir__)
     ipa_candidates = Dir.glob(File.join(ipa_dir, "*.ipa"))
     UI.user_error!("IPA が見つかりません (#{ipa_dir})。flutter build ipa のログを確認してください。") if ipa_candidates.empty?
     ipa_path = ipa_candidates.max_by { |f| File.mtime(f) }
@@ -37,7 +38,8 @@ platform :ios do
     sh("rm -rf Pods Podfile.lock && pod install --repo-update")
     sh("cd ../.. && flutter build ipa --export-method app-store")
 
-    ipa_dir = File.expand_path("../build/ios/ipa", Dir.pwd)
+    # Dir.pwd は ios/fastlane になることが多く、../build が ios/build に誤解決する。Flutter の出力はリポジトリルートの build/ios/ipa。
+    ipa_dir = File.expand_path("../../build/ios/ipa", __dir__)
     ipa_candidates = Dir.glob(File.join(ipa_dir, "*.ipa"))
     UI.user_error!("IPA が見つかりません (#{ipa_dir})。flutter build ipa のログを確認してください。") if ipa_candidates.empty?
     ipa_path = ipa_candidates.max_by { |f| File.mtime(f) }
