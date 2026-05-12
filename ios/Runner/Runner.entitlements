@@ -8,5 +8,10 @@
 	</array>
 	<key>aps-environment</key>
 	<string>production</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:sofvo.com</string>
+		<string>applinks:www.sofvo.com</string>
+	</array>
 </dict>
 </plist>

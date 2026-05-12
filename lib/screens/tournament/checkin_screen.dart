@@ -69,7 +69,8 @@ class _CheckInScreenState extends State<CheckInScreen>
 
   // ━━━ タブ1: QRコード表示（キャプテンがスキャン） ━━━
   Widget _buildParticipantScanTab() {
-    final checkInUrl = 'https://sofvo.com/?checkin=${widget.tournamentId}';
+    // /app は App Links / Universal Links でネイティブアプリにのみ紐づけ（ルートはWebのまま）
+    final checkInUrl = 'https://sofvo.com/app?checkin=${widget.tournamentId}';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(

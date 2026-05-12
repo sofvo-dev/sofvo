@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TLVKKC442B.com.sofvo.app",
+        "paths": ["/app", "/app/*"]
+      }
+    ]
+  }
+}

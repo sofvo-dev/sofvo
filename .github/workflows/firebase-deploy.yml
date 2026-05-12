@@ -84,6 +84,24 @@ jobs:
           mkdir -p build/web/invite
           cp website/invite.html build/web/invite/index.html
 
+      - name: Copy App Links / Universal Links (.well-known)
+        run: |
+          mkdir -p build/web/.well-known
+          cp website/.well-known/apple-app-site-association build/web/.well-known/
+          python3 <<'PY'
+          import json, os
+          with open("website/.well-known/assetlinks.json") as f:
+              data = json.load(f)
+          extra = os.environ.get("PLAY_APP_SIGNING_SHA256", "").strip()
+          if extra:
+              parts = [x.strip() for x in extra.replace(",", " ").split() if x.strip()]
+              data[0]["target"]["sha256_cert_fingerprints"] = parts
+          with open("build/web/.well-known/assetlinks.json", "w") as f:
+              json.dump(data, f, separators=(",", ":"))
+          PY
+        env:
+          PLAY_APP_SIGNING_SHA256: ${{ secrets.PLAY_APP_SIGNING_SHA256 }}
+
       - name: Setup Node.js (pc-site)
         uses: actions/setup-node@v4
         with:

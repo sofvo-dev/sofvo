@@ -1,5 +1,6 @@
 // Sofvo v1.1
 import 'dart:async';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -60,8 +61,15 @@ void main() async {
     // URLパラメータ or パスから招待リンクの大会IDを取得
     final uri = Uri.base;
     pendingTournamentId = uri.queryParameters['t'];
-    pendingCheckInTournamentId = uri.queryParameters['checkin'];
     pendingReferrerUserId = uri.queryParameters['ref'];
+    final checkin = uri.queryParameters['checkin'];
+    if (checkin != null && checkin.isNotEmpty) {
+      final p = uri.path.isEmpty ? '/' : uri.path;
+      // ルート（従来QR）と /app（アプリリンク用）のみチェックイン扱い
+      if (p == '/' || p == '/app' || p.startsWith('/app/')) {
+        pendingCheckInTournamentId = checkin;
+      }
+    }
     if (pendingTournamentId == null && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'tournament') {
       pendingTournamentId = uri.pathSegments[1];
     }
@@ -124,6 +132,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   // 現在の認証ユーザー（StreamBuilderを使わず手動で管理）
   User? _currentUser;
   StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<Uri>? _appLinksSubscription;
   bool _isInitialLoading = true;
   bool _showSplash = true;
   bool _updateChecked = false;
@@ -156,12 +165,46 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         FollowService.instance.stopListening();
       }
     });
+    if (!kIsWeb) {
+      unawaited(_initAppLinks());
+    }
+  }
+
+  /// App Links / Universal Links（https://sofvo.com/app?checkin=…）
+  Future<void> _initAppLinks() async {
+    try {
+      final appLinks = AppLinks();
+      final initial = await appLinks.getInitialLink();
+      if (initial != null) {
+        _applyCheckInDeepLink(initial);
+      }
+      _appLinksSubscription = appLinks.uriLinkStream.listen(
+        _applyCheckInDeepLink,
+        onError: (Object e) => debugPrint('app_links stream: $e'),
+      );
+    } catch (e) {
+      debugPrint('app_links init: $e');
+    }
+  }
+
+  void _applyCheckInDeepLink(Uri uri) {
+    if (kIsWeb) return;
+    final host = uri.host.toLowerCase();
+    if (host != 'sofvo.com' && host != 'www.sofvo.com') return;
+    final checkin = uri.queryParameters['checkin'];
+    if (checkin == null || checkin.isEmpty) return;
+    final p = uri.path.isEmpty ? '/' : uri.path;
+    if (!(p == '/app' || p.startsWith('/app/'))) return;
+    pendingCheckInTournamentId = checkin;
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
+    _appLinksSubscription?.cancel();
     super.dispose();
   }
 
