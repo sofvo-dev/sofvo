@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../services/follow_service.dart';
 import '../tournament/tournament_detail_screen.dart';
 
 class RecruitmentScreen extends StatefulWidget {
@@ -168,13 +169,29 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       default:
         statusColor = AppTheme.textSecondary;
     }
+    final Map<String, dynamic> payload;
+    if (_isOfficialAccount) {
+      final orgId = (t['organizerId'] ?? '') as String;
+      final uid = _currentUser?.uid ?? '';
+      final isFollowing =
+          orgId.isEmpty || orgId == uid || FollowService.instance.isFollowing(orgId);
+      payload = {
+        ...t,
+        'name': t['title'] ?? '',
+        'isFollowing': isFollowing,
+      };
+    } else {
+      payload = {
+        ...t,
+        'name': t['title'] ?? '',
+        'isFollowing': true,
+      };
+    }
     Navigator.push(
         context,
         MaterialPageRoute(
             builder: (_) => TournamentDetailScreen(
-                  tournament: {
-                    ...t, 'name': t['title'] ?? '', 'isFollowing': true,
-                  },
+                  tournament: payload,
                 )));
   }
 

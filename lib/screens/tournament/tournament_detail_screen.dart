@@ -41,9 +41,44 @@ class TournamentDetailScreen extends StatefulWidget {
 
 class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     with SingleTickerProviderStateMixin {
+  void _syncFollowingFromService() {
+    if (_viewerIsOfficial != true) return;
+    if (!mounted) return;
+    final v = _computeIsFollowingOrganizer();
+    if (v != _isFollowing) setState(() => _isFollowing = v);
+  }
+
+  bool _computeIsFollowingOrganizer() {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final oid = widget.tournament['organizerId'] as String? ?? '';
+    if (uid.isEmpty || oid.isEmpty) return true;
+    if (oid == uid) return true;
+    return FollowService.instance.isFollowing(oid);
+  }
+
+  /// エントリーに必要なときだけ主催者をフォローする（閲覧だけなら不要）
+  Future<bool> _ensureFollowingForEntry() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final oid = widget.tournament['organizerId'] as String? ?? '';
+    if (uid.isEmpty) return false;
+    if (oid.isEmpty || oid == uid) return true;
+    if (FollowService.instance.isFollowing(oid)) {
+      if (!_isFollowing) setState(() => _isFollowing = true);
+      return true;
+    }
+    await _followOrganizer();
+    if (!mounted) return false;
+    final ok = FollowService.instance.isFollowing(oid);
+    if (ok) setState(() => _isFollowing = true);
+    return ok;
+  }
+
   late TabController _tabController;
   late bool _isEntryDeadlinePassed;
   late bool _isFollowing;
+  /// null: 未読込。公式（閲覧用拡張）のみ true のとき FollowService 連動・下部ボタン拡張を有効にする。
+  bool? _viewerIsOfficial;
+  bool _officialFollowListenerRegistered = false;
   final _firestore = FirebaseFirestore.instance;
   List<String> _myTeamIds = [];
   final _postController = TextEditingController();
@@ -100,7 +135,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       vsync: this,
       initialIndex: _resolveInitialTab(),
     );
-    _loadAdminFlag();
+    _loadUserFlags();
     _loadMyTeams().then((_) {
       if (mounted && widget.autoCheckIn) _performSelfCheckIn();
     }).catchError((_) {});
@@ -108,18 +143,36 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   @override
   void dispose() {
+    if (_officialFollowListenerRegistered) {
+      FollowService.instance.removeListener(_syncFollowingFromService);
+    }
     _tabController.dispose();
     _postController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadAdminFlag() async {
+  Future<void> _loadUserFlags() async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    if (uid.isEmpty) return;
-    final userDoc = await _firestore.collection('users').doc(uid).get();
-    if (mounted && (userDoc.data()?['isAdmin'] == true)) {
-      setState(() => _isAdmin = true);
+    if (uid.isEmpty) {
+      if (mounted) setState(() => _viewerIsOfficial = false);
+      return;
     }
+    final userDoc = await _firestore.collection('users').doc(uid).get();
+    if (!mounted) return;
+    final data = userDoc.data();
+    final isAdmin = data?['isAdmin'] == true;
+    final isOfficial = data?['isOfficial'] == true;
+    setState(() {
+      _isAdmin = isAdmin;
+      _viewerIsOfficial = isOfficial;
+      if (isOfficial) {
+        _isFollowing = _computeIsFollowingOrganizer();
+        if (!_officialFollowListenerRegistered) {
+          FollowService.instance.addListener(_syncFollowingFromService);
+          _officialFollowListenerRegistered = true;
+        }
+      }
+    });
   }
 
   Future<void> _loadMyTeams() async {
@@ -423,7 +476,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         children: [
           Icon(Icons.info_outline, size: 18, color: AppTheme.warning),
           const SizedBox(width: 10),
-          Expanded(child: Text('大会主催者をフォローするとエントリーできます', style: TextStyle(fontSize: 13, color: AppTheme.warning))),
+          Expanded(
+              child: Text(
+                  _viewerIsOfficial == true
+                      ? '大会情報の閲覧はこのままでも可能です。エントリーやメンバー募集には主催者のフォローが必要です。'
+                      : '大会主催者をフォローするとエントリーできます',
+                  style: TextStyle(fontSize: 13, color: AppTheme.warning))),
           TextButton(
             onPressed: () async {
               await _followOrganizer();
@@ -6455,13 +6513,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         }
 
         final isDisabled = false;
+        final officialSpectator = _viewerIsOfficial == true;
         return Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
           ),
-          child: _isFollowing
+          child: officialSpectator
               ? Row(
                   children: [
                     Expanded(
@@ -6480,7 +6539,22 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: isDisabled ? null : () => _showEntrySheet(context),
+                        onPressed: isDisabled
+                            ? null
+                            : () async {
+                                final ok = await _ensureFollowingForEntry();
+                                if (!mounted) return;
+                                if (ok) {
+                                  _showEntrySheet(context);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('主催者をフォローできなかったためエントリーできませんでした'),
+                                      backgroundColor: AppTheme.warning,
+                                    ),
+                                  );
+                                }
+                              },
                         icon: const Icon(Icons.how_to_reg, size: 18),
                         label: Text(
                           isDisabled ? (status == '満員' ? '満員です' : '開催済み') : 'エントリー',
@@ -6497,26 +6571,63 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     ),
                   ],
                 )
-              : SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      await _followOrganizer();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('大会主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.person_add, size: 18),
-                    label: const Text('フォローしてエントリー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              : _isFollowing
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isDisabled ? null : () => _showRecruitSheet(context),
+                            icon: const Icon(Icons.person_add, size: 18),
+                            label: const Text('メンバー募集する', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: isDisabled ? null : () => _showEntrySheet(context),
+                            icon: const Icon(Icons.how_to_reg, size: 18),
+                            label: Text(
+                              isDisabled ? (status == '満員' ? '満員です' : '開催済み') : 'エントリー',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              disabledBackgroundColor: Colors.grey[300],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          await _followOrganizer();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('大会主催者をフォローしました！エントリーできます'), backgroundColor: AppTheme.success),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.person_add, size: 18),
+                        label: const Text('フォローしてエントリー', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
         );
           },
         );
