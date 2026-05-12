@@ -469,6 +469,17 @@ class MatchGenerator {
     }
   }
 
+  /// 4チーム総当たりの試合順（1コート想定）。素朴な (0,1)(0,2)(0,3)… だと同一チームが3試合連続になるため、
+  /// 各チームの連続出場を最大2試合に抑える並びにする。
+  static const List<List<int>> _fourTeamRoundRobinIndexPairs = [
+    [0, 1],
+    [2, 3],
+    [0, 2],
+    [1, 3],
+    [0, 3],
+    [1, 2],
+  ];
+
   /// Generate round-robin matches for teams in a court
   List<Map<String, dynamic>> _generateRoundRobin(
       List<Map<String, dynamic>> teams, String courtId, int courtNumber) {
@@ -481,49 +492,60 @@ class MatchGenerator {
       subRefCount[i] = 0;
     }
 
-    for (int i = 0; i < teams.length; i++) {
-      for (int j = i + 1; j < teams.length; j++) {
-        // Find 2 teams not playing
-        final refs = <int>[];
-        for (int k = 0; k < teams.length; k++) {
-          if (k != i && k != j) refs.add(k);
+    final indexPairs = <List<int>>[];
+    if (teams.length == 4) {
+      indexPairs.addAll(_fourTeamRoundRobinIndexPairs);
+    } else {
+      for (int i = 0; i < teams.length; i++) {
+        for (int j = i + 1; j < teams.length; j++) {
+          indexPairs.add([i, j]);
         }
-
-        String mainRefId = '';
-        String mainRefName = '';
-        String subRefId = '';
-        String subRefName = '';
-
-        if (refs.length >= 2) {
-          // Sort by main ref count (ascending) to balance
-          refs.sort((a, b) => mainRefCount[a]!.compareTo(mainRefCount[b]!));
-          final mainIdx = refs[0];
-          final subIdx = refs[1];
-          mainRefId = teams[mainIdx]['teamId'] ?? '';
-          mainRefName = teams[mainIdx]['teamName'] ?? '';
-          subRefId = teams[subIdx]['teamId'] ?? '';
-          subRefName = teams[subIdx]['teamName'] ?? '';
-          mainRefCount[mainIdx] = mainRefCount[mainIdx]! + 1;
-          subRefCount[subIdx] = subRefCount[subIdx]! + 1;
-        } else if (refs.length == 1) {
-          mainRefId = teams[refs[0]]['teamId'] ?? '';
-          mainRefName = teams[refs[0]]['teamName'] ?? '';
-          mainRefCount[refs[0]] = mainRefCount[refs[0]]! + 1;
-        }
-
-        matches.add({
-          'courtId': courtId,
-          'courtNumber': courtNumber,
-          'teamAId': teams[i]['teamId'],
-          'teamAName': teams[i]['teamName'],
-          'teamBId': teams[j]['teamId'],
-          'teamBName': teams[j]['teamName'],
-          'refereeTeamId': mainRefId,
-          'refereeTeamName': mainRefName,
-          'subRefereeTeamId': subRefId,
-          'subRefereeTeamName': subRefName,
-        });
       }
+    }
+
+    for (final pair in indexPairs) {
+      final i = pair[0];
+      final j = pair[1];
+      // Find 2 teams not playing
+      final refs = <int>[];
+      for (int k = 0; k < teams.length; k++) {
+        if (k != i && k != j) refs.add(k);
+      }
+
+      String mainRefId = '';
+      String mainRefName = '';
+      String subRefId = '';
+      String subRefName = '';
+
+      if (refs.length >= 2) {
+        // Sort by main ref count (ascending) to balance
+        refs.sort((a, b) => mainRefCount[a]!.compareTo(mainRefCount[b]!));
+        final mainIdx = refs[0];
+        final subIdx = refs[1];
+        mainRefId = teams[mainIdx]['teamId'] ?? '';
+        mainRefName = teams[mainIdx]['teamName'] ?? '';
+        subRefId = teams[subIdx]['teamId'] ?? '';
+        subRefName = teams[subIdx]['teamName'] ?? '';
+        mainRefCount[mainIdx] = mainRefCount[mainIdx]! + 1;
+        subRefCount[subIdx] = subRefCount[subIdx]! + 1;
+      } else if (refs.length == 1) {
+        mainRefId = teams[refs[0]]['teamId'] ?? '';
+        mainRefName = teams[refs[0]]['teamName'] ?? '';
+        mainRefCount[refs[0]] = mainRefCount[refs[0]]! + 1;
+      }
+
+      matches.add({
+        'courtId': courtId,
+        'courtNumber': courtNumber,
+        'teamAId': teams[i]['teamId'],
+        'teamAName': teams[i]['teamName'],
+        'teamBId': teams[j]['teamId'],
+        'teamBName': teams[j]['teamName'],
+        'refereeTeamId': mainRefId,
+        'refereeTeamName': mainRefName,
+        'subRefereeTeamId': subRefId,
+        'subRefereeTeamName': subRefName,
+      });
     }
     return matches;
   }
