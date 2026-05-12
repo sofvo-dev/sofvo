@@ -480,6 +480,129 @@ class MatchGenerator {
     [1, 2],
   ];
 
+  /// 単一コート上の試合順について、いずれかのチームが連続してコートに立つ試合数の最大値。
+  static int _maxConsecutivePlayStreak(List<List<int>> order, int n) {
+    if (order.isEmpty) return 0;
+    final streak = List<int>.filled(n, 0);
+    var peak = 0;
+    var prev = <int>{};
+    for (final p in order) {
+      final a = p[0], b = p[1];
+      for (var t = 0; t < n; t++) {
+        if (t == a || t == b) {
+          streak[t] = prev.contains(t) ? streak[t] + 1 : 1;
+          if (streak[t] > peak) peak = streak[t];
+        } else {
+          streak[t] = 0;
+        }
+      }
+      prev = {a, b};
+    }
+    return peak;
+  }
+
+  /// 貪欲用: (overlap, maxStreak, …) で候補1の方が良ければ true。
+  static bool _greedyPickBetter({
+    required int o1, required int m1, required int a1, required int b1,
+    required int o2, required int m2, required int a2, required int b2,
+    required bool prevNonEmpty,
+  }) {
+    if (o1 != o2) return o1 < o2;
+    if (m1 != m2) return m1 < m2;
+    if (prevNonEmpty) {
+      if (a1 != a2) return a1 > a2;
+      if (b1 != b2) return b1 > b2;
+      return false;
+    }
+    if (a1 != a2) return a1 < a2;
+    if (b1 != b2) return b1 < b2;
+    return false;
+  }
+
+  /// 直前試合に出ていたチームを避けつつ、連続出場のピークが低くなるよう試合を積み上げる。
+  static List<List<int>> _greedyRoundRobinPairOrder(int n) {
+    final remaining = <List<int>>[];
+    for (var i = 0; i < n; i++) {
+      for (var j = i + 1; j < n; j++) {
+        remaining.add([i, j]);
+      }
+    }
+    final out = <List<int>>[];
+    var prev = <int>{};
+    while (remaining.isNotEmpty) {
+      var bestI = 0;
+      var bestO = 999;
+      var bestM = 999;
+      var bestA = 99;
+      var bestB = 99;
+      for (var idx = 0; idx < remaining.length; idx++) {
+        final p = remaining[idx];
+        final a = p[0], b = p[1];
+        final o = (prev.contains(a) ? 1 : 0) + (prev.contains(b) ? 1 : 0);
+        final trial = <List<int>>[...out, p];
+        final m = _maxConsecutivePlayStreak(trial, n);
+        if (idx == 0 ||
+            _greedyPickBetter(
+              o1: o, m1: m, a1: a, b1: b,
+              o2: bestO, m2: bestM, a2: bestA, b2: bestB,
+              prevNonEmpty: prev.isNotEmpty,
+            )) {
+          bestI = idx;
+          bestO = o;
+          bestM = m;
+          bestA = a;
+          bestB = b;
+        }
+      }
+      final chosen = remaining.removeAt(bestI);
+      out.add(chosen);
+      prev = {chosen[0], chosen[1]};
+    }
+    return out;
+  }
+
+  /// 試合順を入れ替えて連続出場ピークが下がるなら採用（局所最適まで繰り返し）。
+  static List<List<int>> _hillClimbRoundRobinPairOrder(List<List<int>> order, int n) {
+    final cur = order.map((p) => [p[0], p[1]]).toList();
+    while (true) {
+      final base = _maxConsecutivePlayStreak(cur, n);
+      var bestI = -1;
+      var bestJ = -1;
+      var bestScore = base;
+      for (var i = 0; i < cur.length; i++) {
+        for (var j = i + 1; j < cur.length; j++) {
+          final t = cur[i];
+          cur[i] = cur[j];
+          cur[j] = t;
+          final s = _maxConsecutivePlayStreak(cur, n);
+          if (s < bestScore) {
+            bestScore = s;
+            bestI = i;
+            bestJ = j;
+          }
+          cur[j] = cur[i];
+          cur[i] = t;
+        }
+      }
+      if (bestI < 0) return cur;
+      final t = cur[bestI];
+      cur[bestI] = cur[bestJ];
+      cur[bestJ] = t;
+    }
+  }
+
+  /// 総当たりの対戦順（チームはコート内の並びの 0..n-1 に対応）。
+  static List<List<int>> _pairIndicesForRoundRobin(int n) {
+    if (n < 2) return [];
+    if (n == 4) {
+      return _fourTeamRoundRobinIndexPairs.map(List<int>.from).toList();
+    }
+    final greedy = _greedyRoundRobinPairOrder(n);
+    // 11チーム以上（55試合超）は山登りの計算量が大きいため貪欲結果のみとする。
+    if (greedy.length > 55) return greedy;
+    return _hillClimbRoundRobinPairOrder(greedy, n);
+  }
+
   /// Generate round-robin matches for teams in a court
   List<Map<String, dynamic>> _generateRoundRobin(
       List<Map<String, dynamic>> teams, String courtId, int courtNumber) {
@@ -492,16 +615,7 @@ class MatchGenerator {
       subRefCount[i] = 0;
     }
 
-    final indexPairs = <List<int>>[];
-    if (teams.length == 4) {
-      indexPairs.addAll(_fourTeamRoundRobinIndexPairs);
-    } else {
-      for (int i = 0; i < teams.length; i++) {
-        for (int j = i + 1; j < teams.length; j++) {
-          indexPairs.add([i, j]);
-        }
-      }
-    }
+    final indexPairs = _pairIndicesForRoundRobin(teams.length);
 
     for (final pair in indexPairs) {
       final i = pair[0];
