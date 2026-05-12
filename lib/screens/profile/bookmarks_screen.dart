@@ -208,6 +208,7 @@ class _BookmarkList extends StatelessWidget {
         return AppTheme.success;
       case 'エントリー締切':
         return AppTheme.accentColor;
+      case '試合準備中':
       case '試合準備':
         return AppTheme.primaryLight;
       case '終了':

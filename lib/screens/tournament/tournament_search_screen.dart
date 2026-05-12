@@ -925,7 +925,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         switch (status) {
           case '募集中': sc = AppTheme.success; break;
           case 'エントリー締切': sc = AppTheme.accentColor; break;
-          case '試合準備': sc = AppTheme.primaryLight; break;
+          case '試合準備中':
+          case '試合準備':
+            sc = AppTheme.primaryLight;
+            break;
           case '満員': sc = AppTheme.error; break;
           default: sc = AppTheme.textSecondary;
         }
@@ -1294,7 +1297,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       case '募集中': sc = AppTheme.success; break;
       case '満員': sc = AppTheme.error; break;
       case 'エントリー締切': sc = AppTheme.accentColor; break;
-      case '試合準備': sc = AppTheme.primaryLight; break;
+      case '試合準備中':
+      case '試合準備':
+        sc = AppTheme.primaryLight;
+        break;
       default: sc = AppTheme.textSecondary;
     }
 

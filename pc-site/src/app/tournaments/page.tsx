@@ -14,7 +14,7 @@ const typeColor: Record<string, string> = {
   "混合": "bg-emerald-500",
 };
 
-const statusFilters = ["すべて", "募集中", "準備中", "エントリー締切", "試合準備", "開催中", "決勝中", "終了"];
+const statusFilters = ["すべて", "募集中", "準備中", "エントリー締切", "試合準備中", "開催中", "決勝中", "終了"];
 
 export default function TournamentsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -62,6 +62,8 @@ export default function TournamentsPage() {
     if (statusFilter !== "すべて") {
       if (statusFilter === "開催中") {
         if (!["開催中"].includes(t.status) && !t.status.includes("完了")) return false;
+      } else if (statusFilter === "試合準備中") {
+        if (t.status !== "試合準備中" && t.status !== "試合準備") return false;
       } else if (t.status !== statusFilter) {
         return false;
       }

@@ -118,6 +118,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       case 'エントリー締切':
         statusColor = AppTheme.accentColor;
         break;
+      case '試合準備中':
       case '試合準備':
         statusColor = AppTheme.primaryLight;
         break;
@@ -485,6 +486,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       case 'エントリー締切':
         sc = AppTheme.accentColor;
         break;
+      case '試合準備中':
       case '試合準備':
         sc = AppTheme.primaryLight;
         break;
