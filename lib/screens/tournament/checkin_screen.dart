@@ -77,7 +77,8 @@ class _CheckInScreenState extends State<CheckInScreen>
         children: [
           const SizedBox(height: 8),
           Text(
-            'このQRコードを受付に掲示してください\nキャプテンがスキャンして自動チェックイン',
+            'このQRコードを受付に掲示してください\n'
+            'キャプテンはスマホのカメラで読み取り、インストール済みのSofvoアプリでチェックインできます',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),

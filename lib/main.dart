@@ -194,7 +194,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     final checkin = uri.queryParameters['checkin'];
     if (checkin == null || checkin.isEmpty) return;
     final p = uri.path.isEmpty ? '/' : uri.path;
-    if (!(p == '/app' || p.startsWith('/app/'))) return;
+    // /app?checkin=（掲示QR）に加え、/?checkin=（従来URL）でUniversal Linksから開いた場合も拾う
+    if (!(p == '/' || p == '/app' || p.startsWith('/app/'))) return;
     pendingCheckInTournamentId = checkin;
     if (!mounted) return;
     setState(() {});

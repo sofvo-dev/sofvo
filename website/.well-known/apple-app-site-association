@@ -4,7 +4,14 @@
     "details": [
       {
         "appID": "TLVKKC442B.com.sofvo.app",
-        "paths": ["/app", "/app/*"]
+        "paths": [
+          "NOT /__/auth/action/",
+          "NOT /__/auth/handler/",
+          "NOT /_/*",
+          "/app",
+          "/app/*",
+          "/*"
+        ]
       }
     ]
   }
