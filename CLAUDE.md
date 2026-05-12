@@ -210,6 +210,12 @@ cd ios && rm -rf Pods Podfile.lock && pod install --repo-update && cd ..
 rm -rf ~/Library/Developer/Xcode/DerivedData
 ```
 
+#### Xcode のディスク容量を減らす
+- **プロジェクト内**: リポジトリ直下で `./scripts/clean-xcode-disk.sh`（`flutter clean` と `build/`・`ios/Pods` 等の削除。次回 `cd ios && pod install --repo-update` が必要）
+- **DerivedData 全削除**（効果大・次回ビルドは遅くなる）: `./scripts/clean-xcode-disk.sh --derived`
+- **古いシミュレータ**: `./scripts/clean-xcode-disk.sh --simulators` または `xcrun simctl delete unavailable`
+- **手動**: Xcode → **Window → Organizer** で古い **Archive** を削除。`~/Library/Developer/Xcode/iOS DeviceSupport/` から不要な iOS バージョンを削除。`~/Library/Caches/org.swift.swiftpm/` や `~/Library/Caches/CocoaPods/` も大きくなりがち
+
 #### 「Module 'xxx' not found」
 `pod install` が未実行。Step 3を実行する。
 

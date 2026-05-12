@@ -26,6 +26,12 @@ migrate_working_dir/
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
+# Xcode が ios 配下に作るローカルビルド（リポジトリ直下の /build/ とは別）
+ios/build/
+
+# fastlane 実行で生成（コミット不要）
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
 .dart_tool/
 .flutter-plugins-dependencies
 .pub-cache/
