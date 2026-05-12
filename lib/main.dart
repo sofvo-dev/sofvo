@@ -67,8 +67,13 @@ void main() async {
     }
   }
 
-  // Firestoreオフラインキャッシュ（モバイルのみ）
-  if (!kIsWeb) {
+  // Firestore 設定（Web は SDK 12.x の Watch 不整合対策で long polling 検出を有効化）
+  if (kIsWeb) {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+      webExperimentalAutoDetectLongPolling: true,
+    );
+  } else {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
       cacheSizeBytes: 100 * 1024 * 1024, // 100MB上限

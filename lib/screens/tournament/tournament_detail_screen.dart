@@ -8832,6 +8832,21 @@ class _RecruitFullScreenState extends State<_RecruitFullScreen> {
   }
 }
 
+/// Firestore Web SDK 12.x の断続的な INTERNAL ASSERTION（WatchChangeAggregator）に対し1回だけ再試行する。
+Future<void> _updateTournamentStatusWithRetry(String tournamentId, String status) async {
+  try {
+    await FirebaseFirestore.instance.collection('tournaments').doc(tournamentId).update({'status': status});
+  } catch (e) {
+    final msg = e.toString();
+    if (msg.contains('INTERNAL ASSERTION') || msg.contains('Unexpected state')) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await FirebaseFirestore.instance.collection('tournaments').doc(tournamentId).update({'status': status});
+      return;
+    }
+    rethrow;
+  }
+}
+
 // ━━━ ステータス変更画面（全画面） ━━━
 class _StatusChangeScreen extends StatefulWidget {
   final String tournamentId;
@@ -8880,8 +8895,9 @@ class _StatusChangeScreenState extends State<_StatusChangeScreen> {
             onPressed: _selected == widget.currentStatus || _saving ? null : () async {
               setState(() => _saving = true);
               try {
-                await FirebaseFirestore.instance.collection('tournaments').doc(widget.tournamentId).update({'status': _selected});
+                await _updateTournamentStatusWithRetry(widget.tournamentId, _selected);
                 if (mounted) {
+                  setState(() => _saving = false);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('ステータスを「$_selected」に変更しました'), backgroundColor: AppTheme.success),
                   );
