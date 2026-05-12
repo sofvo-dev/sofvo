@@ -216,6 +216,11 @@ rm -rf ~/Library/Developer/Xcode/DerivedData
 #### Archiveがグレーアウト
 デバイスが「Any iOS Device (arm64)」になっていない。シミュレータ選択中はArchiveできない。
 
+#### 「iOS XX.X is not installed」「Unable to find a destination … generic:1, platform:iOS」
+- **原因**: `flutter build ipa` / `flutter build ios --release` は **実機向け（iphoneos）** のビルドであり、Xcode が **その iOS バージョン用のデバイス・プラットフォーム**（Settings → **Platforms** / 旧 Components）を要求する。SDK が `-showsdks` に出ていても、プラットフォーム未導入だと同様のエラーになる。
+- **`xcodebuild -downloadPlatform iOS` の注意**: ログに **Simulator** と出る場合は **シミュレータ用ランタイム**のみ。App Store 用 IPA に必要な **実機ビルド用プラットフォーム**とは別のため、これだけでは直らないことが多い。
+- **対処**: Xcode を起動 → **Settings → Platforms** で該当 **iOS** を完了までインストール。USB 実機を外して再試行。それでも不可なら Xcode 更新、またはプラットフォームが揃った別 Mac / CI でビルド。
+
 ## App Store Connect
 - **Bundle ID**: com.sofvo.app
 - **Team**: SHUSUKE NAKAMURA
