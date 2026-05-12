@@ -14,7 +14,7 @@ const typeColor: Record<string, string> = {
   "混合": "bg-emerald-500",
 };
 
-const statusFilters = ["すべて", "募集中", "準備中", "開催中", "決勝中", "終了"];
+const statusFilters = ["すべて", "募集中", "準備中", "エントリー締切", "試合準備", "開催中", "決勝中", "終了"];
 
 export default function TournamentsPage() {
   const { user, loading: authLoading } = useAuth();

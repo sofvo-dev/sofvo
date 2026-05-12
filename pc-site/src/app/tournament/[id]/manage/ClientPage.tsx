@@ -197,7 +197,7 @@ export default function TournamentManagePage() {
    Status Changer
    ============================== */
 function StatusChanger({ tournamentId, currentStatus }: { tournamentId: string; currentStatus: string }) {
-  const statuses = ["募集中", "準備中", "満員", "開催中", "決勝中", "終了"];
+  const statuses = ["募集中", "準備中", "満員", "エントリー締切", "試合準備", "開催中", "決勝中", "終了"];
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">

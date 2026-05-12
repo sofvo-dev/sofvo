@@ -93,7 +93,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   void initState() {
     super.initState();
     final status = (widget.tournament['status'] as String?) ?? '';
-    _isEntryDeadlinePassed = status == 'エントリー締切' || status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid || _isAdmin;
+    _isEntryDeadlinePassed = status == 'エントリー締切' || status == '試合準備' || status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid || _isAdmin;
     _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
     _tabController = TabController(
       length: _isEntryDeadlinePassed ? 6 : 4,
@@ -271,6 +271,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         switch (status) {
           case '募集中': statusColor = AppTheme.success; break;
           case 'エントリー締切': statusColor = AppTheme.accentColor; break;
+          case '試合準備': statusColor = AppTheme.primaryLight; break;
           case '準備中': statusColor = AppTheme.warning; break;
           case '開催中': statusColor = AppTheme.primaryColor; break;
           case '予選1完了': statusColor = AppTheme.info; break;
@@ -846,13 +847,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               titleIcon: Icons.timeline,
               child: Builder(builder: (_) {
                 final hasTwoRounds = (livePrelim['rounds'] ?? 1) > 1;
+                final isMatchPrep = liveStatus == '試合準備';
                 final isRunning = liveStatus == '開催中';
                 final isR1Done = liveStatus == '予選1完了';
                 final isR2Done = liveStatus == '予選2完了';
                 final isFinals = liveStatus == '順位決定中' || liveStatus == '決勝中';
                 final isEnded = liveStatus == '終了';
                 // 予選以降のステータスか
-                final pastEntry = isRunning || isR1Done || isR2Done || isFinals || isEnded;
+                final pastEntry = isMatchPrep || isRunning || isR1Done || isR2Done || isFinals || isEnded;
+                // 試合準備を終えたあと（本番の予選〜）
+                final pastMatchPrep = isRunning || isR1Done || isR2Done || isFinals || isEnded;
                 // 予選1が完了しているか
                 final r1Completed = isR1Done || isR2Done || isFinals || isEnded;
                 // 予選2が完了しているか
@@ -861,11 +865,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   _buildFlowStep(1, 'エントリー受付', liveStatus == '募集中', liveCurrentTeams > 0),
                   _buildFlowStep(2, 'エントリー締切', liveStatus == 'エントリー締切', pastEntry),
-                  _buildFlowStep(3, hasTwoRounds ? '予選1' : '予選リーグ', isRunning && !r1Completed, r1Completed),
+                  _buildFlowStep(3, '試合準備', isMatchPrep, pastMatchPrep),
+                  _buildFlowStep(4, hasTwoRounds ? '予選1' : '予選リーグ', isRunning && !r1Completed, r1Completed),
                   if (hasTwoRounds)
-                    _buildFlowStep(4, '予選2', isR1Done || (isRunning && r1Completed && !r2Completed), r2Completed),
-                  _buildFlowStep(hasTwoRounds ? 5 : 4, '順位決定戦', isFinals, isEnded),
-                  _buildFlowStep(hasTwoRounds ? 6 : 5, '結果発表・表彰', isEnded, false, isLast: true),
+                    _buildFlowStep(5, '予選2', isR1Done || (isRunning && r1Completed && !r2Completed), r2Completed),
+                  _buildFlowStep(hasTwoRounds ? 6 : 5, '順位決定戦', isFinals, isEnded),
+                  _buildFlowStep(hasTwoRounds ? 7 : 6, '結果発表・表彰', isEnded, false, isLast: true),
                 ]);
               }),
             ),
@@ -985,7 +990,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.grid_on, size: 64, color: AppTheme.textHint),
                   const SizedBox(height: 16),
-                  Text(status == '募集中' || status == 'エントリー締切' ? '対戦表はエントリー締切後に生成されます' : '対戦表を生成してください',
+                  Text(status == '募集中' || status == '満員' ? '対戦表はエントリー締切後に生成されます' : '対戦表を生成してください',
                       style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary), textAlign: TextAlign.center),
                   if (isOrganizer) ...[
                     const SizedBox(height: 24),
@@ -1085,7 +1090,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   // ━━━ ステータス変更 ━━━
   void _showStatusDialog(String currentStatus) {
-    final statuses = ['準備中', '募集中', 'エントリー締切', '開催中', '終了'];
+    final statuses = ['準備中', '募集中', 'エントリー締切', '試合準備', '開催中', '終了'];
     showDialog(context: context, builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text('ステータス変更', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -3738,7 +3743,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             if (hasRound1)
               _resetOptionTile(ctx, Icons.looks_one_outlined, '予選1をリセット', '予選1の対戦表・スコア・順位表を削除', () {
                 Navigator.pop(ctx);
-                _resetRound(1, rollbackStatus: '開催中');
+                _resetRound(1, rollbackStatus: '試合準備');
               }),
             if (hasRound2)
               _resetOptionTile(ctx, Icons.looks_two_outlined, '予選2をリセット', '予選2の対戦表・スコア・順位表を削除', () {
@@ -8163,7 +8168,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           // ━━━ 大会情報 ━━━
           _sectionLabel('大会情報'),
           _menuTileNavigate(context, Icons.edit_outlined, '大会を編集', '名前・日程・会場・ルールなど', () => onEditTournament(context), color: AppTheme.primaryColor),
-          _menuTileNavigate(context, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 締切 → 開催中 → 終了', () {
+          _menuTileNavigate(context, Icons.sync_outlined, 'ステータス変更', '準備中 → 募集中 → 締切 → 試合準備 → 開催中 → 終了', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => _StatusChangeScreen(
               tournamentId: tournamentId, currentStatus: tournData['status'] ?? '準備中')));
           }, color: AppTheme.primaryColor),
@@ -8848,7 +8853,7 @@ class _StatusChangeScreenState extends State<_StatusChangeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final statuses = ['準備中', '募集中', 'エントリー締切', '開催中', '終了'];
+    final statuses = ['準備中', '募集中', 'エントリー締切', '試合準備', '開催中', '終了'];
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
