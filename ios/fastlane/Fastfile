@@ -7,17 +7,16 @@ platform :ios do
     sh("cd ../.. && flutter clean")
     sh("cd ../.. && flutter pub get")
     sh("rm -rf Pods Podfile.lock && pod install --repo-update")
-    sh("cd ../.. && flutter build ios --release")
+    # flutter build ios + gym の二重ビルドは避け、archive + export を一度に行う
+    sh("cd ../.. && flutter build ipa --export-method app-store")
 
-    build_app(
-      workspace: "Runner.xcworkspace",
-      scheme: "Runner",
-      export_method: "app-store",
-      output_directory: "../build/ios",
-      output_name: "Sofvo.ipa"
-    )
+    ipa_dir = File.expand_path("../build/ios/ipa", Dir.pwd)
+    ipa_candidates = Dir.glob(File.join(ipa_dir, "*.ipa"))
+    UI.user_error!("IPA が見つかりません (#{ipa_dir})。flutter build ipa のログを確認してください。") if ipa_candidates.empty?
+    ipa_path = ipa_candidates.max_by { |f| File.mtime(f) }
 
     upload_to_app_store(
+      ipa: ipa_path,
       force: true,
       skip_metadata: false,
       skip_screenshots: true,
@@ -36,17 +35,15 @@ platform :ios do
     sh("cd ../.. && flutter clean")
     sh("cd ../.. && flutter pub get")
     sh("rm -rf Pods Podfile.lock && pod install --repo-update")
-    sh("cd ../.. && flutter build ios --release")
+    sh("cd ../.. && flutter build ipa --export-method app-store")
 
-    build_app(
-      workspace: "Runner.xcworkspace",
-      scheme: "Runner",
-      export_method: "app-store",
-      output_directory: "../build/ios",
-      output_name: "Sofvo.ipa"
-    )
+    ipa_dir = File.expand_path("../build/ios/ipa", Dir.pwd)
+    ipa_candidates = Dir.glob(File.join(ipa_dir, "*.ipa"))
+    UI.user_error!("IPA が見つかりません (#{ipa_dir})。flutter build ipa のログを確認してください。") if ipa_candidates.empty?
+    ipa_path = ipa_candidates.max_by { |f| File.mtime(f) }
 
     upload_to_testflight(
+      ipa: ipa_path,
       skip_waiting_for_build_processing: true
     )
   end
