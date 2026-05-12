@@ -15,14 +15,30 @@ class TournamentFinanceScreen extends StatefulWidget {
 class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
   final _firestore = FirebaseFirestore.instance;
 
-  int get _entryFeePerTeam {
-    final raw = (widget.tournamentData['entryFee'] ?? '0').toString().replaceAll('¥', '').replaceAll(',', '');
-    return int.tryParse(raw) ?? 0;
+  /// Firestore の数値は int / double どちらでも返り得るため統一して int にする。
+  static int _asInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString().replaceAll('¥', '').replaceAll(',', '')) ?? 0;
   }
 
-  int get _currentTeams => (widget.tournamentData['currentTeams'] as int?) ?? 0;
+  static int _entryFeeFor(Map<String, dynamic> td) {
+    final raw = td['entryFee'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    final s = (raw ?? '0').toString().replaceAll('¥', '').replaceAll(',', '');
+    return int.tryParse(s) ?? 0;
+  }
 
-  int get _totalRevenue => _entryFeePerTeam * _currentTeams;
+  static Map<String, dynamic> _mergeTournamentLive(Map<String, dynamic> base, Map<String, dynamic>? live) {
+    final m = Map<String, dynamic>.from(base);
+    if (live != null) {
+      if (live.containsKey('currentTeams')) m['currentTeams'] = live['currentTeams'];
+      if (live.containsKey('entryFee')) m['entryFee'] = live['entryFee'];
+    }
+    return m;
+  }
 
   CollectionReference get _expensesRef =>
       _firestore.collection('tournaments').doc(widget.tournamentId).collection('expenses');
@@ -82,15 +98,21 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
               if (name.isEmpty || amount <= 0) return;
 
               try {
-                final data = {'name': name, 'amount': amount, 'updatedAt': FieldValue.serverTimestamp()};
+                final data = <String, dynamic>{'name': name, 'amount': amount, 'updatedAt': FieldValue.serverTimestamp()};
                 if (isEditing) {
                   await _expensesRef.doc(docId).update(data);
                 } else {
                   data['createdAt'] = FieldValue.serverTimestamp();
                   await _expensesRef.add(data);
                 }
-              } catch (_) {}
-              if (ctx.mounted) Navigator.pop(ctx);
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('保存に失敗しました: $e')),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
@@ -117,8 +139,16 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary))),
           ElevatedButton(
             onPressed: () async {
-              try { await _expensesRef.doc(docId).delete(); } catch (_) {}
-              if (ctx.mounted) Navigator.pop(ctx);
+              try {
+                await _expensesRef.doc(docId).delete();
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('削除に失敗しました: $e')),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
@@ -138,15 +168,36 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(title: const Text('収支管理')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _expensesRef.orderBy('createdAt').snapshots(),
-        builder: (context, snapshot) {
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: _firestore.collection('tournaments').doc(widget.tournamentId).snapshots(),
+        builder: (context, tournSnap) {
+          final live = tournSnap.data?.data();
+          final td = _mergeTournamentLive(widget.tournamentData, live);
+          final entryFeePerTeam = _entryFeeFor(td);
+          final currentTeams = _asInt(td['currentTeams']);
+          final totalRevenue = entryFeePerTeam * currentTeams;
+
+          return StreamBuilder<QuerySnapshot>(
+            stream: _expensesRef.orderBy('createdAt').snapshots(),
+            builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  '経費の読み込みに失敗しました。\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+              ),
+            );
+          }
           final expenses = snapshot.data?.docs ?? [];
           final totalExpenses = expenses.fold<int>(0, (sum, doc) {
             final data = doc.data() as Map<String, dynamic>;
-            return sum + ((data['amount'] as int?) ?? 0);
+            return sum + _asInt(data['amount']);
           });
-          final profit = _totalRevenue - totalExpenses;
+          final profit = totalRevenue - totalExpenses;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -154,13 +205,13 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── 損益サマリーカード ──
-                _buildProfitCard(profit, totalExpenses),
+                _buildProfitCard(profit, totalExpenses, totalRevenue),
                 const SizedBox(height: 20),
 
                 // ── 収入セクション ──
                 _buildSectionHeader('収入', Icons.trending_up_rounded, AppTheme.success),
                 const SizedBox(height: 8),
-                _buildRevenueCard(),
+                _buildRevenueCard(entryFeePerTeam, currentTeams, totalRevenue),
                 const SizedBox(height: 20),
 
                 // ── 経費セクション ──
@@ -168,7 +219,7 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
                 const SizedBox(height: 8),
                 ...expenses.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
-                  return _buildExpenseItem(doc.id, data['name'] as String? ?? '', (data['amount'] as int?) ?? 0);
+                  return _buildExpenseItem(doc.id, data['name'] as String? ?? '', _asInt(data['amount']));
                 }),
                 if (expenses.isEmpty)
                   Container(
@@ -193,6 +244,8 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
               ],
             ),
           );
+            },
+          );
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -208,7 +261,7 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
   //  Widget builders
   // ══════════════════════════════════════
 
-  Widget _buildProfitCard(int profit, int totalExpenses) {
+  Widget _buildProfitCard(int profit, int totalExpenses, int totalRevenue) {
     final isPositive = profit >= 0;
     final profitColor = isPositive ? AppTheme.success : AppTheme.error;
     final profitLabel = isPositive ? '利益' : '赤字';
@@ -272,7 +325,7 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
                     children: [
                       const Text('収入合計', style: TextStyle(fontSize: 11, color: Colors.white60)),
                       const SizedBox(height: 4),
-                      Text('¥${_formatNumber(_totalRevenue)}',
+                      Text('¥${_formatNumber(totalRevenue)}',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                     ],
                   ),
@@ -306,7 +359,7 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
     );
   }
 
-  Widget _buildRevenueCard() {
+  Widget _buildRevenueCard(int entryFeePerTeam, int currentTeams, int totalRevenue) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -317,15 +370,15 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
       ),
       child: Column(
         children: [
-          _buildRevenueRow('参加費', '¥${_formatNumber(_entryFeePerTeam)} / チーム'),
+          _buildRevenueRow('参加費', '¥${_formatNumber(entryFeePerTeam)} / チーム'),
           const Divider(height: 20),
-          _buildRevenueRow('エントリー数', '$_currentTeams チーム'),
+          _buildRevenueRow('エントリー数', '$currentTeams チーム'),
           const Divider(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('収入合計', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-              Text('¥${_formatNumber(_totalRevenue)}',
+              Text('¥${_formatNumber(totalRevenue)}',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.success)),
             ],
           ),

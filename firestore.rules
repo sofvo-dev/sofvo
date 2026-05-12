@@ -16,6 +16,14 @@ service cloud.firestore {
       return !exists(/databases/$(database)/documents/users/$(targetUserId)/blockedUsers/$(request.auth.uid));
     }
 
+    // 大会ドキュメントを ID で参照し、主催者・編集者・管理者かどうか（サブコレクションルール用）
+    function canManageTournamentById(tournamentId) {
+      let t = get(/databases/$(database)/documents/tournaments/$(tournamentId)).data;
+      return request.auth.uid == t.organizerId
+        || (t.keys().hasAny(['editors']) && request.auth.uid in t.editors)
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // ━━━ ユーザー ━━━
     match /users/{userId} {
       allow read: if isAuthenticated();
@@ -120,6 +128,11 @@ service cloud.firestore {
       match /entries/{entryId} {
         allow read: if isAuthenticated();
         allow write: if isAuthenticated();
+      }
+
+      // 収支管理（経費）— 主催者・編集者・管理者のみ
+      match /expenses/{expenseId} {
+        allow read, create, update, delete: if isAuthenticated() && canManageTournamentById(tournamentId);
       }
 
       // ラウンド
