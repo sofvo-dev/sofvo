@@ -132,13 +132,9 @@ class MatchGenerator {
       savedMatches.add(match);
     }
 
-    final tournSnap = await _firestore.collection('tournaments').doc(tournamentId).get();
-    final currentStatus = (tournSnap.data()?['status'] as String?) ?? '';
-    final tournamentUpdate = <String, dynamic>{'currentRound': roundNumber};
-    if (currentStatus == 'エントリー締切' || currentStatus == '満員' || currentStatus == '試合準備') {
-      tournamentUpdate['status'] = '試合準備中';
-    }
-    await _firestore.collection('tournaments').doc(tournamentId).update(tournamentUpdate);
+    await _firestore.collection('tournaments').doc(tournamentId).update({
+      'currentRound': roundNumber,
+    });
 
     return savedMatches;
   }
@@ -310,13 +306,9 @@ class MatchGenerator {
     }
 
     final allCompleted = allMatches.every((m) => m['status'] == 'completed');
-    final tournSnap = await _firestore.collection('tournaments').doc(tournamentId).get();
-    final currentStatus = (tournSnap.data()?['status'] as String?) ?? '';
     final tournamentUpdate = <String, dynamic>{'currentRound': roundNumber};
     if (allCompleted) {
       tournamentUpdate['status'] = '予選${roundNumber}完了';
-    } else if (currentStatus == 'エントリー締切' || currentStatus == '満員' || currentStatus == '試合準備') {
-      tournamentUpdate['status'] = '試合準備中';
     }
     await _firestore.collection('tournaments').doc(tournamentId).update(tournamentUpdate);
 
