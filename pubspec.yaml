@@ -1,7 +1,7 @@
 name: sofvo
 description: "ソフトバレーボール マッチングアプリ"
 publish_to: 'none'
-version: 1.0.15+29
+version: 1.0.16+30
 
 environment:
   sdk: ^3.11.0
