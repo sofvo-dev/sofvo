@@ -55,7 +55,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   late Stream<QuerySnapshot> _tournamentStream;
   late Stream<QuerySnapshot> _recruitmentStream;
 
-  /// 公式アカウントのみ「さがす」で進行中大会も一覧表示（閲覧用）
+  /// 公式アカウントのみ「さがす」でエントリー締切後（締切〜試合準備前）の大会を一覧表示（閲覧用）
   bool _isOfficialAccount = false;
 
   @override
@@ -939,7 +939,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         Color sc;
         switch (status) {
           case '募集中': sc = AppTheme.success; break;
-          case 'エントリー締切': sc = AppTheme.accentColor; break;
+          case 'エントリー締切':
+          case 'エントリー締め切':
+            sc = AppTheme.accentColor;
+            break;
           case '試合準備中':
           case '試合準備':
             sc = AppTheme.primaryLight;
@@ -1238,7 +1241,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           if (status == '開催中' || status == '決勝中' || status == '順位決定中') {
             return false;
           }
-          if (!_isOfficialAccount && status == 'エントリー締切') return false;
+          if (!_isOfficialAccount &&
+              (status == 'エントリー締切' || status == 'エントリー締め切')) {
+            return false;
+          }
           if (status == '終了' && !_showPastTournaments) return false;
           if (status == '準備中') return false;
           if (query.isNotEmpty) {
@@ -1316,7 +1322,10 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     switch (status) {
       case '募集中': sc = AppTheme.success; break;
       case '満員': sc = AppTheme.error; break;
-      case 'エントリー締切': sc = AppTheme.accentColor; break;
+      case 'エントリー締切':
+      case 'エントリー締め切':
+        sc = AppTheme.accentColor;
+        break;
       case '試合準備中':
       case '試合準備':
         sc = AppTheme.primaryLight;
