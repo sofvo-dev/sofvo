@@ -7,6 +7,7 @@ import '../../widgets/empty_state_view.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/certified_badge.dart';
 import '../../services/bookmark_notification_service.dart';
+import '../../utils/tournament_status.dart';
 import 'tournament_detail_screen.dart';
 import '../chat/chat_screen.dart';
 
@@ -924,7 +925,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         final title = tData['title'] ?? bm['title'] ?? '';
         final date = tData['date'] ?? bm['date'] ?? '';
         final location = tData['location'] ?? bm['location'] ?? '';
-        final status = tData['status'] ?? bm['status'] ?? '';
+        final status = normalizeTournamentStatus(tData['status'] ?? bm['status'], emptyAsPreparing: false);
         final type = tData['type'] ?? bm['tournamentType'] ?? '';
         final currentTeams = tData['currentTeams'] ?? 0;
         final maxTeams = tData['maxTeams'] ?? 8;
@@ -973,6 +974,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                   builder: (_) => TournamentDetailScreen(tournament: {
                     ...data, 'id': tid, 'name': data['title'] ?? '',
                     'isFollowing': _followingIds.contains(orgId) || orgId == uid,
+                    'status': normalizeTournamentStatus(data['status']),
                   }),
                 ));
               }
@@ -1232,16 +1234,13 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         final filtered = allDocs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final oid = data['organizerId'] ?? '';
-          final status = data['status'] ?? '準備中';
+          final status = normalizeTournamentStatus(data['status']);
           final isF = _followingIds.contains(oid) || oid == _currentUser?.uid;
           if (friendsOnly ? !isF : isF) return false;
-          if (!_isOfficialAccount &&
-              (status == 'エントリー締切' ||
-                  status == '開催中' ||
-                  status == '決勝中' ||
-                  status == '順位決定中')) {
+          if (status == '開催中' || status == '決勝中' || status == '順位決定中') {
             return false;
           }
+          if (!_isOfficialAccount && status == 'エントリー締切') return false;
           if (status == '終了' && !_showPastTournaments) return false;
           if (status == '準備中') return false;
           if (query.isNotEmpty) {
@@ -1302,7 +1301,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     final title = data['title'] ?? '';
     final date = data['date'] ?? '';
     final location = data['location'] ?? '';
-    final status = data['status'] ?? '準備中';
+    final status = normalizeTournamentStatus(data['status']);
     final type = data['type'] ?? '';
     final currentTeams = data['currentTeams'] ?? 0;
     final maxTeams = data['maxTeams'] ?? 8;
@@ -1344,6 +1343,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
       onTap: () => Navigator.push(context, MaterialPageRoute(
         builder: (_) => TournamentDetailScreen(tournament: {
           ...data, 'id': doc.id, 'name': data['title'] ?? '', 'isFollowing': isFollowing,
+          'status': status,
         }),
       )),
       child: Container(

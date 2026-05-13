@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
+import '../../utils/tournament_status.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
@@ -127,7 +128,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   @override
   void initState() {
     super.initState();
-    final status = (widget.tournament['status'] as String?) ?? '';
+    final status = normalizeTournamentStatus(
+      widget.tournament['status'],
+      emptyAsPreparing: false,
+    );
     _isEntryDeadlinePassed = status == 'エントリー締切' || status == '試合準備中' || status == '試合準備' || status == '満員' || status == '開催済み' || status == '開催中' || status == '決勝中' || status == '順位決定中' || status == '終了' || status.contains('完了') || widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid || _isAdmin;
     _isFollowing = widget.tournament['isFollowing'] as bool? ?? true;
     _tabController = TabController(
