@@ -13,12 +13,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { Tournament } from "@/types/firestore";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
+import { normalizeTournamentStatus } from "@/lib/tournamentStatus";
 
 const typeColor: Record<string, string> = {
   "メンズ": "bg-blue-500",
   "レディース": "bg-pink-500",
   "混合": "bg-emerald-500",
 };
+
+function isProgressStatus(t: Tournament): boolean {
+  const s = normalizeTournamentStatus(t.status);
+  return ["開催中", "決勝中", "大会準備中", "順位決定中"].includes(s);
+}
 
 const tabs = ["すべて", "募集中", "進行中", "終了"] as const;
 
@@ -72,17 +78,14 @@ export default function TournamentManagePage() {
     );
   }
 
-  const activeCount = tournaments.filter((t) =>
-    ["開催中", "決勝中", "試合準備中", "試合準備", "順位決定中"].includes(t.status)
-  ).length;
+  const activeCount = tournaments.filter(isProgressStatus).length;
   const recruitingCount = tournaments.filter((t) => t.status === "募集中").length;
   const endedCount = tournaments.filter((t) => t.status === "終了").length;
 
   const filtered = tournaments.filter((t) => {
     if (activeTab === "すべて") return true;
     if (activeTab === "募集中") return t.status === "募集中" || t.status === "準備中";
-    if (activeTab === "進行中")
-      return ["開催中", "決勝中", "試合準備中", "試合準備", "順位決定中"].includes(t.status);
+    if (activeTab === "進行中") return isProgressStatus(t);
     if (activeTab === "終了") return t.status === "終了";
     return true;
   });
