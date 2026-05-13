@@ -225,8 +225,14 @@ rm -rf ~/Library/Developer/Xcode/DerivedData
 
 #### 「iOS XX.X is not installed」「Unable to find a destination … generic:1, platform:iOS」
 - **原因**: `flutter build ipa` / `flutter build ios --release` は **実機向け（iphoneos）** のビルドであり、Xcode が **その iOS バージョン用のデバイス・プラットフォーム**（Settings → **Platforms** / 旧 Components）を要求する。SDK が `-showsdks` に出ていても、プラットフォーム未導入だと同様のエラーになる。
+- **ログ例（2026/05）**: `error:iOS 26.5 is not installed` と **接続中の iPhone**（`arch:arm64e`）および **Any iOS Device** の両方が ineligible → **iPhoneOS 26.5 の「プラットフォーム」本体**が未インストール。シミュレータ用ランタイムだけ入っていても足りない。
 - **`xcodebuild -downloadPlatform iOS` の注意**: ログに **Simulator** と出る場合は **シミュレータ用ランタイム**のみ。App Store 用 IPA に必要な **実機ビルド用プラットフォーム**とは別のため、これだけでは直らないことが多い。
-- **対処**: Xcode を起動 → **Settings → Platforms** で該当 **iOS** を完了までインストール。USB 実機を外して再試行。それでも不可なら Xcode 更新、またはプラットフォームが揃った別 Mac / CI でビルド。
+- **対処（推奨順）**:
+  1. **Xcode → Settings → Platforms** で **iOS 26.5**（エラーに出たバージョン）を **完了までインストール**（一覧に無い場合は Xcode を App Store から最新化）。
+  2. ターミナルで `xcodebuild -showsdks` に **`iphoneos26.5`**（または要求バージョン）が出ることを確認。
+  3. まだ失敗する場合は **USB の実機を一度外して**から再実行（接続端末の OS が要求ランタイムを引き上げていることがある）。
+  4. それでも不可なら、プラットフォームが揃った **別 Mac** または **GitHub Actions 等の CI** で `flutter build ipa` を検討。
+- **fastlane 前の Git**: `git stash` 後に `stash pop` で **未コミットの `ios/` 変更**が残ると混乱の元。提出前は `git status` をクリーンにするか、意図した変更だけコミットしてから `fastlane release` すること。
 
 ## App Store Connect
 - **Bundle ID**: com.sofvo.app
