@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,12 +10,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'score_input_screen.dart';
 import 'post_event_action_screen.dart';
 import 'checkin_screen.dart';
+import 'tournament_checkin_scan_screen.dart';
 import 'tournament_finance_screen.dart';
 import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
@@ -206,7 +207,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       _entryNameCache = nameCache;
     });
   }
-  /// セルフチェックイン（参加者がQRスキャンまたはボタンで自分のチームをチェックイン）
+  /// セルフチェックイン（参加者が会場の大会QRをスキャン、または主催者が手動登録したあとに記録）
   Future<void> _performSelfCheckIn() async {
     if (_myEntryTeamId.isEmpty) {
       if (mounted) {
@@ -2621,30 +2622,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           );
         });
       },
-    );
-  }
-
-  void _showMyTeamQR(String teamId, String teamName) {
-    final qrData = 'sofvo://checkin/$_tournamentId/$teamId';
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        contentPadding: const EdgeInsets.all(24),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(teamName,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 6),
-          Text('このQRを受付スタッフに見せてください',
-              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          QrImageView(data: qrData, version: QrVersions.auto, size: 200, backgroundColor: Colors.white),
-          const SizedBox(height: 12),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('閉じる')),
-        ]),
-      ),
     );
   }
 
@@ -6264,7 +6241,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   void _showCheckInOptions() {
-    final teamName = _myTeamIds.isNotEmpty ? _myTeamIds.first : '';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -6278,49 +6254,48 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 20),
             const Text('チェックイン', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text('チェックイン方法を選んでください', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 8),
+            Text(
+              '会場に掲示されている大会のQRコードを、この端末でスキャンしてください。\n主催者が手動で登録した場合は不要です。',
+              style: TextStyle(fontSize: 13, height: 1.45, color: AppTheme.textSecondary),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _showMyTeamQR(_myEntryTeamId, '');
-                },
-                icon: const Icon(Icons.qr_code, size: 22),
-                label: const Text('QRコードを見せる', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            if (kIsWeb)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Web版ではカメラスキャンを利用できません。スマホアプリで同じ大会を開くか、主催者に手動登録を依頼してください。',
+                  style: TextStyle(fontSize: 13, height: 1.45, color: AppTheme.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final tid = await Navigator.push<String?>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TournamentCheckinScanScreen(expectedTournamentId: _tournamentId),
+                      ),
+                    );
+                    if (tid != null && mounted) {
+                      await _performSelfCheckIn();
+                    }
+                  },
+                  icon: const Icon(Icons.qr_code_scanner, size: 22),
+                  label: const Text('大会QRをスキャン', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => CheckInScreen(
-                      tournamentId: _tournamentId,
-                      tournamentName: widget.tournament['name'] as String? ?? '',
-                    ),
-                  ));
-                },
-                icon: const Icon(Icons.qr_code_scanner, size: 22),
-                label: const Text('QRコードを読み取る', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryColor,
-                  side: const BorderSide(color: AppTheme.primaryColor, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -8291,7 +8266,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
           _sectionLabel('参加者管理'),
           _menuTile(context, Icons.how_to_reg, '自分もエントリー', 'チームを作成してエントリー', onSelfEntry, color: AppTheme.success),
           _menuTile(context, Icons.person_add, 'メンバー募集する', '一緒にプレーするメンバーを募集', onRecruit, color: AppTheme.success),
-          _menuTile(context, Icons.qr_code_scanner, '受付管理（QR）', 'QRコードでチェックイン管理', onCheckIn, color: AppTheme.success),
+          _menuTile(context, Icons.qr_code_2, '受付・チェックイン', '大会QRの表示・手動チェックイン（参加者が掲示QRを読み取ります）', onCheckIn, color: AppTheme.success),
           _menuTile(context, Icons.upload_file, 'CSVインポート', 'エントリー・対戦表・決勝のCSV管理', onCsvMenu, color: AppTheme.success),
 
           // ━━━ 運営 ━━━
