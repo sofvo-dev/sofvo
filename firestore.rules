@@ -185,6 +185,13 @@ service cloud.firestore {
         allow create: if isAuthenticated();
         allow delete: if isAuthenticated() && resource.data.uploadedBy == request.auth.uid;
       }
+
+      // チェックイン（参加者のセルフ登録・主催の手動受付）
+      match /checkIns/{checkInId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow delete: if isAuthenticated() && canManageTournamentById(tournamentId);
+      }
     }
 
     // ━━━ チーム ━━━
