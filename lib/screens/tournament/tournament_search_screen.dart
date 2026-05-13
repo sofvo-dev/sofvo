@@ -55,7 +55,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   late Stream<QuerySnapshot> _tournamentStream;
   late Stream<QuerySnapshot> _recruitmentStream;
 
-  /// 公式アカウントのみ「さがす」で進行中大会も一覧表示（閲覧用）
+  /// 公式アカウントは「さがす」大会タブでステータスによる除外を行わず一覧できる（閲覧用）
   bool _isOfficialAccount = false;
 
   @override
@@ -1235,15 +1235,16 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           final status = data['status'] ?? '準備中';
           final isF = _followingIds.contains(oid) || oid == _currentUser?.uid;
           if (friendsOnly ? !isF : isF) return false;
-          if (!_isOfficialAccount &&
-              (status == 'エントリー締切' ||
-                  status == '開催中' ||
-                  status == '決勝中' ||
-                  status == '順位決定中')) {
-            return false;
+          if (!_isOfficialAccount) {
+            if (status == 'エントリー締切' ||
+                status == '開催中' ||
+                status == '決勝中' ||
+                status == '順位決定中') {
+              return false;
+            }
+            if (status == '終了' && !_showPastTournaments) return false;
+            if (status == '準備中') return false;
           }
-          if (status == '終了' && !_showPastTournaments) return false;
-          if (status == '準備中') return false;
           if (query.isNotEmpty) {
             final t = (data['title'] ?? '').toString().toLowerCase();
             final l = (data['location'] ?? '').toString().toLowerCase();
