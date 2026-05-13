@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../config/app_theme.dart';
+import '../../utils/tournament_checkin_link.dart';
 
 /// QRコード受付画面（大会主催者用）
 /// 2パターン:
@@ -67,18 +68,19 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ タブ1: QRコード表示（キャプテンがスキャン） ━━━
+  // ━━━ タブ1: 大会チェックイン用QR（掲示用） ━━━
   Widget _buildParticipantScanTab() {
-    // /app は App Links / Universal Links でネイティブアプリにのみ紐づけ（ルートはWebのまま）
-    final checkInUrl = 'https://sofvo.com/app?checkin=${widget.tournamentId}';
+    final qrPayload = tournamentCheckInQrPayload(widget.tournamentId);
+    final httpsFallback = tournamentCheckInHttpsUrl(widget.tournamentId);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           const SizedBox(height: 8),
           Text(
-            'このQRコードを受付に掲示してください\n'
-            'キャプテンはスマホのカメラで読み取り、インストール済みのSofvoアプリでチェックインできます',
+            'このQRコードを会場に掲示してください。\n'
+            '純正カメラで読み取ると、ブラウザを開かずにSofvoアプリが起動してチェックインできます。\n'
+            '（旧掲示の https リンクのQRもそのまま利用できます）',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),
@@ -92,10 +94,16 @@ class _CheckInScreenState extends State<CheckInScreen>
             ),
             child: Column(children: [
               QrImageView(
-                data: checkInUrl,
+                data: qrPayload,
                 version: QrVersions.auto,
                 size: 220,
                 backgroundColor: Colors.white,
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                httpsFallback,
+                style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               Text(widget.tournamentName,
