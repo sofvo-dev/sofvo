@@ -3,7 +3,8 @@ default_platform(:ios)
 platform :ios do
   desc "App Store Connect にアップロード & 審査提出（ローカル最新化含む）"
   lane :release do
-    sh("cd ../.. && git stash; git pull origin main --rebase; git stash pop || true")
+    # 未追跡（ios/Podfile.lock 等）があると手動の git pull が失敗するため -u で退避
+    sh("cd ../.. && git stash push -u -m 'fastlane-release' || true; git pull origin main --rebase; git stash pop || true")
     sh("cd ../.. && flutter clean")
     sh("cd ../.. && flutter pub get")
     sh("rm -rf Pods Podfile.lock && pod install --repo-update")
@@ -32,7 +33,8 @@ platform :ios do
 
   desc "TestFlight にアップロード（ベータテスト用、ローカル最新化含む）"
   lane :beta do
-    sh("cd ../.. && git stash; git pull origin main --rebase; git stash pop || true")
+    # 未追跡（ios/Podfile.lock 等）があると手動の git pull が失敗するため -u で退避
+    sh("cd ../.. && git stash push -u -m 'fastlane-release' || true; git pull origin main --rebase; git stash pop || true")
     sh("cd ../.. && flutter clean")
     sh("cd ../.. && flutter pub get")
     sh("rm -rf Pods Podfile.lock && pod install --repo-update")
