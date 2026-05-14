@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../utils/tournament_status.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../services/follow_service.dart';
 import '../tournament/tournament_detail_screen.dart';
@@ -54,7 +55,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
 
         for (final doc in hostedSnap.docs) {
           final data = doc.data();
-          final status = data['status'] ?? '準備中';
+          final status = normalizeTournamentStatus(data['status']);
           final entryCountSnap =
               await doc.reference.collection('entries').count().get();
           final entryCount = entryCountSnap.count ?? 0;
@@ -65,6 +66,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
             'isOrganizer': true,
             'isEntered': false,
             'entryCount': entryCount,
+            'status': status,
           };
           if (status == '終了') {
             past.add(entry);
@@ -97,7 +99,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
           final teamName = isEntered
               ? (myEntry.first.data()['teamName'] ?? '')
               : '';
-          final status = data['status'] ?? '準備中';
+          final status = normalizeTournamentStatus(data['status']);
           final entry = {
             ...data,
             'id': doc.id,
@@ -105,6 +107,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
             'isOrganizer': isOrganizer,
             'isEntered': isEntered,
             'entryCount': entriesSnap.docs.length,
+            'status': status,
           };
 
           if (status == '終了') {
@@ -146,7 +149,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   }
 
   void _navigateToDetail(Map<String, dynamic> t) {
-    final status = t['status'] ?? '準備中';
+    final status = normalizeTournamentStatus(t['status']);
     Color statusColor;
     switch (status) {
       case '募集中':
@@ -179,12 +182,14 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         ...t,
         'name': t['title'] ?? '',
         'isFollowing': isFollowing,
+        'status': status,
       };
     } else {
       payload = {
         ...t,
         'name': t['title'] ?? '',
         'isFollowing': true,
+        'status': status,
       };
     }
     Navigator.push(
