@@ -957,6 +957,51 @@ class PdfGenerator {
     );
   }
 
+  /// チェックイン掲示用（大会名・QR画像・URL）の1枚PDF
+  static Future<Uint8List> buildCheckInQrPosterPdf({
+    required String tournamentName,
+    required String checkInUrl,
+    required Uint8List qrPngBytes,
+  }) async {
+    final font = await PdfGoogleFonts.notoSansJPRegular();
+    final fontBold = await PdfGoogleFonts.notoSansJPBold();
+    final img = pw.MemoryImage(qrPngBytes);
+    final doc = pw.Document();
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(36, 40, 36, 32),
+        theme: pw.ThemeData.withFont(base: font, bold: fontBold),
+        build: (c) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text('チェックイン',
+                style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: _textDark)),
+            pw.SizedBox(height: 10),
+            pw.Text(tournamentName,
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(fontSize: 14, color: _textDark)),
+            pw.SizedBox(height: 28),
+            pw.Center(child: pw.Image(img, width: 200, height: 200)),
+            pw.SizedBox(height: 20),
+            pw.Text(
+              'SofvoアプリでこのQRコードをスキャンしてください',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: 11, color: _textMedium),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Text(checkInUrl,
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(fontSize: 8.5, color: _textDark)),
+            pw.Spacer(),
+            pw.Text('Powered by Sofvo', style: pw.TextStyle(fontSize: 8, color: _textMedium)),
+          ],
+        ),
+      ),
+    );
+    return doc.save();
+  }
+
   /// Print or share PDF
   static Future<void> printPdf(Uint8List bytes, String title) async {
     await Printing.layoutPdf(onLayout: (_) => bytes, name: title);
