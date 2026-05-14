@@ -126,7 +126,7 @@ class _CheckInScreenState extends State<CheckInScreen>
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _exportingQr ? null : () => _exportCheckInPdf(checkInUrl),
+                  onPressed: _exportingQr ? null : () => _exportCheckInPdf(qrPayload),
                   icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                   label: const Text('PDFで保存'),
                   style: OutlinedButton.styleFrom(
@@ -139,7 +139,7 @@ class _CheckInScreenState extends State<CheckInScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _exportingQr ? null : () => _exportCheckInPng(checkInUrl),
+                  onPressed: _exportingQr ? null : () => _exportCheckInPng(qrPayload),
                   icon: const Icon(Icons.image_outlined, size: 18),
                   label: const Text('画像で保存'),
                   style: OutlinedButton.styleFrom(
