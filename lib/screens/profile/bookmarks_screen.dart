@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../utils/tournament_status.dart';
 import '../tournament/tournament_detail_screen.dart';
 
 /// ブックマーク一覧画面
@@ -203,13 +204,12 @@ class _BookmarkList extends StatelessWidget {
   }
 
   Color _statusColor(String status) {
-    switch (status) {
+    switch (normalizeTournamentStatus(status, emptyAsPreparing: false)) {
       case '募集中':
         return AppTheme.success;
       case 'エントリー締切':
         return AppTheme.accentColor;
-      case '試合準備中':
-      case '試合準備':
+      case '大会準備中':
         return AppTheme.primaryLight;
       case '終了':
         return AppTheme.textSecondary;

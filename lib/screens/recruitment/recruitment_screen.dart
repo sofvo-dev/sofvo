@@ -158,8 +158,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       case 'エントリー締切':
         statusColor = AppTheme.accentColor;
         break;
-      case '試合準備中':
-      case '試合準備':
+      case '大会準備中':
         statusColor = AppTheme.primaryLight;
         break;
       case '開催中':
@@ -362,7 +361,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
         weekday = w[d.weekday - 1];
       }
     } catch (_) {}
-    final status = t['status'] ?? '';
+    final status = normalizeTournamentStatus(t['status']);
     final isOrganizer = t['isOrganizer'] == true;
     final roleLabel = isOrganizer ? '主催' : status;
     final roleColor = isOrganizer ? AppTheme.accentColor : AppTheme.success;
@@ -530,7 +529,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
 
   // ━━━ 開催予定カード ━━━
   Widget _buildUpcomingCard(Map<String, dynamic> t) {
-    final status = t['status'] ?? '';
+    final status = normalizeTournamentStatus(t['status']);
     final isOrganizer = t['isOrganizer'] == true;
     final dateStr = t['date'] ?? '';
     String month = '', day = '', weekday = '';
@@ -554,8 +553,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
       case 'エントリー締切':
         sc = AppTheme.accentColor;
         break;
-      case '試合準備中':
-      case '試合準備':
+      case '大会準備中':
         sc = AppTheme.primaryLight;
         break;
       case '開催中':

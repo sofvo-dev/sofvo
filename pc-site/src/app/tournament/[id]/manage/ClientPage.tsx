@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { Tournament, Entry, Match, Expense, CheckIn } from "@/types/firestore";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
+import { normalizeTournamentStatus } from "@/lib/tournamentStatus";
 
 type Tab = "overview" | "entries" | "scores" | "checkin" | "finance" | "settings";
 
@@ -197,8 +198,9 @@ export default function TournamentManagePage() {
    Status Changer
    ============================== */
 function StatusChanger({ tournamentId, currentStatus }: { tournamentId: string; currentStatus: string }) {
-  const statuses = ["募集中", "準備中", "満員", "エントリー締切", "試合準備中", "開催中", "決勝中", "終了"];
+  const statuses = ["募集中", "準備中", "満員", "エントリー締切", "大会準備中", "開催中", "決勝中", "終了"];
   const [open, setOpen] = useState(false);
+  const cur = normalizeTournamentStatus(currentStatus);
   return (
     <div className="relative">
       <button onClick={() => setOpen(!open)} className="px-4 py-2 bg-white/15 text-white rounded-xl text-sm font-medium hover:bg-white/25 transition-colors border border-white/20 flex items-center gap-2">
@@ -209,9 +211,9 @@ function StatusChanger({ tournamentId, currentStatus }: { tournamentId: string; 
         <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10 min-w-[180px] overflow-hidden">
           {statuses.map((s) => (
             <button key={s} onClick={async () => { await updateDoc(doc(db, "tournaments", tournamentId), { status: s }); setOpen(false); }}
-              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${s === currentStatus ? "text-primary font-bold bg-primary/5" : "text-foreground"}`}
+              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${s === cur ? "text-primary font-bold bg-primary/5" : "text-foreground"}`}
             >
-              {s === currentStatus && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
+              {s === cur && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
               {s}
             </button>
           ))}

@@ -13,17 +13,17 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Bookmark } from "@/types/firestore";
 import Link from "next/link";
+import { normalizeTournamentStatus } from "@/lib/tournamentStatus";
 
 type TabType = "tournament" | "recruitment";
 
 function getStatusColor(status?: string): string {
-  switch (status) {
+  switch (normalizeTournamentStatus(status)) {
     case "募集中":
       return "bg-green-100 text-green-700";
     case "エントリー締切":
       return "bg-amber-100 text-amber-800";
-    case "試合準備中":
-    case "試合準備":
+    case "大会準備中":
       return "bg-sky-100 text-sky-800";
     case "開催中":
       return "bg-blue-100 text-blue-700";
