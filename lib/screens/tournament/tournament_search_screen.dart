@@ -56,7 +56,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   late Stream<QuerySnapshot> _tournamentStream;
   late Stream<QuerySnapshot> _recruitmentStream;
 
-  /// 公式アカウントのみ「さがす」でエントリー締切後（締切〜試合準備前）の大会を一覧表示（閲覧用）
+  /// 公式アカウントは「さがす」で準備中・締切後・終了などステータス除外を行わず閲覧できる（開催中・決勝中・順位決定中は全ユーザー共通で非表示）
   bool _isOfficialAccount = false;
 
   @override
