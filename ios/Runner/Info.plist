@@ -80,6 +80,16 @@
 				<string>com.googleusercontent.apps.584952056517-fui47hdue4e297pv4b0shroifsvf0urt</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.sofvo.app.checkin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>sofvo</string>
+			</array>
+		</dict>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
 import '../../services/pdf_generator.dart';
+import '../../utils/tournament_checkin_link.dart';
 
 /// 大会のチェックイン受付画面（主催者・編集者向け）
 /// - **大会QR表示** … 会場に掲示。参加者は各自の端末でこのQRをスキャンしてチェックインする。
@@ -75,8 +76,8 @@ class _CheckInScreenState extends State<CheckInScreen>
 
   // ━━━ タブ1: 大会チェックイン用QR（掲示用・参加者がスキャン） ━━━
   Widget _buildParticipantScanTab() {
-    // /app は App Links / Universal Links でネイティブアプリにのみ紐づけ（ルートはWebのまま）
-    final checkInUrl = 'https://sofvo.com/app?checkin=${widget.tournamentId}';
+    final qrPayload = tournamentCheckInQrPayload(widget.tournamentId);
+    final httpsFallback = tournamentCheckInHttpsUrl(widget.tournamentId);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -84,7 +85,8 @@ class _CheckInScreenState extends State<CheckInScreen>
           const SizedBox(height: 8),
           Text(
             'このQRコードを会場に掲示してください。\n'
-            '参加者は各自のスマホのカメラまたはアプリ内の「大会QRをスキャン」で読み取り、チェックインできます。\n'
+            '純正カメラで読み取ると、ブラウザを開かずにSofvoアプリが起動してチェックインできます。\n'
+            'アプリ内の「大会QRをスキャン」や、旧掲示の https リンクのQRからもチェックインできます。\n'
             '主催者が手動で受付する場合は「手動受付」タブを使います。',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
@@ -99,10 +101,16 @@ class _CheckInScreenState extends State<CheckInScreen>
             ),
             child: Column(children: [
               QrImageView(
-                data: checkInUrl,
+                data: qrPayload,
                 version: QrVersions.auto,
                 size: 220,
                 backgroundColor: Colors.white,
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                httpsFallback,
+                style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               Text(widget.tournamentName,

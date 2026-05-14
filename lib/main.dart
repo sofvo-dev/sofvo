@@ -22,6 +22,7 @@ import 'screens/profile/profile_setup_screen.dart';
 import 'screens/home/main_tab_screen.dart';
 import 'screens/tournament/tournament_detail_screen.dart';
 import 'services/in_app_browser.dart';
+import 'utils/tournament_checkin_link.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -62,13 +63,9 @@ void main() async {
     final uri = Uri.base;
     pendingTournamentId = uri.queryParameters['t'];
     pendingReferrerUserId = uri.queryParameters['ref'];
-    final checkin = uri.queryParameters['checkin'];
-    if (checkin != null && checkin.isNotEmpty) {
-      final p = uri.path.isEmpty ? '/' : uri.path;
-      // ルート（従来QR）と /app（アプリリンク用）のみチェックイン扱い
-      if (p == '/' || p == '/app' || p.startsWith('/app/')) {
-        pendingCheckInTournamentId = checkin;
-      }
+    final checkinId = parseCheckInTournamentIdFromDeepLinkUri(uri);
+    if (checkinId != null && checkinId.isNotEmpty) {
+      pendingCheckInTournamentId = checkinId;
     }
     if (pendingTournamentId == null && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'tournament') {
       pendingTournamentId = uri.pathSegments[1];
@@ -170,7 +167,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
   }
 
-  /// App Links / Universal Links（https://sofvo.com/app?checkin=…）
+  /// App Links / Universal Links / カスタムスキーム（`sofvo://checkin/…` および https `…/app?checkin=…`）
   Future<void> _initAppLinks() async {
     try {
       final appLinks = AppLinks();
@@ -189,14 +186,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   void _applyCheckInDeepLink(Uri uri) {
     if (kIsWeb) return;
-    final host = uri.host.toLowerCase();
-    if (host != 'sofvo.com' && host != 'www.sofvo.com') return;
-    final checkin = uri.queryParameters['checkin'];
-    if (checkin == null || checkin.isEmpty) return;
-    final p = uri.path.isEmpty ? '/' : uri.path;
-    // /app?checkin=（掲示QR）に加え、/?checkin=（従来URL）でUniversal Linksから開いた場合も拾う
-    if (!(p == '/' || p == '/app' || p.startsWith('/app/'))) return;
-    pendingCheckInTournamentId = checkin;
+    final tid = parseCheckInTournamentIdFromDeepLinkUri(uri);
+    if (tid == null || tid.isEmpty) return;
+    pendingCheckInTournamentId = tid;
     if (!mounted) return;
     setState(() {});
   }
