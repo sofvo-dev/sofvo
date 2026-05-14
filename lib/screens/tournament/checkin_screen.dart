@@ -3,10 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../config/app_theme.dart';
 
-/// QRコード受付画面（大会主催者用）
-/// 2パターン:
-///   1. QRコード表示  - 大会QRを表示、キャプテンがスキャンしてチェックイン
-///   2. 手動受付      - チェックリストで手動チェック
+/// 大会のチェックイン受付画面（主催者・編集者向け）
+/// - **大会QR表示** … 会場に掲示。参加者は各自の端末でこのQRをスキャンしてチェックインする。
+/// - **手動受付** … 主催者がリストから到着をオン／オフする（QRは読まない）。
 class CheckInScreen extends StatefulWidget {
   final String tournamentId;
   final String tournamentName;
@@ -45,14 +44,14 @@ class _CheckInScreenState extends State<CheckInScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('受付管理', style: TextStyle(fontSize: 16)),
+        title: const Text('受付・チェックイン', style: TextStyle(fontSize: 16)),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           indicatorColor: AppTheme.accentColor,
           tabs: const [
-            Tab(text: 'QRコード表示'),
+            Tab(text: '大会QR'),
             Tab(text: '手動受付'),
           ],
         ),
@@ -67,7 +66,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  // ━━━ タブ1: QRコード表示（キャプテンがスキャン） ━━━
+  // ━━━ タブ1: 大会チェックイン用QR（掲示用・参加者がスキャン） ━━━
   Widget _buildParticipantScanTab() {
     // /app は App Links / Universal Links でネイティブアプリにのみ紐づけ（ルートはWebのまま）
     final checkInUrl = 'https://sofvo.com/app?checkin=${widget.tournamentId}';
@@ -77,8 +76,9 @@ class _CheckInScreenState extends State<CheckInScreen>
         children: [
           const SizedBox(height: 8),
           Text(
-            'このQRコードを受付に掲示してください\n'
-            'キャプテンはスマホのカメラで読み取り、インストール済みのSofvoアプリでチェックインできます',
+            'このQRコードを会場に掲示してください。\n'
+            '参加者は各自のスマホのカメラまたはアプリ内の「大会QRをスキャン」で読み取り、チェックインできます。\n'
+            '主催者が手動で受付する場合は「手動受付」タブを使います。',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),
