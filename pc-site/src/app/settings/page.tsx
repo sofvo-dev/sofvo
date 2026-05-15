@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { useRef, useState, useEffect } from "react";
+import { doc, updateDoc, deleteDoc, setDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 import {
   updatePassword,
   reauthenticateWithCredential,
@@ -26,6 +26,24 @@ const prefectures = [
 
 const experienceLevels = ["1年未満", "1〜3年", "3〜5年", "5〜10年", "10年以上"];
 
+const VALID_GENDERS = ["男性", "女性", "その他"] as const;
+
+function timestampToDateInput(ts: unknown): string {
+  if (
+    ts != null &&
+    typeof ts === "object" &&
+    "toDate" in ts &&
+    typeof (ts as { toDate: unknown }).toDate === "function"
+  ) {
+    const d = (ts as { toDate: () => Date }).toDate();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  return "";
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading, signOut } = useAuth();
@@ -41,6 +59,7 @@ export default function SettingsPage() {
     typeof profile?.area === "string" ? profile.area : ""
   );
   const [gender, setGender] = useState(profile?.gender ?? "");
+  const [birthDate, setBirthDate] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -56,6 +75,12 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
+
+  useEffect(() => {
+    if (profile?.birthDate && typeof profile.birthDate.toDate === "function") {
+      setBirthDate(timestampToDateInput(profile.birthDate));
+    }
+  }, [profile]);
 
   if (authLoading) {
     return (
@@ -157,6 +182,23 @@ export default function SettingsPage() {
     setProfileMessage("");
 
     try {
+      if (!gender.trim() || !VALID_GENDERS.includes(gender as (typeof VALID_GENDERS)[number])) {
+        setProfileError("性別を選択してください");
+        setProfileSaving(false);
+        return;
+      }
+      if (!birthDate.trim()) {
+        setProfileError("生年月日を入力してください");
+        setProfileSaving(false);
+        return;
+      }
+      const bdParsed = new Date(`${birthDate}T12:00:00`);
+      if (Number.isNaN(bdParsed.getTime()) || bdParsed > new Date()) {
+        setProfileError("生年月日を正しく入力してください");
+        setProfileSaving(false);
+        return;
+      }
+
       await updateDoc(doc(db, "users", user.uid), {
         nickname,
         bio,
@@ -164,6 +206,15 @@ export default function SettingsPage() {
         area,
         gender,
       });
+      await setDoc(
+        doc(db, "users", user.uid, "private", "info"),
+        {
+          gender,
+          birthDate: Timestamp.fromDate(bdParsed),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       setProfileMessage("プロフィールを更新しました");
     } catch {
       setProfileError("プロフィールの更新に失敗しました");
@@ -318,18 +369,30 @@ export default function SettingsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">性別</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">性別 <span className="text-error">*</span></label>
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white"
               >
-                <option value="">選択</option>
+                <option value="">選択してください</option>
                 <option value="男性">男性</option>
                 <option value="女性">女性</option>
                 <option value="その他">その他</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              生年月日 <span className="text-error">*</span>
+            </label>
+            <input
+              type="date"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+            />
           </div>
           <div className="pt-2">
             <button

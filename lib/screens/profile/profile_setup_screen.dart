@@ -26,11 +26,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   String _selectedPrefecture = '';
   String _selectedExperience = '1年未満';
-  String _selectedGender = '未設定';
+  String _selectedGender = '';
   DateTime? _birthDate;
   bool _isLoading = false;
 
-  final List<String> _genders = ['男性', '女性', 'その他', '未設定'];
+  static const List<String> _genderChoices = ['男性', '女性', 'その他'];
 
   final List<String> _prefectures = [
     '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
@@ -104,6 +104,24 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       );
       return;
     }
+    if (_selectedGender.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('性別を選択してください'),
+          backgroundColor: AppTheme.warning,
+        ),
+      );
+      return;
+    }
+    if (_birthDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('生年月日を選択してください'),
+          backgroundColor: AppTheme.warning,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -171,7 +189,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await userRef.collection('private').doc('info').set({
         'email': user.email,
         'gender': _selectedGender,
-        'birthDate': _birthDate != null ? Timestamp.fromDate(_birthDate!) : null,
+        'birthDate': Timestamp.fromDate(_birthDate!),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -476,7 +494,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                 // ── 性別 ──
                 const Text(
-                  '性別',
+                  '性別 *',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -487,7 +505,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _genders.map((g) {
+                  children: _genderChoices.map((g) {
                     final selected = _selectedGender == g;
                     return ChoiceChip(
                       label: Text(g),
@@ -512,7 +530,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                 // ── 生年月日 ──
                 const Text(
-                  '生年月日',
+                  '生年月日 *',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -549,7 +567,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         Text(
                           _birthDate != null
                               ? '${_birthDate!.year}年${_birthDate!.month}月${_birthDate!.day}日'
-                              : '生年月日を選択（任意）',
+                              : '生年月日を選択',
                           style: TextStyle(
                             fontSize: 15,
                             color: _birthDate != null ? AppTheme.textPrimary : AppTheme.textHint,

@@ -11,7 +11,7 @@ import {
   signInWithPopup,
   User,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, type Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 export interface UserProfile {
@@ -24,6 +24,7 @@ export interface UserProfile {
   experience?: string;
   area?: string;
   gender?: string;
+  birthDate?: Timestamp;
   totalPoints?: number;
   seasonPoints?: number;
   followersCount?: number;
@@ -60,7 +61,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         const snap = await getDoc(doc(db, "users", firebaseUser.uid));
         if (snap.exists()) {
-          setProfile({ uid: firebaseUser.uid, ...snap.data() } as UserProfile);
+          const priv = await getDoc(doc(db, "users", firebaseUser.uid, "private", "info"));
+          const base = snap.data();
+          const merged: Record<string, unknown> = { ...base };
+          if (priv.exists()) {
+            const p = priv.data();
+            if (typeof p.gender === "string" && p.gender.trim()) merged.gender = p.gender;
+            if (p.birthDate) merged.birthDate = p.birthDate;
+          }
+          setProfile({ uid: firebaseUser.uid, ...merged } as UserProfile);
         }
       } else {
         setProfile(null);

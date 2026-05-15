@@ -1958,7 +1958,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late TextEditingController _websiteCtrl;
   String _selectedExperience = '1年未満';
   String _selectedArea = '東京都';
-  String _selectedGender = '未設定';
+  String _selectedGender = '';
   DateTime? _birthDate;
   bool _isIdLocked = false;
   bool _isSaving = false;
@@ -1968,7 +1968,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _picker = ImagePicker();
 
   final _experiences = ['1年未満', '1〜3年', '3〜5年', '5〜10年', '10年以上'];
-  final _genders = ['男性', '女性', 'その他', '未設定'];
+  final _genderChoices = ['男性', '女性', 'その他'];
   final _areas = [
     '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
     '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
@@ -2008,7 +2008,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
     // 性別・生年月日: まずメインドキュメントのフォールバック値を使用
     final rawGender = _str(d['gender']);
-    _selectedGender = _genders.contains(rawGender) ? rawGender : '未設定';
+    _selectedGender = _genderChoices.contains(rawGender) ? rawGender : '';
     if (d['birthDate'] is Timestamp) {
       _birthDate = (d['birthDate'] as Timestamp).toDate();
     } else if (d['birthDate'] is String && (d['birthDate'] as String).isNotEmpty) {
@@ -2044,7 +2044,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         final pd = privateDoc.data()!;
         setState(() {
           final g = pd['gender'] is String ? pd['gender'] as String : '';
-          if (_genders.contains(g)) _selectedGender = g;
+          if (_genderChoices.contains(g)) _selectedGender = g;
           if (pd['birthDate'] is Timestamp) {
             _birthDate = (pd['birthDate'] as Timestamp).toDate();
           }
@@ -2298,12 +2298,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ),
             const SizedBox(height: 16),
 
-            _buildSectionLabel('性別'),
+            _buildSectionLabel('性別 *'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _genders.map((g) {
+              children: _genderChoices.map((g) {
                 final sel = _selectedGender == g;
                 return ChoiceChip(
                   label: Text(g),
@@ -2351,7 +2351,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ],
 
           if (widget.userData['isOfficial'] != true) ...[
-            _buildSectionLabel('生年月日'),
+            _buildSectionLabel('生年月日 *'),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: _pickBirthDate,
@@ -2470,6 +2470,20 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       return;
     }
 
+    final isOfficial = widget.userData['isOfficial'] == true;
+    if (!isOfficial) {
+      if (_selectedGender.isEmpty || !_genderChoices.contains(_selectedGender)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('性別を選択してください'), backgroundColor: AppTheme.warning));
+        return;
+      }
+      if (_birthDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('生年月日を選択してください'), backgroundColor: AppTheme.warning));
+        return;
+      }
+    }
+
     // ユーザーID重複チェック（新規設定時のみ）
     final newId = _idCtrl.text.trim();
     if (!_isIdLocked && newId.isNotEmpty) {
@@ -2520,18 +2534,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
         await userRef.update(updateData);
 
-        // 個人情報はprivateサブコレクションに保存
-        final privateData = <String, dynamic>{
-          'gender': _selectedGender,
-          'updatedAt': FieldValue.serverTimestamp(),
-        };
-        if (_birthDate != null) {
-          privateData['birthDate'] = Timestamp.fromDate(_birthDate!);
+        if (!isOfficial) {
+          final privateData = <String, dynamic>{
+            'gender': _selectedGender,
+            'birthDate': Timestamp.fromDate(_birthDate!),
+            'updatedAt': FieldValue.serverTimestamp(),
+          };
+          await userRef.collection('private').doc('info').set(
+                privateData,
+                SetOptions(merge: true),
+              );
         }
-        await userRef.collection('private').doc('info').set(
-          privateData,
-          SetOptions(merge: true),
-        );
 
         // フォロワー・フォロー先のサブコレクションに保存された名前・アバターを同期
         final newNickname = _nicknameCtrl.text.trim();
