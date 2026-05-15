@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../config/app_theme.dart';
+import '../../utils/tournament_status.dart';
 
 /// エントリー締切日（`yyyy/M/d`）がローカル暦で「今日より前」なら true（当日はまだ募集中扱い）
 bool _tournamentDeadlineDatePassed(String deadline) {
@@ -123,7 +124,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final title = data['title'] ?? '無名大会';
     final date = data['date'] ?? '';
     final location = data['location'] ?? '';
-    final status = data['status'] ?? '準備中';
+    final status = normalizeTournamentStatus(data['status'] ?? '準備中');
     final rawFee = data['entryFee'];
     final entryFee = rawFee is int ? '¥$rawFee' : (rawFee ?? '¥0').toString();
     final currentTeams = data['currentTeams'] ?? 0;
@@ -322,7 +323,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           ));
           if (result == 'save') {
             try {
-              final currentStatus = (data['status'] ?? '') as String;
+              final currentStatus = normalizeTournamentStatus(data['status'] ?? '', emptyAsPreparing: false);
               final updateMap = <String, dynamic>{
                 'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                 'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,
@@ -466,7 +467,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     ? () async {
                         setPageState(() => saving = true);
                         try {
-                          final currentStatus = (data['status'] ?? '') as String;
+                          final currentStatus = normalizeTournamentStatus(data['status'] ?? '', emptyAsPreparing: false);
                           final updateMap = <String, dynamic>{
                             'title': titleCtrl.text.trim(), 'date': selectedDate, 'location': locationCtrl.text.trim(),
                             'courts': int.tryParse(courtsCtrl.text) ?? 2, 'maxTeams': int.tryParse(maxTeamsCtrl.text) ?? 8,

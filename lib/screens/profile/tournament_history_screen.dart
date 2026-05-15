@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../utils/tournament_status.dart';
 import '../tournament/tournament_detail_screen.dart';
 
 /// 参加大会履歴画面
@@ -135,7 +136,7 @@ class TournamentHistoryScreen extends StatelessWidget {
     final title = (t['title'] ?? t['name'] ?? '大会') as String;
     final date = (t['date'] ?? '') as String;
     final location = (t['location'] ?? t['venue'] ?? '') as String;
-    final status = (t['status'] ?? '') as String;
+    final status = normalizeTournamentStatus(t['status'] ?? '', emptyAsPreparing: false);
     final role = (t['role'] ?? '') as String;
     final type = (t['type'] ?? '') as String;
 

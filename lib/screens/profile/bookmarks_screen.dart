@@ -102,7 +102,7 @@ class _BookmarkList extends StatelessWidget {
     final title = (data['title'] ?? data['tournamentName'] ?? '---') as String;
     final date = (data['date'] ?? data['tournamentDate'] ?? '') as String;
     final location = (data['location'] ?? '') as String;
-    final status = (data['status'] ?? '') as String;
+    final status = normalizeTournamentStatus(data['status'] ?? '', emptyAsPreparing: false);
     final alerts = data['alerts'] is List ? List<String>.from(data['alerts']) : <String>[];
     final targetId = (data['targetId'] ?? '') as String;
 

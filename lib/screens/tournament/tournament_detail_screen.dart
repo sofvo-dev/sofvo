@@ -324,7 +324,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final liveData = (statusSnap.hasData && statusSnap.data!.exists)
             ? statusSnap.data!.data() as Map<String, dynamic>? ?? {}
             : <String, dynamic>{};
-        final status = (liveData['status'] ?? t['status'] ?? '準備中') as String;
+        final status = normalizeTournamentStatus(liveData['status'] ?? t['status'] ?? '準備中');
         Color statusColor;
         switch (status) {
           case '募集中': statusColor = AppTheme.success; break;
@@ -1043,7 +1043,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final tournData = tournSnap.data!.data() as Map<String, dynamic>? ?? {};
         final tournEditors = List<String>.from(tournData['editors'] ?? []);
         final isOrganizer = tournData['organizerId'] == uid || tournEditors.contains(uid) || _isAdmin;
-        final status = tournData['status'] ?? '準備中';
+        final status = normalizeTournamentStatus(tournData['status'] ?? '準備中');
 
         return StreamBuilder<QuerySnapshot>(
           stream: _firestore.collection('tournaments').doc(_tournamentId).collection('rounds').snapshots(),
@@ -1406,7 +1406,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               }).toList()),
               const SizedBox(height: 24),
               Builder(builder: (_) {
-                final status = data['status'] ?? '準備中';
+                final status = normalizeTournamentStatus(data['status'] ?? '準備中');
                 final isLocked = status == '開催中' || status == '決勝中' || status == '順位決定中' || status.contains('完了');
                 return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   SizedBox(width: double.infinity, child: OutlinedButton.icon(
@@ -5956,7 +5956,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   // ━━━ 下部ボタン ━━━
 
   Widget _buildOrganizerOnlyBottom(Map<String, dynamic> t) {
-    final status = t['status'] as String? ?? '';
+    final status = normalizeTournamentStatus(t['status'] ?? '', emptyAsPreparing: false);
     final isRecruiting = status == '募集中' || status == '満員';
     final notEntered = _myEntryTeamId.isEmpty;
 
@@ -6312,7 +6312,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       builder: (context, snap) {
         final live = (snap.hasData && snap.data!.exists) ? snap.data!.data() as Map<String, dynamic>? ?? {} : <String, dynamic>{};
         final t = live.isNotEmpty ? live : widget.tournament;
-        final status = t['status'] as String? ?? '準備中';
+        final status = normalizeTournamentStatus(t['status'] ?? '準備中');
         final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
         final editors = List<String>.from(t['editors'] ?? []);
         final isOrganizer = t['organizerId'] == uid || editors.contains(uid) || _isAdmin;
@@ -8247,7 +8247,7 @@ class _OrganizerMenuScreen extends StatelessWidget {
     final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
     final prelimRounds = preliminary['rounds'] ?? 1;
     final finalEnabled = (rules['final'] as Map<String, dynamic>?)?['enabled'] ?? true;
-    final status = tournData['status'] ?? '準備中';
+    final status = normalizeTournamentStatus(tournData['status'] ?? '準備中');
     final isRunning = status == '開催中' || status == '決勝中' || status == '順位決定中';
 
     return Scaffold(
@@ -8956,7 +8956,7 @@ class _StatusChangeScreenState extends State<_StatusChangeScreen> {
   @override
   void initState() {
     super.initState();
-    _selected = widget.currentStatus;
+    _selected = normalizeTournamentStatus(widget.currentStatus);
   }
 
   @override

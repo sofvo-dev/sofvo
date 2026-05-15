@@ -12,6 +12,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../widgets/official_badge.dart';
 import '../../config/app_theme.dart';
+import '../../utils/tournament_status.dart';
 import '../../services/follow_service.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -1267,7 +1268,7 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
               final title = (d['title'] ?? d['name'] ?? '大会') as String;
               final date = (d['date'] ?? '') as String;
               final location = (d['location'] ?? d['venue'] ?? '') as String;
-              final status = (d['status'] ?? '') as String;
+              final status = normalizeTournamentStatus(d['status'] ?? '', emptyAsPreparing: false);
               final type = (d['type'] ?? '') as String;
               final docId = d['id'] as String;
 
@@ -1423,7 +1424,7 @@ class _HostedTournamentCardsRowState extends State<_HostedTournamentCardsRow> {
               final d = tournaments[index];
               final title = (d['title'] ?? d['name'] ?? '大会') as String;
               final date = (d['date'] ?? '') as String;
-              final status = (d['status'] ?? '') as String;
+              final status = normalizeTournamentStatus(d['status'] ?? '', emptyAsPreparing: false);
               final docId = d['id'] as String;
 
               Color statusColor;
