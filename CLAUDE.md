@@ -20,7 +20,7 @@
   2. **`ios/fastlane/Fastfile`** の `release_notes` を最新の変更内容に書き換え
   3. **`ios/fastlane/metadata/ja/`** の説明文・キーワード等も必要に応じて更新（fastlane が自動反映する）
   4. コミット＆プッシュ（mainにマージ）
-- ユーザーはMacで `cd ~/Desktop/sofvo/ios && fastlane release` を実行するだけで審査提出まで全自動
+- ユーザーはMacで **下記「iOS（fastlane・推奨手順）」** を実行して審査提出まで進める（環境を確実に整えるための前置き込み）
 - **次回審査時リマインド**: App Store Connectで年齢制限レーティングを16+ → 12+に変更する（アプリ情報 → 年齢制限レーティング → 編集 → 「無制限のWebアクセス」を「いいえ」に変更）
 
 ### 審査通過時の対応ルール
@@ -51,7 +51,23 @@
   - `privacy_url.txt` — プライバシーポリシーURL
 - `fastlane release` 実行時に `skip_metadata: false` で自動的にApp Store Connectに反映される
 - 説明文やキーワードを変更したい場合は、これらのファイルを編集してコミットするだけでOK
-- `fastlane release` 内で自動的に `git pull` されるのでMac側の手動pull不要
+- **`Fastfile` 内でも `git pull` / `flutter clean` / `pod install` 等が実行されるため、手順と一部重複するが問題ない**
+
+### iOS（fastlane）審査提出・推奨手順（Mac）
+アシスタントが iOS 提出を案内するときは **必ずこのブロックをそのまま提示する**。
+
+```bash
+cd ~/Desktop/sofvo
+git checkout main
+git pull origin main --rebase
+flutter clean
+flutter pub get
+cd ios
+rm -rf Pods Podfile.lock
+pod install --repo-update
+cd ..
+cd ios && fastlane release
+```
 
 ### ストア提出手順（審査必要な変更がある場合に案内）
 
@@ -63,13 +79,10 @@
 5. 「**Run workflow**」で実行
 - ビルド → Google Play 製品版アップロードまで全自動
 
-#### iOS（ローカルMacで1コマンド）
-```bash
-cd ~/Desktop/sofvo/ios
-fastlane release
-```
-- git pull → flutter clean → flutter pub get → pod install → ビルド → App Store Connect アップロード → 審査提出まで全自動
-- 未コミットの変更がある場合は先に `git stash` してから実行、完了後 `git stash pop`
+#### iOS（fastlane・推奨手順）
+**案内は「iOS（fastlane）審査提出・推奨手順（Mac）」セクションのコマンドブロックをそのまま使うこと。**
+
+- 未コミットの変更がある場合は先に `git stash`（未追跡も含めるなら `git stash push -u -m wip`）してから実行し、完了後 `git stash pop`
 - **App用パスワード（App-Specific Password）が必要**: `~/.zshrc` に以下を設定済み
   ```bash
   export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="wilr-bfjb-mhlo-aulp"
@@ -365,7 +378,7 @@ firebase deploy --only hosting    # Hosting のデプロイ
 
 ### Macローカル環境
 - **fastlaneインストール済み**（Ruby 4.0.2 + fastlane 2.232.2）
-- iOS提出: `cd ~/Desktop/sofvo/ios && fastlane release`（全自動）
+- iOS提出: **「iOS（fastlane）審査提出・推奨手順（Mac）」** のコマンド列を参照（ルートで `flutter clean` → `pub get` → `pod install` → `fastlane release`）
 
 ## 審査メール自動通知（2026/04/15 稼働開始）
 
