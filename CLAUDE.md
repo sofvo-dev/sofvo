@@ -54,26 +54,25 @@
 - **`Fastfile` 内でも `git pull` / `flutter clean` / `pod install` 等が実行されるため、手順と一部重複するが問題ない**
 
 ### iOS（fastlane）審査提出・推奨手順（Mac）
-アシスタントが iOS 提出を案内するときは **必ずこのブロックをそのまま提示する**。
+アシスタントが iOS 提出を案内するときは **必ずこのブロックをそのまま提示する**（**1本で完結**）。
 
 ```bash
 cd ~/Desktop/sofvo
-./scripts/pre-app-store-disk-cleanup.sh
-git checkout main
-git pull origin main --rebase
-flutter clean
-flutter pub get
-cd ios
-rm -rf Pods Podfile.lock
-pod install --repo-update
-cd ..
-cd ios && fastlane release
+./scripts/app-store-release.sh
 ```
 
+中身: ① Xcode の古い Archive / DerivedData 削除 → ② `main` を `git pull` → ③ `fastlane release`（`flutter clean`・`pod install`・IPA ビルド・App Store 審査提出まで）
+
 #### 審査提出前ディスク整理（取り入れ済み）
-- **スクリプト**: `./scripts/pre-app-store-disk-cleanup.sh`（**Xcode Archives** と **DerivedData** の中身を削除。提出済みビルドのコピーなので消して問題ない。次の `fastlane release` で再生成）
-- **手動でさらに空けたいときだけ**: `~/Library/Developer/Xcode/iOS DeviceSupport/` の古い iOS バージョン、Xcode → Settings → Platforms の未使用ランタイム（実機デバッグ中の iOS バージョンは残す）
-- **プロジェクト内のみ**: `./scripts/clean-xcode-disk.sh`（`build/`・`ios/Pods` 等。`flutter clean` と重複するが害はない）
+- **まとめて実行**: `./scripts/app-store-release.sh`（上記。通常はこれだけでよい）
+- **整理だけしたいとき**: `./scripts/pre-app-store-disk-cleanup.sh`（Archives + DerivedData のみ）
+- **手動でさらに空けたいときだけ**: `~/Library/Developer/Xcode/iOS DeviceSupport/` の古い iOS バージョン、Xcode → Settings → Platforms の未使用ランタイム
+- **細かく手動でやる場合**（`fastlane` 単体と重複するが可）:
+  ```bash
+  cd ~/Desktop/sofvo && git checkout main && git pull origin main --rebase
+  flutter clean && flutter pub get
+  cd ios && rm -rf Pods Podfile.lock && pod install --repo-update && fastlane release
+  ```
 
 ### ストア提出手順（審査必要な変更がある場合に案内）
 
@@ -386,7 +385,7 @@ firebase deploy --only hosting    # Hosting のデプロイ
 
 ### Macローカル環境
 - **fastlaneインストール済み**（Ruby 4.0.2 + fastlane 2.232.2）
-- iOS提出: **「iOS（fastlane）審査提出・推奨手順（Mac）」** のコマンド列を参照（ルートで `flutter clean` → `pub get` → `pod install` → `fastlane release`）
+- iOS提出: **`./scripts/app-store-release.sh`** 1本（「iOS（fastlane）審査提出・推奨手順（Mac）」参照）
 
 ## 審査メール自動通知（2026/04/15 稼働開始）
 
