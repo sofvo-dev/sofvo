@@ -20,7 +20,7 @@
   2. **`ios/fastlane/Fastfile`** の `release_notes` を最新の変更内容に書き換え
   3. **`ios/fastlane/metadata/ja/`** の説明文・キーワード等も必要に応じて更新（fastlane が自動反映する）
   4. コミット＆プッシュ（mainにマージ）
-- ユーザーはMacで **下記「iOS（fastlane・推奨手順）」** を実行して審査提出まで進める（環境を確実に整えるための前置き込み）
+- ユーザーはMacで **下記「iOS（fastlane・推奨手順）」** を実行して審査提出まで進める（**先頭のディスク整理**で Xcode の古い Archive 等を削除してからビルド）
 - **次回審査時リマインド**: App Store Connectで年齢制限レーティングを16+ → 12+に変更する（アプリ情報 → 年齢制限レーティング → 編集 → 「無制限のWebアクセス」を「いいえ」に変更）
 
 ### 審査通過時の対応ルール
@@ -58,6 +58,7 @@
 
 ```bash
 cd ~/Desktop/sofvo
+./scripts/pre-app-store-disk-cleanup.sh
 git checkout main
 git pull origin main --rebase
 flutter clean
@@ -68,6 +69,11 @@ pod install --repo-update
 cd ..
 cd ios && fastlane release
 ```
+
+#### 審査提出前ディスク整理（取り入れ済み）
+- **スクリプト**: `./scripts/pre-app-store-disk-cleanup.sh`（**Xcode Archives** と **DerivedData** の中身を削除。提出済みビルドのコピーなので消して問題ない。次の `fastlane release` で再生成）
+- **手動でさらに空けたいときだけ**: `~/Library/Developer/Xcode/iOS DeviceSupport/` の古い iOS バージョン、Xcode → Settings → Platforms の未使用ランタイム（実機デバッグ中の iOS バージョンは残す）
+- **プロジェクト内のみ**: `./scripts/clean-xcode-disk.sh`（`build/`・`ios/Pods` 等。`flutter clean` と重複するが害はない）
 
 ### ストア提出手順（審査必要な変更がある場合に案内）
 
@@ -305,10 +311,11 @@ rm -rf ~/Library/Developer/Xcode/DerivedData
 ```
 
 #### Xcode のディスク容量を減らす
+- **審査提出前（推奨・1コマンド）**: `./scripts/pre-app-store-disk-cleanup.sh`（Archives + DerivedData。上記 fastlane 手順の先頭と同じ）
 - **プロジェクト内**: リポジトリ直下で `./scripts/clean-xcode-disk.sh`（`flutter clean` と `build/`・`ios/Pods` 等の削除。次回 `cd ios && pod install --repo-update` が必要）
-- **DerivedData 全削除**（効果大・次回ビルドは遅くなる）: `./scripts/clean-xcode-disk.sh --derived`
+- **DerivedData 全削除**（対話確認付き）: `./scripts/clean-xcode-disk.sh --derived`
 - **古いシミュレータ**: `./scripts/clean-xcode-disk.sh --simulators` または `xcrun simctl delete unavailable`
-- **手動**: Xcode → **Window → Organizer** で古い **Archive** を削除。`~/Library/Developer/Xcode/iOS DeviceSupport/` から不要な iOS バージョンを削除。`~/Library/Caches/org.swift.swiftpm/` や `~/Library/Caches/CocoaPods/` も大きくなりがち
+- **手動（任意）**: Xcode → **Window → Organizer** で Archive 削除、`iOS DeviceSupport` の古いバージョン削除、SwiftPM / CocoaPods キャッシュ
 
 #### 「Module 'xxx' not found」
 `pod install` が未実行。Step 3を実行する。
