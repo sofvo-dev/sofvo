@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { useState, useEffect } from "react";
+import { doc, updateDoc, setDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
@@ -50,6 +50,24 @@ const prefectures = [
 
 const experienceLevels = ["1年未満", "1〜3年", "3〜5年", "5〜10年", "10年以上"];
 
+const VALID_GENDERS = ["男性", "女性", "その他"] as const;
+
+function timestampToDateInput(ts: unknown): string {
+  if (
+    ts != null &&
+    typeof ts === "object" &&
+    "toDate" in ts &&
+    typeof (ts as { toDate: unknown }).toDate === "function"
+  ) {
+    const d = (ts as { toDate: () => Date }).toDate();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  return "";
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
@@ -58,11 +76,18 @@ export default function OnboardingPage() {
   const [area, setArea] = useState(typeof profile?.area === "string" ? profile.area : "");
   const [experience, setExperience] = useState(profile?.experience ?? "");
   const [gender, setGender] = useState(profile?.gender ?? "");
+  const [birthDate, setBirthDate] = useState("");
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const totalSteps = slides.length + 1;
+
+  useEffect(() => {
+    if (profile?.birthDate && typeof profile.birthDate.toDate === "function") {
+      setBirthDate(timestampToDateInput(profile.birthDate));
+    }
+  }, [profile]);
 
   const finish = async () => {
     if (!user) {
@@ -71,6 +96,23 @@ export default function OnboardingPage() {
     }
     if (!nickname.trim()) {
       setError("ニックネームを入力してください");
+      return;
+    }
+    if (!area.trim()) {
+      setError("活動エリアを選択してください");
+      return;
+    }
+    if (!VALID_GENDERS.includes(gender as (typeof VALID_GENDERS)[number])) {
+      setError("性別を選択してください");
+      return;
+    }
+    if (!birthDate.trim()) {
+      setError("生年月日を選択してください");
+      return;
+    }
+    const bdParsed = new Date(`${birthDate}T12:00:00`);
+    if (Number.isNaN(bdParsed.getTime()) || bdParsed > new Date()) {
+      setError("生年月日を正しく選択してください");
       return;
     }
     setSaving(true);
@@ -84,6 +126,16 @@ export default function OnboardingPage() {
         bio: bio.trim(),
         profileCompleted: true,
       });
+      await setDoc(
+        doc(db, "users", user.uid, "private", "info"),
+        {
+          email: user.email ?? "",
+          gender,
+          birthDate: Timestamp.fromDate(bdParsed),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       router.push("/");
     } catch {
       setError("プロフィールの保存に失敗しました");
@@ -188,8 +240,10 @@ export default function OnboardingPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">エリア</label>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  エリア <span className="text-error">*</span>
+                </label>
                   <select
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
@@ -217,9 +271,11 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">性別</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  性別 <span className="text-error">*</span>
+                </label>
                 <div className="flex gap-2">
-                  {["男性", "女性", "その他"].map((g) => (
+                  {VALID_GENDERS.map((g) => (
                     <button
                       key={g}
                       type="button"
@@ -234,6 +290,19 @@ export default function OnboardingPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  生年月日 <span className="text-error">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                />
               </div>
             </div>
 
