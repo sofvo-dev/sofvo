@@ -4412,12 +4412,26 @@ exports.syncStoreVersionsNow = functions.https.onRequest(async (req, res) => {
         updates.latestVersion = updates.latestVersionAndroid;
       }
       await admin.firestore().collection("config").doc("app").set(updates, { merge: true });
-      res.json({ success: true, mode: "manual", updates });
+      // FieldValue.serverTimestamp() は JSON 化すると {} になるため、レスポンスには ISO 日時を載せる
+      const { lastSyncedAt: _ts, ...written } = updates;
+      res.json({
+        success: true,
+        mode: "manual",
+        ...written,
+        syncedAt: new Date().toISOString(),
+      });
       return;
     }
 
     const result = await doSyncStoreVersions();
-    res.json({ success: true, ...result });
+    const { lastSyncedAt: _ts, ...written } = result.updates || {};
+    res.json({
+      success: true,
+      mode: "auto",
+      ...written,
+      errors: result.errors,
+      syncedAt: new Date().toISOString(),
+    });
   } catch (e) {
     console.error("syncStoreVersionsNow error:", e);
     res.status(500).json({ error: e.message });
