@@ -16,12 +16,18 @@ service cloud.firestore {
       return !exists(/databases/$(database)/documents/users/$(targetUserId)/blockedUsers/$(request.auth.uid));
     }
 
-    // 大会ドキュメントを ID で参照し、主催者・編集者・管理者かどうか（サブコレクションルール用）
+    function isOfficialUser() {
+      return isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isOfficial == true;
+    }
+
+    // 大会ドキュメントを ID で参照し、主催者・編集者・管理者・公式かどうか（サブコレクションルール用）
     function canManageTournamentById(tournamentId) {
       let t = get(/databases/$(database)/documents/tournaments/$(tournamentId)).data;
       return request.auth.uid == t.organizerId
         || (t.keys().hasAny(['editors']) && request.auth.uid in t.editors)
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+        || isOfficialUser();
     }
 
     // ━━━ ユーザー ━━━
@@ -122,6 +128,7 @@ service cloud.firestore {
         resource.data.organizerId == request.auth.uid
         || (resource.data.keys().hasAny(['editors']) && request.auth.uid in resource.data.editors)
         || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+        || isOfficialUser()
       );
 
       // エントリー
@@ -254,7 +261,19 @@ service cloud.firestore {
     match /recruitments/{recruitId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid
+        || isOfficialUser()
+      );
+
+      match /applicants/{applicantId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && (
+          get(/databases/$(database)/documents/recruitments/$(recruitId)).data.userId == request.auth.uid
+          || isOfficialUser()
+        );
+      }
     }
 
     // ━━━ 景品 ━━━

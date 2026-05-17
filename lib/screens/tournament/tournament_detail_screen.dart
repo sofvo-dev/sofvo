@@ -11,6 +11,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
 import '../../utils/tournament_status.dart';
+import '../../utils/official_permissions.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'score_input_screen.dart';
@@ -88,6 +89,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   XFile? _selectedBoardImage;
   String _myEntryTeamId = "";
   bool _isAdmin = false;
+
+  bool _canManageTournament(Map<String, dynamic> t) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return canManageTournament(
+      uid: uid,
+      tournament: t,
+      isAdmin: _isAdmin,
+      viewerIsOfficial: _viewerIsOfficial == true,
+    );
+  }
   bool _showOnlyMyCourts = true;
   Set<String> _myCourtIds = {};
   final Map<int, String?> _selectedCourtFilter = {}; // roundNum -> (null=全て, 'MY'=自分のコート, courtId=特定コート) default: MY
@@ -1042,7 +1053,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         if (!tournSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         final tournData = tournSnap.data!.data() as Map<String, dynamic>? ?? {};
         final tournEditors = List<String>.from(tournData['editors'] ?? []);
-        final isOrganizer = tournData['organizerId'] == uid || tournEditors.contains(uid) || _isAdmin;
+        final isOrganizer = _canManageTournament(tournData);
         final status = normalizeTournamentStatus(tournData['status'] ?? '準備中');
 
         return StreamBuilder<QuerySnapshot>(
@@ -4758,7 +4769,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ),
           ),
         // 主催者向け: お知らせ送信ボタン
-        if (!_isBoardTeam && (widget.tournament['organizerId'] == FirebaseAuth.instance.currentUser?.uid || _isAdmin))
+        if (!_isBoardTeam && _canManageTournament(widget.tournament))
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -4806,7 +4817,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   return aPin.compareTo(bPin);
                 });
               }
-              final isCurrentUserOrganizer = widget.tournament['organizerId'] == uid || _isAdmin;
+              final isCurrentUserOrganizer = _canManageTournament(widget.tournament);
 
               if (posts.isEmpty) {
                 return Center(child: Column(
@@ -5009,7 +5020,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       } else {
         final tournamentDoc = await _firestore.collection('tournaments').doc(_tournamentId).get();
         final tournamentData = tournamentDoc.data() ?? {};
-        final isOrganizer = tournamentData['organizerId'] == uid || _isAdmin;
+        final isOrganizer = _canManageTournament(tournamentData);
 
         postData.addAll({'isOrganizer': isOrganizer, 'pinned': false, 'likesCount': 0});
         await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add(postData);
@@ -5075,7 +5086,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       } else {
         final tournamentDoc = await _firestore.collection('tournaments').doc(_tournamentId).get();
         final tournamentData = tournamentDoc.data() ?? {};
-        final isOrganizer = tournamentData['organizerId'] == uid || _isAdmin;
+        final isOrganizer = _canManageTournament(tournamentData);
 
         await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add({
           'authorId': uid, 'authorName': nickname, 'authorAvatar': avatar,
@@ -6314,8 +6325,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         final t = live.isNotEmpty ? live : widget.tournament;
         final status = normalizeTournamentStatus(t['status'] ?? '準備中');
         final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-        final editors = List<String>.from(t['editors'] ?? []);
-        final isOrganizer = t['organizerId'] == uid || editors.contains(uid) || _isAdmin;
+        final isOrganizer = _canManageTournament(t);
 
         // 主催者の場合
         if (isOrganizer) {

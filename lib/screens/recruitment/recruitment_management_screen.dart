@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../utils/official_permissions.dart';
+import 'recruitment_edit_sheet.dart';
 
 class RecruitmentManagementScreen extends StatefulWidget {
   const RecruitmentManagementScreen({super.key});
@@ -14,6 +16,47 @@ class RecruitmentManagementScreen extends StatefulWidget {
 class _RecruitmentManagementScreenState
     extends State<RecruitmentManagementScreen> {
   final _currentUser = FirebaseAuth.instance.currentUser;
+  bool _viewerIsOfficial = false;
+  bool _officialLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOfficialFlag();
+  }
+
+  Future<void> _loadOfficialFlag() async {
+    final uid = _currentUser?.uid;
+    if (uid == null) {
+      if (mounted) setState(() => _officialLoaded = true);
+      return;
+    }
+    try {
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (mounted) {
+        setState(() {
+          _viewerIsOfficial = doc.data()?['isOfficial'] == true;
+          _officialLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _officialLoaded = true);
+    }
+  }
+
+  Query<Map<String, dynamic>> _recruitmentsQuery(String uid) {
+    if (_viewerIsOfficial) {
+      return FirebaseFirestore.instance
+          .collection('recruitments')
+          .orderBy('createdAt', descending: true)
+          .limit(100);
+    }
+    return FirebaseFirestore.instance
+        .collection('recruitments')
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,17 +69,22 @@ class _RecruitmentManagementScreenState
       );
     }
 
+    if (!_officialLoaded) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(title: const Text('メンバー募集管理')),
+        body: const Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('メンバー募集管理'),
+        title: Text(_viewerIsOfficial ? 'メンバー募集管理（全体）' : 'メンバー募集管理'),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('recruitments')
-            .where('userId', isEqualTo: uid)
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
+        stream: _recruitmentsQuery(uid).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return _buildEmptyState();
@@ -180,17 +228,32 @@ class _RecruitmentManagementScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text((r['title'] as String?) ?? '',
+                        Text(
+                            ((r['title'] as String?)?.isNotEmpty == true
+                                    ? r['title']
+                                    : r['tournamentName']) as String? ??
+                                '',
                             style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.textPrimary),
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 4),
-                        Text((r['tournament'] as String?) ?? '',
+                        Text(
+                            (r['tournament'] as String?)?.isNotEmpty == true
+                                ? r['tournament'] as String
+                                : (r['tournamentName'] as String?) ?? '',
                             style: const TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textSecondary)),
+                        if (_viewerIsOfficial &&
+                            (r['userId'] as String?) != uid) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                              '投稿: ${(r['nickname'] as String?) ?? 'ユーザー'}',
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppTheme.textHint)),
+                        ],
                       ],
                     ),
                   ),
@@ -276,9 +339,19 @@ class _RecruitmentManagementScreenState
     );
   }
 
+  void _openEditRecruitment(String docId, Map<String, dynamic> data) {
+    Navigator.of(context)
+        .push<bool>(
+      MaterialPageRoute(
+        builder: (_) => RecruitmentEditSheet(docId: docId, initial: data),
+      ),
+    );
+  }
+
   void _showRecruitmentDetail(Map<String, dynamic> r) {
     final docId = r['docId'] as String?;
     if (docId == null) return;
+    final uid = _currentUser?.uid ?? '';
 
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: false,
@@ -288,6 +361,31 @@ class _RecruitmentManagementScreenState
           appBar: AppBar(
             title: const Text('募集詳細', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             centerTitle: true,
+            actions: [
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('recruitments')
+                    .doc(docId)
+                    .snapshots(),
+                builder: (context, snap) {
+                  final data =
+                      snap.data?.data() as Map<String, dynamic>? ?? r;
+                  final ownerId = (data['userId'] as String?) ?? '';
+                  if (!canEditRecruitment(
+                    uid: uid,
+                    recruitmentUserId: ownerId,
+                    viewerIsOfficial: _viewerIsOfficial,
+                  )) {
+                    return const SizedBox.shrink();
+                  }
+                  return IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: '編集',
+                    onPressed: () => _openEditRecruitment(docId, data),
+                  );
+                },
+              ),
+            ],
           ),
           body: StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
@@ -300,13 +398,23 @@ class _RecruitmentManagementScreenState
               }
               final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
               final isActive = data['status'] == '募集中';
+              final ownerId = (data['userId'] as String?) ?? '';
+              final canManage = canEditRecruitment(
+                uid: uid,
+                recruitmentUserId: ownerId,
+                viewerIsOfficial: _viewerIsOfficial,
+              );
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text((data['title'] as String?) ?? '',
+                    Text(
+                        ((data['title'] as String?)?.isNotEmpty == true
+                                ? data['title']
+                                : data['tournamentName']) as String? ??
+                            'メンバー募集',
                           style: const TextStyle(
                               fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
@@ -314,16 +422,24 @@ class _RecruitmentManagementScreenState
                         _buildTag((data['status'] as String?) ?? '',
                             isActive ? AppTheme.success : AppTheme.textSecondary),
                       ]),
+                      if (_viewerIsOfficial && ownerId != uid) ...[
+                        const SizedBox(height: 8),
+                        _buildDetailRow(Icons.person_outline, '投稿者',
+                            (data['nickname'] as String?) ?? ownerId),
+                      ],
                       const SizedBox(height: 16),
                       _buildDetailRow(Icons.emoji_events, '大会',
-                          (data['tournament'] as String?) ?? ''),
+                          (data['tournament'] as String?)?.isNotEmpty == true
+                              ? data['tournament'] as String
+                              : (data['tournamentName'] as String?) ?? ''),
                       _buildDetailRow(Icons.groups, 'チーム',
                           (data['team'] as String?) ?? ''),
                       _buildDetailRow(Icons.people, '募集人数',
                           '${data['needed'] ?? 0}人'),
                       _buildDetailRow(Icons.timer_outlined, '締切',
                           (data['deadline'] as String?) ?? ''),
-                      if (((data['message'] as String?) ?? '').isNotEmpty) ...[
+                      if ((((data['message'] as String?) ?? '').isNotEmpty ||
+                          ((data['comment'] as String?) ?? '').isNotEmpty)) ...[
                         const SizedBox(height: 8),
                         Container(
                           width: double.infinity,
@@ -332,11 +448,34 @@ class _RecruitmentManagementScreenState
                             color: AppTheme.backgroundColor,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(data['message'] as String,
+                          child: Text(
+                              (data['message'] as String?)?.isNotEmpty == true
+                                  ? data['message'] as String
+                                  : (data['comment'] as String?) ?? '',
                               style: const TextStyle(
                                   fontSize: 14,
                                   color: AppTheme.textPrimary,
                                   height: 1.5)),
+                        ),
+                      ],
+                      if (canManage) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                _openEditRecruitment(docId, data),
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text('募集内容を編集',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                  color: AppTheme.primaryColor, width: 2),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
                         ),
                       ],
                       const SizedBox(height: 24),
@@ -457,7 +596,9 @@ class _RecruitmentManagementScreenState
                                             _buildTag(aStatus, aBadgeColor),
                                           ],
                                         ),
-                                        if (aStatus == '承認待ち' && isActive) ...[
+                                        if (aStatus == '承認待ち' &&
+                                            isActive &&
+                                            canManage) ...[
                                           const SizedBox(height: 12),
                                           Row(
                                             children: [
@@ -520,7 +661,7 @@ class _RecruitmentManagementScreenState
                         },
                       ),
                       const SizedBox(height: 20),
-                      if (data['status'] == '募集中')
+                      if (canManage && data['status'] == '募集中')
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton(
