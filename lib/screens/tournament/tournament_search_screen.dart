@@ -56,7 +56,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   late Stream<QuerySnapshot> _tournamentStream;
   late Stream<QuerySnapshot> _recruitmentStream;
 
-  /// 公式アカウントは「さがす」で準備中・締切後・終了などステータス除外を行わず閲覧できる（開催中・決勝中・順位決定中は全ユーザー共通で非表示）
+  /// 公式アカウントは「さがす」で準備中・締切後・終了などステータス除外を行わず閲覧できる。
+  /// 開催中・決勝中・順位決定中は公式のみ一覧表示（フォロー中／みんなの切り替えは適用しない）。
   bool _isOfficialAccount = false;
 
   @override
@@ -1242,9 +1243,14 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           final oid = data['organizerId'] ?? '';
           final status = normalizeTournamentStatus(data['status']);
           final isF = _followingIds.contains(oid) || oid == _currentUser?.uid;
-          if (friendsOnly ? !isF : isF) return false;
-          if (status == '開催中' || status == '決勝中' || status == '順位決定中') {
-            return false;
+          final isInProgress = status == '開催中' ||
+              status == '決勝中' ||
+              status == '順位決定中';
+          if (isInProgress) {
+            if (!_isOfficialAccount) return false;
+            // 公式: 進行中はフォロー中／みんなに関係なく表示（下のフォロー判定をスキップ）
+          } else {
+            if (friendsOnly ? !isF : isF) return false;
           }
           if (!_isOfficialAccount) {
             if (status == 'エントリー締切') return false;
