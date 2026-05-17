@@ -34,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen>
   late TabController _noticeSubTabController;
   final Set<String> _hiddenPostIds = {};
   bool _initialLoaded = false;
+  bool _viewerIsOfficial = false;
   final Map<String, bool> _officialCache = {};
 
   Future<void> _checkOfficial(String userId) async {
@@ -90,8 +91,10 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
     final hiddenSnap = results[0] as QuerySnapshot;
     final userDoc = results[1] as DocumentSnapshot;
+    final userData = userDoc.data() as Map<String, dynamic>?;
     setState(() {
       _hiddenPostIds.addAll(hiddenSnap.docs.map((d) => d.id));
+      _viewerIsOfficial = userData?['isOfficial'] == true;
       _initialLoaded = true;
     });
   }
@@ -288,15 +291,18 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     final uid = currentUser.uid;
-    final queryIds = [uid, ...FollowService.instance.followingIds].take(30).toList();
-
-    return StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
+    final postsQuery = _viewerIsOfficial
+        ? FirebaseFirestore.instance
             .collection('posts')
-            .where('userId', whereIn: queryIds)
             .orderBy('createdAt', descending: true)
             .limit(50)
-            .snapshots(),
+        : FirebaseFirestore.instance.collection('posts').where(
+            'userId',
+            whereIn: [uid, ...FollowService.instance.followingIds].take(30).toList(),
+          ).orderBy('createdAt', descending: true).limit(50);
+
+    return StreamBuilder<QuerySnapshot>(
+        stream: postsQuery.snapshots(),
         builder: (context, postSnapshot) {
         if (postSnapshot.hasError) {
           debugPrint("TIMELINE ERROR: ${postSnapshot.error}");
@@ -355,7 +361,9 @@ class _HomeScreenState extends State<HomeScreen>
           return EmptyStateView(
             icon: Icons.people_outline,
             title: 'タイムラインに投稿がありません',
-            subtitle: 'フォロー中のユーザーの投稿がここに表示されます。\n仲間を見つけてフォローしましょう！',
+            subtitle: _viewerIsOfficial
+                ? 'まだ誰も投稿していません。'
+                : 'フォロー中のユーザーの投稿がここに表示されます。\n仲間を見つけてフォローしましょう！',
             actions: [
               EmptyStateAction(
                 label: '投稿する',
