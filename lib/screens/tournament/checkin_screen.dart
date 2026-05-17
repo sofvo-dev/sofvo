@@ -5,9 +5,9 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
 import '../../services/pdf_generator.dart';
+import '../../services/share_bytes.dart';
 import '../../utils/tournament_checkin_link.dart';
 
 /// 大会のチェックイン受付画面（主催者・編集者向け）
@@ -312,15 +312,11 @@ class _CheckInScreenState extends State<CheckInScreen>
     try {
       final png = await _qrPngBytes(checkInUrl);
       final stem = _safeFileStem(widget.tournamentName);
-      await Share.shareXFiles(
-        [
-          XFile.fromData(
-            png,
-            name: '${stem}_checkin_qr.png',
-            mimeType: 'image/png',
-          ),
-        ],
-        text: '${widget.tournamentName} — チェックインQR',
+      await shareBytesAsFile(
+        png,
+        filename: '${stem}_checkin_qr.png',
+        mimeType: 'image/png',
+        shareText: '${widget.tournamentName} — チェックインQR',
       );
     } catch (e, st) {
       debugPrint('checkin png export: $e\n$st');
