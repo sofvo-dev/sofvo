@@ -247,7 +247,8 @@ class _RecruitmentManagementScreenState
                                 fontSize: 12,
                                 color: AppTheme.textSecondary)),
                         if (_viewerIsOfficial &&
-                            (r['userId'] as String?) != uid) ...[
+                            (r['userId'] as String?) !=
+                                _currentUser?.uid) ...[
                           const SizedBox(height: 2),
                           Text(
                               '投稿: ${(r['nickname'] as String?) ?? 'ユーザー'}',
