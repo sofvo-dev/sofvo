@@ -1,12 +1,13 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../config/app_theme.dart';
 import '../../services/pdf_generator.dart';
+import '../../services/save_image_bytes.dart';
 import '../../services/share_bytes.dart';
 import '../../utils/tournament_checkin_link.dart';
 
@@ -307,22 +308,51 @@ class _CheckInScreenState extends State<CheckInScreen>
     }
   }
 
+  Rect? _shareSheetOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
   Future<void> _exportCheckInPng(String checkInUrl) async {
     setState(() => _exportingQr = true);
     try {
       final png = await _qrPngBytes(checkInUrl);
       final stem = _safeFileStem(widget.tournamentName);
-      await shareBytesAsFile(
-        png,
-        filename: '${stem}_checkin_qr.png',
-        mimeType: 'image/png',
-        shareText: '${widget.tournamentName} — チェックインQR',
-      );
+      final filename = '${stem}_checkin_qr.png';
+      try {
+        await saveImageBytes(png, filename: filename);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(kIsWeb ? '画像をダウンロードしました' : '写真に保存しました'),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+        }
+      } catch (galleryError) {
+        debugPrint('checkin png save to gallery: $galleryError');
+        await shareBytesAsFile(
+          png,
+          filename: filename,
+          mimeType: 'image/png',
+          shareText: '${widget.tournamentName} — チェックインQR',
+          sharePositionOrigin: _shareSheetOrigin(),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('共有シートから保存先を選んでください'),
+              backgroundColor: AppTheme.info,
+            ),
+          );
+        }
+      }
     } catch (e, st) {
       debugPrint('checkin png export: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('画像の共有に失敗しました: $e'), backgroundColor: AppTheme.error),
+          SnackBar(content: Text('画像の保存に失敗しました: $e'), backgroundColor: AppTheme.error),
         );
       }
     } finally {
