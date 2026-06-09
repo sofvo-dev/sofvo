@@ -137,8 +137,11 @@ service cloud.firestore {
         allow write: if isAuthenticated();
       }
 
-      // 収支管理（経費）— 主催者・編集者・管理者のみ
+      // 収支管理（経費・収入）— 主催者・編集者・管理者のみ
       match /expenses/{expenseId} {
+        allow read, create, update, delete: if isAuthenticated() && canManageTournamentById(tournamentId);
+      }
+      match /revenues/{revenueId} {
         allow read, create, update, delete: if isAuthenticated() && canManageTournamentById(tournamentId);
       }
 
