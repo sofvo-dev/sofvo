@@ -291,7 +291,10 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
           return StreamBuilder<QuerySnapshot>(
             stream: _entriesRef.snapshots(),
             builder: (context, entriesSnap) {
-              final actualTeamCount = entriesSnap.data?.docs.length ?? _asInt(td['currentTeams']);
+              // entries 読み取り失敗時は currentTeams フィールドにフォールバック
+              final actualTeamCount = entriesSnap.hasError
+                  ? _asInt(td['currentTeams'])
+                  : (entriesSnap.data?.docs.length ?? _asInt(td['currentTeams']));
 
               return StreamBuilder<QuerySnapshot>(
                 stream: _revenuesRef.orderBy('createdAt').snapshots(),
@@ -299,7 +302,8 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
                   return StreamBuilder<QuerySnapshot>(
                     stream: _expensesRef.orderBy('createdAt').snapshots(),
                     builder: (context, expenseSnap) {
-                      if (expenseSnap.hasError || revenueSnap.hasError) {
+                      // expenses が読めない場合のみ全体エラー表示（revenues は空扱いでフォールバック）
+                      if (expenseSnap.hasError) {
                         return Padding(
                           padding: const EdgeInsets.all(24),
                           child: Center(
@@ -312,7 +316,8 @@ class _TournamentFinanceScreenState extends State<TournamentFinanceScreen> {
                         );
                       }
 
-                      final revenues = revenueSnap.data?.docs ?? [];
+                      // revenues が権限エラー等で読めない場合は空リストにフォールバック
+                      final revenues = revenueSnap.hasError ? [] : (revenueSnap.data?.docs ?? []);
                       final expenses = expenseSnap.data?.docs ?? [];
 
                       final entryRevenue = entryFeePerTeam * actualTeamCount;
