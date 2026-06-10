@@ -1,8 +1,10 @@
 // Sofvo v1.1
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, MethodChannel;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -164,6 +166,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     });
     if (!kIsWeb) {
       unawaited(_initAppLinks());
+      unawaited(_checkDeferredReferral());
     }
   }
 
@@ -182,6 +185,47 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('app_links init: $e');
+    }
+  }
+
+  /// 新規インストール時の紹介コード引き継ぎ
+  /// Android: Play Install Referrer API（MethodChannel）
+  /// iOS: クリップボードに保存された ref を読み取り
+  Future<void> _checkDeferredReferral() async {
+    if (kIsWeb) return;
+    // 既にディープリンクで ref が取得済みの場合はスキップ
+    if (pendingReferrerUserId != null) return;
+
+    try {
+      if (Platform.isAndroid) {
+        const channel = MethodChannel('com.sofvo.app/install_referrer');
+        final referrer = await channel.invokeMethod<String?>('getInstallReferrer');
+        if (referrer != null && referrer.isNotEmpty) {
+          // referrer は "ref=USERID" 形式
+          final uri = Uri(query: referrer);
+          final ref = uri.queryParameters['ref'];
+          if (ref != null && ref.isNotEmpty) {
+            pendingReferrerUserId = ref;
+            if (mounted) setState(() {});
+          }
+        }
+      } else if (Platform.isIOS) {
+        // クリップボードから ref を読み取り（invite.html でコピー済み）
+        final data = await Clipboard.getData('text/plain');
+        final text = data?.text ?? '';
+        // "sofvo-ref:USERID" 形式で保存されているか確認
+        if (text.startsWith('sofvo-ref:')) {
+          final ref = text.substring('sofvo-ref:'.length).trim();
+          if (ref.isNotEmpty) {
+            pendingReferrerUserId = ref;
+            // 使い終わったらクリップボードを消去
+            await Clipboard.setData(const ClipboardData(text: ''));
+            if (mounted) setState(() {});
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('deferred referral check: $e');
     }
   }
 

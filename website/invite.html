@@ -553,9 +553,11 @@
       });
     }
 
-    // ── ストアURL ──
+    // ── ストアURL（紹介コード付き）──
     var APP_STORE_URL = 'https://apps.apple.com/app/sofvo/id6760548582';
-    var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.sofvo.app';
+    // Android: referrer パラメータで Install Referrer API に ref を渡す
+    var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.sofvo.app' +
+      (refUserId ? '&referrer=' + encodeURIComponent('ref=' + refUserId) : '');
 
     // ── ディープリンク（アプリ導入済みユーザー向け）──
     var deepLink = 'sofvo://invite' + (refUserId ? '?ref=' + encodeURIComponent(refUserId) : '');
@@ -568,6 +570,10 @@
       e.preventDefault();
 
       if (isIOS) {
+        // iOS: ref をクリップボードに保存（アプリ初回起動時に読み取り）
+        if (refUserId && navigator.clipboard) {
+          navigator.clipboard.writeText('sofvo-ref:' + refUserId).catch(function() {});
+        }
         // アプリが入っていれば Universal Links で自動で開く。
         // 入っていない場合のフォールバックとして App Store へ。
         window.location.href = deepLink;
