@@ -4,7 +4,9 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.sofvo.app",
-      "sha256_cert_fingerprints": []
+      "sha256_cert_fingerprints": [
+        "E0:F4:18:85:EF:C4:14:E7:29:D7:E9:47:5A:A9:90:C8:D1:AB:9F:D0:7F:86:7E:2D:C6:85:2C:DB:33:E0:F8:76"
+      ]
     }
   }
 ]
