@@ -167,16 +167,17 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
   }
 
-  /// App Links / Universal Links / カスタムスキーム（`sofvo://checkin/…` および https `…/app?checkin=…`）
+  /// App Links / Universal Links / カスタムスキーム（`sofvo://checkin/…`、https `…/app?checkin=…`、
+  /// 友達紹介 `…/invite?ref=…` / `sofvo://invite?ref=…`）
   Future<void> _initAppLinks() async {
     try {
       final appLinks = AppLinks();
       final initial = await appLinks.getInitialLink();
       if (initial != null) {
-        _applyCheckInDeepLink(initial);
+        _applyDeepLink(initial);
       }
       _appLinksSubscription = appLinks.uriLinkStream.listen(
-        _applyCheckInDeepLink,
+        _applyDeepLink,
         onError: (Object e) => debugPrint('app_links stream: $e'),
       );
     } catch (e) {
@@ -184,13 +185,25 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
   }
 
-  void _applyCheckInDeepLink(Uri uri) {
+  void _applyDeepLink(Uri uri) {
     if (kIsWeb) return;
+    var changed = false;
+
+    // 友達紹介リンク（?ref=xxx）→ Web版と同じ相互フォロー処理に乗せる
+    final ref = uri.queryParameters['ref'];
+    if (ref != null && ref.isNotEmpty) {
+      pendingReferrerUserId = ref;
+      _processedReferral = false;
+      changed = true;
+    }
+
     final tid = parseCheckInTournamentIdFromDeepLinkUri(uri);
-    if (tid == null || tid.isEmpty) return;
-    pendingCheckInTournamentId = tid;
-    if (!mounted) return;
-    setState(() {});
+    if (tid != null && tid.isNotEmpty) {
+      pendingCheckInTournamentId = tid;
+      changed = true;
+    }
+
+    if (changed && mounted) setState(() {});
   }
 
   @override
