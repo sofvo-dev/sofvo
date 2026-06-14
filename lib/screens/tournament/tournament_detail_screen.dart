@@ -3146,6 +3146,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           final isNextToInput = !isCompleted && !isInProgress && prevDone && isMyMatch;
           return InkWell(
             onTap: () {
+              // 終了した大会はスコアを閲覧のみ可能
+              if (tournamentStatus == '終了') {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+                  tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
+                return;
+              }
               if (tournamentStatus != '開催中') {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: AppTheme.warning));
                 return;
@@ -3521,6 +3527,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
             return InkWell(
               onTap: () {
+                // 終了した大会はスコアを閲覧のみ可能
+                if (tournamentStatus == '終了') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+                    tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
+                  return;
+                }
                 if (tournamentStatus != '開催中') {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: AppTheme.warning));
                   return;
