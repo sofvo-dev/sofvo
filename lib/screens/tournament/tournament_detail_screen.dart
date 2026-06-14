@@ -1018,8 +1018,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               const SizedBox(height: 16),
             ],
 
-            // ━━━ 大会の流れ ━━━
-            _buildCard(
+            // ━━━ 大会の流れ（終了後は非表示）━━━
+            if (liveStatus != '終了') _buildCard(
               title: '大会の流れ',
               titleIcon: Icons.timeline,
               child: Builder(builder: (_) {
@@ -3146,6 +3146,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           final isNextToInput = !isCompleted && !isInProgress && prevDone && isMyMatch;
           return InkWell(
             onTap: () {
+              // 終了した大会はスコアを閲覧のみ可能
+              if (tournamentStatus == '終了') {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+                  tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
+                return;
+              }
               if (tournamentStatus != '開催中') {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: AppTheme.warning));
                 return;
@@ -3521,6 +3527,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
             return InkWell(
               onTap: () {
+                // 終了した大会はスコアを閲覧のみ可能
+                if (tournamentStatus == '終了') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ScoreInputScreen(
+                    tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
+                  return;
+                }
                 if (tournamentStatus != '開催中') {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("得点入力は大会が「開催中」の場合のみ可能です"), backgroundColor: AppTheme.warning));
                   return;
@@ -8619,7 +8631,7 @@ class _BracketsWithCompletion extends StatelessWidget {
         return buildBracketSection(bDoc.id, bData);
       }),
       // 主催者のみ: 全ブラケット全試合完了時に大会終了ボタンを表示
-      if (isOrganizer && (status == '順位決定中' || status == '決勝中'))
+      if (isOrganizer && (status == '順位決定中' || status == '決勝中' || status == '開催中'))
         _AllBracketsCompletionCheck(
           tournamentId: tournamentId,
           bracketDocs: allBrackets,
