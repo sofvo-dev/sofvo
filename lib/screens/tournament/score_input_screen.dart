@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/app_theme.dart';
 import '../../services/match_generator.dart';
 
@@ -257,12 +258,35 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     };
 
     try {
-      final updateData = {
-        'sets': setsData, 'result': result, 'status': 'completed',
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      // 既に確定済みの試合を上書きする場合は「修正」とみなして監査ログに残す
+      final isEdit = _match!['status'] == 'completed';
+      final updateData = <String, dynamic>{
+        'sets': setsData, 'result': result, 'status': 'completed', 'outcome': 'normal',
         'refereeConfirmed': true, 'confirmedByA': _coachAConfirmed, 'confirmedByB': _coachBConfirmed,
         // 試合終了（確定）時刻・サーバー時刻で記録。startedAt との差で試合所要時間を算出
         'completedAt': FieldValue.serverTimestamp(),
+        // 監査ログ: lastEdited 系はトラブル対応時の追跡用
+        'lastEditedBy': uid,
+        'lastEditedAt': FieldValue.serverTimestamp(),
       };
+      if (isEdit) {
+        // 修正回数と、修正前→修正後の履歴（serverTimestamp は配列に書けないため Timestamp.now()）
+        updateData['editCount'] = FieldValue.increment(1);
+        updateData['editLog'] = FieldValue.arrayUnion([
+          {
+            'by': uid,
+            'at': Timestamp.now(),
+            'prevResult': _match!['result'],
+            'prevSets': _match!['sets'],
+            'newResult': result,
+          }
+        ]);
+      } else {
+        // 初回確定: 確定者 uid と修正回数0を記録
+        updateData['confirmedBy'] = uid;
+        updateData['editCount'] = 0;
+      }
 
       if (widget.isBracket) {
         await _firestore.collection('tournaments').doc(widget.tournamentId)
@@ -313,6 +337,119 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     setState(() => _saving = false);
   }
 
+  /// 棄権・不戦勝などの「特別な結果」を選ぶダイアログ（主催者用）。
+  /// 通常の 0-25 と区別して記録しないと、順位計算・統計が歪むため。
+  void _showSpecialOutcomeDialog() {
+    final teamA = _match!['teamAName'] ?? 'チームA';
+    final teamB = _match!['teamBName'] ?? 'チームB';
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('特別な結果を記録', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('通常のスコアではない結果を記録します。\n（順位・統計に正しく反映するため）',
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        const SizedBox(height: 12),
+        ListTile(
+          leading: const Icon(Icons.emoji_events, color: Colors.amber),
+          title: Text('$teamA の不戦勝'),
+          subtitle: Text('$teamB が棄権・不在'),
+          onTap: () { Navigator.pop(ctx); _recordSpecialOutcome(outcome: 'walkover', winnerSide: 'a'); },
+        ),
+        ListTile(
+          leading: const Icon(Icons.emoji_events, color: Colors.amber),
+          title: Text('$teamB の不戦勝'),
+          subtitle: Text('$teamA が棄権・不在'),
+          onTap: () { Navigator.pop(ctx); _recordSpecialOutcome(outcome: 'walkover', winnerSide: 'b'); },
+        ),
+        ListTile(
+          leading: const Icon(Icons.cancel_outlined, color: AppTheme.error),
+          title: const Text('両者不在・試合不成立'),
+          subtitle: const Text('両チームとも棄権・不在（noShow）'),
+          onTap: () { Navigator.pop(ctx); _recordSpecialOutcome(outcome: 'noShow', winnerSide: 'none'); },
+        ),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('キャンセル', style: TextStyle(color: AppTheme.textSecondary))),
+      ],
+    ));
+  }
+
+  /// 特別な結果（棄権・不戦勝・両者不在）を確定保存する。
+  /// 通常の _saveResult と同じく standings/progression・ラウンド完了も更新する。
+  Future<void> _recordSpecialOutcome({required String outcome, required String winnerSide}) async {
+    setState(() => _saving = true);
+    final neededToWin = _totalSets <= 2 ? _totalSets : (_totalSets / 2).ceil();
+    final int setsA = winnerSide == 'a' ? neededToWin : 0;
+    final int setsB = winnerSide == 'b' ? neededToWin : 0;
+    final winnerId = winnerSide == 'a'
+        ? _match!['teamAId']
+        : (winnerSide == 'b' ? _match!['teamBId'] : '引き分け');
+    final result = {
+      'setsA': setsA, 'setsB': setsB,
+      'totalPointsA': 0, 'totalPointsB': 0,
+      'winner': winnerId,
+    };
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final updateData = <String, dynamic>{
+        'sets': <Map<String, int>>[], 'result': result, 'status': 'completed',
+        'outcome': outcome, // 'walkover' / 'noShow'
+        'refereeConfirmed': true, 'confirmedByA': true, 'confirmedByB': true,
+        'completedAt': FieldValue.serverTimestamp(),
+        'lastEditedBy': uid, 'lastEditedAt': FieldValue.serverTimestamp(),
+      };
+      if (_match!['status'] == 'completed') {
+        updateData['editCount'] = FieldValue.increment(1);
+        updateData['editLog'] = FieldValue.arrayUnion([
+          {'by': uid, 'at': Timestamp.now(), 'prevResult': _match!['result'], 'prevSets': _match!['sets'], 'newOutcome': outcome}
+        ]);
+      } else {
+        updateData['confirmedBy'] = uid;
+        updateData['editCount'] = 0;
+      }
+
+      if (widget.isBracket) {
+        await _firestore.collection('tournaments').doc(widget.tournamentId)
+            .collection('brackets').doc(widget.bracketId)
+            .collection('matches').doc(widget.matchId).update(updateData);
+        await MatchGenerator().updateBracketProgression(
+          tournamentId: widget.tournamentId, bracketId: widget.bracketId!);
+      } else {
+        await _firestore.collection('tournaments').doc(widget.tournamentId)
+            .collection('rounds').doc(widget.roundId)
+            .collection('matches').doc(widget.matchId).update(updateData);
+        await MatchGenerator().updateStandings(
+          tournamentId: widget.tournamentId,
+          roundNumber: int.tryParse(widget.roundId.replaceAll('round_', '')) ?? 1,
+          courtId: _match!['courtId'],
+        );
+        final roundNum = int.tryParse(widget.roundId.replaceAll('round_', '')) ?? 1;
+        final allMatches = await _firestore.collection('tournaments').doc(widget.tournamentId)
+            .collection('rounds').doc(widget.roundId).collection('matches').get();
+        final allCompleted = allMatches.docs.every((d) => (d.data())['status'] == 'completed');
+        if (allCompleted) {
+          await _firestore.collection('tournaments').doc(widget.tournamentId)
+              .update({'status': '予選${roundNum}完了'});
+          await _firestore.collection('tournaments').doc(widget.tournamentId)
+              .collection('rounds').doc(widget.roundId)
+              .update({'completedAt': FieldValue.serverTimestamp()});
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('結果を記録しました'), backgroundColor: AppTheme.success));
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e'), backgroundColor: AppTheme.error));
+      }
+    }
+    if (mounted) setState(() => _saving = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_match == null) {
@@ -329,6 +466,15 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             '$_stageLabel ${String.fromCharCode(64 + ((_match!['courtNumber'] ?? 1) as int))}コート第${_match!['matchOrder'] ?? _match!['matchNumber'] ?? ''}試合',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1A1A2E), foregroundColor: Colors.white, elevation: 0,
+        actions: [
+          // 主催者のみ: 棄権・不戦勝などの特別な結果を記録できる
+          if (widget.isOrganizer && widget.tournamentStatus == '開催中')
+            IconButton(
+              tooltip: '特別な結果（棄権・不戦勝）',
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: _saving ? null : _showSpecialOutcomeDialog,
+            ),
+        ],
       ),
       bottomNavigationBar: _buildBottomBar(),
       body: SingleChildScrollView(
