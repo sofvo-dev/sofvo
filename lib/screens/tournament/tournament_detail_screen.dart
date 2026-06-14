@@ -204,7 +204,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       if (memberUids is List && memberUids.contains(uid)) return true;
       return false;
     });
-    final teamIds = myDocs.map((d) => d['teamId'] as String? ?? '').where((id) => id.isNotEmpty).toList();
+    // teamId フィールドが無い古いエントリーは doc.id を teamId として扱う（取りこぼし防止）
+    final teamIds = myDocs.map((d) {
+      final tid = (d.data()['teamId'] as String?) ?? '';
+      return tid.isNotEmpty ? tid : d.id;
+    }).where((id) => id.isNotEmpty).toList();
     // エントリー名キャッシュを構築（チームID→チーム名）
     final nameCache = <String, String>{};
     for (final d in allEntries.docs) {
@@ -224,17 +228,22 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
   /// セルフチェックイン（参加者が会場の大会QRをスキャン、または主催者が手動登録したあとに記録）
   Future<void> _performSelfCheckIn() async {
+    // 自分のエントリーを自動検出できないケース（主催者がCSV/手動でチームを登録した・
+    // 古いデータでアカウントとエントリーが紐づいていない 等）でも行き止まりにせず、
+    // エントリー一覧から自分のチームを選んでチェックインできるようにする。
     if (_myEntryTeamId.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('この大会にエントリーしていないためチェックインできません'), backgroundColor: AppTheme.warning),
-        );
-      }
+      await _promptSelectTeamForCheckIn();
       return;
     }
+    await _checkInTeam(_myEntryTeamId, teamNameHint: _entryNameCache[_myEntryTeamId]);
+  }
+
+  /// 指定したチームをチェックイン登録する（重複チェック・チーム名解決つき）
+  Future<void> _checkInTeam(String teamId, {String? teamNameHint}) async {
+    if (teamId.isEmpty) return;
     // 重複チェック
     final existing = await _firestore.collection('tournaments').doc(_tournamentId)
-        .collection('checkIns').where('teamId', isEqualTo: _myEntryTeamId).limit(1).get();
+        .collection('checkIns').where('teamId', isEqualTo: teamId).limit(1).get();
     if (existing.docs.isNotEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -243,13 +252,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       }
       return;
     }
-    // チーム名取得
-    final entrySnap = await _firestore.collection('tournaments').doc(_tournamentId)
-        .collection('entries').where('teamId', isEqualTo: _myEntryTeamId).limit(1).get();
-    final teamName = entrySnap.docs.isNotEmpty ? (entrySnap.docs.first.data()['teamName'] ?? '') : '';
+    // チーム名取得（ヒントが無ければエントリーから解決）
+    var teamName = teamNameHint ?? '';
+    if (teamName.isEmpty) {
+      final entrySnap = await _firestore.collection('tournaments').doc(_tournamentId)
+          .collection('entries').where('teamId', isEqualTo: teamId).limit(1).get();
+      teamName = entrySnap.docs.isNotEmpty
+          ? (entrySnap.docs.first.data()['teamName'] ?? '')
+          : (_entryNameCache[teamId] ?? '');
+    }
     // チェックイン登録
     await _firestore.collection('tournaments').doc(_tournamentId).collection('checkIns').add({
-      'teamId': _myEntryTeamId,
+      'teamId': teamId,
       'teamName': teamName,
       'checkedInAt': FieldValue.serverTimestamp(),
     });
@@ -259,12 +273,97 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           content: Row(children: [
             const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 8),
-            Text('$teamName チェックイン完了！'),
+            Expanded(child: Text('$teamName チェックイン完了！')),
           ]),
           backgroundColor: AppTheme.success,
         ),
       );
     }
+  }
+
+  /// 自分のエントリーが自動検出できないとき、エントリー一覧から自分のチームを選ばせる
+  Future<void> _promptSelectTeamForCheckIn() async {
+    final entriesSnap = await _firestore.collection('tournaments').doc(_tournamentId)
+        .collection('entries').get();
+    if (!mounted) return;
+    if (entriesSnap.docs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('この大会にはまだエントリーがありません'), backgroundColor: AppTheme.warning),
+      );
+      return;
+    }
+    // checkIns 済みの teamId を取得（重複表示を抑止するため）
+    final checkInSnap = await _firestore.collection('tournaments').doc(_tournamentId)
+        .collection('checkIns').get();
+    if (!mounted) return;
+    final checkedIds = checkInSnap.docs
+        .map((d) => (d.data()['teamId'] as String?) ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final teams = entriesSnap.docs.map((d) {
+      final data = d.data();
+      final tid = (data['teamId'] as String?)?.isNotEmpty == true ? data['teamId'] as String : d.id;
+      final name = (data['teamName'] as String?) ?? '名称未設定';
+      return MapEntry(tid, name);
+    }).toList();
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 16),
+              const Text('チェックインするチームを選択', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(
+                'あなたのアカウントがエントリーに紐づいていないため、自分のチームを選んでください。',
+                style: TextStyle(fontSize: 13, height: 1.45, color: AppTheme.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: teams.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) {
+                    final entry = teams[i];
+                    final isChecked = checkedIds.contains(entry.key);
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isChecked ? AppTheme.success.withValues(alpha: 0.4) : Colors.grey[200]!),
+                      ),
+                      child: ListTile(
+                        title: Text(entry.value, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: isChecked ? const Text('チェックイン済み', style: TextStyle(fontSize: 12, color: AppTheme.success)) : null,
+                        trailing: Icon(isChecked ? Icons.check_circle : Icons.chevron_right,
+                            color: isChecked ? AppTheme.success : AppTheme.textHint),
+                        onTap: isChecked ? null : () {
+                          Navigator.pop(ctx);
+                          _checkInTeam(entry.key, teamNameHint: entry.value);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ── 大会チャットを開く or 作成 ──
