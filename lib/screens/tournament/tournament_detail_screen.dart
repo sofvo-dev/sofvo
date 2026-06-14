@@ -3067,6 +3067,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     ]);
   }
 
+  // 未確定だが既にスコアが入力されている（入力中）かどうかと、暫定セット数を返す
+  // sets はスコア入力画面でオートセーブされる。0-0 のみのセットは「未入力」とみなす。
+  (bool, int, int) _matchProgress(Map<String, dynamic> m) {
+    final sets = (m['sets'] as List<dynamic>?) ?? [];
+    int sa = 0, sb = 0;
+    bool hasInput = false;
+    for (final s in sets) {
+      if (s is! Map) continue;
+      final a = ((s['a'] ?? 0) as num).toInt();
+      final b = ((s['b'] ?? 0) as num).toInt();
+      if (a > 0 || b > 0) hasInput = true;
+      if (a > b) {
+        sa++;
+      } else if (b > a) {
+        sb++;
+      }
+    }
+    return (hasInput, sa, sb);
+  }
+
   Widget _buildCourtCard(String courtId, int courtNum, List<QueryDocumentSnapshot> matches, String roundId, bool isOrganizer, {String tournamentStatus = ''}) {
     // 自分のチームがこのコートに属しているか
     final isMyCourt = matches.any((m) {
@@ -3121,7 +3141,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           final isMyMatch = _myTeamIds.contains(m['teamAId'] ?? '') || _myTeamIds.contains(m['teamBId'] ?? '') || isReferee;
           final canInput = isOrganizer || isMyMatch;
           final isCompleted = status == 'completed';
-          final isNextToInput = !isCompleted && prevDone && isMyMatch;
+          final (hasInput, provSetsA, provSetsB) = _matchProgress(m);
+          final isInProgress = !isCompleted && hasInput;
+          final isNextToInput = !isCompleted && !isInProgress && prevDone && isMyMatch;
           return InkWell(
             onTap: () {
               if (tournamentStatus != '開催中') {
@@ -3141,14 +3163,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 tournamentId: _tournamentId, matchId: mDoc.id, roundId: roundId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
             },
             child: Container(
-            color: isNextToInput ? AppTheme.primaryColor.withValues(alpha: 0.06) : null,
+            color: isInProgress ? AppTheme.warning.withValues(alpha: 0.08) : (isNextToInput ? AppTheme.primaryColor.withValues(alpha: 0.06) : null),
             child: Column(children: [
               Padding(
                 padding: const EdgeInsets.only(left: 14, top: 8, bottom: 2),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isNextToInput ? AppTheme.primaryColor : AppTheme.textSecondary)),
-                    if (isNextToInput) ...[
+                    Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isInProgress ? AppTheme.warning : (isNextToInput ? AppTheme.primaryColor : AppTheme.textSecondary))),
+                    if (isInProgress) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: AppTheme.warning, borderRadius: BorderRadius.circular(4)),
+                        child: const Text('入力中', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ] else if (isNextToInput) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -3177,19 +3206,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     margin: const EdgeInsets.symmetric(horizontal: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: status == 'completed' ? AppTheme.success.withValues(alpha:0.1) : Colors.grey[100],
+                      color: isCompleted ? AppTheme.success.withValues(alpha:0.1) : (isInProgress ? AppTheme.warning.withValues(alpha:0.15) : Colors.grey[100]),
                       borderRadius: BorderRadius.circular(6)),
                     child: Text(
-                      status == 'completed' ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : 'vs',
+                      isCompleted ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (isInProgress ? '$provSetsA-$provSetsB' : 'vs'),
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                          color: status == 'completed' ? AppTheme.success : AppTheme.textSecondary)),
+                          color: isCompleted ? AppTheme.success : (isInProgress ? AppTheme.warning : AppTheme.textSecondary))),
                   ),
                   Expanded(flex: 3, child: Container(
                     child: Text(m['teamBName'] ?? '', style: TextStyle(fontSize: 16,
                       color: _myTeamIds.contains(m['teamBId'] ?? '') ? Colors.red : null,
                       fontWeight: _myTeamIds.contains(m['teamBId'] ?? '') || (status == 'completed' && result['winner'] == m['teamBId']) ? FontWeight.bold : FontWeight.normal)))),
-                  if (status == 'completed')
+                  if (isCompleted)
                     const Icon(Icons.check_circle, size: 16, color: AppTheme.success)
+                  else if (isInProgress)
+                    const Icon(Icons.edit_note, size: 18, color: AppTheme.warning)
                   else
                     Icon(Icons.play_circle_outline, size: 16, color: AppTheme.textHint),
                 ]),
@@ -3476,8 +3507,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             final canInput = isOrganizer || isMyMatch;
             final isCompleted = status == 'completed';
             final isWaiting = status == 'waiting';
+            final (hasInput, provSetsA, provSetsB) = _matchProgress(m);
+            final isInProgress = !isCompleted && !isWaiting && hasInput;
             final prevDone = idx <= 0 || ((courtMatchList[idx - 1].data() as Map<String, dynamic>)['status'] == 'completed');
-            final isNextToInput = !isCompleted && !isWaiting && prevDone && isMyMatch;
+            final isNextToInput = !isCompleted && !isWaiting && !isInProgress && prevDone && isMyMatch;
 
             String teamADisplay = (m['teamAId'] ?? '').isEmpty ? _friendlyPlaceholder(m['teamAName'] ?? '') : (m['teamAName'] ?? '');
             String teamBDisplay = (m['teamBId'] ?? '').isEmpty ? _friendlyPlaceholder(m['teamBName'] ?? '') : (m['teamBName'] ?? '');
@@ -3506,13 +3539,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   tournamentId: _tournamentId, matchId: mDoc.id, roundId: '', isBracket: true, bracketId: bracketId, isOrganizer: isOrganizer, tournamentStatus: tournamentStatus)));
               },
               child: Container(
-                color: isNextToInput ? Colors.amber.withValues(alpha: 0.06) : null,
+                color: isInProgress ? AppTheme.warning.withValues(alpha: 0.08) : (isNextToInput ? Colors.amber.withValues(alpha: 0.06) : null),
                 child: Column(children: [
                   Padding(
                     padding: const EdgeInsets.only(left: 14, top: 8, bottom: 2),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
-                        Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isNextToInput ? Colors.amber[700]! : AppTheme.textSecondary)),
+                        Text("第$matchOrder試合", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isInProgress ? AppTheme.warning : (isNextToInput ? Colors.amber[700]! : AppTheme.textSecondary))),
                         if (displayLabel.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
@@ -3521,7 +3554,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             child: Text(displayLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber[800])),
                           ),
                         ],
-                        if (isNextToInput) ...[
+                        if (isInProgress) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: AppTheme.warning, borderRadius: BorderRadius.circular(4)),
+                            child: const Text('入力中', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ),
+                        ] else if (isNextToInput) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -3554,12 +3594,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         margin: const EdgeInsets.symmetric(horizontal: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isCompleted ? AppTheme.success.withValues(alpha: 0.1) : Colors.grey[100],
+                          color: isCompleted ? AppTheme.success.withValues(alpha: 0.1) : (isInProgress ? AppTheme.warning.withValues(alpha: 0.15) : Colors.grey[100]),
                           borderRadius: BorderRadius.circular(6)),
                         child: Text(
-                          isCompleted ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (isWaiting ? '–' : 'vs'),
+                          isCompleted ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}' : (isInProgress ? '$provSetsA-$provSetsB' : (isWaiting ? '–' : 'vs')),
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                            color: isCompleted ? AppTheme.success : AppTheme.textSecondary)),
+                            color: isCompleted ? AppTheme.success : (isInProgress ? AppTheme.warning : AppTheme.textSecondary))),
                       ),
                       Expanded(flex: 3, child: Text(teamBDisplay,
                         style: TextStyle(fontSize: 16,
@@ -3567,6 +3607,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           fontWeight: (isMyTeamB || bWon) ? FontWeight.bold : FontWeight.normal))),
                       if (isCompleted)
                         const Icon(Icons.check_circle, size: 16, color: AppTheme.success)
+                      else if (isInProgress)
+                        const Icon(Icons.edit_note, size: 18, color: AppTheme.warning)
                       else
                         Icon(Icons.play_circle_outline, size: 16, color: AppTheme.textHint),
                     ]),
