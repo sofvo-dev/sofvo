@@ -18,6 +18,7 @@ import '../tournament/tournament_detail_screen.dart';
 import '../tournament/post_event_action_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../../widgets/sponsor_banner.dart';
+import '../../widgets/active_tournament_banner.dart';
 import 'create_post_screen.dart';
 import 'comment_screen.dart';
 
@@ -258,6 +259,8 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ]),
           ),
+          // 進行中の大会（エントリー済み）があれば上部に導線を表示
+          const ActiveTournamentBanner(),
           Expanded(
             child: TabBarView(
               controller: _tabController,
