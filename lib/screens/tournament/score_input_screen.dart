@@ -337,7 +337,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const Icon(Icons.sports, size: 16, color: Colors.red),
                 const SizedBox(width: 6),
-                Text("主審: ${_match!["refereeTeamName"] ?? "未定"} / 副審: ${_match!["subRefereeTeamName"] ?? "ー"}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.red)),
+                Text("主: ${_match!["refereeTeamName"] ?? "未定"} / サブ: ${_match!["subRefereeTeamName"] ?? "ー"}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.red)),
               ]),
             ),
 

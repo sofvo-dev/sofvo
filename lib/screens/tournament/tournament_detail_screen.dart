@@ -3187,9 +3187,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     ],
                   ]),
                   Row(children: [
-                    Text("主審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                    Text("主: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
                     Text(m['refereeTeamName'] ?? '未定', style: TextStyle(fontSize: 13, color: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint, fontWeight: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
-                    Text(" / 副審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                    Text(" / サブ: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
                     Text(m['subRefereeTeamName'] ?? 'ー', style: TextStyle(fontSize: 13, color: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint, fontWeight: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
                   ]),
                 ]),
@@ -3571,11 +3571,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         ],
                       ]),
                       Row(children: [
-                        Text("主審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                        Text("主: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
                         Text((m['refereeTeamName'] ?? '').toString().isNotEmpty ? m['refereeTeamName'] : '未定', style: TextStyle(fontSize: 13,
                           color: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint,
                           fontWeight: _myTeamIds.contains(m['refereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
-                        Text(" / 副審: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                        Text(" / サブ: ", style: TextStyle(fontSize: 13, color: AppTheme.textHint)),
                         Text((m['subRefereeTeamName'] ?? '').toString().isNotEmpty ? m['subRefereeTeamName'] : 'ー', style: TextStyle(fontSize: 13,
                           color: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? Colors.red : AppTheme.textHint,
                           fontWeight: _myTeamIds.contains(m['subRefereeTeamId'] ?? '') ? FontWeight.bold : FontWeight.normal)),
@@ -3810,7 +3810,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           const SizedBox(width: 8),
                           if ((m['refereeTeamName'] ?? '').isNotEmpty)
                             Expanded(flex: 3, child: Text(
-                              '主審: ${m['refereeTeamName']}${(m['subRefereeTeamName'] ?? '').isNotEmpty ? ' / 副審: ${m['subRefereeTeamName']}' : ''}',
+                              '主: ${m['refereeTeamName']}${(m['subRefereeTeamName'] ?? '').isNotEmpty ? ' / サブ: ${m['subRefereeTeamName']}' : ''}',
                               style: TextStyle(fontSize: 11, color: AppTheme.textHint),
                               overflow: TextOverflow.ellipsis,
                             )),
