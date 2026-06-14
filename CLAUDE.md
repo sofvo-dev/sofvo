@@ -532,15 +532,16 @@ firebase functions:shell
   - Cloud Functionsのメール送信時に `notificationEmail` → 認証メールの順でフォールバック
   - 設定画面に認証状態を表示（「認証済み ✓」/「認証待ち…」）
 - [ ] **大会検索・フィルター機能の強化**: 大会数が増えたら、オンボーディング画面（「大会をさがす」）の検索・絞り込みUIを改善する（地域・日程・レベル等）
-- [ ] **試合・セットの時間データ記録（進捗データ収集）**: 「1セット/1試合がどのくらいで終わったか」を記録できるようにする。後から欲しくなっても過去分は取り戻せないため、データ収集だけ早めに始めておきたい。
-  - **現状**: 試合・セットのスコア（`tournaments/{id}/rounds/{round}/matches/{matchId}` の `sets` 配列）と `status`（pending/completed）は記録されているが、**時間データ（開始・終了・所要時間）は一切記録されていない**。記録があるのはラウンド生成時刻 `createdAt` とチェックイン時刻 `checkedInAt` のみ。
-  - **関連ファイル**:
-    - `lib/services/match_generator.dart`（試合・ブラケット生成、スコア確定ロジック）
-    - `lib/screens/tournament/score_input_screen.dart`（スコア入力UI・結果保存。セット時間まで取るならここのUI変更が必要）
-    - `lib/screens/tournament/tournament_detail_screen.dart`（大会管理画面）
-  - **段階的な実装方針（小→大、まず最小限から始めれば過去分の取りこぼしを最小化できる）**:
-    1. **最小限（推奨スタート）**: スコア確定時に試合ドキュメントへ `completedAt: FieldValue.serverTimestamp()` を1フィールド追加するだけ。`score_input_screen.dart` の保存処理（status を completed にする箇所）に追記。コード変更は小さいが入力は `lib/` 配下のため**ストア再提出が必要**。
-    2. **試合の開始＋終了**: 最初のスコア入力 or 開始ボタン押下時に `startedAt`、確定時に `completedAt` を記録 → 試合あたりの所要時間を算出可能。
-    3. **セット単位**: 各セットの開始・終了時刻（`sets` 配列の各要素に `startedAt`/`endedAt` を追加 or 別サブコレクション）→ 1セットあたりの所要時間を算出可能。UI 改修が一番大きい。
-  - **注意**: 時刻はクライアント端末時計ではなく `FieldValue.serverTimestamp()`（サーバー時刻）で記録する。クライアント時刻は端末設定でズレるため統計に使えない。
-  - **用途の想定**: 大会運営の所要時間見積もり、コート回転率の分析、進行遅延の検知など。
+- [x] **試合・セットの時間データ記録（進捗データ収集）**: 「1セット/1試合がどのくらいで終わったか」を記録する。後から欲しくなっても過去分は取り戻せないため、収集だけ先行で開始（2026/06/14 実装）。
+  - **実装済みの記録フィールド**（すべて `FieldValue.serverTimestamp()` ＝ サーバー時刻）:
+    | フィールド | 場所 | 意味／用途 |
+    |---|---|---|
+    | `startedAt` | 試合ドキュメント（`rounds/{r}/matches/{m}` ・`brackets/{b}/matches/{m}`） | 最初のスコア入力時に1回だけ記録。試合開始時刻 |
+    | `completedAt` | 同上 | スコア確定（status→completed）時刻。`completedAt - startedAt` で**試合所要時間** |
+    | `setConfirmedAt`（マップ） | 同上 | 各セット確定時刻をセット番号キーで保存（例 `{0: ts, 1: ts}`）。`setConfirmedAt[i] - setConfirmedAt[i-1]`（先頭は `startedAt`）で**1セットの所要時間**。※ serverTimestamp は配列内に書けないため `sets` 配列とは別マップにしている |
+    | `completedAt`（ラウンド） | ラウンドドキュメント（`tournaments/{id}/rounds/{round}`） | ラウンド全試合完了時刻。ラウンド全体の進行時間 |
+  - **算出例（後から自由に分析可能）**: 試合時間・セット時間・コート回転率（同コートの前試合 `completedAt` → 次試合 `startedAt`）・進行遅延・チェックイン→試合開始リード（既存 `checkedInAt` との差）。
+  - **実装箇所**: `lib/screens/tournament/score_input_screen.dart` の `_autoSave()`（startedAt）/`_recordSetConfirmedAt()`（setConfirmedAt）/`_saveResult()`（completedAt・ラウンド completedAt）。
+  - **注意**: 必ずサーバー時刻で記録（クライアント端末時計は設定でズレるため統計に使えない）。`startedAt` はローカルフラグで二重書き込みを防止。
+  - **未実装（必要になったら次段階）**: スコア確定者の `uid`＋時刻ログ（監査・トラブル対応用）、セットの「開始」時刻を入力開始トリガで別途取る（現状は確定時刻のみ）。
+  - **デプロイ区分**: 入力が `lib/` 配下のため**ストア再提出が必要**（Firestore ルールは `rounds/brackets` 配下が `allow write: if isAuthenticated()` でフィールド制限なし → ルール変更不要）。

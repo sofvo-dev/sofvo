@@ -193,15 +193,41 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     for (int i = 0; i < _totalSets; i++) {
       sets.add({'a': int.tryParse(_ctrlA[i].text) ?? 0, 'b': int.tryParse(_ctrlB[i].text) ?? 0});
     }
+    final update = <String, dynamic>{'sets': sets};
+    // 試合開始時刻（最初のスコア入力時に1回だけ・サーバー時刻で記録）
+    if (_match!['startedAt'] == null) {
+      update['startedAt'] = FieldValue.serverTimestamp();
+      _match!['startedAt'] = true; // 二重書き込み防止用のローカルフラグ
+    }
     try {
       if (widget.isBracket) {
         await _firestore.collection('tournaments').doc(widget.tournamentId)
             .collection('brackets').doc(widget.bracketId).collection('matches').doc(widget.matchId)
-            .update({'sets': sets});
+            .update(update);
       } else {
         await _firestore.collection('tournaments').doc(widget.tournamentId)
             .collection('rounds').doc(widget.roundId).collection('matches').doc(widget.matchId)
-            .update({'sets': sets});
+            .update(update);
+      }
+    } catch (_) {}
+  }
+
+  /// セット確定時刻を記録する。
+  /// serverTimestamp() は配列要素には書けないため、別マップ `setConfirmedAt`
+  /// にセット番号をキーとして保存する（setConfirmedAt[i] - setConfirmedAt[i-1]
+  /// または startedAt との差で、1セットあたりの所要時間を後から算出できる）。
+  Future<void> _recordSetConfirmedAt(int setIndex) async {
+    if (_match == null || _readOnly) return;
+    final update = {'setConfirmedAt.$setIndex': FieldValue.serverTimestamp()};
+    try {
+      if (widget.isBracket) {
+        await _firestore.collection('tournaments').doc(widget.tournamentId)
+            .collection('brackets').doc(widget.bracketId).collection('matches').doc(widget.matchId)
+            .update(update);
+      } else {
+        await _firestore.collection('tournaments').doc(widget.tournamentId)
+            .collection('rounds').doc(widget.roundId).collection('matches').doc(widget.matchId)
+            .update(update);
       }
     } catch (_) {}
   }
@@ -234,6 +260,8 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       final updateData = {
         'sets': setsData, 'result': result, 'status': 'completed',
         'refereeConfirmed': true, 'confirmedByA': _coachAConfirmed, 'confirmedByB': _coachBConfirmed,
+        // 試合終了（確定）時刻・サーバー時刻で記録。startedAt との差で試合所要時間を算出
+        'completedAt': FieldValue.serverTimestamp(),
       };
 
       if (widget.isBracket) {
@@ -263,6 +291,10 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
           if (allCompleted) {
             await _firestore.collection('tournaments').doc(widget.tournamentId)
                 .update({'status': '予選${roundNum}完了'});
+            // ラウンド完了時刻・サーバー時刻で記録（ラウンド全体の進行時間の算出用）
+            await _firestore.collection('tournaments').doc(widget.tournamentId)
+                .collection('rounds').doc(widget.roundId)
+                .update({'completedAt': FieldValue.serverTimestamp()});
           }
         }
       }
@@ -642,6 +674,7 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
               return;
             }
             setState(() { _setConfirmed[setIndex] = true; });
+            _recordSetConfirmedAt(setIndex);
             _checkMatchEnd();
           }),
         ],
