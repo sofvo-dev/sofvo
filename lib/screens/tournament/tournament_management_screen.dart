@@ -245,7 +245,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         return RadioListTile<String>(title: Text(s), value: s, groupValue: currentStatus, activeColor: AppTheme.primaryColor,
           onChanged: (v) async {
             if (v != null) {
-              await FirebaseFirestore.instance.collection('tournaments').doc(docId).update({'status': v});
+              final update = <String, dynamic>{'status': v};
+              // 大会が「開催中」に切り替わった実時刻をサーバー時刻で記録（予定時刻
+              // date+matchStartTime との差で進行開始の遅延を算出できる）。
+              if (v == '開催中' && currentStatus != '開催中') {
+                update['wentLiveAt'] = FieldValue.serverTimestamp();
+              }
+              await FirebaseFirestore.instance.collection('tournaments').doc(docId).update(update);
               if (ctx.mounted) Navigator.pop(ctx);
               if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ステータスを「$v」に変更しました'), backgroundColor: AppTheme.success));
             }

@@ -543,5 +543,19 @@ firebase functions:shell
   - **算出例（後から自由に分析可能）**: 試合時間・セット時間・コート回転率（同コートの前試合 `completedAt` → 次試合 `startedAt`）・進行遅延・チェックイン→試合開始リード（既存 `checkedInAt` との差）。
   - **実装箇所**: `lib/screens/tournament/score_input_screen.dart` の `_autoSave()`（startedAt）/`_recordSetConfirmedAt()`（setConfirmedAt）/`_saveResult()`（completedAt・ラウンド completedAt）。
   - **注意**: 必ずサーバー時刻で記録（クライアント端末時計は設定でズレるため統計に使えない）。`startedAt` はローカルフラグで二重書き込みを防止。
-  - **未実装（必要になったら次段階）**: スコア確定者の `uid`＋時刻ログ（監査・トラブル対応用）、セットの「開始」時刻を入力開始トリガで別途取る（現状は確定時刻のみ）。
-  - **デプロイ区分**: 入力が `lib/` 配下のため**ストア再提出が必要**（Firestore ルールは `rounds/brackets` 配下が `allow write: if isAuthenticated()` でフィールド制限なし → ルール変更不要）。
+
+  - **追加で記録するデータ（2026/06/14 実装・①②④）**:
+    | フィールド | 場所 | 意味／用途 |
+    |---|---|---|
+    | `outcome` | 試合ドキュメント | 結果種別。通常確定は `'normal'`、棄権・不戦勝は `'walkover'`、両者不在は `'noShow'`。**棄権を通常の0-25と区別**し順位・統計の歪みを防ぐ。主催者が AppBar の旗アイコン（開催中のみ表示）から記録 |
+    | `confirmedBy` | 同上 | 初回にスコアを確定したユーザーの uid（監査）。修正では上書きしない |
+    | `editCount` | 同上 | スコア修正回数（初回0、再確定ごとに +1） |
+    | `lastEditedBy` / `lastEditedAt` | 同上 | 最後に確定/修正した uid・サーバー時刻 |
+    | `editLog`（配列） | 同上 | 修正履歴。各要素 `{by, at(Timestamp.now()), prevResult, prevSets, newResult/newOutcome}`。※ serverTimestamp は配列に書けないためクライアント時刻 |
+    | `wentLiveAt` | 大会ドキュメント（`tournaments/{id}`） | ステータスが「開催中」に切り替わった実時刻（サーバー時刻）。予定時刻 `date`+`matchStartTime`（既存・永続）との差で**進行開始の遅延**を算出 |
+    - **棄権/不戦勝の順位反映**: 不戦勝側に `setsA/B = 必要セット数`・敗者0、`totalPoints` は0-0。`noShow` は勝者なし（`winner: '引き分け'`）・セット0-0。
+    - **実装箇所（追加分）**: `score_input_screen.dart` の `_showSpecialOutcomeDialog()`/`_recordSpecialOutcome()`（outcome）・`_saveResult()`（confirmedBy/editCount/editLog）、`tournament_management_screen.dart` の `_showStatusDialog()`（wentLiveAt）。
+  - **遅延分析メモ（④）**: 予定開始は `tournaments/{id}` の `date`+`matchStartTime` に既に保存済み（取り返せるデータ）。実開始は `wentLiveAt`（大会全体）と各試合 `startedAt`。per-match の予定時刻スケジューリング機能は未実装（必要なら別途）。
+
+  - **未実装（必要になったら次段階）**: 試合の実出場メンバー（選手単位・入力負担あり）、セットの「開始」時刻を入力開始トリガで別途取る（現状は確定時刻のみ）。
+  - **デプロイ区分**: 入力が `lib/` 配下のため**ストア再提出が必要**（Firestore ルールは `rounds/brackets` 配下・`tournaments` ともに `allow write: if isAuthenticated()` でフィールド制限なし → ルール変更不要）。
