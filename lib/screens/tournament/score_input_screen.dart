@@ -29,7 +29,6 @@ class ScoreInputScreen extends StatefulWidget {
 
 class _ScoreInputScreenState extends State<ScoreInputScreen> {
   final _firestore = FirebaseFirestore.instance;
-  final _scrollController = ScrollController();
   Map<String, dynamic>? _match;
   Map<String, dynamic>? _rules;
   int _totalSets = 2;
@@ -60,7 +59,6 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     for (var c in _ctrlB) { c.dispose(); }
     for (var f in _focusA) { f.dispose(); }
     for (var f in _focusB) { f.dispose(); }
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -283,103 +281,6 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
     setState(() => _saving = false);
   }
 
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  // 画面下に常時固定する操作ガイド／確定ボタン。
-  // スクロールしないと送信できない問題を防ぐため、今やるべき操作を常に表示する。
-  Widget? _buildBottomBar() {
-    if (_match == null || _readOnly) return null;
-
-    final allConfirmed = _matchEnded && _refereeConfirmed && _coachAConfirmed && _coachBConfirmed;
-    final confirmedSets = _setConfirmed.where((c) => c).length;
-
-    Widget content;
-    if (allConfirmed) {
-      // 確定可能 → 確定ボタンを常時表示（スクロール不要で押せる）
-      content = SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _saving ? null : _saveResult,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.amber, foregroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: Text(_saving ? '保存中...' : '結果を確定する',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ),
-      );
-    } else if (_matchEnded) {
-      // 試合終了したがキャプテン確認が未完了 → 下のスライダーへ誘導
-      content = _bottomGuide(
-        icon: Icons.swipe,
-        text: 'キャプテン確認をスライドして結果を確定してください',
-        actionLabel: '確認へ',
-        onTap: _scrollToBottom,
-      );
-    } else {
-      // 入力中 → 各セットを確認するよう案内（進捗も表示）
-      content = _bottomGuide(
-        icon: Icons.info_outline,
-        text: confirmedSets == 0
-            ? 'スコアを入力し「スライドしてセット確認」で各セットを確定'
-            : 'セット確認 $confirmedSets/$_totalSets ・残りのセットも確認してください',
-        actionLabel: null,
-        onTap: null,
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.12))),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, -2)),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: SafeArea(top: false, child: content),
-    );
-  }
-
-  Widget _bottomGuide({
-    required IconData icon,
-    required String text,
-    String? actionLabel,
-    VoidCallback? onTap,
-  }) {
-    return Row(children: [
-      Icon(icon, color: Colors.amber, size: 20),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Text(text,
-            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
-      ),
-      if (actionLabel != null && onTap != null) ...[
-        const SizedBox(width: 8),
-        TextButton.icon(
-          onPressed: onTap,
-          icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-          label: Text(actionLabel),
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.amber,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-          ),
-        ),
-      ],
-    ]);
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_match == null) {
@@ -399,7 +300,6 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
       ),
       bottomNavigationBar: _buildBottomBar(),
       body: SingleChildScrollView(
-        controller: _scrollController,
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
 
@@ -488,41 +388,63 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             ),
           ],
 
-          // === Confirmation sliders ===
-          if (_matchEnded && !_readOnly) ...[
-            const SizedBox(height: 16),
-            if (_winner == 'a')
-              _buildConfirmSlider('${_match!['teamAName']} キャプテン確認（勝利チーム）', _coachAConfirmed, Icons.person,
-                  () => setState(() { _coachAConfirmed = true; _coachBConfirmed = true; _refereeConfirmed = true; }))
-            else if (_winner == 'b')
-              _buildConfirmSlider('${_match!['teamBName']} キャプテン確認（勝利チーム）', _coachBConfirmed, Icons.person,
-                  () => setState(() { _coachBConfirmed = true; _coachAConfirmed = true; _refereeConfirmed = true; }))
-            else ...[
-              // 引き分け: 両チームの監督が確認
-              _buildConfirmSlider('${_match!['teamAName']} キャプテン確認', _coachAConfirmed, Icons.person,
-                  () => setState(() { _coachAConfirmed = true; if (_coachBConfirmed) _refereeConfirmed = true; })),
-              const SizedBox(height: 12),
-              _buildConfirmSlider('${_match!['teamBName']} キャプテン確認', _coachBConfirmed, Icons.person,
-                  () => setState(() { _coachBConfirmed = true; if (_coachAConfirmed) _refereeConfirmed = true; })),
-            ],
-          ],
-
-          // === Save button ===
-          if (!_readOnly && _matchEnded && _refereeConfirmed && _coachAConfirmed && _coachBConfirmed) ...[
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _saving ? null : _saveResult,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: Text(_saving ? '保存中...' : '結果を確定する',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
-          ],
+          // === キャプテン確認スライダー・結果確定ボタンは画面下部に固定
+          //     (_buildBottomBar) し、スクロールせず確実に操作できるようにする ===
 
           const SizedBox(height: 32),
         ]),
       ),
+    );
+  }
+
+  // 「キャプテン確認（勝利チーム）」と「結果を確定する」だけを画面下部に固定。
+  // 試合終了後のみ表示し、入力中は従来どおりフッターなし（それ以外は以前のまま）。
+  Widget? _buildBottomBar() {
+    if (_match == null || _readOnly || !_matchEnded) return null;
+
+    final allConfirmed = _refereeConfirmed && _coachAConfirmed && _coachBConfirmed;
+
+    Widget content;
+    if (allConfirmed) {
+      // 確認完了 → 結果を確定するボタン
+      content = SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _saving ? null : _saveResult,
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          child: Text(_saving ? '保存中...' : '結果を確定する',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ),
+      );
+    } else if (_winner == 'a') {
+      content = _buildConfirmSlider('${_match!['teamAName']} キャプテン確認（勝利チーム）', _coachAConfirmed, Icons.person,
+          () => setState(() { _coachAConfirmed = true; _coachBConfirmed = true; _refereeConfirmed = true; }));
+    } else if (_winner == 'b') {
+      content = _buildConfirmSlider('${_match!['teamBName']} キャプテン確認（勝利チーム）', _coachBConfirmed, Icons.person,
+          () => setState(() { _coachBConfirmed = true; _coachAConfirmed = true; _refereeConfirmed = true; }));
+    } else {
+      // 引き分け: 両チームのキャプテンが確認
+      content = Column(mainAxisSize: MainAxisSize.min, children: [
+        _buildConfirmSlider('${_match!['teamAName']} キャプテン確認', _coachAConfirmed, Icons.person,
+            () => setState(() { _coachAConfirmed = true; if (_coachBConfirmed) _refereeConfirmed = true; })),
+        const SizedBox(height: 12),
+        _buildConfirmSlider('${_match!['teamBName']} キャプテン確認', _coachBConfirmed, Icons.person,
+            () => setState(() { _coachBConfirmed = true; if (_coachAConfirmed) _refereeConfirmed = true; })),
+      ]);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.12))),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, -2)),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: SafeArea(top: false, child: content),
     );
   }
 
@@ -721,8 +643,6 @@ class _ScoreInputScreenState extends State<ScoreInputScreen> {
             }
             setState(() { _setConfirmed[setIndex] = true; });
             _checkMatchEnd();
-            // 試合終了になったら、下のキャプテン確認・確定欄まで自動スクロールして気づかせる
-            if (_matchEnded) _scrollToBottom();
           }),
         ],
       ]),
