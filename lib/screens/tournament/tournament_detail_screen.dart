@@ -8619,7 +8619,7 @@ class _BracketsWithCompletion extends StatelessWidget {
         return buildBracketSection(bDoc.id, bData);
       }),
       // 主催者のみ: 全ブラケット全試合完了時に大会終了ボタンを表示
-      if (isOrganizer && (status == '順位決定中' || status == '決勝中'))
+      if (isOrganizer && (status == '順位決定中' || status == '決勝中' || status == '開催中'))
         _AllBracketsCompletionCheck(
           tournamentId: tournamentId,
           bracketDocs: allBrackets,
