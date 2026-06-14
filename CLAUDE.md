@@ -532,3 +532,15 @@ firebase functions:shell
   - Cloud Functionsのメール送信時に `notificationEmail` → 認証メールの順でフォールバック
   - 設定画面に認証状態を表示（「認証済み ✓」/「認証待ち…」）
 - [ ] **大会検索・フィルター機能の強化**: 大会数が増えたら、オンボーディング画面（「大会をさがす」）の検索・絞り込みUIを改善する（地域・日程・レベル等）
+- [ ] **試合・セットの時間データ記録（進捗データ収集）**: 「1セット/1試合がどのくらいで終わったか」を記録できるようにする。後から欲しくなっても過去分は取り戻せないため、データ収集だけ早めに始めておきたい。
+  - **現状**: 試合・セットのスコア（`tournaments/{id}/rounds/{round}/matches/{matchId}` の `sets` 配列）と `status`（pending/completed）は記録されているが、**時間データ（開始・終了・所要時間）は一切記録されていない**。記録があるのはラウンド生成時刻 `createdAt` とチェックイン時刻 `checkedInAt` のみ。
+  - **関連ファイル**:
+    - `lib/services/match_generator.dart`（試合・ブラケット生成、スコア確定ロジック）
+    - `lib/screens/tournament/score_input_screen.dart`（スコア入力UI・結果保存。セット時間まで取るならここのUI変更が必要）
+    - `lib/screens/tournament/tournament_detail_screen.dart`（大会管理画面）
+  - **段階的な実装方針（小→大、まず最小限から始めれば過去分の取りこぼしを最小化できる）**:
+    1. **最小限（推奨スタート）**: スコア確定時に試合ドキュメントへ `completedAt: FieldValue.serverTimestamp()` を1フィールド追加するだけ。`score_input_screen.dart` の保存処理（status を completed にする箇所）に追記。コード変更は小さいが入力は `lib/` 配下のため**ストア再提出が必要**。
+    2. **試合の開始＋終了**: 最初のスコア入力 or 開始ボタン押下時に `startedAt`、確定時に `completedAt` を記録 → 試合あたりの所要時間を算出可能。
+    3. **セット単位**: 各セットの開始・終了時刻（`sets` 配列の各要素に `startedAt`/`endedAt` を追加 or 別サブコレクション）→ 1セットあたりの所要時間を算出可能。UI 改修が一番大きい。
+  - **注意**: 時刻はクライアント端末時計ではなく `FieldValue.serverTimestamp()`（サーバー時刻）で記録する。クライアント時刻は端末設定でズレるため統計に使えない。
+  - **用途の想定**: 大会運営の所要時間見積もり、コート回転率の分析、進行遅延の検知など。
