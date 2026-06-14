@@ -196,10 +196,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     if (uid.isEmpty || _tournamentId.isEmpty) return;
     final allEntries = await _firestore.collection('tournaments').doc(_tournamentId)
         .collection('entries').get();
-    // enteredBy OR memberUids にUIDが含まれるエントリーを検索
+    // enteredBy / leaderUid / memberUids のいずれかに自分のUIDが含まれるエントリーを検索
     final myDocs = allEntries.docs.where((d) {
       final data = d.data();
       if (data['enteredBy'] == uid) return true;
+      if (data['leaderUid'] == uid) return true;
       final memberUids = data['memberUids'];
       if (memberUids is List && memberUids.contains(uid)) return true;
       return false;
