@@ -1018,8 +1018,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               const SizedBox(height: 16),
             ],
 
-            // ━━━ 大会の流れ ━━━
-            _buildCard(
+            // ━━━ 大会の流れ（終了後は非表示）━━━
+            if (liveStatus != '終了') _buildCard(
               title: '大会の流れ',
               titleIcon: Icons.timeline,
               child: Builder(builder: (_) {
