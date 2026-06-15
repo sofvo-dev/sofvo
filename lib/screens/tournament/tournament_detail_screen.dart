@@ -15,6 +15,7 @@ import '../../utils/official_permissions.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'score_input_screen.dart';
+import 'team_match_results_screen.dart';
 import 'post_event_action_screen.dart';
 import 'checkin_screen.dart';
 import 'tournament_checkin_scan_screen.dart';
@@ -1251,10 +1252,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             children: [
               _FinalRankingsWidget(
                 tournamentId: _tournamentId,
+                tournamentName: widget.tournament['title'] as String? ?? '',
                 myTeamIds: _myTeamIds,
               ),
               _OverallStandingsAggregator(
                 tournamentId: _tournamentId,
+                tournamentName: widget.tournament['title'] as String? ?? '',
                 roundIds: roundIds,
                 myTeamIds: _myTeamIds,
               ),
@@ -7575,11 +7578,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 // ━━━ 全予選合計の順位表ウィジェット ━━━
 class _OverallStandingsAggregator extends StatefulWidget {
   final String tournamentId;
+  final String tournamentName;
   final List<String> roundIds;
   final List<String> myTeamIds;
 
   const _OverallStandingsAggregator({
     required this.tournamentId,
+    required this.tournamentName,
     required this.roundIds,
     required this.myTeamIds,
   });
@@ -7866,7 +7871,13 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
                 ),
               ] else if (i > 0)
                 Divider(height: 1, color: Colors.grey[200]),
-              Container(
+              InkWell(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TeamMatchResultsScreen(
+                  tournamentId: widget.tournamentId,
+                  tournamentName: widget.tournamentName,
+                  teamId: t['teamId'] as String? ?? '',
+                  teamName: t['teamName'] as String? ?? '',
+                ))),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Row(children: [
@@ -7893,10 +7904,12 @@ class _OverallStandingsAggregatorState extends State<_OverallStandingsAggregator
 // ━━━ 最終順位（決勝トーナメント結果から算出） ━━━
 class _FinalRankingsWidget extends StatefulWidget {
   final String tournamentId;
+  final String tournamentName;
   final List<String> myTeamIds;
 
   const _FinalRankingsWidget({
     required this.tournamentId,
+    required this.tournamentName,
     required this.myTeamIds,
   });
 
@@ -8119,76 +8132,87 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
           final isMyTeam = widget.myTeamIds.contains(r.teamId);
           return [
             if (i > 0) Divider(height: 1, color: Colors.grey[200]),
-            Container(
-              color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(children: [
-                  SizedBox(
-                    width: 36,
-                    child: r.globalRank <= 3
-                        ? Icon(
-                            Icons.emoji_events,
-                            size: 20,
-                            color: r.globalRank == 1
-                                ? Colors.amber[700]
-                                : r.globalRank == 2
-                                    ? Colors.grey[400]
-                                    : Colors.brown[300],
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  SizedBox(
-                    width: 36,
-                    child: Text(
-                      '${r.globalRank}位',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: r.globalRank == 1
-                            ? Colors.amber[700]
-                            : r.globalRank <= 3
-                                ? AppTheme.primaryColor
-                                : AppTheme.textPrimary,
-                      ),
+            InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TeamMatchResultsScreen(
+                tournamentId: widget.tournamentId,
+                tournamentName: widget.tournamentName,
+                teamId: r.teamId,
+                teamName: r.teamName,
+                finalRank: r.globalRank,
+              ))),
+              child: Container(
+                color: isMyTeam ? Colors.red.withValues(alpha: 0.08) : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(children: [
+                    SizedBox(
+                      width: 36,
+                      child: r.globalRank <= 3
+                          ? Icon(
+                              Icons.emoji_events,
+                              size: 20,
+                              color: r.globalRank == 1
+                                  ? Colors.amber[700]
+                                  : r.globalRank == 2
+                                      ? Colors.grey[400]
+                                      : Colors.brown[300],
+                            )
+                          : const SizedBox.shrink(),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      r.teamName,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isMyTeam ? Colors.red : null,
-                        fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (r.rewardPoints > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: r.globalRank == 1
-                            ? Colors.amber.withValues(alpha: 0.15)
-                            : r.globalRank <= 3
-                                ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                                : Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    SizedBox(
+                      width: 36,
                       child: Text(
-                        '${r.rewardPoints}pt',
+                        '${r.globalRank}位',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: r.globalRank == 1
                               ? Colors.amber[700]
                               : r.globalRank <= 3
                                   ? AppTheme.primaryColor
-                                  : AppTheme.textSecondary,
+                                  : AppTheme.textPrimary,
                         ),
                       ),
                     ),
-                ]),
+                    Expanded(
+                      child: Text(
+                        r.teamName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isMyTeam ? Colors.red : null,
+                          fontWeight: isMyTeam ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (r.rewardPoints > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: r.globalRank == 1
+                              ? Colors.amber.withValues(alpha: 0.15)
+                              : r.globalRank <= 3
+                                  ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                                  : Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${r.rewardPoints}pt',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: r.globalRank == 1
+                                ? Colors.amber[700]
+                                : r.globalRank <= 3
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFFCCCCCC)),
+                  ]),
+                ),
               ),
             ),
           ];
