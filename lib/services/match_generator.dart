@@ -1738,8 +1738,13 @@ class MatchGenerator {
     }
 
     // 審判割り当てヘルパー（出場チーム+同時進行チームを除外して最少回数のチームを選出）
-    Map<String, String> _pickRefsForMatch(Set<String> busyIds) {
-      final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
+    // playingIds を渡すと、全チームが busy（小規模リーグの決勝など）で候補が空になった場合に
+    // 出場2チームのみ除外して審判を確保する（審判未割当で得点入力できなくなるのを防ぐ）
+    Map<String, String> _pickRefsForMatch(Set<String> busyIds, {Set<String>? playingIds}) {
+      var available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
+      if (available.isEmpty && playingIds != null) {
+        available = leagueTeams.where((t) => !playingIds.contains(t['teamId'])).toList();
+      }
       available.sort((a, b) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b['teamId']]!));
       String refId = '', refName = '', subRefId = '', subRefName = '';
       if (available.isNotEmpty) {
@@ -1993,7 +1998,9 @@ class MatchGenerator {
         final f1st = byRound['final_1st']?.firstOrNull;
         if (f1st != null && !_isCompleted(f1st)) {
           final aId = _winnerId(s1), bId = _winnerId(s2);
-          final refs = _pickRefsForMatch({aId, bId, _loserId(s1), _loserId(s2)});
+          // 4チームリーグは全チームが決勝/3位決定戦に出るため、候補が空なら
+          // 出場2チームのみ除外して審判を確保（敗者チームが決勝の審判に入る等）
+          final refs = _pickRefsForMatch({aId, bId, _loserId(s1), _loserId(s2)}, playingIds: {aId, bId});
           await f1st.reference.update({
             'teamAId': aId, 'teamAName': _winnerName(s1),
             'teamBId': bId, 'teamBName': _winnerName(s2),
@@ -2003,7 +2010,7 @@ class MatchGenerator {
         final f3rd = byRound['final_3rd']?.firstOrNull;
         if (f3rd != null && !_isCompleted(f3rd)) {
           final aId = _loserId(s1), bId = _loserId(s2);
-          final refs = _pickRefsForMatch({aId, bId, _winnerId(s1), _winnerId(s2)});
+          final refs = _pickRefsForMatch({aId, bId, _winnerId(s1), _winnerId(s2)}, playingIds: {aId, bId});
           await f3rd.reference.update({
             'teamAId': aId, 'teamAName': _loserName(s1),
             'teamBId': bId, 'teamBName': _loserName(s2),
@@ -2177,7 +2184,12 @@ class MatchGenerator {
           // 同スロットで既に審判割当済みのチームも除外
           busyIds.addAll(slotReferees[concurrentSlot] ?? {});
 
-          final available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
+          var available = leagueTeams.where((t) => !busyIds.contains(t['teamId'])).toList();
+          // 全チームが busy（4チームリーグの決勝など）で候補が空なら、
+          // 出場2チームのみ除外して審判を確保（審判未割当→得点入力不可を防ぐ）
+          if (available.isEmpty) {
+            available = leagueTeams.where((t) => t['teamId'] != aId && t['teamId'] != bId).toList();
+          }
           available.sort((a, b2) => (mainRefCount[a['teamId']]!).compareTo(mainRefCount[b2['teamId']]!));
           if (available.isNotEmpty) {
             refId = available.first['teamId']!;
