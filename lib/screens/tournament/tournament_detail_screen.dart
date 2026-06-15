@@ -8447,6 +8447,36 @@ class _OrganizerMenuScreen extends StatelessWidget {
             Navigator.push(context, MaterialPageRoute(builder: (_) => _AnnouncementScreen(
               tournamentId: tournamentId, tournamentData: tournData)));
           }, color: AppTheme.accentColor),
+          if (status == '終了')
+            _menuTile(context, Icons.notifications_active_outlined, '感想・ガジェット登録を再通知', '参加者に大会終了の通知を再送信', () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('再通知しますか？'),
+                  content: const Text('全参加者に「大会終了・感想投稿・ガジェット登録」の通知を再送信します。'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル')),
+                    ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('送信する')),
+                  ],
+                ),
+              );
+              if (confirm != true) return;
+              final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+              final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+              final organizerName = userDoc.data()?['nickname'] ?? userDoc.data()?['displayName'] ?? '';
+              await NotificationService.sendTournamentEndNotification(
+                tournamentId: tournamentId,
+                tournamentName: tournData['title'] ?? '',
+                tournamentDate: tournData['date'] ?? '',
+                organizerId: uid,
+                organizerName: organizerName,
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('参加者に再通知しました'), backgroundColor: AppTheme.success),
+                );
+              }
+            }, color: AppTheme.accentColor),
 
           // ━━━ 試合進行 ━━━
           _sectionLabel('試合進行'),
