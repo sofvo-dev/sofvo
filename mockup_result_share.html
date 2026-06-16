@@ -129,6 +129,41 @@
   .mrow2 .mr-vs{flex:1;font-weight:500;color:var(--text);}
   .mrow2 .mr-set{color:var(--text2);font-size:10.5px;}
   .mrow2 .mres{width:16px;text-align:center;font-weight:900;}
+
+  /* ===== B: app-style team match result ===== */
+  .tr-head{display:flex;align-items:center;gap:12px;padding:16px 18px 12px;}
+  .tr-badge{width:46px;height:46px;border-radius:50%;background:rgba(196,169,98,.18);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;}
+  .tr-badge .n{font-size:17px;font-weight:900;color:var(--gold-deep);line-height:1;}
+  .tr-badge .u{font-size:9px;font-weight:700;color:var(--gold-deep);}
+  .tr-head .tr-team{font-size:18px;font-weight:900;color:var(--navy);}
+  .tr-head .tr-tt{font-size:10px;color:var(--text2);margin-top:2px;}
+  .tr-sum{display:flex;margin:0 16px;background:#fff;border:1px solid #eef1f5;border-radius:12px;
+    box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .tr-sum > div{flex:1;text-align:center;padding:9px 0;border-right:1px solid #eef1f5;}
+  .tr-sum > div:last-child{border-right:none;}
+  .tr-sum .v{font-size:15px;font-weight:900;color:var(--navy);}
+  .tr-sum .k{font-size:9px;color:var(--text2);margin-top:1px;}
+  .tr-stage{font-size:11px;font-weight:900;color:var(--navy);margin:12px 18px 4px;}
+  .tr-matches{padding:0 14px;overflow:auto;}
+  .mcard{border:1px solid #eef1f5;border-radius:10px;margin-bottom:8px;overflow:hidden;}
+  .mcard .mc-top{display:flex;align-items:center;padding:7px 10px;}
+  .mc-top .gameno{font-size:10px;font-weight:700;color:var(--navy);background:#eef2f7;border-radius:6px;padding:2px 8px;}
+  .mc-top .badge{margin-left:auto;font-size:10px;font-weight:900;border-radius:6px;padding:2px 9px;}
+  .mc-top .badge.win{color:var(--success);background:rgba(46,125,50,.10);}
+  .mc-top .badge.lose{color:#D32F2F;background:rgba(211,47,47,.10);}
+  .mc-tbl{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .mc-tbl th{font-size:9.5px;color:var(--text2);font-weight:500;text-align:right;padding:4px 6px;}
+  .mc-tbl th.lft{text-align:left;}
+  .mc-tbl td{padding:7px 6px;text-align:right;border-top:1px solid #f4f6f8;}
+  .mc-tbl td.team{text-align:left;font-weight:700;}
+  .mc-tbl tr.own td{background:#f7f9fb;}
+  .mc-tbl tr.own td.team{color:var(--navy);}
+  .mc-tbl td.hi{color:var(--success);font-weight:700;}
+  .mc-tbl td.tot-w{color:#D32F2F;font-weight:900;}
+  .mc-tbl td.tot{color:var(--navy);font-weight:900;}
+  .share.teamres{height:auto;min-height:540px;}
+  .share.teamres .tr-matches{padding:0 14px 4px;}
 </style>
 </head>
 <body>
@@ -221,49 +256,77 @@
 
   <!-- ============ B: 自分のチームの対戦結果 ============ -->
   <h2 class="sec">B.　自分のチームだけの対戦結果（1枚）</h2>
+  <p class="sub" style="margin-bottom:18px">アプリの「チーム対戦結果」画面と同じ形式（順位バッジ・通算成績・各試合のS1/S2/合計テーブル）をそのまま画像化</p>
   <div class="stage">
-    <!-- LEFT: team match results screen -->
+    <!-- LEFT: team match results screen with save button -->
     <div>
-      <div class="label">① チーム対戦結果 画面</div>
+      <div class="label">① チーム対戦結果 画面 → 保存</div>
       <div class="phone"><div class="screen">
         <div class="statusbar"></div>
         <div class="appbar">
           <span class="ic">←</span>
-          <span class="ttl">Beach Brothers の戦績</span>
-          <span class="ic">⤴</span>
+          <span class="ttl">チーム対戦結果</span>
+          <span class="ic">🖼️</span>
         </div>
-        <div class="pbody">
-          <div class="card">
-            <h3>対戦結果（2位 / 全16チーム）</h3>
-            <div class="mrow"><span class="mvs">予選 vs Coral Crew</span><span class="msets">21-15 / 21-18</span><span class="mres win">勝</span></div>
-            <div class="mrow"><span class="mvs">予選 vs Sand Kings</span><span class="msets">21-19 / 18-21 / 15-12</span><span class="mres win">勝</span></div>
-            <div class="mrow"><span class="mvs">準決勝 vs Sunset Spikers</span><span class="msets">21-17 / 21-16</span><span class="mres win">勝</span></div>
-            <div class="mrow"><span class="mvs">決勝 vs Team Ocean</span><span class="msets">18-21 / 21-19 / 11-15</span><span class="mres lose">負</span></div>
+        <div class="pbody" style="padding:10px">
+          <div class="tr-head" style="background:#fff;border-radius:12px;margin-bottom:10px">
+            <div class="tr-badge"><span class="n">1</span><span class="u">位</span></div>
+            <div><div class="tr-team">ブラック</div><div class="tr-tt">試合結果自動集計アプリ導入大会　種別フリー</div></div>
           </div>
-          <button class="savebtn"><span>🖼️</span>戦績を画像で保存</button>
+          <div class="tr-sum" style="margin:0 0 10px">
+            <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
+            <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
+            <div><div class="v">+12</div><div class="k">得失点</div></div>
+          </div>
+          <button class="savebtn" style="margin:4px 0 10px"><span>🖼️</span>戦績を画像で保存</button>
+          <div class="tr-stage" style="margin:0 0 6px">予選リーグ</div>
+          <div class="mcard">
+            <div class="mc-top"><span class="gameno">予選 1試合目</span><span class="badge win">勝利</span></div>
+            <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+              <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+              <tr><td class="team">and more...</td><td>10</td><td>11</td><td>0</td></tr></table>
+          </div>
         </div>
       </div></div>
     </div>
 
     <div class="arrow">→</div>
 
-    <!-- RIGHT: team result share image -->
+    <!-- RIGHT: team result share image (app-style) -->
     <div>
       <div class="label">② 保存される投稿用画像（自チームの戦績・1枚）</div>
       <div class="sharewrap">
-        <div class="share">
+        <div class="share teamres">
           <div class="top"></div>
-          <div class="head">
-            <div class="brand">SOFVO ・ MY RESULT</div>
-            <div class="tt">Beach Brothers</div>
-            <div class="meta">第3回 Sofvo杯 ビーチ大会 ・ 2026.06.14</div>
+          <div class="tr-head">
+            <div class="tr-badge"><span class="n">1</span><span class="u">位</span></div>
+            <div><div class="tr-team">ブラック</div><div class="tr-tt">試合結果自動集計アプリ導入大会　種別フリー</div></div>
           </div>
-          <div class="bigrank"><span class="br-place">準優勝</span><span class="br-detail">3勝1敗　/　全16チーム中 2位 🥈</span></div>
-          <div class="list mlist">
-            <div class="mrow2"><span class="mr-stage">予選</span><span class="mr-vs">vs Coral Crew</span><span class="mr-set">21-15 / 21-18</span><span class="mres win">○</span></div>
-            <div class="mrow2"><span class="mr-stage">予選</span><span class="mr-vs">vs Sand Kings</span><span class="mr-set">21-19 / 18-21 / 15-12</span><span class="mres win">○</span></div>
-            <div class="mrow2"><span class="mr-stage">準決勝</span><span class="mr-vs">vs Sunset Spikers</span><span class="mr-set">21-17 / 21-16</span><span class="mres win">○</span></div>
-            <div class="mrow2"><span class="mr-stage">決勝</span><span class="mr-vs">vs Team Ocean</span><span class="mr-set">18-21 / 21-19 / 11-15</span><span class="mres lose">●</span></div>
+          <div class="tr-sum">
+            <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
+            <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
+            <div><div class="v">+12</div><div class="k">得失点</div></div>
+          </div>
+          <div class="tr-stage">予選リーグ</div>
+          <div class="tr-matches">
+            <div class="mcard">
+              <div class="mc-top"><span class="gameno">予選 1試合目</span><span class="badge win">勝利</span></div>
+              <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+                <tr><td class="team">GENYA A</td><td>10</td><td>11</td><td>0</td></tr></table>
+            </div>
+            <div class="mcard">
+              <div class="mc-top"><span class="gameno">予選 3試合目</span><span class="badge lose">敗北</span></div>
+              <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td>12</td><td class="tot-w">1</td></tr>
+                <tr><td class="team">ぷくぷく</td><td>14</td><td class="hi">15</td><td>1</td></tr></table>
+            </div>
+            <div class="mcard">
+              <div class="mc-top"><span class="gameno">予選 5試合目</span><span class="badge win">勝利</span></div>
+              <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                <tr class="own"><td class="team">ブラック</td><td>14</td><td class="hi">15</td><td class="tot">1</td></tr>
+                <tr><td class="team">さくら</td><td class="hi">15</td><td>13</td><td>1</td></tr></table>
+            </div>
           </div>
           <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
         </div>
@@ -275,11 +338,11 @@
   <div class="note">
     <b>2種類の画像を保存できます</b><br>
     ・<b>A. 順位表</b>：大会全体の最終順位。<b>1枚あたり8チーム</b>で自動分割（多ければ3枚目・4枚目…）。上位3位はゴールドのハイライト付き。<b>Sofvo紹介ページは無し（順位表のみ）</b>。<br>
-    ・<b>B. 自チームの対戦結果</b>：自分のチームの戦績を1枚に。最終順位・勝敗・各試合のセットスコアを掲載。<br><br>
+    ・<b>B. 自チームの対戦結果</b>：<b>アプリの「チーム対戦結果」画面と同じ形式</b>をそのまま画像化（順位バッジ・通算成績/セット勝敗/得失点・各試合の S1/S2/合計 テーブル）。試合数が多い場合は縦に長い画像になる（または複数枚に分割も可）。<br><br>
     <b>確認したいこと</b><br>
-    ・画像の形は <b>縦長4:5</b> でOK？（正方形1:1 / ストーリー9:16 も可）<br>
+    ・Bは試合数が多いと縦長になります。<b>1枚に全試合（縦長）</b>と <b>8試合ごとに分割</b>、どちらが良いですか？<br>
     ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか<br>
-    ・B（自チーム戦績）に出す項目はこの内容（順位・勝敗・各試合のセットスコア）でOK？
+    ・Aの順位表の比率は <b>縦長4:5</b> でOK？（1:1 / 9:16 も可）
   </div>
 </body>
 </html>
