@@ -65,9 +65,9 @@
   .share .slimhead{display:flex;align-items:center;gap:8px;padding:16px 20px 8px;}
   .share .slimhead .slimtt{font-size:13px;font-weight:900;color:var(--navy);}
   .share .slimhead .pageno{margin-left:auto;}
-  .share .list{padding:4px 16px;flex:1;}
-  .share .list.list-tall .srow{padding:7px 6px;}
-  .srow{display:flex;align-items:center;padding:5px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
+  /* 行を均等な高さに広げてカードを埋める（ページ間で見た目を揃える） */
+  .share .list{padding:4px 16px;flex:1;display:flex;flex-direction:column;}
+  .srow{flex:1;display:flex;align-items:center;padding:0 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
   .srow:last-child{border-bottom:none;}
   .srow .m{width:24px;font-size:16px;text-align:center;}
   .srow .rk{width:34px;font-weight:900;color:var(--navy);}
