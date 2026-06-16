@@ -47,12 +47,13 @@
   /* ===== Share images (white, 4:5) ===== */
   .twoimgs{display:flex;gap:20px;}
   .sharewrap{width:288px;}
-  .share{width:288px;height:360px;background:#fff;border-radius:18px;color:var(--text);
-    padding:0;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
+  .share{width:288px;min-height:360px;background:#fff;border-radius:18px;color:var(--text);
+    padding:0 0 14px;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
     border:1px solid #eceff3;display:flex;flex-direction:column;}
+  .ratio-note{font-size:10px;color:var(--text2);text-align:center;margin-top:6px;}
   /* gold top hairline + navy header band (thin) */
   .share .top{height:6px;background:linear-gradient(90deg,var(--gold),var(--gold-light));}
-  .share .head{padding:18px 20px 12px;}
+  .share .head{padding:14px 20px 6px;}
   .share .brand{font-size:11px;letter-spacing:3px;color:var(--gold-deep);font-weight:700;}
   .share .tt{font-size:18px;font-weight:900;margin-top:4px;line-height:1.25;color:var(--navy);}
   .share .meta{font-size:10.5px;color:var(--text2);margin-top:5px;}
@@ -162,13 +163,15 @@
   .mc-tbl td.hi{color:var(--success);font-weight:700;}
   .mc-tbl td.tot-w{color:#D32F2F;font-weight:900;}
   .mc-tbl td.tot{color:var(--navy);font-weight:900;}
-  .share.teamres .tr-head{padding:14px 18px 8px;}
-  .share.teamres .tr-team{font-size:16px;}
-  .share.teamres .tr-sum > div{padding:7px 0;}
-  .share.teamres .tr-stage{margin:8px 18px 4px;}
-  .share.teamres .tr-matches{padding:0 14px;flex:1;overflow:hidden;}
-  .share.teamres .mcard{margin-bottom:7px;}
-  .share.teamres .mc-tbl td{padding:6px 6px;}
+  .share.teamres .tr-head{padding:12px 18px 6px;}
+  .share.teamres .tr-team{font-size:15px;}
+  .share.teamres .tr-sum > div{padding:6px 0;}
+  .share.teamres .tr-sum .v{font-size:14px;}
+  .share.teamres .tr-stage{margin:7px 18px 4px;}
+  .share.teamres .tr-matches{padding:0 14px 4px;}
+  .share.teamres .mcard{margin-bottom:6px;}
+  .share.teamres .mc-top{padding:5px 10px;}
+  .share.teamres .mc-tbl td{padding:5px 6px;}
 </style>
 </head>
 <body>
@@ -219,7 +222,7 @@
               <div class="tt">第3回 Sofvo杯 ビーチ大会</div>
               <div class="meta">2026.06.14 ・ 東京 お台場海浜公園 ・ 全16チーム</div>
             </div>
-            <div class="seg"><span class="res">🏆 RESULT</span><span class="pageno">1 / 3</span></div>
+            <div class="seg"><span class="res">🏆 RESULT</span><span class="pageno">1 / 2</span></div>
             <div class="list">
               <div class="srow gold"><span class="m">🥇</span><span class="rk">1位</span><span class="nm">Team Ocean</span><span class="sc">優勝</span></div>
               <div class="srow gold"><span class="m">🥈</span><span class="rk">2位</span><span class="nm">Beach Brothers</span><span class="sc">準優勝</span></div>
@@ -230,7 +233,6 @@
               <div class="srow"><span class="m"></span><span class="rk">7位</span><span class="nm">Tide Breakers</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">8位</span><span class="nm">Shoreline FC</span><span class="sc"></span></div>
             </div>
-            <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
           </div>
         </div>
         <!-- Page 2: 9-16 (slim header) -->
@@ -239,7 +241,7 @@
             <div class="top"></div>
             <div class="slimhead">
               <span class="slimtt">第3回 Sofvo杯 ビーチ大会</span>
-              <span class="pageno">2 / 3</span>
+              <span class="pageno">2 / 2</span>
             </div>
             <div class="list list-tall">
               <div class="srow"><span class="m"></span><span class="rk">9位</span><span class="nm">Blue Marlins</span><span class="sc"></span></div>
@@ -251,7 +253,6 @@
               <div class="srow"><span class="m"></span><span class="rk">15位</span><span class="nm">Surf Sett</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">16位</span><span class="nm">Pier Pals</span><span class="sc"></span></div>
             </div>
-            <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
           </div>
         </div>
         <!-- Page 3: Sofvo intro (always last) -->
@@ -268,11 +269,10 @@
               <div class="feat"><span class="fic">🏆</span><div><b>結果をシェア</b><br><span>この画像もアプリでワンタップ生成</span></div></div>
               <div class="feat"><span class="fic">👥</span><div><b>チーム・仲間とつながる</b><br><span>フォローで大会情報をキャッチ</span></div></div>
             </div>
-            <div class="foot foot-c"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span class="foot-url">sofvo.com</span><span class="pageno">3 / 3</span></div>
           </div>
         </div>
       </div>
-      <div class="center"><div class="toast">✓ 3枚を写真ライブラリに保存しました（最後はSofvo紹介）</div></div>
+      <div class="center"><div class="toast">✓ 順位表2枚＋Sofvo紹介を写真に保存しました</div></div>
     </div>
   </div>
 
@@ -331,7 +331,7 @@
               <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
               <div><div class="v">+12</div><div class="k">得失点</div></div>
             </div>
-            <div class="tr-stage">予選リーグ　<span style="font-size:9px;color:#fff;background:var(--navy);padding:2px 8px;border-radius:10px;font-weight:700">1 / 3</span></div>
+            <div class="tr-stage">予選リーグ　<span style="font-size:9px;color:#fff;background:var(--navy);padding:2px 8px;border-radius:10px;font-weight:700">1 / 2</span></div>
             <div class="tr-matches">
               <div class="mcard">
                 <div class="mc-top"><span class="gameno">予選 1試合目</span><span class="badge win">勝利</span></div>
@@ -346,14 +346,13 @@
                   <tr><td class="team">ぷくぷく</td><td>14</td><td class="hi">15</td><td>1</td></tr></table>
               </div>
             </div>
-            <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
           </div>
         </div>
         <!-- Page 2: slim header + remaining matches -->
         <div class="sharewrap">
           <div class="share teamres">
             <div class="top"></div>
-            <div class="slimhead"><span class="slimtt">ブラック ・ 対戦結果</span><span class="pageno">2 / 3</span></div>
+            <div class="slimhead"><span class="slimtt">ブラック ・ 対戦結果</span><span class="pageno">2 / 2</span></div>
             <div class="tr-matches" style="margin-top:4px">
               <div class="mcard">
                 <div class="mc-top"><span class="gameno">予選 5試合目</span><span class="badge win">勝利</span></div>
@@ -374,7 +373,6 @@
                   <tr><td class="team">レッド</td><td>11</td><td>13</td><td>0</td></tr></table>
               </div>
             </div>
-            <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
           </div>
         </div>
         <!-- Page 3: Sofvo intro (always last) -->
@@ -391,11 +389,10 @@
               <div class="feat"><span class="fic">🏆</span><div><b>結果をシェア</b><br><span>この画像もアプリでワンタップ生成</span></div></div>
               <div class="feat"><span class="fic">👥</span><div><b>チーム・仲間とつながる</b><br><span>フォローで大会情報をキャッチ</span></div></div>
             </div>
-            <div class="foot foot-c"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span class="foot-url">sofvo.com</span><span class="pageno">3 / 3</span></div>
           </div>
         </div>
       </div>
-      <div class="center"><div class="toast">✓ 3枚を写真ライブラリに保存しました（最後はSofvo紹介）</div></div>
+      <div class="center"><div class="toast">✓ 順位表2枚＋Sofvo紹介を写真に保存しました</div></div>
     </div>
   </div>
 
