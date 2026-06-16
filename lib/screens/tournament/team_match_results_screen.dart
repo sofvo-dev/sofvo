@@ -400,8 +400,8 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
     // Stage label
     String stageLabel;
     if (isPrelim) {
-      final num = (match['matchNumber'] as num?)?.toInt() ?? 0;
-      stageLabel = '予選 ${num}試合目';
+      final matchNum = (match['matchNumber'] as num?)?.toInt() ?? 0;
+      stageLabel = '予選 ${matchNum}試合目';
     } else {
       final round = match['round'] as String? ?? '';
       stageLabel = _roundLabels[round] ?? round;
