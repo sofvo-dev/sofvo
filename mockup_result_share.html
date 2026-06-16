@@ -78,6 +78,22 @@
   .share .foot .logo{display:flex;align-items:center;gap:6px;font-weight:900;color:var(--navy);font-size:12px;}
   .share .qr{width:32px;height:32px;background:var(--navy);border-radius:6px;}
 
+  /* page 3 intro */
+  .share.intro{background:linear-gradient(170deg,#fff 0%,#fbf8f0 100%);}
+  .intro-head{padding:26px 20px 14px;text-align:center;}
+  .intro-head .logo-big{font-size:30px;font-weight:900;color:var(--navy);}
+  .intro-head .tagline{font-size:12.5px;color:var(--gold-deep);font-weight:700;margin-top:6px;}
+  .intro-body{padding:4px 20px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:13px;}
+  .feat{display:flex;align-items:flex-start;gap:11px;}
+  .feat .fic{font-size:19px;width:24px;text-align:center;}
+  .feat b{font-size:13px;color:var(--navy);}
+  .feat span{font-size:10.5px;color:var(--text2);}
+  .intro-cta{display:flex;align-items:center;gap:14px;margin:6px 20px 4px;padding:12px 14px;
+    background:var(--navy);border-radius:12px;color:#fff;}
+  .intro-cta .qr-big{width:54px;height:54px;background:#fff;border-radius:8px;flex-shrink:0;}
+  .intro-cta .cta-txt b{font-size:13px;}
+  .intro-cta .cta-txt span{font-size:10px;color:#c6d3e2;line-height:1.5;}
+  .foot.foot-c .pageno{background:var(--navy);}
   .toast{margin-top:14px;text-align:center;background:var(--navy);color:#fff;font-size:12px;
     padding:9px 14px;border-radius:20px;display:inline-block;}
   .center{text-align:center;}
@@ -132,7 +148,7 @@
               <div class="tt">第3回 Sofvo杯 ビーチ大会</div>
               <div class="meta">2026.06.14 ・ 東京 お台場海浜公園 ・ 全16チーム</div>
             </div>
-            <div class="seg"><span class="res">🏆 RESULT</span><span class="pageno">1 / 2</span></div>
+            <div class="seg"><span class="res">🏆 RESULT</span><span class="pageno">1 / 3</span></div>
             <div class="list">
               <div class="srow gold"><span class="m">🥇</span><span class="rk">1位</span><span class="nm">Team Ocean</span><span class="sc">優勝</span></div>
               <div class="srow gold"><span class="m">🥈</span><span class="rk">2位</span><span class="nm">Beach Brothers</span><span class="sc">準優勝</span></div>
@@ -152,7 +168,7 @@
             <div class="top"></div>
             <div class="slimhead">
               <span class="slimtt">第3回 Sofvo杯 ビーチ大会</span>
-              <span class="pageno">2 / 2</span>
+              <span class="pageno">2 / 3</span>
             </div>
             <div class="list list-tall">
               <div class="srow"><span class="m"></span><span class="rk">9位</span><span class="nm">Blue Marlins</span><span class="sc"></span></div>
@@ -167,20 +183,42 @@
             <div class="foot"><span class="logo">🏐 Sofvo</span><span>sofvo.com で参加</span><span class="qr"></span></div>
           </div>
         </div>
+        <!-- Page 3: Sofvo intro / promo -->
+        <div class="sharewrap">
+          <div class="share intro">
+            <div class="top"></div>
+            <div class="intro-head">
+              <div class="logo-big">🏐 Sofvo</div>
+              <div class="tagline">ソフトバレーの大会を、もっと簡単に。</div>
+            </div>
+            <div class="intro-body">
+              <div class="feat"><span class="fic">🔍</span><div><b>大会をさがす・エントリー</b><br><span>近くの大会をアプリから申し込み</span></div></div>
+              <div class="feat"><span class="fic">📋</span><div><b>対戦表・順位を自動作成</b><br><span>スコア入力でリアルタイム集計</span></div></div>
+              <div class="feat"><span class="fic">🏆</span><div><b>結果をシェア</b><br><span>この画像もアプリでワンタップ生成</span></div></div>
+              <div class="feat"><span class="fic">👥</span><div><b>チーム・仲間とつながる</b><br><span>フォローで大会情報をキャッチ</span></div></div>
+            </div>
+            <div class="intro-cta">
+              <div class="qr-big"></div>
+              <div class="cta-txt"><b>今すぐダウンロード</b><br><span>App Store / Google Play<br>sofvo.com</span></div>
+            </div>
+            <div class="foot foot-c"><span class="logo">🏐 Sofvo</span><span class="pageno">3 / 3</span></div>
+          </div>
+        </div>
       </div>
-      <div class="center"><div class="toast">✓ 2枚を写真ライブラリに保存しました</div></div>
+      <div class="center"><div class="toast">✓ 3枚を写真ライブラリに保存しました</div></div>
     </div>
   </div>
 
   <div class="note">
-    <b>変更点</b><br>
-    ・配色を<b>白基調</b>に変更（ネイビーは見出し文字・フッター・ページ番号のアクセントのみ／上部にゴールドの細ライン）。<br>
-    ・チーム数が多い場合は<b>自動で2枚に分割</b>（例：16チーム → 1枚目 1〜8位 / 2枚目 9〜16位）。上位3位はゴールドのハイライト付き。<br><br>
+    <b>構成</b><br>
+    ・配色は<b>白基調</b>（ネイビーは見出し・フッター・ページ番号のアクセントのみ／上部にゴールドの細ライン）。<br>
+    ・順位は<b>1枚あたり8チーム</b>で自動分割。チーム数が多ければ3枚目・4枚目…と順位ページが増える（例：24チーム → 順位3枚＋紹介1枚＝計4枚）。上位3位はゴールドのハイライト付き。<br>
+    ・<b>最後のページは必ず「Sofvo紹介」カード</b>（アプリの機能紹介＋QR/ダウンロード導線）。順位を見た人がそのまま流入できる。<br>
+    ・上の例は16チーム → 1枚目(1〜8位)・2枚目(9〜16位)・3枚目(Sofvo紹介) の計3枚。<br><br>
     <b>確認したいこと</b><br>
-    ・1枚あたりの掲載数は <b>8チーム</b>で良いですか？（多いほど文字は小さくなります。9チーム以上で2枚目を生成）<br>
     ・画像の形は <b>縦長4:5</b> でOK？（正方形1:1 / ストーリー9:16 も可）<br>
-    ・<b>QR／sofvo.com の宣伝導線</b>はこのまま入れて良いですか<br>
-    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか
+    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか<br>
+    ・Sofvo紹介カードの<b>キャッチコピー・機能4項目</b>はこの内容でOK？（文言調整可）
   </div>
 </body>
 </html>
