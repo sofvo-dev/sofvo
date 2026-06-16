@@ -318,26 +318,40 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
               ),
               if (rank != null && rank <= 3)
                 Positioned(
-                  top: -8,
+                  top: -14,
                   left: 0,
                   right: 0,
                   child: Center(
                     child: Container(
-                      width: 22, height: 22,
+                      width: 30, height: 30,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3, offset: const Offset(0, 1))],
+                        gradient: LinearGradient(
+                          colors: rank == 1
+                              ? [const Color(0xFFFFE082), const Color(0xFFFFA000)]
+                              : rank == 2
+                                  ? [const Color(0xFFECEFF1), const Color(0xFF90A4AE)]
+                                  : [const Color(0xFFE6B17E), const Color(0xFFB06A2E)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (rank == 1
+                                    ? const Color(0xFFFFA000)
+                                    : rank == 2
+                                        ? const Color(0xFF90A4AE)
+                                        : const Color(0xFFB06A2E))
+                                .withValues(alpha: 0.5),
+                            blurRadius: 6, offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: Center(
+                      child: const Center(
                         child: FaIcon(
                           FontAwesomeIcons.crown,
-                          size: 12,
-                          color: rank == 1
-                              ? const Color(0xFFFFC107)
-                              : rank == 2
-                                  ? const Color(0xFFB0BEC5)
-                                  : const Color(0xFFCD7F32),
+                          size: 15,
+                          color: Colors.white,
                         ),
                       ),
                     ),
