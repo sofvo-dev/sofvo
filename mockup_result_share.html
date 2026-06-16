@@ -47,10 +47,10 @@
   /* ===== Share images (white, 4:5) ===== */
   .twoimgs{display:flex;gap:20px;}
   .sharewrap{width:288px;}
-  .share{width:288px;min-height:360px;background:#fff;border-radius:18px;color:var(--text);
-    padding:0 0 14px;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
+  /* すべて同一サイズ 4:5 (288x360 ≒ 1080x1350) に固定 — Instagram カルーセル必須 */
+  .share{width:288px;height:360px;background:#fff;border-radius:18px;color:var(--text);
+    padding:0 0 10px;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
     border:1px solid #eceff3;display:flex;flex-direction:column;}
-  .ratio-note{font-size:10px;color:var(--text2);text-align:center;margin-top:6px;}
   /* gold top hairline + navy header band (thin) */
   .share .top{height:6px;background:linear-gradient(90deg,var(--gold),var(--gold-light));}
   .share .head{padding:14px 20px 6px;}
@@ -65,9 +65,9 @@
   .share .slimhead{display:flex;align-items:center;gap:8px;padding:16px 20px 8px;}
   .share .slimhead .slimtt{font-size:13px;font-weight:900;color:var(--navy);}
   .share .slimhead .pageno{margin-left:auto;}
-  .share .list{padding:8px 16px;flex:1;}
-  .share .list.list-tall .srow{padding:9.5px 6px;}
-  .srow{display:flex;align-items:center;padding:7.5px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
+  .share .list{padding:4px 16px;flex:1;}
+  .share .list.list-tall .srow{padding:7px 6px;}
+  .srow{display:flex;align-items:center;padding:5px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
   .srow:last-child{border-bottom:none;}
   .srow .m{width:24px;font-size:16px;text-align:center;}
   .srow .rk{width:34px;font-weight:900;color:var(--navy);}
@@ -397,14 +397,14 @@
   </div>
 
   <div class="note">
-    <b>2種類の画像を保存できます（どちらも 4:5・Instagram対応）</b><br>
-    ・<b>A. 順位表</b>：大会全体の最終順位。<b>1枚あたり8チーム</b>で自動分割。上位3位はゴールドのハイライト付き。<br>
-    ・<b>B. 自チームの対戦結果</b>：<b>アプリの「チーム対戦結果」画面と同じ形式</b>（順位バッジ・通算成績/セット勝敗/得失点・各試合の S1/S2/合計 テーブル）。<b>縦長すぎないよう4:5で自動分割</b>（1枚目＝サマリー＋数試合、以降＝残りの試合）。<br>
-    ・<b>最後のページは必ず「Sofvo紹介」</b>（A・Bどちらも共通／「今すぐダウンロード」ボタンは無し）。順位や戦績を見た人がそのままアプリに流入できる。<br><br>
+    <b>すべての画像は 1080×1350px（4:5）の同一サイズで書き出します</b><br>
+    Instagram のカルーセル（複数枚投稿）は<b>全スライドが同じアスペクト比でないと、1枚目に合わせて自動トリミング</b>されます。そのため全ページを <b>4:5 で完全に統一</b>。内容が収まる数だけ各ページに入れ、余ったページは余白で同サイズに揃えます（＝何も切れません）。<br><br>
+    ・<b>A. 順位表</b>：1枚あたり8チームで自動分割。上位3位はゴールドのハイライト。<br>
+    ・<b>B. 自チームの対戦結果</b>：アプリの画面と同じ形式（順位バッジ・通算成績/セット勝敗/得失点・各試合の S1/S2/合計）。1枚に収まる試合数で自動分割。<br>
+    ・<b>最後に「Sofvo紹介」</b>（同じ4:5サイズ・ページ番号には含めない）。<br><br>
     <b>確認したいこと</b><br>
-    ・1枚あたりの試合数（A=8チーム / B=2〜3試合）はこのくらいでOK？<br>
-    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか<br>
-    ・比率は <b>4:5</b> 固定でOK？（ストーリー用 9:16 も追加で出せます）
+    ・比率は <b>4:5（1080×1350）</b> で確定でOK？（正方形1:1・ストーリー9:16も出せます）<br>
+    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか
   </div>
 </body>
 </html>
