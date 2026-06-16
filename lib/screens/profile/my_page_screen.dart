@@ -1958,7 +1958,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late TextEditingController _youtubeCtrl;
   late TextEditingController _websiteCtrl;
   String _selectedExperience = '1年未満';
-  String _selectedArea = '東京都';
+  String _selectedArea = '';
   String _selectedGender = '';
   DateTime? _birthDate;
   bool _isIdLocked = false;
@@ -2027,11 +2027,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     }
     if (_areas.contains(areaStr)) {
       _selectedArea = areaStr;
-    } else {
+    } else if (areaStr.isNotEmpty) {
       _selectedArea = _areas.firstWhere(
         (a) => areaStr.contains(a) || a.contains(areaStr),
-        orElse: () => '東京都',
+        orElse: () => '',
       );
+    } else {
+      _selectedArea = '';
     }
   }
 
@@ -2336,9 +2338,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 border: Border.all(color: Colors.grey[200]!),
               ),
               child: DropdownButton<String>(
-                value: _selectedArea,
+                value: _selectedArea.isEmpty ? null : _selectedArea,
                 isExpanded: true,
                 underline: const SizedBox(),
+                hint: const Text('未選択', style: TextStyle(color: AppTheme.textHint)),
                 items: _areas
                     .map((a) =>
                         DropdownMenuItem(value: a, child: Text(a)))
