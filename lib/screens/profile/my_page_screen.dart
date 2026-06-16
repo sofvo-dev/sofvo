@@ -45,6 +45,7 @@ import 'tournament_history_screen.dart';
 import 'ranking_screen.dart';
 import 'point_history_screen.dart';
 import 'user_profile_screen.dart';
+import 'user_photos_screen.dart';
 import '../../services/point_service.dart';
 
 class MyPageScreen extends StatelessWidget {
@@ -355,6 +356,16 @@ class MyPageScreen extends StatelessWidget {
                         seeAllTap: () => Navigator.push(context,
                             MaterialPageRoute(builder: (_) => const TournamentHistoryScreen())),
                         child: _TournamentCardsRow(userId: viewingUid),
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildCardSection(
+                        context: context,
+                        title: 'フォト',
+                        icon: Icons.photo_library_rounded,
+                        seeAllTap: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => UserPhotosScreen(userId: viewingUid, displayName: nickname))),
+                        child: _PhotoCardsRow(userId: viewingUid, displayName: nickname),
                       ),
                       const SizedBox(height: 24),
 
@@ -1340,6 +1351,183 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                           ],
                         ),
                       ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// フォトカード（横スクロール）— 自分がアップした大会フォトを大会ごとに表示
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class _PhotoCardsRow extends StatefulWidget {
+  final String userId;
+  final String displayName;
+  const _PhotoCardsRow({required this.userId, required this.displayName});
+
+  @override
+  State<_PhotoCardsRow> createState() => _PhotoCardsRowState();
+}
+
+class _PhotoCardsRowState extends State<_PhotoCardsRow> {
+  late Future<List<Map<String, dynamic>>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadPhotoGroups();
+  }
+
+  // 自分がアップした大会フォトを collectionGroup で取得し、大会ごとにまとめる
+  Future<List<Map<String, dynamic>>> _loadPhotoGroups() async {
+    final firestore = FirebaseFirestore.instance;
+    final snap = await firestore
+        .collectionGroup('photos')
+        .where('uploadedBy', isEqualTo: widget.userId)
+        .get();
+
+    final groups = <String, Map<String, dynamic>>{};
+    for (final doc in snap.docs) {
+      final tournamentRef = doc.reference.parent.parent; // tournaments/{id}
+      if (tournamentRef == null) continue;
+      final tid = tournamentRef.id;
+      final data = doc.data();
+      final imageUrl = (data['imageUrl'] as String?) ?? '';
+      final createdAt = data['createdAt'];
+      final dt = createdAt is Timestamp ? createdAt.toDate() : DateTime.fromMillisecondsSinceEpoch(0);
+
+      final g = groups[tid];
+      if (g == null) {
+        groups[tid] = {
+          'tournamentId': tid,
+          'tournamentName': '大会',
+          'coverUrl': imageUrl,
+          'count': 1,
+          'latest': dt,
+        };
+      } else {
+        g['count'] = (g['count'] as int) + 1;
+        if (dt.isAfter(g['latest'] as DateTime)) {
+          g['latest'] = dt;
+          g['coverUrl'] = imageUrl; // 最新写真をカバーに
+        }
+      }
+    }
+
+    if (groups.isEmpty) return [];
+
+    // 大会名を取得
+    await Future.wait(groups.keys.map((tid) async {
+      try {
+        final tDoc = await firestore.collection('tournaments').doc(tid).get();
+        final tData = tDoc.data();
+        if (tData != null) {
+          final name = (tData['title'] ?? tData['name'] ?? '大会') as String;
+          groups[tid]!['tournamentName'] = name.isEmpty ? '大会' : name;
+        }
+      } catch (_) {}
+    }));
+
+    final result = groups.values.toList()
+      ..sort((a, b) => (b['latest'] as DateTime).compareTo(a['latest'] as DateTime));
+    if (result.length > 10) result.removeRange(10, result.length);
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return SizedBox(
+            height: 100,
+            child: Center(
+              child: Text('フォトの取得に失敗しました', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 130, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)));
+        }
+
+        final groups = snapshot.data!;
+        if (groups.isEmpty) {
+          return SizedBox(
+            height: 100,
+            child: Center(
+              child: Text('まだフォトがありません', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 150,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: groups.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final g = groups[index];
+              final coverUrl = (g['coverUrl'] as String?) ?? '';
+              final name = (g['tournamentName'] as String?) ?? '大会';
+              final count = (g['count'] as int?) ?? 0;
+
+              return GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => UserPhotosScreen(userId: widget.userId, displayName: widget.displayName))),
+                child: SizedBox(
+                  width: 120,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: coverUrl.isEmpty
+                                ? Container(width: 120, height: 120, color: Colors.grey[100],
+                                    child: const Icon(Icons.image, color: AppTheme.textHint))
+                                : CachedNetworkImage(
+                                    imageUrl: coverUrl,
+                                    width: 120, height: 120, fit: BoxFit.cover,
+                                    placeholder: (_, __) => Container(width: 120, height: 120, color: Colors.grey[100]),
+                                    errorWidget: (_, __, ___) => Container(width: 120, height: 120, color: Colors.grey[100],
+                                        child: const Icon(Icons.broken_image, color: AppTheme.textHint)),
+                                  ),
+                          ),
+                          // 枚数バッジ
+                          Positioned(
+                            right: 6,
+                            top: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.photo_library, size: 11, color: Colors.white),
+                                  const SizedBox(width: 3),
+                                  Text('$count', style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
