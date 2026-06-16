@@ -9,14 +9,14 @@
 <style>
   :root{
     --navy:#1B3A5C; --navy-light:#2E5C8A; --navy-dark:#0F2440;
-    --gold:#C4A962; --gold-light:#D4C08A;
+    --gold:#C4A962; --gold-light:#D4C08A; --gold-deep:#A98B3F;
     --bg:#F7F7F7; --text:#1A1A1A; --text2:#6B6B6B; --success:#2E7D32;
   }
   *{box-sizing:border-box;margin:0;padding:0;font-family:'Noto Sans JP',sans-serif;}
   body{background:#e9edf2;padding:32px 16px;color:var(--text);}
   h1.page{text-align:center;color:var(--navy);font-size:20px;margin-bottom:6px;}
   p.sub{text-align:center;color:var(--text2);font-size:13px;margin-bottom:28px;}
-  .stage{display:flex;gap:40px;justify-content:center;align-items:flex-start;flex-wrap:wrap;}
+  .stage{display:flex;gap:34px;justify-content:center;align-items:flex-start;flex-wrap:wrap;}
   .label{text-align:center;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;}
   .arrow{align-self:center;font-size:30px;color:var(--gold);font-weight:900;}
 
@@ -30,7 +30,7 @@
   .tabs{display:flex;background:var(--navy);color:#cdd7e3;font-size:13px;}
   .tabs div{flex:1;text-align:center;padding:10px 0;}
   .tabs div.on{color:#fff;border-bottom:3px solid var(--gold);font-weight:700;}
-  .body{flex:1;overflow:auto;padding:14px;}
+  .pbody{flex:1;overflow:auto;padding:14px;}
   .card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
   .card h3{font-size:13px;color:var(--text2);margin-bottom:10px;}
   .rrow{display:flex;align-items:center;padding:9px 4px;border-bottom:1px solid #f0f0f0;font-size:13px;}
@@ -38,47 +38,52 @@
   .rank{width:34px;font-weight:900;color:var(--navy);}
   .medal{font-size:16px;width:24px;}
   .tname{flex:1;font-weight:500;}
-  .pt{font-weight:700;color:var(--gold);}
+  .pt{font-weight:700;color:var(--gold-deep);}
   .me{background:rgba(196,169,98,.12);border-radius:8px;}
-
-  /* save button (the new feature) */
   .savebtn{margin:16px 14px;background:var(--gold);color:#fff;border:none;border-radius:12px;
     padding:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;
     box-shadow:0 6px 16px rgba(196,169,98,.45);}
-  .savebtn .pulse{display:inline-block;}
 
-  /* ===== Share image (1080x1350 portrait, scaled) ===== */
-  .sharewrap{width:300px;}
-  .share{width:300px;height:375px;background:linear-gradient(160deg,var(--navy-dark),var(--navy));
-    border-radius:18px;color:#fff;padding:22px 20px;position:relative;overflow:hidden;
-    box-shadow:0 20px 50px rgba(0,0,0,.3);}
-  .share::after{content:"";position:absolute;right:-60px;top:-60px;width:180px;height:180px;
-    background:radial-gradient(circle,rgba(196,169,98,.30),transparent 70%);}
-  .share .brand{font-size:12px;letter-spacing:3px;color:var(--gold-light);font-weight:700;}
-  .share .tt{font-size:18px;font-weight:900;margin-top:6px;line-height:1.3;}
-  .share .meta{font-size:11px;color:#aebfd4;margin-top:4px;}
-  .share .hr{height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin:14px 0 10px;}
-  .share .res{font-size:11px;color:var(--gold-light);font-weight:700;margin-bottom:6px;}
-  .srow{display:flex;align-items:center;padding:6px 0;font-size:13px;}
-  .srow .m{width:26px;font-size:16px;}
-  .srow .rk{width:30px;font-weight:900;}
+  /* ===== Share images (white, 4:5) ===== */
+  .twoimgs{display:flex;gap:20px;}
+  .sharewrap{width:288px;}
+  .share{width:288px;height:360px;background:#fff;border-radius:18px;color:var(--text);
+    padding:0;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
+    border:1px solid #eceff3;display:flex;flex-direction:column;}
+  /* gold top hairline + navy header band (thin) */
+  .share .top{height:6px;background:linear-gradient(90deg,var(--gold),var(--gold-light));}
+  .share .head{padding:18px 20px 12px;}
+  .share .brand{font-size:11px;letter-spacing:3px;color:var(--gold-deep);font-weight:700;}
+  .share .tt{font-size:18px;font-weight:900;margin-top:4px;line-height:1.25;color:var(--navy);}
+  .share .meta{font-size:10.5px;color:var(--text2);margin-top:5px;}
+  .share .seg{display:flex;align-items:center;gap:8px;margin:6px 20px 0;}
+  .share .seg .res{font-size:11px;color:var(--navy);font-weight:900;letter-spacing:1px;}
+  .share .seg .pageno{margin-left:auto;font-size:10px;color:#fff;background:var(--navy);
+    padding:2px 9px;border-radius:10px;font-weight:700;}
+  .share .list{padding:8px 16px;flex:1;}
+  .srow{display:flex;align-items:center;padding:7.5px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
+  .srow:last-child{border-bottom:none;}
+  .srow .m{width:24px;font-size:16px;text-align:center;}
+  .srow .rk{width:34px;font-weight:900;color:var(--navy);}
   .srow .nm{flex:1;font-weight:500;}
-  .srow .sc{color:var(--gold-light);font-weight:700;font-size:12px;}
-  .share .foot{position:absolute;bottom:14px;left:20px;right:20px;display:flex;align-items:center;
-    justify-content:space-between;font-size:10px;color:#8ea3bd;}
-  .share .foot .logo{display:flex;align-items:center;gap:6px;font-weight:700;color:#fff;}
-  .share .qr{width:34px;height:34px;background:#fff;border-radius:6px;}
+  .srow .sc{color:var(--gold-deep);font-weight:700;font-size:12px;}
+  .srow.gold{background:linear-gradient(90deg,rgba(196,169,98,.16),transparent);border-radius:8px;}
+  .share .foot{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 20px;border-top:1px solid #eef1f5;font-size:10px;color:var(--text2);}
+  .share .foot .logo{display:flex;align-items:center;gap:6px;font-weight:900;color:var(--navy);font-size:12px;}
+  .share .qr{width:32px;height:32px;background:var(--navy);border-radius:6px;}
+
   .toast{margin-top:14px;text-align:center;background:var(--navy);color:#fff;font-size:12px;
     padding:9px 14px;border-radius:20px;display:inline-block;}
   .center{text-align:center;}
-  .note{max-width:760px;margin:34px auto 0;background:#fff;border-radius:14px;padding:18px 22px;font-size:13px;color:#444;line-height:1.9;box-shadow:0 2px 10px rgba(0,0,0,.05);}
+  .note{max-width:820px;margin:34px auto 0;background:#fff;border-radius:14px;padding:18px 22px;font-size:13px;color:#444;line-height:1.9;box-shadow:0 2px 10px rgba(0,0,0,.05);}
   .note b{color:var(--navy);}
   .chip{display:inline-block;background:rgba(196,169,98,.18);color:#8a7330;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;}
 </style>
 </head>
 <body>
-  <h1 class="page">大会結果を Instagram にシェア　画像保存機能（モック）</h1>
-  <p class="sub">スクショ不要。1タップで投稿用のキレイな結果カードを写真に保存</p>
+  <h1 class="page">大会結果を Instagram にシェア　画像保存機能（モック・白基調 / 2枚分割）</h1>
+  <p class="sub">スクショ不要。1タップで投稿用のキレイな結果カードを写真に保存（チーム数が多いときは自動で2枚に分割）</p>
 
   <div class="stage">
     <!-- LEFT: app screen with save button -->
@@ -93,7 +98,7 @@
           <span class="ic">⤓</span>
         </div>
         <div class="tabs"><div>概要</div><div>対戦表</div><div class="on">順位表</div></div>
-        <div class="body">
+        <div class="pbody">
           <div class="card">
             <h3>最終順位</h3>
             <div class="rrow"><span class="medal">🥇</span><span class="rank">1位</span><span class="tname">Team Ocean</span><span class="pt">30pt</span></div>
@@ -102,45 +107,77 @@
             <div class="rrow"><span class="medal"></span><span class="rank">4位</span><span class="tname">Wave Riders</span><span class="pt">12pt</span></div>
             <div class="rrow"><span class="medal"></span><span class="rank">5位</span><span class="tname">Sand Kings</span><span class="pt">8pt</span></div>
           </div>
-          <button class="savebtn"><span class="pulse">🖼️</span>結果を画像で保存</button>
+          <button class="savebtn"><span>🖼️</span>結果を画像で保存</button>
         </div>
       </div></div>
     </div>
 
     <div class="arrow">→</div>
 
-    <!-- RIGHT: generated share image -->
-    <div class="sharewrap">
-      <div class="label">② 保存される投稿用画像（縦長 4:5）</div>
-      <div class="share">
-        <div class="brand">SOFVO TOURNAMENT</div>
-        <div class="tt">第3回 Sofvo杯<br>ビーチ大会</div>
-        <div class="meta">2026.06.14 ・ 東京 お台場海浜公園 ・ 全16チーム</div>
-        <div class="hr"></div>
-        <div class="res">🏆 RESULT</div>
-        <div class="srow"><span class="m">🥇</span><span class="rk">1</span><span class="nm">Team Ocean</span><span class="sc">優勝</span></div>
-        <div class="srow"><span class="m">🥈</span><span class="rk">2</span><span class="nm">Beach Brothers</span><span class="sc">準優勝</span></div>
-        <div class="srow"><span class="m">🥉</span><span class="rk">3</span><span class="nm">Sunset Spikers</span><span class="sc">3位</span></div>
-        <div class="srow"><span class="m"></span><span class="rk">4</span><span class="nm">Wave Riders</span><span class="sc"></span></div>
-        <div class="foot">
-          <span class="logo">🏐 Sofvo</span>
-          <span>sofvo.com で参加</span>
-          <span class="qr"></span>
+    <!-- RIGHT: two generated share images -->
+    <div>
+      <div class="label">② 保存される投稿用画像（白基調・自動で2枚に分割）</div>
+      <div class="twoimgs">
+        <!-- Page 1: 1-8 -->
+        <div class="sharewrap">
+          <div class="share">
+            <div class="top"></div>
+            <div class="head">
+              <div class="brand">SOFVO TOURNAMENT</div>
+              <div class="tt">第3回 Sofvo杯 ビーチ大会</div>
+              <div class="meta">2026.06.14 ・ 東京 お台場海浜公園 ・ 全16チーム</div>
+            </div>
+            <div class="seg"><span class="res">🏆 RESULT</span><span class="pageno">1 / 2</span></div>
+            <div class="list">
+              <div class="srow gold"><span class="m">🥇</span><span class="rk">1位</span><span class="nm">Team Ocean</span><span class="sc">優勝</span></div>
+              <div class="srow gold"><span class="m">🥈</span><span class="rk">2位</span><span class="nm">Beach Brothers</span><span class="sc">準優勝</span></div>
+              <div class="srow gold"><span class="m">🥉</span><span class="rk">3位</span><span class="nm">Sunset Spikers</span><span class="sc">3位</span></div>
+              <div class="srow"><span class="m"></span><span class="rk">4位</span><span class="nm">Wave Riders</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">5位</span><span class="nm">Sand Kings</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">6位</span><span class="nm">Coral Crew</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">7位</span><span class="nm">Tide Breakers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">8位</span><span class="nm">Shoreline FC</span><span class="sc"></span></div>
+            </div>
+            <div class="foot"><span class="logo">🏐 Sofvo</span><span>sofvo.com で参加</span><span class="qr"></span></div>
+          </div>
+        </div>
+        <!-- Page 2: 9-16 -->
+        <div class="sharewrap">
+          <div class="share">
+            <div class="top"></div>
+            <div class="head">
+              <div class="brand">SOFVO TOURNAMENT</div>
+              <div class="tt">第3回 Sofvo杯 ビーチ大会</div>
+              <div class="meta">2026.06.14 ・ 東京 お台場海浜公園 ・ 全16チーム</div>
+            </div>
+            <div class="seg"><span class="res">🏆 RESULT</span><span class="pageno">2 / 2</span></div>
+            <div class="list">
+              <div class="srow"><span class="m"></span><span class="rk">9位</span><span class="nm">Blue Marlins</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">10位</span><span class="nm">Dune Diggers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">11位</span><span class="nm">Reef Rangers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">12位</span><span class="nm">Aqua Force</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">13位</span><span class="nm">Salt Spikers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">14位</span><span class="nm">Bay Bombers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">15位</span><span class="nm">Surf Sett</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">16位</span><span class="nm">Pier Pals</span><span class="sc"></span></div>
+            </div>
+            <div class="foot"><span class="logo">🏐 Sofvo</span><span>sofvo.com で参加</span><span class="qr"></span></div>
+          </div>
         </div>
       </div>
-      <div class="center"><div class="toast">✓ 写真ライブラリに保存しました</div></div>
+      <div class="center"><div class="toast">✓ 2枚を写真ライブラリに保存しました</div></div>
     </div>
   </div>
 
   <div class="note">
-    <b>動作イメージ</b><br>
-    「結果を画像で保存」をタップ → 上のような<b>投稿用カード画像を自動生成</b>して写真ライブラリへ直接保存 → そのまま Instagram のストーリー／フィードに投稿。<br><br>
-    <b>含める情報（案）</b>　大会名 / 日付・会場 / 参加チーム数 / 上位順位（メダル付き）/ Sofvo ロゴ / <span class="chip">大会QR or sofvo.com</span>（アプリ流入導線）<br><br>
+    <b>変更点</b><br>
+    ・配色を<b>白基調</b>に変更（ネイビーは見出し文字・フッター・ページ番号のアクセントのみ／上部にゴールドの細ライン）。<br>
+    ・チーム数が多い場合は<b>自動で2枚に分割</b>（例：16チーム → 1枚目 1〜8位 / 2枚目 9〜16位）。上位3位はゴールドのハイライト付き。<br><br>
     <b>確認したいこと</b><br>
-    ・形は <b>縦長4:5（フィード向き）</b>と <b>正方形1:1</b> どちらを基本にしますか？（ストーリー用 9:16 も出せます）<br>
-    ・出すのは<b>「最終順位」</b>だけでOK？　それとも<b>自分のチームの戦績（対戦スコア）</b>カードも欲しい？<br>
-    ・<b>QRコード／sofvo.com の宣伝導線</b>を入れてよいか（アプリ集客に有効）<br>
-    ・保存だけでなく <b>「共有」</b>（Instagram直接シェア）ボタンも並べるか
+    ・1枚あたりの掲載数は <b>8チーム</b>で良いですか？（多いほど文字は小さくなります。9チーム以上で2枚目を生成）<br>
+    ・画像の形は <b>縦長4:5</b> でOK？（正方形1:1 / ストーリー9:16 も可）<br>
+    ・<b>QR／sofvo.com の宣伝導線</b>はこのまま入れて良いですか<br>
+    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか
   </div>
 </body>
 </html>
