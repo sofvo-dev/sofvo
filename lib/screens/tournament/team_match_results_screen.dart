@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_theme.dart';
 
 class TeamMatchResultsScreen extends StatefulWidget {
@@ -267,47 +268,82 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Row(children: [
-        Container(
+        SizedBox(
           width: 56, height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: rank == 1
-                ? Colors.amber.withValues(alpha: 0.15)
-                : rank != null && rank <= 3
-                    ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                    : Colors.grey.withValues(alpha: 0.1),
-          ),
-          child: Center(
-            child: rank != null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$rank',
-                        style: TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.w900, height: 1.1,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: rank == 1
+                      ? Colors.amber.withValues(alpha: 0.15)
+                      : rank != null && rank <= 3
+                          ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                          : Colors.grey.withValues(alpha: 0.1),
+                ),
+                child: Center(
+                  child: rank != null
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$rank',
+                              style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w900, height: 1.1,
+                                color: rank == 1
+                                    ? Colors.amber[700]
+                                    : rank <= 3
+                                        ? AppTheme.primaryColor
+                                        : AppTheme.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              '位',
+                              style: TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w700, height: 1.1,
+                                color: rank == 1
+                                    ? Colors.amber[700]
+                                    : rank <= 3
+                                        ? AppTheme.primaryColor
+                                        : AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
+                ),
+              ),
+              if (rank != null && rank <= 3)
+                Positioned(
+                  top: -8,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      width: 22, height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3, offset: const Offset(0, 1))],
+                      ),
+                      child: Center(
+                        child: FaIcon(
+                          FontAwesomeIcons.crown,
+                          size: 12,
                           color: rank == 1
-                              ? Colors.amber[700]
-                              : rank <= 3
-                                  ? AppTheme.primaryColor
-                                  : AppTheme.textSecondary,
+                              ? const Color(0xFFFFC107)
+                              : rank == 2
+                                  ? const Color(0xFFB0BEC5)
+                                  : const Color(0xFFCD7F32),
                         ),
                       ),
-                      Text(
-                        '位',
-                        style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w700, height: 1.1,
-                          color: rank == 1
-                              ? Colors.amber[700]
-                              : rank <= 3
-                                  ? AppTheme.primaryColor
-                                  : AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  )
-                : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(width: 14),
