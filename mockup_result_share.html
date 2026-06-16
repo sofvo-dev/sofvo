@@ -47,12 +47,13 @@
   /* ===== Share images (white, 4:5) ===== */
   .twoimgs{display:flex;gap:20px;}
   .sharewrap{width:288px;}
+  /* すべて同一サイズ 4:5 (288x360 ≒ 1080x1350) に固定 — Instagram カルーセル必須 */
   .share{width:288px;height:360px;background:#fff;border-radius:18px;color:var(--text);
-    padding:0;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
+    padding:0 0 10px;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
     border:1px solid #eceff3;display:flex;flex-direction:column;}
   /* gold top hairline + navy header band (thin) */
   .share .top{height:6px;background:linear-gradient(90deg,var(--gold),var(--gold-light));}
-  .share .head{padding:18px 20px 12px;}
+  .share .head{padding:14px 20px 6px;}
   .share .brand{font-size:11px;letter-spacing:3px;color:var(--gold-deep);font-weight:700;}
   .share .tt{font-size:18px;font-weight:900;margin-top:4px;line-height:1.25;color:var(--navy);}
   .share .meta{font-size:10.5px;color:var(--text2);margin-top:5px;}
@@ -64,9 +65,9 @@
   .share .slimhead{display:flex;align-items:center;gap:8px;padding:16px 20px 8px;}
   .share .slimhead .slimtt{font-size:13px;font-weight:900;color:var(--navy);}
   .share .slimhead .pageno{margin-left:auto;}
-  .share .list{padding:8px 16px;flex:1;}
-  .share .list.list-tall .srow{padding:9.5px 6px;}
-  .srow{display:flex;align-items:center;padding:7.5px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
+  .share .list{padding:4px 16px;flex:1;}
+  .share .list.list-tall .srow{padding:7px 6px;}
+  .srow{display:flex;align-items:center;padding:5px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
   .srow:last-child{border-bottom:none;}
   .srow .m{width:24px;font-size:16px;text-align:center;}
   .srow .rk{width:34px;font-weight:900;color:var(--navy);}
@@ -162,8 +163,15 @@
   .mc-tbl td.hi{color:var(--success);font-weight:700;}
   .mc-tbl td.tot-w{color:#D32F2F;font-weight:900;}
   .mc-tbl td.tot{color:var(--navy);font-weight:900;}
-  .share.teamres{height:auto;min-height:540px;}
+  .share.teamres .tr-head{padding:12px 18px 6px;}
+  .share.teamres .tr-team{font-size:15px;}
+  .share.teamres .tr-sum > div{padding:6px 0;}
+  .share.teamres .tr-sum .v{font-size:14px;}
+  .share.teamres .tr-stage{margin:7px 18px 4px;}
   .share.teamres .tr-matches{padding:0 14px 4px;}
+  .share.teamres .mcard{margin-bottom:6px;}
+  .share.teamres .mc-top{padding:5px 10px;}
+  .share.teamres .mc-tbl td{padding:5px 6px;}
 </style>
 </head>
 <body>
@@ -225,7 +233,6 @@
               <div class="srow"><span class="m"></span><span class="rk">7位</span><span class="nm">Tide Breakers</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">8位</span><span class="nm">Shoreline FC</span><span class="sc"></span></div>
             </div>
-            <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
           </div>
         </div>
         <!-- Page 2: 9-16 (slim header) -->
@@ -246,11 +253,26 @@
               <div class="srow"><span class="m"></span><span class="rk">15位</span><span class="nm">Surf Sett</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">16位</span><span class="nm">Pier Pals</span><span class="sc"></span></div>
             </div>
-            <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
+          </div>
+        </div>
+        <!-- Page 3: Sofvo intro (always last) -->
+        <div class="sharewrap">
+          <div class="share intro">
+            <div class="top"></div>
+            <div class="intro-head">
+              <div class="logo-big brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></div>
+              <div class="tagline">ソフトバレーの大会を、もっと簡単に。</div>
+            </div>
+            <div class="intro-body">
+              <div class="feat"><span class="fic">🔍</span><div><b>大会をさがす・エントリー</b><br><span>近くの大会をアプリから申し込み</span></div></div>
+              <div class="feat"><span class="fic">📋</span><div><b>対戦表・順位を自動作成</b><br><span>スコア入力でリアルタイム集計</span></div></div>
+              <div class="feat"><span class="fic">🏆</span><div><b>結果をシェア</b><br><span>この画像もアプリでワンタップ生成</span></div></div>
+              <div class="feat"><span class="fic">👥</span><div><b>チーム・仲間とつながる</b><br><span>フォローで大会情報をキャッチ</span></div></div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="center"><div class="toast">✓ 2枚を写真ライブラリに保存しました</div></div>
+      <div class="center"><div class="toast">✓ 順位表2枚＋Sofvo紹介を写真に保存しました</div></div>
     </div>
   </div>
 
@@ -292,57 +314,97 @@
 
     <div class="arrow">→</div>
 
-    <!-- RIGHT: team result share image (app-style) -->
+    <!-- RIGHT: team result share images (app-style, 4:5, split) -->
     <div>
-      <div class="label">② 保存される投稿用画像（自チームの戦績・1枚）</div>
-      <div class="sharewrap">
-        <div class="share teamres">
-          <div class="top"></div>
-          <div class="tr-head">
-            <div class="tr-badge"><span class="n">1</span><span class="u">位</span></div>
-            <div><div class="tr-team">ブラック</div><div class="tr-tt">試合結果自動集計アプリ導入大会　種別フリー</div></div>
-          </div>
-          <div class="tr-sum">
-            <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
-            <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
-            <div><div class="v">+12</div><div class="k">得失点</div></div>
-          </div>
-          <div class="tr-stage">予選リーグ</div>
-          <div class="tr-matches">
-            <div class="mcard">
-              <div class="mc-top"><span class="gameno">予選 1試合目</span><span class="badge win">勝利</span></div>
-              <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
-                <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
-                <tr><td class="team">GENYA A</td><td>10</td><td>11</td><td>0</td></tr></table>
+      <div class="label">② 保存される投稿用画像（自チームの戦績・4:5 で自動分割）</div>
+      <div class="twoimgs">
+        <!-- Page 1: header + summary + 2 matches -->
+        <div class="sharewrap">
+          <div class="share teamres">
+            <div class="top"></div>
+            <div class="tr-head">
+              <div class="tr-badge"><span class="n">1</span><span class="u">位</span></div>
+              <div><div class="tr-team">ブラック</div><div class="tr-tt">試合結果自動集計アプリ導入大会　種別フリー</div></div>
             </div>
-            <div class="mcard">
-              <div class="mc-top"><span class="gameno">予選 3試合目</span><span class="badge lose">敗北</span></div>
-              <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
-                <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td>12</td><td class="tot-w">1</td></tr>
-                <tr><td class="team">ぷくぷく</td><td>14</td><td class="hi">15</td><td>1</td></tr></table>
+            <div class="tr-sum">
+              <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
+              <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
+              <div><div class="v">+12</div><div class="k">得失点</div></div>
             </div>
-            <div class="mcard">
-              <div class="mc-top"><span class="gameno">予選 5試合目</span><span class="badge win">勝利</span></div>
-              <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
-                <tr class="own"><td class="team">ブラック</td><td>14</td><td class="hi">15</td><td class="tot">1</td></tr>
-                <tr><td class="team">さくら</td><td class="hi">15</td><td>13</td><td>1</td></tr></table>
+            <div class="tr-stage">予選リーグ　<span style="font-size:9px;color:#fff;background:var(--navy);padding:2px 8px;border-radius:10px;font-weight:700">1 / 2</span></div>
+            <div class="tr-matches">
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 1試合目</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+                  <tr><td class="team">GENYA A</td><td>10</td><td>11</td><td>0</td></tr></table>
+              </div>
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 3試合目</span><span class="badge lose">敗北</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td>12</td><td class="tot-w">1</td></tr>
+                  <tr><td class="team">ぷくぷく</td><td>14</td><td class="hi">15</td><td>1</td></tr></table>
+              </div>
             </div>
           </div>
-          <div class="foot"><span class="logo brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span><span>sofvo.com で参加</span><span class="qr"></span></div>
+        </div>
+        <!-- Page 2: slim header + remaining matches -->
+        <div class="sharewrap">
+          <div class="share teamres">
+            <div class="top"></div>
+            <div class="slimhead"><span class="slimtt">ブラック ・ 対戦結果</span><span class="pageno">2 / 2</span></div>
+            <div class="tr-matches" style="margin-top:4px">
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 5試合目</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td>14</td><td class="hi">15</td><td class="tot">1</td></tr>
+                  <tr><td class="team">さくら</td><td class="hi">15</td><td>13</td><td>1</td></tr></table>
+              </div>
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 7試合目</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+                  <tr><td class="team">あおぞら</td><td>9</td><td>13</td><td>0</td></tr></table>
+              </div>
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">決勝トーナメント</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+                  <tr><td class="team">レッド</td><td>11</td><td>13</td><td>0</td></tr></table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Page 3: Sofvo intro (always last) -->
+        <div class="sharewrap">
+          <div class="share intro">
+            <div class="top"></div>
+            <div class="intro-head">
+              <div class="logo-big brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></div>
+              <div class="tagline">ソフトバレーの大会を、もっと簡単に。</div>
+            </div>
+            <div class="intro-body">
+              <div class="feat"><span class="fic">🔍</span><div><b>大会をさがす・エントリー</b><br><span>近くの大会をアプリから申し込み</span></div></div>
+              <div class="feat"><span class="fic">📋</span><div><b>対戦表・順位を自動作成</b><br><span>スコア入力でリアルタイム集計</span></div></div>
+              <div class="feat"><span class="fic">🏆</span><div><b>結果をシェア</b><br><span>この画像もアプリでワンタップ生成</span></div></div>
+              <div class="feat"><span class="fic">👥</span><div><b>チーム・仲間とつながる</b><br><span>フォローで大会情報をキャッチ</span></div></div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="center"><div class="toast">✓ 写真ライブラリに保存しました</div></div>
+      <div class="center"><div class="toast">✓ 順位表2枚＋Sofvo紹介を写真に保存しました</div></div>
     </div>
   </div>
 
   <div class="note">
-    <b>2種類の画像を保存できます</b><br>
-    ・<b>A. 順位表</b>：大会全体の最終順位。<b>1枚あたり8チーム</b>で自動分割（多ければ3枚目・4枚目…）。上位3位はゴールドのハイライト付き。<b>Sofvo紹介ページは無し（順位表のみ）</b>。<br>
-    ・<b>B. 自チームの対戦結果</b>：<b>アプリの「チーム対戦結果」画面と同じ形式</b>をそのまま画像化（順位バッジ・通算成績/セット勝敗/得失点・各試合の S1/S2/合計 テーブル）。試合数が多い場合は縦に長い画像になる（または複数枚に分割も可）。<br><br>
+    <b>すべての画像は 1080×1350px（4:5）の同一サイズで書き出します</b><br>
+    Instagram のカルーセル（複数枚投稿）は<b>全スライドが同じアスペクト比でないと、1枚目に合わせて自動トリミング</b>されます。そのため全ページを <b>4:5 で完全に統一</b>。内容が収まる数だけ各ページに入れ、余ったページは余白で同サイズに揃えます（＝何も切れません）。<br><br>
+    ・<b>A. 順位表</b>：1枚あたり8チームで自動分割。上位3位はゴールドのハイライト。<br>
+    ・<b>B. 自チームの対戦結果</b>：アプリの画面と同じ形式（順位バッジ・通算成績/セット勝敗/得失点・各試合の S1/S2/合計）。1枚に収まる試合数で自動分割。<br>
+    ・<b>最後に「Sofvo紹介」</b>（同じ4:5サイズ・ページ番号には含めない）。<br><br>
     <b>確認したいこと</b><br>
-    ・Bは試合数が多いと縦長になります。<b>1枚に全試合（縦長）</b>と <b>8試合ごとに分割</b>、どちらが良いですか？<br>
-    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか<br>
-    ・Aの順位表の比率は <b>縦長4:5</b> でOK？（1:1 / 9:16 も可）
+    ・比率は <b>4:5（1080×1350）</b> で確定でOK？（正方形1:1・ストーリー9:16も出せます）<br>
+    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか
   </div>
 </body>
 </html>
