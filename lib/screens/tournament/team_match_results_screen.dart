@@ -88,8 +88,8 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
               .map((d) => Map<String, dynamic>.from(d.data()))
               .toList();
           myMatches.sort((a, b) =>
-              ((a['matchNumber'] as num?) ?? 0)
-                  .compareTo((b['matchNumber'] as num?) ?? 0));
+              ((a['matchOrder'] as num?) ?? 0)
+                  .compareTo((b['matchOrder'] as num?) ?? 0));
           setState(() {
             _prelimMatches[label] = myMatches;
             _loaded = true;
@@ -164,10 +164,10 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
       setWins += mySets;
       setLosses += oppSets;
 
-      final sets = result['sets'] as List<dynamic>? ?? [];
+      final sets = m['sets'] as List<dynamic>? ?? [];
       for (final s in sets) {
-        final scoreA = (s['scoreA'] as num?)?.toInt() ?? 0;
-        final scoreB = (s['scoreB'] as num?)?.toInt() ?? 0;
+        final scoreA = (s['a'] as num?)?.toInt() ?? 0;
+        final scoreB = (s['b'] as num?)?.toInt() ?? 0;
         diff += isA ? (scoreA - scoreB) : (scoreB - scoreA);
       }
     }
@@ -400,18 +400,18 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
     // Stage label
     String stageLabel;
     if (isPrelim) {
-      final matchNum = (match['matchNumber'] as num?)?.toInt() ?? 0;
+      final matchNum = (match['matchOrder'] as num?)?.toInt() ?? 0;
       stageLabel = '予選 ${matchNum}試合目';
     } else {
       final round = match['round'] as String? ?? '';
       stageLabel = _roundLabels[round] ?? round;
     }
 
-    // Sets: from result.sets array
-    final rawSets = result['sets'] as List<dynamic>? ?? [];
+    // Sets: top-level array on the match document
+    final rawSets = match['sets'] as List<dynamic>? ?? [];
     final sets = rawSets.map((s) {
-      final sa = (s['scoreA'] as num?)?.toInt() ?? 0;
-      final sb = (s['scoreB'] as num?)?.toInt() ?? 0;
+      final sa = (s['a'] as num?)?.toInt() ?? 0;
+      final sb = (s['b'] as num?)?.toInt() ?? 0;
       return isA ? (sa, sb) : (sb, sa); // (myScore, oppScore)
     }).toList();
 
