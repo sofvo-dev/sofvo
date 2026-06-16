@@ -184,12 +184,6 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
     super.dispose();
   }
 
-  String _rankLabel(int? rank) {
-    if (rank == null) return '';
-    const medals = {1: '🥇', 2: '🥈', 3: '🥉'};
-    return '${medals[rank] ?? ''}${rank}位';
-  }
-
   @override
   Widget build(BuildContext context) {
     final hasPrelim = _prelimMatches.values.any((l) => l.isNotEmpty);
@@ -274,19 +268,46 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
       ),
       child: Row(children: [
         Container(
-          width: 52, height: 52,
+          width: 56, height: 56,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.6)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-            ),
+            color: rank == 1
+                ? Colors.amber.withValues(alpha: 0.15)
+                : rank != null && rank <= 3
+                    ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                    : Colors.grey.withValues(alpha: 0.1),
           ),
           child: Center(
-            child: Text(
-              widget.teamName.isNotEmpty ? widget.teamName[0] : '?',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
-            ),
+            child: rank != null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$rank',
+                        style: TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.w900, height: 1.1,
+                          color: rank == 1
+                              ? Colors.amber[700]
+                              : rank <= 3
+                                  ? AppTheme.primaryColor
+                                  : AppTheme.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '位',
+                        style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w700, height: 1.1,
+                          color: rank == 1
+                              ? Colors.amber[700]
+                              : rank <= 3
+                                  ? AppTheme.primaryColor
+                                  : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  )
+                : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
           ),
         ),
         const SizedBox(width: 14),
@@ -302,29 +323,6 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
             ],
           ),
         ),
-        if (rank != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: rank == 1
-                  ? Colors.amber.withValues(alpha: 0.15)
-                  : rank <= 3
-                      ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _rankLabel(rank),
-              style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w800,
-                color: rank == 1
-                    ? Colors.amber[700]
-                    : rank <= 3
-                        ? AppTheme.primaryColor
-                        : AppTheme.textSecondary,
-              ),
-            ),
-          ),
       ]),
     );
   }
