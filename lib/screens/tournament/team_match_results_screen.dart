@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_theme.dart';
 
 class _LaurelWreathPainter extends CustomPainter {
@@ -432,9 +431,9 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
                         ],
                       ),
                       child: const Center(
-                        child: FaIcon(
-                          FontAwesomeIcons.crown,
-                          size: 14,
+                        child: Icon(
+                          Icons.emoji_events,
+                          size: 16,
                           color: Colors.white,
                         ),
                       ),
