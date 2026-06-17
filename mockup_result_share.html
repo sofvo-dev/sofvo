@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大会結果 画像保存モック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1B3A5C; --navy-light:#2E5C8A; --navy-dark:#0F2440;
+    --gold:#C4A962; --gold-light:#D4C08A; --gold-deep:#A98B3F;
+    --bg:#F7F7F7; --text:#1A1A1A; --text2:#6B6B6B; --success:#2E7D32;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Noto Sans JP',sans-serif;}
+  body{background:#e9edf2;padding:32px 16px;color:var(--text);}
+  h1.page{text-align:center;color:var(--navy);font-size:20px;margin-bottom:6px;}
+  p.sub{text-align:center;color:var(--text2);font-size:13px;margin-bottom:28px;}
+  .stage{display:flex;gap:34px;justify-content:center;align-items:flex-start;flex-wrap:wrap;}
+  .label{text-align:center;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;}
+  .arrow{align-self:center;font-size:30px;color:var(--gold);font-weight:900;}
+
+  /* ===== Phone frame ===== */
+  .phone{width:300px;background:#000;border-radius:38px;padding:10px;box-shadow:0 20px 50px rgba(0,0,0,.25);}
+  .screen{background:var(--bg);border-radius:30px;overflow:hidden;height:600px;display:flex;flex-direction:column;}
+  .statusbar{height:30px;background:var(--navy);}
+  .appbar{background:var(--navy);color:#fff;padding:8px 12px 12px;display:flex;align-items:center;gap:10px;}
+  .appbar .ttl{font-size:15px;font-weight:700;flex:1;}
+  .appbar .ic{font-size:18px;}
+  .tabs{display:flex;background:var(--navy);color:#cdd7e3;font-size:13px;}
+  .tabs div{flex:1;text-align:center;padding:10px 0;}
+  .tabs div.on{color:#fff;border-bottom:3px solid var(--gold);font-weight:700;}
+  .pbody{flex:1;overflow:auto;padding:14px;}
+  .card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .card h3{font-size:13px;color:var(--text2);margin-bottom:10px;}
+  .rrow{display:flex;align-items:center;padding:9px 4px;border-bottom:1px solid #f0f0f0;font-size:13px;}
+  .rrow:last-child{border-bottom:none;}
+  .rank{width:34px;font-weight:900;color:var(--navy);}
+  .medal{font-size:16px;width:24px;}
+  .tname{flex:1;font-weight:500;}
+  .pt{font-weight:700;color:var(--gold-deep);}
+  .me{background:rgba(196,169,98,.12);border-radius:8px;}
+  .savebtn{margin:16px 14px;background:var(--gold);color:#fff;border:none;border-radius:12px;
+    padding:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;
+    box-shadow:0 6px 16px rgba(196,169,98,.45);}
+
+  /* ===== Share images (white, 4:5) ===== */
+  .twoimgs{display:flex;gap:20px;}
+  .sharewrap{width:288px;}
+  /* すべて同一サイズ 4:5 (288x360 ≒ 1080x1350) に固定 — Instagram カルーセル必須 */
+  .share{width:288px;height:360px;background:#fff;border-radius:18px;color:var(--text);
+    padding:0 0 10px;position:relative;overflow:hidden;box-shadow:0 18px 44px rgba(27,58,92,.18);
+    border:1px solid #eceff3;display:flex;flex-direction:column;}
+  /* gold top hairline + navy header band (thin) */
+  .share .top{height:6px;background:linear-gradient(90deg,var(--gold),var(--gold-light));}
+  .share .head{padding:14px 20px 6px;}
+  .share .brand{font-size:11px;letter-spacing:3px;color:var(--gold-deep);font-weight:700;}
+  .share .tt{font-size:18px;font-weight:900;margin-top:4px;line-height:1.25;color:var(--navy);}
+  .share .meta{font-size:10.5px;color:var(--text2);margin-top:5px;}
+  .share .seg{display:flex;align-items:center;gap:8px;margin:6px 20px 0;}
+  .share .seg .res{font-size:11px;color:var(--navy);font-weight:900;letter-spacing:1px;}
+  .share .seg .pageno{margin-left:auto;font-size:10px;color:#fff;background:var(--navy);
+    padding:2px 9px;border-radius:10px;font-weight:700;}
+  .pageno{font-size:10px;color:#fff;background:var(--navy);padding:2px 9px;border-radius:10px;font-weight:700;}
+  .share .slimhead{display:flex;align-items:center;gap:8px;padding:16px 20px 8px;}
+  .share .slimhead .slimtt{font-size:13px;font-weight:900;color:var(--navy);}
+  .share .slimhead .pageno{margin-left:auto;}
+  /* 行は伸縮してカード内に必ず収まる（絶対に切れない）。7+9 で間隔もほぼ同一。 */
+  .share .list{padding:4px 16px;flex:1;display:flex;flex-direction:column;}
+  .srow{flex:1;display:flex;align-items:center;padding:0 6px;font-size:13px;border-bottom:1px solid #f2f4f7;min-height:0;}
+  .srow:last-child{border-bottom:none;}
+  .srow .m{width:24px;font-size:16px;text-align:center;}
+  .srow .rk{width:34px;font-weight:900;color:var(--navy);}
+  .srow .nm{flex:1;font-weight:500;}
+  .srow .sc{color:var(--gold-deep);font-weight:700;font-size:12px;}
+  .srow.gold{background:linear-gradient(90deg,rgba(196,169,98,.16),transparent);border-radius:8px;}
+  .share .foot{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 20px;border-top:1px solid #eef1f5;font-size:10px;color:var(--text2);}
+  .share .foot .logo{display:flex;align-items:center;gap:6px;font-weight:900;color:var(--navy);font-size:12px;}
+  .share .qr{width:32px;height:32px;background:var(--navy);border-radius:6px;}
+
+  /* brand logo (real Sofvo two-tone: Sof=#2C3E5A / vo=#C4A55A) */
+  .brandlogo{font-family:'Helvetica Neue',Arial,sans-serif;font-weight:800;letter-spacing:-.5px;}
+  .brandlogo .sof{color:#2C3E5A;}
+  .brandlogo .vo{color:#C4A55A;}
+  /* page 3 intro */
+  .share.intro{background:linear-gradient(170deg,#fff 0%,#fbf8f0 100%);}
+  .intro-head{padding:18px 20px 8px;text-align:center;}
+  .intro-head .logo-big{font-size:34px;}
+  .intro-head .tagline{font-size:12px;color:var(--gold-deep);font-weight:700;margin-top:4px;}
+  .intro-body{padding:2px 20px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:9px;}
+  .feat{display:flex;align-items:flex-start;gap:10px;}
+  .feat .fic{font-size:17px;width:22px;text-align:center;}
+  .feat b{font-size:12.5px;color:var(--navy);}
+  .feat span{font-size:10px;color:var(--text2);}
+  .intro-cta{display:flex;align-items:center;gap:12px;margin:6px 18px;padding:10px 12px;
+    background:var(--navy);border-radius:12px;color:#fff;}
+  .intro-cta .qr-big{width:46px;height:46px;background:#fff;border-radius:8px;flex-shrink:0;}
+  .intro-cta .cta-txt b{font-size:12.5px;}
+  .intro-cta .cta-txt span{font-size:9.5px;color:#c6d3e2;line-height:1.5;}
+  .foot.foot-c{padding:11px 20px;}
+  .foot.foot-c .foot-url{color:var(--text2);font-size:11px;}
+  .foot.foot-c .pageno{background:var(--navy);}
+  .toast{margin-top:14px;text-align:center;background:var(--navy);color:#fff;font-size:12px;
+    padding:9px 14px;border-radius:20px;display:inline-block;}
+  .center{text-align:center;}
+  .note{max-width:820px;margin:34px auto 0;background:#fff;border-radius:14px;padding:18px 22px;font-size:13px;color:#444;line-height:1.9;box-shadow:0 2px 10px rgba(0,0,0,.05);}
+  .note b{color:var(--navy);}
+  .chip{display:inline-block;background:rgba(196,169,98,.18);color:#8a7330;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;}
+  h2.sec{max-width:980px;margin:38px auto 14px;color:var(--navy);font-size:16px;font-weight:900;
+    border-left:5px solid var(--gold);padding-left:10px;}
+  /* phone match rows */
+  .mrow{display:flex;flex-direction:column;gap:2px;padding:9px 4px;border-bottom:1px solid #f0f0f0;font-size:12px;position:relative;}
+  .mrow:last-child{border-bottom:none;}
+  .mrow .mvs{font-weight:700;color:var(--navy);}
+  .mrow .msets{color:var(--text2);font-size:11px;}
+  .mrow .mres{position:absolute;right:4px;top:9px;font-weight:900;font-size:12px;}
+  .mres.win{color:var(--success);}
+  .mres.lose{color:var(--error,#D32F2F);}
+  /* share team-result */
+  .share .bigrank{margin:8px 20px 2px;padding:10px 14px;border-radius:12px;
+    background:linear-gradient(90deg,rgba(196,169,98,.18),rgba(196,169,98,.05));
+    display:flex;flex-direction:column;gap:2px;}
+  .share .bigrank .br-place{font-size:20px;font-weight:900;color:var(--navy);}
+  .share .bigrank .br-detail{font-size:11px;color:var(--gold-deep);font-weight:700;}
+  .share .mlist{padding:6px 16px;}
+  .mrow2{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid #f2f4f7;font-size:11.5px;}
+  .mrow2:last-child{border-bottom:none;}
+  .mrow2 .mr-stage{width:46px;color:var(--gold-deep);font-weight:700;font-size:10.5px;}
+  .mrow2 .mr-vs{flex:1;font-weight:500;color:var(--text);}
+  .mrow2 .mr-set{color:var(--text2);font-size:10.5px;}
+  .mrow2 .mres{width:16px;text-align:center;font-weight:900;}
+
+  /* ===== B: app-style team match result ===== */
+  .tr-head{display:flex;align-items:center;gap:12px;padding:16px 18px 12px;}
+  .tr-badge{width:46px;height:46px;border-radius:50%;background:rgba(196,169,98,.18);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;}
+  .tr-badge .n{font-size:17px;font-weight:900;color:var(--gold-deep);line-height:1;}
+  .tr-badge .u{font-size:9px;font-weight:700;color:var(--gold-deep);}
+  .tr-head .tr-team{font-size:18px;font-weight:900;color:var(--navy);}
+  .tr-head .tr-tt{font-size:10px;color:var(--text2);margin-top:2px;}
+  .tr-sum{display:flex;margin:0 16px;background:#fff;border:1px solid #eef1f5;border-radius:12px;
+    box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .tr-sum > div{flex:1;text-align:center;padding:9px 0;border-right:1px solid #eef1f5;}
+  .tr-sum > div:last-child{border-right:none;}
+  .tr-sum .v{font-size:15px;font-weight:900;color:var(--navy);}
+  .tr-sum .k{font-size:9px;color:var(--text2);margin-top:1px;}
+  .tr-stage{font-size:11px;font-weight:900;color:var(--navy);margin:12px 18px 4px;}
+  .tr-matches{padding:0 14px;}
+  .mcard{border:1px solid #eef1f5;border-radius:10px;margin-bottom:8px;overflow:hidden;}
+  .mcard .mc-top{display:flex;align-items:center;padding:7px 10px;}
+  .mc-top .gameno{font-size:10px;font-weight:700;color:var(--navy);background:#eef2f7;border-radius:6px;padding:2px 8px;}
+  .mc-top .badge{margin-left:auto;font-size:10px;font-weight:900;border-radius:6px;padding:2px 9px;}
+  .mc-top .badge.win{color:var(--success);background:rgba(46,125,50,.10);}
+  .mc-top .badge.lose{color:#D32F2F;background:rgba(211,47,47,.10);}
+  .mc-tbl{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .mc-tbl th{font-size:9.5px;color:var(--text2);font-weight:500;text-align:right;padding:4px 6px;}
+  .mc-tbl th.lft{text-align:left;}
+  .mc-tbl td{padding:7px 6px;text-align:right;border-top:1px solid #f4f6f8;}
+  .mc-tbl td.team{text-align:left;font-weight:700;}
+  .mc-tbl tr.own td{background:#f7f9fb;}
+  .mc-tbl tr.own td.team{color:var(--navy);}
+  .mc-tbl td.hi{color:var(--success);font-weight:700;}
+  .mc-tbl td.tot-w{color:#D32F2F;font-weight:900;}
+  .mc-tbl td.tot{color:var(--navy);font-weight:900;}
+  .share.teamres .tr-head{padding:10px 18px 4px;}
+  .share.teamres .tr-badge{width:40px;height:40px;}
+  .share.teamres .tr-badge .n{font-size:15px;}
+  .share.teamres .tr-team{font-size:15px;}
+  .share.teamres .tr-sum > div{padding:5px 0;}
+  .share.teamres .tr-sum .v{font-size:13px;}
+  .share.teamres .tr-stage{margin:6px 18px 3px;}
+  .share.teamres .tr-matches{padding:0 14px 4px;}
+  .share.teamres .mcard{margin-bottom:6px;}
+  .share.teamres .mc-top{padding:4px 10px;}
+  .share.teamres .mc-tbl th{padding:3px 6px;}
+  .share.teamres .mc-tbl td{padding:4px 6px;font-size:11px;}
+  /* result-only hero card */
+  .share.resultonly{align-items:center;justify-content:center;text-align:center;padding:0 24px;}
+  .share.resultonly .ro-brand{font-size:10px;letter-spacing:3px;color:var(--gold-deep);font-weight:700;}
+  .share.resultonly .ro-trophy{font-size:46px;margin:8px 0 2px;}
+  .share.resultonly .ro-place{font-size:40px;font-weight:900;color:var(--navy);line-height:1.1;}
+  .share.resultonly .ro-place .small{font-size:20px;}
+  .share.resultonly .ro-team{font-size:20px;font-weight:900;color:var(--navy);margin-top:6px;}
+  .share.resultonly .ro-tt{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.4;}
+  .share.resultonly .ro-sum{display:flex;gap:0;margin-top:16px;width:100%;
+    background:#fff;border:1px solid #eef1f5;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .share.resultonly .ro-sum > div{flex:1;padding:8px 0;border-right:1px solid #eef1f5;}
+  .share.resultonly .ro-sum > div:last-child{border-right:none;}
+  .share.resultonly .ro-sum .v{font-size:14px;font-weight:900;color:var(--navy);}
+  .share.resultonly .ro-sum .k{font-size:9px;color:var(--text2);margin-top:1px;}
+  .share.resultonly .ro-credit{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:11px;color:var(--text2);}
+  .share.resultonly .ro-credit .brandlogo{font-size:13px;}
+  .sublabel{text-align:center;font-size:12px;color:var(--text2);margin:0 0 8px;font-weight:700;}
+</style>
+</head>
+<body>
+  <h1 class="page">大会結果を Instagram にシェア　画像保存機能（モック・白基調）</h1>
+  <p class="sub">スクショ不要。1タップで投稿用のキレイな結果カードを写真に保存</p>
+
+  <!-- ============ A: 順位表 ============ -->
+  <h2 class="sec">A.　大会の順位表（チーム数が多いときは自動で2枚に分割）</h2>
+  <div class="stage">
+    <!-- LEFT: app screen with save button -->
+    <div>
+      <div class="label">① 大会詳細 ＞ 順位表</div>
+      <div class="phone"><div class="screen">
+        <div class="statusbar"></div>
+        <div class="appbar">
+          <span class="ic">←</span>
+          <span class="ttl">第3回 Sofvo杯 ビーチ大会</span>
+          <span class="ic">⤴</span>
+          <span class="ic">⤓</span>
+        </div>
+        <div class="tabs"><div>概要</div><div>対戦表</div><div class="on">順位表</div></div>
+        <div class="pbody">
+          <div class="card">
+            <h3>最終順位</h3>
+            <div class="rrow"><span class="medal">🥇</span><span class="rank">1位</span><span class="tname">Team Ocean</span><span class="pt">30pt</span></div>
+            <div class="rrow me"><span class="medal">🥈</span><span class="rank">2位</span><span class="tname">Beach Brothers（自分）</span><span class="pt">24pt</span></div>
+            <div class="rrow"><span class="medal">🥉</span><span class="rank">3位</span><span class="tname">Sunset Spikers</span><span class="pt">18pt</span></div>
+            <div class="rrow"><span class="medal"></span><span class="rank">4位</span><span class="tname">Wave Riders</span><span class="pt">12pt</span></div>
+            <div class="rrow"><span class="medal"></span><span class="rank">5位</span><span class="tname">Sand Kings</span><span class="pt">8pt</span></div>
+          </div>
+          <button class="savebtn"><span>🖼️</span>順位表を画像で保存</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <!-- RIGHT: ranking share images -->
+    <div>
+      <div class="label">② 保存される投稿用画像（白基調・自動で2枚に分割）</div>
+      <div class="twoimgs">
+        <!-- Page 1: 1-8 -->
+        <div class="sharewrap">
+          <div class="share">
+            <div class="top"></div>
+            <div class="head">
+              <div class="brand">SOFVO TOURNAMENT</div>
+              <div class="tt">第3回 Sofvo杯 ビーチ大会</div>
+              <div class="meta">2026.06.14 ・ 東京 お台場海浜公園 ・ 全16チーム</div>
+            </div>
+            <div class="seg"><span class="res">🏆 RESULT</span><span class="pageno">1 / 2</span></div>
+            <div class="list">
+              <div class="srow gold"><span class="m">🥇</span><span class="rk">1位</span><span class="nm">Team Ocean</span><span class="sc">優勝</span></div>
+              <div class="srow gold"><span class="m">🥈</span><span class="rk">2位</span><span class="nm">Beach Brothers</span><span class="sc">準優勝</span></div>
+              <div class="srow gold"><span class="m">🥉</span><span class="rk">3位</span><span class="nm">Sunset Spikers</span><span class="sc">3位</span></div>
+              <div class="srow"><span class="m"></span><span class="rk">4位</span><span class="nm">Wave Riders</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">5位</span><span class="nm">Sand Kings</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">6位</span><span class="nm">Coral Crew</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">7位</span><span class="nm">Tide Breakers</span><span class="sc"></span></div>
+            </div>
+          </div>
+        </div>
+        <!-- Page 2: 9-16 (slim header) -->
+        <div class="sharewrap">
+          <div class="share">
+            <div class="top"></div>
+            <div class="slimhead">
+              <span class="slimtt">第3回 Sofvo杯 ビーチ大会</span>
+              <span class="pageno">2 / 2</span>
+            </div>
+            <div class="list list-tall">
+              <div class="srow"><span class="m"></span><span class="rk">8位</span><span class="nm">Shoreline FC</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">9位</span><span class="nm">Blue Marlins</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">10位</span><span class="nm">Dune Diggers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">11位</span><span class="nm">Reef Rangers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">12位</span><span class="nm">Aqua Force</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">13位</span><span class="nm">Salt Spikers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">14位</span><span class="nm">Bay Bombers</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">15位</span><span class="nm">Surf Sett</span><span class="sc"></span></div>
+              <div class="srow"><span class="m"></span><span class="rk">16位</span><span class="nm">Pier Pals</span><span class="sc"></span></div>
+            </div>
+          </div>
+        </div>
+        <!-- Page 3: Sofvo intro (always last) -->
+        <div class="sharewrap">
+          <div class="share intro">
+            <div class="top"></div>
+            <div class="intro-head">
+              <div class="logo-big brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></div>
+              <div class="tagline">ソフトバレーの大会を、もっと簡単に。</div>
+            </div>
+            <div class="intro-body">
+              <div class="feat"><span class="fic">🔍</span><div><b>大会をさがす・エントリー</b><br><span>近くの大会をアプリから申し込み</span></div></div>
+              <div class="feat"><span class="fic">📋</span><div><b>対戦表・順位を自動作成</b><br><span>スコア入力でリアルタイム集計</span></div></div>
+              <div class="feat"><span class="fic">🏆</span><div><b>結果をシェア</b><br><span>この画像もアプリでワンタップ生成</span></div></div>
+              <div class="feat"><span class="fic">👥</span><div><b>チーム・仲間とつながる</b><br><span>フォローで大会情報をキャッチ</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="center"><div class="toast">✓ 順位表2枚＋Sofvo紹介を写真に保存しました</div></div>
+    </div>
+  </div>
+
+  <!-- ============ B: 自分のチームの対戦結果 ============ -->
+  <h2 class="sec">B.　自分のチームだけの対戦結果（1枚）</h2>
+  <p class="sub" style="margin-bottom:18px">アプリの「チーム対戦結果」画面と同じ形式（順位バッジ・通算成績・各試合のS1/S2/合計テーブル）をそのまま画像化</p>
+  <div class="stage">
+    <!-- LEFT: team match results screen with save button -->
+    <div>
+      <div class="label">① チーム対戦結果 画面 → 保存</div>
+      <div class="phone"><div class="screen">
+        <div class="statusbar"></div>
+        <div class="appbar">
+          <span class="ic">←</span>
+          <span class="ttl">チーム対戦結果</span>
+          <span class="ic">🖼️</span>
+        </div>
+        <div class="pbody" style="padding:10px">
+          <div class="tr-head" style="background:#fff;border-radius:12px;margin-bottom:10px">
+            <div class="tr-badge"><span class="n">1</span><span class="u">位</span></div>
+            <div><div class="tr-team">ブラック</div><div class="tr-tt">試合結果自動集計アプリ導入大会　種別フリー</div></div>
+          </div>
+          <div class="tr-sum" style="margin:0 0 10px">
+            <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
+            <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
+            <div><div class="v">+12</div><div class="k">得失点</div></div>
+          </div>
+          <button class="savebtn" style="margin:4px 0 10px"><span>🖼️</span>戦績を画像で保存</button>
+          <div class="tr-stage" style="margin:0 0 6px">予選リーグ</div>
+          <div class="mcard">
+            <div class="mc-top"><span class="gameno">予選 1試合目</span><span class="badge win">勝利</span></div>
+            <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+              <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+              <tr><td class="team">and more...</td><td>10</td><td>11</td><td>0</td></tr></table>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <!-- RIGHT: team result share images (two types) -->
+    <div>
+      <div class="label">② 保存される投稿用画像（2タイプから選べる）</div>
+      <div class="sublabel">タイプ1：最終順位だけ（1枚・シンプル）</div>
+      <div class="twoimgs" style="margin-bottom:18px">
+        <div class="sharewrap">
+          <div class="share resultonly">
+            <div class="top"></div>
+            <div class="ro-trophy">🏆</div>
+            <div class="ro-place">優勝</div>
+            <div class="ro-team">ブラック</div>
+            <div class="ro-tt">試合結果自動集計アプリ導入大会<br>種別フリー ・ 全16チーム ・ 2026.06.14</div>
+            <div class="ro-sum">
+              <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
+              <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
+              <div><div class="v">+12</div><div class="k">得失点</div></div>
+            </div>
+            <div class="ro-credit"><span class="brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span> ・ sofvo.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="sublabel">タイプ2：全試合の詳細（4:5 で自動分割）</div>
+      <div class="twoimgs">
+        <!-- Page 1: header + summary + 2 matches -->
+        <div class="sharewrap">
+          <div class="share teamres">
+            <div class="top"></div>
+            <div class="tr-head">
+              <div class="tr-badge"><span class="n">1</span><span class="u">位</span></div>
+              <div><div class="tr-team">ブラック</div><div class="tr-tt">試合結果自動集計アプリ導入大会　種別フリー</div></div>
+            </div>
+            <div class="tr-sum">
+              <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
+              <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
+              <div><div class="v">+12</div><div class="k">得失点</div></div>
+            </div>
+            <div class="tr-stage">予選リーグ　<span style="font-size:9px;color:#fff;background:var(--navy);padding:2px 8px;border-radius:10px;font-weight:700">1 / 2</span></div>
+            <div class="tr-matches">
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 1試合目</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+                  <tr><td class="team">GENYA A</td><td>10</td><td>11</td><td>0</td></tr></table>
+              </div>
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 3試合目</span><span class="badge lose">敗北</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td>12</td><td class="tot-w">1</td></tr>
+                  <tr><td class="team">ぷくぷく</td><td>14</td><td class="hi">15</td><td>1</td></tr></table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Page 2: slim header + remaining matches -->
+        <div class="sharewrap">
+          <div class="share teamres">
+            <div class="top"></div>
+            <div class="slimhead"><span class="slimtt">ブラック ・ 対戦結果</span><span class="pageno">2 / 2</span></div>
+            <div class="tr-matches" style="margin-top:4px">
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 5試合目</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td>14</td><td class="hi">15</td><td class="tot">1</td></tr>
+                  <tr><td class="team">さくら</td><td class="hi">15</td><td>13</td><td>1</td></tr></table>
+              </div>
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">予選 7試合目</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+                  <tr><td class="team">あおぞら</td><td>9</td><td>13</td><td>0</td></tr></table>
+              </div>
+              <div class="mcard">
+                <div class="mc-top"><span class="gameno">決勝トーナメント</span><span class="badge win">勝利</span></div>
+                <table class="mc-tbl"><tr><th class="lft">チーム</th><th>S1</th><th>S2</th><th>合計</th></tr>
+                  <tr class="own"><td class="team">ブラック</td><td class="hi">15</td><td class="hi">15</td><td class="tot">2</td></tr>
+                  <tr><td class="team">レッド</td><td>11</td><td>13</td><td>0</td></tr></table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Page 3: Sofvo intro (always last) -->
+        <div class="sharewrap">
+          <div class="share intro">
+            <div class="top"></div>
+            <div class="intro-head">
+              <div class="logo-big brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></div>
+              <div class="tagline">ソフトバレーの大会を、もっと簡単に。</div>
+            </div>
+            <div class="intro-body">
+              <div class="feat"><span class="fic">🔍</span><div><b>大会をさがす・エントリー</b><br><span>近くの大会をアプリから申し込み</span></div></div>
+              <div class="feat"><span class="fic">📋</span><div><b>対戦表・順位を自動作成</b><br><span>スコア入力でリアルタイム集計</span></div></div>
+              <div class="feat"><span class="fic">🏆</span><div><b>結果をシェア</b><br><span>この画像もアプリでワンタップ生成</span></div></div>
+              <div class="feat"><span class="fic">👥</span><div><b>チーム・仲間とつながる</b><br><span>フォローで大会情報をキャッチ</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="center"><div class="toast">✓ 順位表2枚＋Sofvo紹介を写真に保存しました</div></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>すべての画像は 1080×1350px（4:5）の同一サイズで書き出します</b><br>
+    Instagram のカルーセル（複数枚投稿）は<b>全スライドが同じアスペクト比でないと、1枚目に合わせて自動トリミング</b>されます。そのため全ページを <b>4:5 で完全に統一</b>。内容が収まる数だけ各ページに入れ、余ったページは余白で同サイズに揃えます（＝何も切れません）。<br><br>
+    ・<b>A. 順位表</b>：1枚あたり8チームで自動分割。上位3位はゴールドのハイライト。<br>
+    ・<b>B. 自チームの対戦結果</b>：<b>2タイプから選べる</b>。<b>タイプ1＝最終順位だけ</b>（1枚・順位/優勝・通算成績だけのシンプル版）、<b>タイプ2＝全試合の詳細</b>（アプリと同じ S1/S2/合計テーブル・収まる試合数で自動分割）。<br>
+    ・<b>最後に「Sofvo紹介」</b>（同じ4:5サイズ・ページ番号には含めない）。<br><br>
+    <b>確認したいこと</b><br>
+    ・比率は <b>4:5（1080×1350）</b> で確定でOK？（正方形1:1・ストーリー9:16も出せます）<br>
+    ・「保存」に加えて <b>「共有」</b>（Instagram直接シェア）ボタンも並べますか
+  </div>
+</body>
+</html>

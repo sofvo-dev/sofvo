@@ -204,6 +204,13 @@ service cloud.firestore {
       }
     }
 
+    // ━━━ フォト（コレクショングループ：マイページのフォト集約用） ━━━
+    // 大会フォトを uploadedBy で横断クエリするため、collectionGroup 読み取りを許可する。
+    // ※ 個別の作成・削除は /tournaments/{id}/photos/{photoId} 側のルールで制御する。
+    match /{path=**}/photos/{photoId} {
+      allow read: if isAuthenticated();
+    }
+
     // ━━━ チーム ━━━
     match /teams/{teamId} {
       allow read: if isAuthenticated();

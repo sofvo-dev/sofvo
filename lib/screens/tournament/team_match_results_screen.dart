@@ -1,7 +1,81 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_theme.dart';
+
+class _LaurelWreathPainter extends CustomPainter {
+  final Color color;
+  final Color highlightColor;
+  _LaurelWreathPainter(this.color, {Color? highlightColor})
+      : highlightColor = highlightColor ?? Colors.white;
+
+  Path _leafPath(double length, double width) {
+    final half = length / 2;
+    return Path()
+      ..moveTo(0, -half)
+      ..quadraticBezierTo(width / 2, -half * 0.15, 0, half)
+      ..quadraticBezierTo(-width / 2, -half * 0.15, 0, -half)
+      ..close();
+  }
+
+  Offset _posAt(Offset center, double radius, double rad, bool rightSide) {
+    final sx = rightSide ? math.sin(rad) : -math.sin(rad);
+    final sy = -math.cos(rad);
+    return center + Offset(sx, sy) * radius;
+  }
+
+  void _drawBranch(Canvas canvas, Offset center, double radius, bool rightSide) {
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final highlightPaint = Paint()
+      ..color = highlightColor.withValues(alpha: 0.45)
+      ..style = PaintingStyle.fill;
+
+    const leafCount = 10;
+    const startDeg = 16.0; // 王冠用に天頂を少し空ける
+    const endDeg = 172.0; // 根本は下部中央で重ねる
+    const eps = 0.01;
+    for (int i = 0; i < leafCount; i++) {
+      final t = i / (leafCount - 1);
+      final deg = startDeg + (endDeg - startDeg) * t;
+      final rad = deg * math.pi / 180;
+
+      final pos = _posAt(center, radius, rad, rightSide);
+      final posNext = _posAt(center, radius, rad + eps, rightSide);
+      final dir = posNext - pos;
+      final tangentAngle = math.atan2(dir.dy, dir.dx);
+
+      // 葉先が外側・上方向にやや跳ねる束感を出す
+      final fan = (rightSide ? 1 : -1) * 0.28;
+
+      final leafLength = 9.0 + 11.0 * t;
+      final leafWidth = leafLength * 0.46;
+
+      canvas.save();
+      canvas.translate(pos.dx, pos.dy);
+      canvas.rotate(tangentAngle - math.pi / 2 + fan);
+      canvas.drawPath(_leafPath(leafLength, leafWidth), paint);
+      canvas.save();
+      canvas.translate(rightSide ? -leafWidth * 0.16 : leafWidth * 0.16, leafLength * 0.04);
+      canvas.drawPath(_leafPath(leafLength * 0.74, leafWidth * 0.42), highlightPaint);
+      canvas.restore();
+      canvas.restore();
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 6;
+    _drawBranch(canvas, center, radius, false);
+    _drawBranch(canvas, center, radius, true);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LaurelWreathPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
 
 class TeamMatchResultsScreen extends StatefulWidget {
   final String tournamentId;
@@ -184,12 +258,6 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
     super.dispose();
   }
 
-  String _rankLabel(int? rank) {
-    if (rank == null) return '';
-    const medals = {1: '🥇', 2: '🥈', 3: '🥉'};
-    return '${medals[rank] ?? ''}${rank}位';
-  }
-
   @override
   Widget build(BuildContext context) {
     final hasPrelim = _prelimMatches.values.any((l) => l.isNotEmpty);
@@ -273,20 +341,107 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Row(children: [
-        Container(
-          width: 52, height: 52,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.6)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              widget.teamName.isNotEmpty ? widget.teamName[0] : '?',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
-            ),
+        SizedBox(
+          width: 64, height: 64,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              if (rank != null && rank <= 3)
+                CustomPaint(
+                  size: const Size(64, 64),
+                  painter: _LaurelWreathPainter(
+                    rank == 1
+                        ? const Color(0xFFE0A526)
+                        : rank == 2
+                            ? const Color(0xFF9AA7AD)
+                            : const Color(0xFFB97A3D),
+                  ),
+                )
+              else
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey.withValues(alpha: 0.1),
+                  ),
+                ),
+              rank != null
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$rank',
+                          style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.w900, height: 1.1,
+                            color: rank == 1
+                                ? const Color(0xFFC8860A)
+                                : rank == 2
+                                    ? const Color(0xFF78858B)
+                                    : rank == 3
+                                        ? const Color(0xFF9C5A24)
+                                        : AppTheme.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          '位',
+                          style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700, height: 1.1,
+                            color: rank == 1
+                                ? const Color(0xFFC8860A)
+                                : rank == 2
+                                    ? const Color(0xFF78858B)
+                                    : rank == 3
+                                        ? const Color(0xFF9C5A24)
+                                        : AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
+              if (rank != null && rank <= 3)
+                Positioned(
+                  top: -16,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: rank == 1
+                              ? [const Color(0xFFFFE082), const Color(0xFFFFA000)]
+                              : rank == 2
+                                  ? [const Color(0xFFECEFF1), const Color(0xFF90A4AE)]
+                                  : [const Color(0xFFE6B17E), const Color(0xFFB06A2E)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (rank == 1
+                                    ? const Color(0xFFFFA000)
+                                    : rank == 2
+                                        ? const Color(0xFF90A4AE)
+                                        : const Color(0xFFB06A2E))
+                                .withValues(alpha: 0.5),
+                            blurRadius: 6, offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: FaIcon(
+                          FontAwesomeIcons.crown,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(width: 14),
@@ -302,29 +457,6 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
             ],
           ),
         ),
-        if (rank != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: rank == 1
-                  ? Colors.amber.withValues(alpha: 0.15)
-                  : rank <= 3
-                      ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _rankLabel(rank),
-              style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w800,
-                color: rank == 1
-                    ? Colors.amber[700]
-                    : rank <= 3
-                        ? AppTheme.primaryColor
-                        : AppTheme.textSecondary,
-              ),
-            ),
-          ),
       ]),
     );
   }

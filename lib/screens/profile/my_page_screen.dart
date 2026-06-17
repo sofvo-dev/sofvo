@@ -45,6 +45,7 @@ import 'tournament_history_screen.dart';
 import 'ranking_screen.dart';
 import 'point_history_screen.dart';
 import 'user_profile_screen.dart';
+import 'user_photos_screen.dart';
 import '../../services/point_service.dart';
 
 class MyPageScreen extends StatelessWidget {
@@ -355,6 +356,16 @@ class MyPageScreen extends StatelessWidget {
                         seeAllTap: () => Navigator.push(context,
                             MaterialPageRoute(builder: (_) => const TournamentHistoryScreen())),
                         child: _TournamentCardsRow(userId: viewingUid),
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildCardSection(
+                        context: context,
+                        title: 'フォト',
+                        icon: Icons.photo_library_rounded,
+                        seeAllTap: () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => UserPhotosScreen(userId: viewingUid, displayName: nickname))),
+                        child: PhotoCardsRow(userId: viewingUid, displayName: nickname),
                       ),
                       const SizedBox(height: 24),
 
