@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_theme.dart';
 import '../../services/result_share_service.dart';
 
@@ -471,10 +470,21 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (rank <= 3)
+                          Icon(
+                            Icons.emoji_events,
+                            size: 18,
+                            color: rank == 1
+                                ? const Color(0xFFC8860A)
+                                : rank == 2
+                                    ? const Color(0xFF78858B)
+                                    : const Color(0xFF9C5A24),
+                          ),
                         Text(
                           '$rank',
                           style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.w900, height: 1.1,
+                            fontSize: rank <= 3 ? 20 : 24,
+                            fontWeight: FontWeight.w900, height: 1.1,
                             color: rank == 1
                                 ? const Color(0xFFC8860A)
                                 : rank == 2
@@ -500,47 +510,6 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
                       ],
                     )
                   : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
-              if (rank != null && rank <= 3)
-                Positioned(
-                  top: -16,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      width: 28, height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: rank == 1
-                              ? [const Color(0xFFFFE082), const Color(0xFFFFA000)]
-                              : rank == 2
-                                  ? [const Color(0xFFECEFF1), const Color(0xFF90A4AE)]
-                                  : [const Color(0xFFE6B17E), const Color(0xFFB06A2E)],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (rank == 1
-                                    ? const Color(0xFFFFA000)
-                                    : rank == 2
-                                        ? const Color(0xFF90A4AE)
-                                        : const Color(0xFFB06A2E))
-                                .withValues(alpha: 0.5),
-                            blurRadius: 6, offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: FaIcon(
-                          FontAwesomeIcons.crown,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
