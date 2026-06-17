@@ -65,10 +65,9 @@
   .share .slimhead{display:flex;align-items:center;gap:8px;padding:16px 20px 8px;}
   .share .slimhead .slimtt{font-size:13px;font-weight:900;color:var(--navy);}
   .share .slimhead .pageno{margin-left:auto;}
-  /* 行は固定高 → どのページでも1チームの間隔が完全に同じ。
-     ヘッダーが大きい1枚目は入る数が減り、細ヘッダーの2枚目は多く入る（例 7+9）。 */
-  .share .list{padding:4px 16px;flex:1;}
-  .srow{display:flex;align-items:center;padding:8px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
+  /* 行は伸縮してカード内に必ず収まる（絶対に切れない）。7+9 で間隔もほぼ同一。 */
+  .share .list{padding:4px 16px;flex:1;display:flex;flex-direction:column;}
+  .srow{flex:1;display:flex;align-items:center;padding:0 6px;font-size:13px;border-bottom:1px solid #f2f4f7;min-height:0;}
   .srow:last-child{border-bottom:none;}
   .srow .m{width:24px;font-size:16px;text-align:center;}
   .srow .rk{width:34px;font-weight:900;color:var(--navy);}
@@ -190,6 +189,8 @@
   .share.resultonly .ro-sum > div:last-child{border-right:none;}
   .share.resultonly .ro-sum .v{font-size:14px;font-weight:900;color:var(--navy);}
   .share.resultonly .ro-sum .k{font-size:9px;color:var(--text2);margin-top:1px;}
+  .share.resultonly .ro-credit{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:11px;color:var(--text2);}
+  .share.resultonly .ro-credit .brandlogo{font-size:13px;}
   .sublabel{text-align:center;font-size:12px;color:var(--text2);margin:0 0 8px;font-weight:700;}
 </style>
 </head>
@@ -341,16 +342,16 @@
         <div class="sharewrap">
           <div class="share resultonly">
             <div class="top"></div>
-            <div class="ro-brand">SOFVO ・ RESULT</div>
             <div class="ro-trophy">🏆</div>
-            <div class="ro-place">1<span class="small">位</span> ・ 優勝</div>
+            <div class="ro-place">優勝</div>
             <div class="ro-team">ブラック</div>
-            <div class="ro-tt">試合結果自動集計アプリ導入大会<br>種別フリー ・ 2026.06.14</div>
+            <div class="ro-tt">試合結果自動集計アプリ導入大会<br>種別フリー ・ 全16チーム ・ 2026.06.14</div>
             <div class="ro-sum">
               <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
               <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
               <div><div class="v">+12</div><div class="k">得失点</div></div>
             </div>
+            <div class="ro-credit"><span class="brandlogo"><span class="sof">Sof</span><span class="vo">vo</span></span> ・ sofvo.com</div>
           </div>
         </div>
       </div>
