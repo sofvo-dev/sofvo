@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../services/result_share_service.dart';
 
 class _MedalRibbonPainter extends CustomPainter {
   final Color color;
@@ -227,6 +228,97 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
     super.dispose();
   }
 
+  /// 画像保存用に試合結果を ShareMatch のリストへ変換する。
+  List<ShareMatch> _collectShareMatches() {
+    final out = <ShareMatch>[];
+
+    ShareMatch toShareMatch(Map<String, dynamic> match, {required bool isPrelim}) {
+      final result = match['result'] as Map<String, dynamic>? ?? {};
+      final isA = match['teamAId'] == widget.teamId;
+      final myName = isA
+          ? (match['teamAName'] as String? ?? widget.teamName)
+          : (match['teamBName'] as String? ?? widget.teamName);
+      final oppName = isA
+          ? (match['teamBName'] as String? ?? '相手チーム')
+          : (match['teamAName'] as String? ?? '相手チーム');
+      final mySets = isA
+          ? (result['setsA'] as num?)?.toInt() ?? 0
+          : (result['setsB'] as num?)?.toInt() ?? 0;
+      final oppSets = isA
+          ? (result['setsB'] as num?)?.toInt() ?? 0
+          : (result['setsA'] as num?)?.toInt() ?? 0;
+      final winner = result['winner'] as String? ?? '';
+      final resultKind = winner == '引き分け'
+          ? 0
+          : (winner == widget.teamId ? 1 : -1);
+      String stageLabel;
+      if (isPrelim) {
+        final matchNum = (match['matchOrder'] as num?)?.toInt() ?? 0;
+        stageLabel = '予選 ${matchNum}試合目';
+      } else {
+        final round = match['round'] as String? ?? '';
+        stageLabel = _roundLabels[round] ?? round;
+      }
+      final rawSets = match['sets'] as List<dynamic>? ?? [];
+      final sets = rawSets.map<(int, int)>((s) {
+        final sa = (s['a'] as num?)?.toInt() ?? 0;
+        final sb = (s['b'] as num?)?.toInt() ?? 0;
+        return isA ? (sa, sb) : (sb, sa);
+      }).toList();
+      return ShareMatch(
+        stageLabel: stageLabel,
+        resultKind: resultKind,
+        myName: myName,
+        oppName: oppName,
+        sets: sets,
+        mySets: mySets,
+        oppSets: oppSets,
+      );
+    }
+
+    for (final entry in _prelimMatches.entries) {
+      for (final match in entry.value) {
+        out.add(toShareMatch(match, isPrelim: true));
+      }
+    }
+    final finals = _finalMatchesByBracket.values.expand((l) => l).toList()
+      ..sort((a, b) => (_roundOrder[a['round'] as String? ?? ''] ?? 99)
+          .compareTo(_roundOrder[b['round'] as String? ?? ''] ?? 99));
+    for (final match in finals) {
+      out.add(toShareMatch(match, isPrelim: false));
+    }
+    return out;
+  }
+
+  String _placeLabel(int? rank) {
+    if (rank == null) return '結果';
+    switch (rank) {
+      case 1:
+        return '優勝';
+      case 2:
+        return '準優勝';
+      case 3:
+        return '第3位';
+      default:
+        return '$rank位';
+    }
+  }
+
+  Future<void> _saveResultImage() async {
+    final data = ShareTeamResultData(
+      teamName: widget.teamName,
+      tournamentTitle: widget.tournamentName,
+      subtitle: widget.finalRank != null ? '${widget.finalRank}位' : null,
+      rank: widget.finalRank,
+      placeLabel: _placeLabel(widget.finalRank),
+      winLoss: '${_wins}勝${_losses}敗',
+      setWinLoss: '$_setWins-$_setLosses',
+      pointDiff: '${_pointDiff >= 0 ? '+' : ''}$_pointDiff',
+      matches: _collectShareMatches(),
+    );
+    await ResultShareService.saveTeamResult(context, data);
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasPrelim = _prelimMatches.values.any((l) => l.isNotEmpty);
@@ -249,6 +341,14 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
           style: const TextStyle(
               fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
         ),
+        actions: [
+          if (_loaded)
+            IconButton(
+              tooltip: '結果を画像で保存',
+              icon: const Icon(Icons.ios_share),
+              onPressed: _saveResultImage,
+            ),
+        ],
       ),
       body: !_loaded
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
