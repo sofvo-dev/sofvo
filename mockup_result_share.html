@@ -65,9 +65,10 @@
   .share .slimhead{display:flex;align-items:center;gap:8px;padding:16px 20px 8px;}
   .share .slimhead .slimtt{font-size:13px;font-weight:900;color:var(--navy);}
   .share .slimhead .pageno{margin-left:auto;}
-  /* 行を均等な高さに広げてカードを埋める（ページ間で見た目を揃える） */
-  .share .list{padding:4px 16px;flex:1;display:flex;flex-direction:column;}
-  .srow{flex:1;display:flex;align-items:center;padding:0 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
+  /* 行は固定高 → どのページでも1チームの間隔が完全に同じ。
+     ヘッダーが大きい1枚目は入る数が減り、細ヘッダーの2枚目は多く入る（例 7+9）。 */
+  .share .list{padding:4px 16px;flex:1;}
+  .srow{display:flex;align-items:center;padding:8px 6px;font-size:13px;border-bottom:1px solid #f2f4f7;}
   .srow:last-child{border-bottom:none;}
   .srow .m{width:24px;font-size:16px;text-align:center;}
   .srow .rk{width:34px;font-weight:900;color:var(--navy);}
@@ -175,6 +176,21 @@
   .share.teamres .mc-top{padding:4px 10px;}
   .share.teamres .mc-tbl th{padding:3px 6px;}
   .share.teamres .mc-tbl td{padding:4px 6px;font-size:11px;}
+  /* result-only hero card */
+  .share.resultonly{align-items:center;justify-content:center;text-align:center;padding:0 24px;}
+  .share.resultonly .ro-brand{font-size:10px;letter-spacing:3px;color:var(--gold-deep);font-weight:700;}
+  .share.resultonly .ro-trophy{font-size:46px;margin:8px 0 2px;}
+  .share.resultonly .ro-place{font-size:40px;font-weight:900;color:var(--navy);line-height:1.1;}
+  .share.resultonly .ro-place .small{font-size:20px;}
+  .share.resultonly .ro-team{font-size:20px;font-weight:900;color:var(--navy);margin-top:6px;}
+  .share.resultonly .ro-tt{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.4;}
+  .share.resultonly .ro-sum{display:flex;gap:0;margin-top:16px;width:100%;
+    background:#fff;border:1px solid #eef1f5;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .share.resultonly .ro-sum > div{flex:1;padding:8px 0;border-right:1px solid #eef1f5;}
+  .share.resultonly .ro-sum > div:last-child{border-right:none;}
+  .share.resultonly .ro-sum .v{font-size:14px;font-weight:900;color:var(--navy);}
+  .share.resultonly .ro-sum .k{font-size:9px;color:var(--text2);margin-top:1px;}
+  .sublabel{text-align:center;font-size:12px;color:var(--text2);margin:0 0 8px;font-weight:700;}
 </style>
 </head>
 <body>
@@ -234,7 +250,6 @@
               <div class="srow"><span class="m"></span><span class="rk">5位</span><span class="nm">Sand Kings</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">6位</span><span class="nm">Coral Crew</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">7位</span><span class="nm">Tide Breakers</span><span class="sc"></span></div>
-              <div class="srow"><span class="m"></span><span class="rk">8位</span><span class="nm">Shoreline FC</span><span class="sc"></span></div>
             </div>
           </div>
         </div>
@@ -247,6 +262,7 @@
               <span class="pageno">2 / 2</span>
             </div>
             <div class="list list-tall">
+              <div class="srow"><span class="m"></span><span class="rk">8位</span><span class="nm">Shoreline FC</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">9位</span><span class="nm">Blue Marlins</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">10位</span><span class="nm">Dune Diggers</span><span class="sc"></span></div>
               <div class="srow"><span class="m"></span><span class="rk">11位</span><span class="nm">Reef Rangers</span><span class="sc"></span></div>
@@ -317,9 +333,28 @@
 
     <div class="arrow">→</div>
 
-    <!-- RIGHT: team result share images (app-style, 4:5, split) -->
+    <!-- RIGHT: team result share images (two types) -->
     <div>
-      <div class="label">② 保存される投稿用画像（自チームの戦績・4:5 で自動分割）</div>
+      <div class="label">② 保存される投稿用画像（2タイプから選べる）</div>
+      <div class="sublabel">タイプ1：最終順位だけ（1枚・シンプル）</div>
+      <div class="twoimgs" style="margin-bottom:18px">
+        <div class="sharewrap">
+          <div class="share resultonly">
+            <div class="top"></div>
+            <div class="ro-brand">SOFVO ・ RESULT</div>
+            <div class="ro-trophy">🏆</div>
+            <div class="ro-place">1<span class="small">位</span> ・ 優勝</div>
+            <div class="ro-team">ブラック</div>
+            <div class="ro-tt">試合結果自動集計アプリ導入大会<br>種別フリー ・ 2026.06.14</div>
+            <div class="ro-sum">
+              <div><div class="v">4勝1敗</div><div class="k">通算成績</div></div>
+              <div><div class="v">8-4</div><div class="k">セット勝敗</div></div>
+              <div><div class="v">+12</div><div class="k">得失点</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sublabel">タイプ2：全試合の詳細（4:5 で自動分割）</div>
       <div class="twoimgs">
         <!-- Page 1: header + summary + 2 matches -->
         <div class="sharewrap">
@@ -403,7 +438,7 @@
     <b>すべての画像は 1080×1350px（4:5）の同一サイズで書き出します</b><br>
     Instagram のカルーセル（複数枚投稿）は<b>全スライドが同じアスペクト比でないと、1枚目に合わせて自動トリミング</b>されます。そのため全ページを <b>4:5 で完全に統一</b>。内容が収まる数だけ各ページに入れ、余ったページは余白で同サイズに揃えます（＝何も切れません）。<br><br>
     ・<b>A. 順位表</b>：1枚あたり8チームで自動分割。上位3位はゴールドのハイライト。<br>
-    ・<b>B. 自チームの対戦結果</b>：アプリの画面と同じ形式（順位バッジ・通算成績/セット勝敗/得失点・各試合の S1/S2/合計）。1枚に収まる試合数で自動分割。<br>
+    ・<b>B. 自チームの対戦結果</b>：<b>2タイプから選べる</b>。<b>タイプ1＝最終順位だけ</b>（1枚・順位/優勝・通算成績だけのシンプル版）、<b>タイプ2＝全試合の詳細</b>（アプリと同じ S1/S2/合計テーブル・収まる試合数で自動分割）。<br>
     ・<b>最後に「Sofvo紹介」</b>（同じ4:5サイズ・ページ番号には含めない）。<br><br>
     <b>確認したいこと</b><br>
     ・比率は <b>4:5（1080×1350）</b> で確定でOK？（正方形1:1・ストーリー9:16も出せます）<br>
