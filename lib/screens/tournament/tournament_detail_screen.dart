@@ -24,6 +24,7 @@ import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
 import '../../services/csv_download.dart';
 import '../../services/follow_service.dart';
+import '../../services/result_share_service.dart';
 import '../../services/match_generator.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/certified_badge.dart';
@@ -8217,8 +8218,45 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
             ),
           ];
         }),
+        // 画像で保存ボタン
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.ios_share, size: 18),
+              label: const Text('順位表を画像で保存'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _saveRankingImage(rankings),
+            ),
+          ),
+        ),
       ]),
     );
+  }
+
+  void _saveRankingImage(List<_RankedTeam> rankings) {
+    String? note(int rank) => rank == 1
+        ? '優勝'
+        : rank == 2
+            ? '準優勝'
+            : rank == 3
+                ? '3位'
+                : null;
+    final data = ShareRankingData(
+      tournamentTitle: widget.tournamentName,
+      subtitle: '全${rankings.length}チーム',
+      rows: [
+        for (final r in rankings)
+          ShareRankingRow(rank: r.globalRank, teamName: r.teamName, note: note(r.globalRank)),
+      ],
+    );
+    ResultShareService.saveRanking(context, data);
   }
 }
 
