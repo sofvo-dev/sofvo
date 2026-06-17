@@ -1,78 +1,48 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 
-class _LaurelWreathPainter extends CustomPainter {
+class _MedalRibbonPainter extends CustomPainter {
   final Color color;
-  final Color highlightColor;
-  _LaurelWreathPainter(this.color, {Color? highlightColor})
-      : highlightColor = highlightColor ?? Colors.white;
+  _MedalRibbonPainter(this.color);
 
-  Path _leafPath(double length, double width) {
-    final half = length / 2;
+  Path _tailPath(double width, double height) {
     return Path()
-      ..moveTo(0, -half)
-      ..quadraticBezierTo(width / 2, -half * 0.15, 0, half)
-      ..quadraticBezierTo(-width / 2, -half * 0.15, 0, -half)
+      ..moveTo(0, 0)
+      ..lineTo(width, 0)
+      ..lineTo(width, height * 0.78)
+      ..lineTo(width / 2, height)
+      ..lineTo(0, height * 0.78)
       ..close();
-  }
-
-  Offset _posAt(Offset center, double radius, double rad, bool rightSide) {
-    final sx = rightSide ? math.sin(rad) : -math.sin(rad);
-    final sy = -math.cos(rad);
-    return center + Offset(sx, sy) * radius;
-  }
-
-  void _drawBranch(Canvas canvas, Offset center, double radius, bool rightSide) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
-    final highlightPaint = Paint()
-      ..color = highlightColor.withValues(alpha: 0.45)
-      ..style = PaintingStyle.fill;
-
-    const leafCount = 10;
-    const startDeg = 16.0; // 王冠用に天頂を少し空ける
-    const endDeg = 172.0; // 根本は下部中央で重ねる
-    const eps = 0.01;
-    for (int i = 0; i < leafCount; i++) {
-      final t = i / (leafCount - 1);
-      final deg = startDeg + (endDeg - startDeg) * t;
-      final rad = deg * math.pi / 180;
-
-      final pos = _posAt(center, radius, rad, rightSide);
-      final posNext = _posAt(center, radius, rad + eps, rightSide);
-      final dir = posNext - pos;
-      final tangentAngle = math.atan2(dir.dy, dir.dx);
-
-      // 葉先が外側・上方向にやや跳ねる束感を出す
-      final fan = (rightSide ? 1 : -1) * 0.28;
-
-      final leafLength = 9.0 + 11.0 * t;
-      final leafWidth = leafLength * 0.46;
-
-      canvas.save();
-      canvas.translate(pos.dx, pos.dy);
-      canvas.rotate(tangentAngle - math.pi / 2 + fan);
-      canvas.drawPath(_leafPath(leafLength, leafWidth), paint);
-      canvas.save();
-      canvas.translate(rightSide ? -leafWidth * 0.16 : leafWidth * 0.16, leafLength * 0.04);
-      canvas.drawPath(_leafPath(leafLength * 0.74, leafWidth * 0.42), highlightPaint);
-      canvas.restore();
-      canvas.restore();
-    }
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 6;
-    _drawBranch(canvas, center, radius, false);
-    _drawBranch(canvas, center, radius, true);
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final shadePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+
+    const tailWidth = 13.0;
+    const tailHeight = 30.0;
+    final top = Offset(size.width / 2, 6);
+
+    canvas.save();
+    canvas.translate(top.dx, top.dy);
+    canvas.rotate(-0.30);
+    canvas.drawPath(_tailPath(tailWidth, tailHeight), paint);
+    canvas.restore();
+
+    canvas.save();
+    canvas.translate(top.dx - tailWidth, top.dy);
+    canvas.rotate(0.30);
+    canvas.drawPath(_tailPath(tailWidth, tailHeight), shadePaint);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _LaurelWreathPainter oldDelegate) =>
+  bool shouldRepaint(covariant _MedalRibbonPainter oldDelegate) =>
       oldDelegate.color != color;
 }
 
@@ -341,75 +311,92 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
       ),
       child: Row(children: [
         SizedBox(
-          width: 64, height: 64,
+          width: 64,
+          height: rank != null && rank <= 3 ? 78 : 64,
           child: Stack(
             clipBehavior: Clip.none,
-            alignment: Alignment.center,
+            alignment: Alignment.topCenter,
             children: [
               if (rank != null && rank <= 3)
-                CustomPaint(
-                  size: const Size(64, 64),
-                  painter: _LaurelWreathPainter(
-                    rank == 1
-                        ? const Color(0xFFE0A526)
-                        : rank == 2
-                            ? const Color(0xFF9AA7AD)
-                            : const Color(0xFFB97A3D),
+                Positioned(
+                  top: 16,
+                  child: CustomPaint(
+                    size: const Size(64, 36),
+                    painter: _MedalRibbonPainter(AppTheme.primaryColor),
                   ),
-                )
-              else
-                Container(
+                ),
+              Positioned(
+                top: 0,
+                child: Container(
                   width: 56, height: 56,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.grey.withValues(alpha: 0.1),
+                    gradient: rank != null && rank <= 3
+                        ? LinearGradient(
+                            colors: rank == 1
+                                ? [const Color(0xFFFFE9A8), const Color(0xFFE0A526)]
+                                : rank == 2
+                                    ? [const Color(0xFFEFF2F3), const Color(0xFF9AA7AD)]
+                                    : [const Color(0xFFE6B789), const Color(0xFFB97A3D)],
+                            begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: rank != null && rank <= 3 ? null : Colors.grey.withValues(alpha: 0.1),
+                    border: rank != null && rank <= 3
+                        ? Border.all(color: Colors.white, width: 3)
+                        : null,
+                    boxShadow: rank != null && rank <= 3
+                        ? [
+                            BoxShadow(
+                              color: (rank == 1
+                                      ? const Color(0xFFE0A526)
+                                      : rank == 2
+                                          ? const Color(0xFF9AA7AD)
+                                          : const Color(0xFFB97A3D))
+                                  .withValues(alpha: 0.45),
+                              blurRadius: 6, offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: rank != null
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$rank',
+                                style: TextStyle(
+                                  fontSize: 22, fontWeight: FontWeight.w900, height: 1.0,
+                                  color: rank == 1
+                                      ? const Color(0xFF8A5E0A)
+                                      : rank == 2
+                                          ? const Color(0xFF5B6569)
+                                          : rank == 3
+                                              ? const Color(0xFF6E3F18)
+                                              : AppTheme.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                '位',
+                                style: TextStyle(
+                                  fontSize: 10, fontWeight: FontWeight.w700, height: 1.0,
+                                  color: rank == 1
+                                      ? const Color(0xFF8A5E0A)
+                                      : rank == 2
+                                          ? const Color(0xFF5B6569)
+                                          : rank == 3
+                                              ? const Color(0xFF6E3F18)
+                                              : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          )
+                        : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
                   ),
                 ),
-              rank != null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (rank <= 3)
-                          Icon(
-                            Icons.emoji_events,
-                            size: 18,
-                            color: rank == 1
-                                ? const Color(0xFFC8860A)
-                                : rank == 2
-                                    ? const Color(0xFF78858B)
-                                    : const Color(0xFF9C5A24),
-                          ),
-                        Text(
-                          '$rank',
-                          style: TextStyle(
-                            fontSize: rank <= 3 ? 20 : 24,
-                            fontWeight: FontWeight.w900, height: 1.1,
-                            color: rank == 1
-                                ? const Color(0xFFC8860A)
-                                : rank == 2
-                                    ? const Color(0xFF78858B)
-                                    : rank == 3
-                                        ? const Color(0xFF9C5A24)
-                                        : AppTheme.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          '位',
-                          style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700, height: 1.1,
-                            color: rank == 1
-                                ? const Color(0xFFC8860A)
-                                : rank == 2
-                                    ? const Color(0xFF78858B)
-                                    : rank == 3
-                                        ? const Color(0xFF9C5A24)
-                                        : AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    )
-                  : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
+              ),
             ],
           ),
         ),
