@@ -13,6 +13,7 @@ import '../chat/chat_screen.dart';
 import '../tournament/tournament_detail_screen.dart';
 import 'follow_list_screen.dart';
 import 'my_page_screen.dart';
+import 'user_photos_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -673,6 +674,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     title: '大会結果',
                     icon: Icons.emoji_events_rounded,
                     child: _TournamentCardsRow(userId: widget.userId),
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildCardSection(
+                    title: 'フォト',
+                    icon: Icons.photo_library_rounded,
+                    child: PhotoCardsRow(userId: widget.userId, displayName: nickname),
                   ),
                   const SizedBox(height: 16),
 

@@ -7,30 +7,59 @@ import '../../config/app_theme.dart';
 
 class _LaurelWreathPainter extends CustomPainter {
   final Color color;
-  _LaurelWreathPainter(this.color);
+  final Color highlightColor;
+  _LaurelWreathPainter(this.color, {Color? highlightColor})
+      : highlightColor = highlightColor ?? Colors.white;
+
+  Path _leafPath(double length, double width) {
+    final half = length / 2;
+    return Path()
+      ..moveTo(0, -half)
+      ..quadraticBezierTo(width / 2, -half * 0.15, 0, half)
+      ..quadraticBezierTo(-width / 2, -half * 0.15, 0, -half)
+      ..close();
+  }
+
+  Offset _posAt(Offset center, double radius, double rad, bool rightSide) {
+    final sx = rightSide ? math.sin(rad) : -math.sin(rad);
+    final sy = -math.cos(rad);
+    return center + Offset(sx, sy) * radius;
+  }
 
   void _drawBranch(Canvas canvas, Offset center, double radius, bool rightSide) {
-    final paint = Paint()..color = color;
-    const leafCount = 6;
-    const startDeg = 95.0;
-    const endDeg = 250.0;
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final highlightPaint = Paint()
+      ..color = highlightColor.withValues(alpha: 0.45)
+      ..style = PaintingStyle.fill;
+
+    const leafCount = 10;
+    const startDeg = 16.0; // 王冠用に天頂を少し空ける
+    const endDeg = 172.0; // 根本は下部中央で重ねる
+    const eps = 0.01;
     for (int i = 0; i < leafCount; i++) {
       final t = i / (leafCount - 1);
       final deg = startDeg + (endDeg - startDeg) * t;
       final rad = deg * math.pi / 180;
-      final dx = rightSide ? -math.cos(rad) : math.cos(rad);
-      final dy = math.sin(rad);
-      final pos = center + Offset(dx, dy) * radius;
-      final leafLength = 7.0 + 5.0 * t;
+
+      final pos = _posAt(center, radius, rad, rightSide);
+      final posNext = _posAt(center, radius, rad + eps, rightSide);
+      final dir = posNext - pos;
+      final tangentAngle = math.atan2(dir.dy, dir.dx);
+
+      // 葉先が外側・上方向にやや跳ねる束感を出す
+      final fan = (rightSide ? 1 : -1) * 0.28;
+
+      final leafLength = 9.0 + 11.0 * t;
+      final leafWidth = leafLength * 0.46;
 
       canvas.save();
       canvas.translate(pos.dx, pos.dy);
-      final tangent = math.atan2(dy, dx) + (rightSide ? -1.0 : 1.0) * 1.0;
-      canvas.rotate(tangent);
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: leafLength, height: leafLength * 0.45),
-        paint,
-      );
+      canvas.rotate(tangentAngle - math.pi / 2 + fan);
+      canvas.drawPath(_leafPath(leafLength, leafWidth), paint);
+      canvas.save();
+      canvas.translate(rightSide ? -leafWidth * 0.16 : leafWidth * 0.16, leafLength * 0.04);
+      canvas.drawPath(_leafPath(leafLength * 0.74, leafWidth * 0.42), highlightPaint);
+      canvas.restore();
       canvas.restore();
     }
   }
@@ -38,7 +67,7 @@ class _LaurelWreathPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 3;
+    final radius = size.width / 2 - 6;
     _drawBranch(canvas, center, radius, false);
     _drawBranch(canvas, center, radius, true);
   }
