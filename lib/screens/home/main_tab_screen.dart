@@ -1,5 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -170,38 +168,23 @@ class _BottomNav extends StatelessWidget {
                 // 縮小時は左右に絞って小さく見せる。下に詰めて配置
                 padding: EdgeInsets.fromLTRB(
                   isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 8),
-                child: DecoratedBox(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  height: isCollapsed ? 52 : 66,
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 22,
-                        offset: const Offset(0, 6),
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  // すりガラス（フロスト）: 背後のコンテンツをぼかして半透明で重ねる
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(30),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOut,
-                        height: isCollapsed ? 52 : 66,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: bar,
-                      ),
-                    ),
-                  ),
+                  child: bar,
                 ),
               );
             },
