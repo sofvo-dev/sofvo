@@ -344,7 +344,7 @@ class MyPageScreen extends StatelessWidget {
 
               // ━━━ コンテンツ ━━━
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(0, 20, 0, 100),
+                padding: EdgeInsets.fromLTRB(0, 20, 0, 92 + MediaQuery.of(context).padding.bottom),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // ━━━ 大会結果・ガジェット・バッジ ※公式アカウントは非表示 ━━━

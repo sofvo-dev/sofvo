@@ -701,7 +701,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                     ),
                   )
                 : ListView.builder(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 32 + MediaQuery.of(context).padding.bottom),
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 92 + MediaQuery.of(context).padding.bottom),
                     itemCount: visibleItems.length,
                     itemBuilder: (ctx, i) {
                       final doc = visibleItems[i];
@@ -1298,7 +1298,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 32 + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 92 + MediaQuery.of(context).padding.bottom),
             itemCount: filtered.length,
             itemBuilder: (ctx, i) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -1634,7 +1634,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 32 + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 92 + MediaQuery.of(context).padding.bottom),
             itemCount: filtered.length,
             itemBuilder: (ctx, i) => Padding(
               padding: const EdgeInsets.only(bottom: 10),

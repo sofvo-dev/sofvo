@@ -70,7 +70,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _statusBarStyle(),
         child: Scaffold(
-          backgroundColor: Colors.white,
+          extendBody: true,
           body: NotificationListener<UserScrollNotification>(
             onNotification: _onScroll,
             child: ConnectivityBanner(
@@ -167,9 +167,9 @@ class _BottomNav extends StatelessWidget {
               return AnimatedPadding(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOut,
-                // 縮小時は左右に絞って小さく見せる
+                // 縮小時は左右に絞って小さく見せる。下に詰めて配置
                 padding: EdgeInsets.fromLTRB(
-                  isCollapsed ? 60 : 14, 6, isCollapsed ? 60 : 14, 10),
+                  isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 8),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(30),
