@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,6 +24,9 @@ class MainTabScreen extends StatefulWidget {
 class _MainTabScreenState extends State<MainTabScreen> {
   int _currentIndex = 0;
 
+  // 下スクロールでボトムナビを縮める（Instagram 風）
+  final ValueNotifier<bool> _navCollapsed = ValueNotifier<bool>(false);
+
   final List<Widget> _screens = [
     const HomeScreen(),
     const TournamentSearchScreen(),
@@ -30,6 +34,23 @@ class _MainTabScreenState extends State<MainTabScreen> {
     const ChatListScreen(),
     const MyPageScreen(),
   ];
+
+  @override
+  void dispose() {
+    _navCollapsed.dispose();
+    super.dispose();
+  }
+
+  bool _onScroll(UserScrollNotification n) {
+    // ネストしたスクロール（横スクロール等）は無視
+    if (n.metrics.axis != Axis.vertical) return false;
+    if (n.direction == ScrollDirection.reverse) {
+      _navCollapsed.value = true; // 下にスクロール → 縮める
+    } else if (n.direction == ScrollDirection.forward) {
+      _navCollapsed.value = false; // 上にスクロール → 戻す
+    }
+    return false;
+  }
 
   // ホーム・チャット = 白背景 → ダークアイコン, マイページ = 暗い背景 → ライトアイコン
   // さがす・マイ大会 = AppBarが自動でハンドル
@@ -49,15 +70,20 @@ class _MainTabScreenState extends State<MainTabScreen> {
         value: _statusBarStyle(),
         child: Scaffold(
           extendBody: true,
-          body: ConnectivityBanner(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _screens,
+          body: NotificationListener<UserScrollNotification>(
+            onNotification: _onScroll,
+            child: ConnectivityBanner(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: _screens,
+              ),
             ),
           ),
           bottomNavigationBar: _BottomNav(
             currentIndex: _currentIndex,
+            collapsed: _navCollapsed,
             onDestinationSelected: (index) {
+              _navCollapsed.value = false; // タブ切替時は展開して見せる
               setState(() => _currentIndex = index);
             },
           ),
@@ -69,9 +95,14 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
 /// 分離されたナビゲーションバー — チャットバッジの更新で他のタブがリビルドされない
 class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.currentIndex, required this.onDestinationSelected});
+  const _BottomNav({
+    required this.currentIndex,
+    required this.onDestinationSelected,
+    required this.collapsed,
+  });
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
+  final ValueListenable<bool> collapsed;
 
   @override
   Widget build(BuildContext context) {
@@ -114,54 +145,65 @@ class _BottomNav extends StatelessWidget {
           const _NavItemData(Icons.person_outline, Icons.person, 'マイページ'),
         ];
 
-        final bar = Row(
-          children: [
-            for (var i = 0; i < items.length; i++)
-              Expanded(
-                child: _NavItem(
-                  data: items[i],
-                  selected: i == currentIndex,
-                  onTap: () => onDestinationSelected(i),
-                ),
-              ),
-          ],
-        );
-
         return SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 22,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              // すりガラス（フロスト）: 背後のコンテンツをぼかして半透明で重ねる
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Container(
-                    height: 66,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        width: 0.8,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: collapsed,
+            builder: (context, isCollapsed, _) {
+              final bar = Row(
+                children: [
+                  for (var i = 0; i < items.length; i++)
+                    Expanded(
+                      child: _NavItem(
+                        data: items[i],
+                        selected: i == currentIndex,
+                        collapsed: isCollapsed,
+                        onTap: () => onDestinationSelected(i),
                       ),
                     ),
-                    child: bar,
+                ],
+              );
+              return AnimatedPadding(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                // 縮小時は左右に絞って小さく見せる
+                padding: EdgeInsets.fromLTRB(
+                  isCollapsed ? 60 : 14, 6, isCollapsed ? 60 : 14, 10),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 22,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  // すりガラス（フロスト）: 背後のコンテンツをぼかして半透明で重ねる
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                        height: isCollapsed ? 52 : 66,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: bar,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         );
       },
@@ -183,11 +225,13 @@ class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.data,
     required this.selected,
+    required this.collapsed,
     required this.onTap,
   });
 
   final _NavItemData data;
   final bool selected;
+  final bool collapsed;
   final VoidCallback onTap;
 
   @override
@@ -199,7 +243,7 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 9),
+        margin: EdgeInsets.symmetric(horizontal: 5, vertical: collapsed ? 6 : 9),
         decoration: BoxDecoration(
           color: selected
               ? AppTheme.primaryColor.withValues(alpha: 0.10)
@@ -210,19 +254,29 @@ class _NavItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _icon(color),
-            const SizedBox(height: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                data.label,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.0,
-                  color: color,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
+            // 縮小時はラベルを畳んでアイコンだけにする
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: collapsed
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          data.label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.0,
+                            color: color,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
             ),
           ],
         ),
