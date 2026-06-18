@@ -273,15 +273,11 @@ class _HomeScreenState extends State<HomeScreen>
         ]),
       ),
       floatingActionButton: _tabController.index == 0
-          ? Padding(
-              // 浮島型ボトムナビと重ならないよう持ち上げる
-              padding: const EdgeInsets.only(bottom: 78),
-              child: FloatingActionButton(
-                heroTag: 'home_create_post',
-                onPressed: _openCreatePost,
-                backgroundColor: AppTheme.primaryColor,
-                child: const Icon(Icons.edit, color: Colors.white),
-              ),
+          ? FloatingActionButton(
+              heroTag: 'home_create_post',
+              onPressed: _openCreatePost,
+              backgroundColor: AppTheme.primaryColor,
+              child: const Icon(Icons.edit, color: Colors.white),
             )
           : null,
     );
