@@ -4,49 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../services/result_share_service.dart';
 
-class _MedalRibbonPainter extends CustomPainter {
-  final Color color;
-  _MedalRibbonPainter(this.color);
-
-  Path _tailPath(double width, double height) {
-    return Path()
-      ..moveTo(0, 0)
-      ..lineTo(width, 0)
-      ..lineTo(width, height * 0.78)
-      ..lineTo(width / 2, height)
-      ..lineTo(0, height * 0.78)
-      ..close();
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
-    final shadePaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.12)
-      ..style = PaintingStyle.fill;
-
-    const tailWidth = 13.0;
-    const tailHeight = 30.0;
-    final top = Offset(size.width / 2, 6);
-
-    canvas.save();
-    canvas.translate(top.dx, top.dy);
-    canvas.rotate(-0.30);
-    canvas.drawPath(_tailPath(tailWidth, tailHeight), paint);
-    canvas.restore();
-
-    canvas.save();
-    canvas.translate(top.dx - tailWidth, top.dy);
-    canvas.rotate(0.30);
-    canvas.drawPath(_tailPath(tailWidth, tailHeight), shadePaint);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _MedalRibbonPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
 class TeamMatchResultsScreen extends StatefulWidget {
   final String tournamentId;
   final String tournamentName;
@@ -412,93 +369,40 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
       child: Row(children: [
         SizedBox(
           width: 64,
-          height: rank != null && rank <= 3 ? 78 : 64,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topCenter,
-            children: [
-              if (rank != null && rank <= 3)
-                Positioned(
-                  top: 16,
-                  child: CustomPaint(
-                    size: const Size(64, 36),
-                    painter: _MedalRibbonPainter(AppTheme.primaryColor),
-                  ),
+          height: 64,
+          child: rank != null && rank <= 3
+              ? Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      Icons.emoji_events,
+                      size: 60,
+                      color: rank == 1
+                          ? const Color(0xFFE0A526)
+                          : rank == 2
+                              ? const Color(0xFF9AA7AD)
+                              : const Color(0xFFB97A3D),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(
+                        '$rank',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : const Center(
+                  child: Icon(Icons.emoji_events_outlined, size: 36, color: AppTheme.textSecondary),
                 ),
-              Positioned(
-                top: 0,
-                child: Container(
-                  width: 56, height: 56,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: rank != null && rank <= 3
-                        ? LinearGradient(
-                            colors: rank == 1
-                                ? [const Color(0xFFFFE9A8), const Color(0xFFE0A526)]
-                                : rank == 2
-                                    ? [const Color(0xFFEFF2F3), const Color(0xFF9AA7AD)]
-                                    : [const Color(0xFFE6B789), const Color(0xFFB97A3D)],
-                            begin: Alignment.topLeft, end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: rank != null && rank <= 3 ? null : Colors.grey.withValues(alpha: 0.1),
-                    border: rank != null && rank <= 3
-                        ? Border.all(color: Colors.white, width: 3)
-                        : null,
-                    boxShadow: rank != null && rank <= 3
-                        ? [
-                            BoxShadow(
-                              color: (rank == 1
-                                      ? const Color(0xFFE0A526)
-                                      : rank == 2
-                                          ? const Color(0xFF9AA7AD)
-                                          : const Color(0xFFB97A3D))
-                                  .withValues(alpha: 0.45),
-                              blurRadius: 6, offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: rank != null
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '$rank',
-                                style: TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.w900, height: 1.0,
-                                  color: rank == 1
-                                      ? const Color(0xFF8A5E0A)
-                                      : rank == 2
-                                          ? const Color(0xFF5B6569)
-                                          : rank == 3
-                                              ? const Color(0xFF6E3F18)
-                                              : AppTheme.textSecondary,
-                                ),
-                              ),
-                              Text(
-                                '位',
-                                style: TextStyle(
-                                  fontSize: 10, fontWeight: FontWeight.w700, height: 1.0,
-                                  color: rank == 1
-                                      ? const Color(0xFF8A5E0A)
-                                      : rank == 2
-                                          ? const Color(0xFF5B6569)
-                                          : rank == 3
-                                              ? const Color(0xFF6E3F18)
-                                              : AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          )
-                        : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
         const SizedBox(width: 14),
         Expanded(
