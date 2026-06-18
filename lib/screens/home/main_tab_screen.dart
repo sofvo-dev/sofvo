@@ -103,51 +103,119 @@ class _BottomNav extends StatelessWidget {
           }
         }
 
-        return NavigationBar(
-          height: 64,
-          selectedIndex: currentIndex,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          onDestinationSelected: onDestinationSelected,
-          backgroundColor: Colors.white,
-          indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.home, size: 22, color: AppTheme.primaryColor),
-              label: 'ホーム',
+        final items = <_NavItemData>[
+          const _NavItemData(Icons.home_outlined, Icons.home, 'ホーム'),
+          const _NavItemData(Icons.search_outlined, Icons.search, 'さがす'),
+          const _NavItemData(Icons.calendar_today_outlined, Icons.calendar_today, 'マイ大会'),
+          _NavItemData(Icons.chat_bubble_outline, Icons.chat_bubble, 'チャット', badge: unreadCount),
+          const _NavItemData(Icons.person_outline, Icons.person, 'マイページ'),
+        ];
+
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+            height: 66,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.10),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.search_outlined, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.search, size: 22, color: AppTheme.primaryColor),
-              label: 'さがす',
+            child: Row(
+              children: [
+                for (var i = 0; i < items.length; i++)
+                  Expanded(
+                    child: _NavItem(
+                      data: items[i],
+                      selected: i == currentIndex,
+                      onTap: () => onDestinationSelected(i),
+                    ),
+                  ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_today_outlined, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.calendar_today, size: 22, color: AppTheme.primaryColor),
-              label: 'マイ大会',
-            ),
-            NavigationDestination(
-              icon: _badge(Icons.chat_bubble_outline, AppTheme.textSecondary, unreadCount),
-              selectedIcon: _badge(Icons.chat_bubble, AppTheme.primaryColor, unreadCount),
-              label: 'チャット',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.person, size: 22, color: AppTheme.primaryColor),
-              label: 'マイページ',
-            ),
-          ],
+          ),
         );
       },
     );
   }
+}
 
-  Widget _badge(IconData icon, Color color, int count) {
-    return Badge(
-      isLabelVisible: count > 0,
-      label: Text('$count', style: const TextStyle(fontSize: 10, color: Colors.white)),
-      backgroundColor: AppTheme.error,
-      child: Icon(icon, size: 22, color: color),
+/// 浮島型ボトムナビのタブ定義
+class _NavItemData {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int badge;
+  const _NavItemData(this.icon, this.activeIcon, this.label, {this.badge = 0});
+}
+
+/// 1タブ分。選択時は角丸カプセルで強調する。
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.data,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _NavItemData data;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppTheme.primaryColor : AppTheme.textSecondary;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.primaryColor.withValues(alpha: 0.10)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _icon(color),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                data.label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.0,
+                  color: color,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Widget _icon(Color color) {
+    final iconWidget = Icon(selected ? data.activeIcon : data.icon, size: 22, color: color);
+    if (data.badge > 0) {
+      return Badge(
+        label: Text('${data.badge}', style: const TextStyle(fontSize: 10, color: Colors.white)),
+        backgroundColor: AppTheme.error,
+        child: iconWidget,
+      );
+    }
+    return iconWidget;
   }
 }
