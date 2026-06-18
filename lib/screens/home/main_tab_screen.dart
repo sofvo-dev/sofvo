@@ -70,7 +70,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _statusBarStyle(),
         child: Scaffold(
-          extendBody: true,
+          backgroundColor: Colors.white,
           body: NotificationListener<UserScrollNotification>(
             onNotification: _onScroll,
             child: ConnectivityBanner(
