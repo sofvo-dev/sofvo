@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -46,6 +48,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _statusBarStyle(),
         child: Scaffold(
+          extendBody: true,
           body: ConnectivityBanner(
             child: IndexedStack(
               index: _currentIndex,
@@ -111,33 +114,53 @@ class _BottomNav extends StatelessWidget {
           const _NavItemData(Icons.person_outline, Icons.person, 'マイページ'),
         ];
 
+        final bar = Row(
+          children: [
+            for (var i = 0; i < items.length; i++)
+              Expanded(
+                child: _NavItem(
+                  data: items[i],
+                  selected: i == currentIndex,
+                  onTap: () => onDestinationSelected(i),
+                ),
+              ),
+          ],
+        );
+
         return SafeArea(
           top: false,
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-            height: 66,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                for (var i = 0; i < items.length; i++)
-                  Expanded(
-                    child: _NavItem(
-                      data: items[i],
-                      selected: i == currentIndex,
-                      onTap: () => onDestinationSelected(i),
-                    ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 22,
+                    offset: const Offset(0, 6),
                   ),
-              ],
+                ],
+              ),
+              // すりガラス（フロスト）: 背後のコンテンツをぼかして半透明で重ねる
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    height: 66,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: bar,
+                  ),
+                ),
+              ),
             ),
           ),
         );
