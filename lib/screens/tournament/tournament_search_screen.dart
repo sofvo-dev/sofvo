@@ -259,13 +259,17 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           Expanded(child: _buildContent()),
         ]),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'search_saved_toggle',
-        onPressed: () => setState(() => _isSavedMode = !_isSavedMode),
-        backgroundColor: _isSavedMode ? AppTheme.primaryColor : AppTheme.accentColor,
-        child: Icon(
-          _isSavedMode ? Icons.search : Icons.bookmark,
-          color: Colors.white,
+      floatingActionButton: Padding(
+        // 浮島ナビと重ならないよう持ち上げる
+        padding: const EdgeInsets.only(bottom: 76),
+        child: FloatingActionButton(
+          heroTag: 'search_saved_toggle',
+          onPressed: () => setState(() => _isSavedMode = !_isSavedMode),
+          backgroundColor: _isSavedMode ? AppTheme.primaryColor : AppTheme.accentColor,
+          child: Icon(
+            _isSavedMode ? Icons.search : Icons.bookmark,
+            color: Colors.white,
+          ),
         ),
       ),
     );
