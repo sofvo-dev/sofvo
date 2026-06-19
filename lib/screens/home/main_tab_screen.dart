@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -168,23 +170,38 @@ class _BottomNav extends StatelessWidget {
                 // 縮小時は左右に絞って小さく見せる。下に詰めて配置
                 padding: EdgeInsets.fromLTRB(
                   isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 8),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  height: isCollapsed ? 52 : 66,
-                  clipBehavior: Clip.antiAlias,
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Colors.white,
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: bar,
+                  // すりガラス（屈折）: 後ろのコンテンツをぼかして透かす
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                        height: isCollapsed ? 52 : 66,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.62),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            width: 1,
+                          ),
+                        ),
+                        child: bar,
+                      ),
+                    ),
+                  ),
                 ),
               );
             },
