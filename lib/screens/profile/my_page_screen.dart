@@ -78,7 +78,7 @@ class MyPageScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users').doc(viewingUid).snapshots(),

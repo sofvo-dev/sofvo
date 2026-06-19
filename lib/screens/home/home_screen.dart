@@ -174,12 +174,12 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
           Material(
-            color: AppTheme.backgroundColor,
+            color: Colors.white,
             child: Column(children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 52),
