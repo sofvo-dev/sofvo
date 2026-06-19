@@ -176,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
           Material(

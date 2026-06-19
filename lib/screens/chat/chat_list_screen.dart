@@ -366,6 +366,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
           Container(
