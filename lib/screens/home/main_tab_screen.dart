@@ -191,10 +191,10 @@ class _BottomNav extends StatelessWidget {
                         curve: Curves.easeOut,
                         height: isCollapsed ? 52 : 66,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.62),
+                          color: Colors.white.withValues(alpha: 0.45),
                           borderRadius: BorderRadius.circular(30),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: Colors.white.withValues(alpha: 0.55),
                             width: 1,
                           ),
                         ),
