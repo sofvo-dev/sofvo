@@ -1,5 +1,11 @@
 # Sofvo プロジェクト設定メモ
 
+## 再利用メモ・実装ドキュメント
+- **浮島型すりガラス・ボトムナビ**（Instagram風／スクロールで縮む／後ろが透ける）の再利用ドキュメント: **`docs/floating_glass_bottom_nav.md`**
+  - 実体: `lib/screens/home/main_tab_screen.dart`
+  - 別アプリへ流用する場合はこのドキュメント内の「汎用版コード」「別アプリに渡すプロンプト」を使う
+  - ハマりどころ: `Scaffold(extendBody:true)` ／ 各画面 `SafeArea(bottom:false)` ／ リスト下パディング ／ FAB持ち上げ ／ ページ背景白（詳細はドキュメント参照）
+
 ## 開発ルール
 
 ### 修正完了時のデプロイ判定ルール
