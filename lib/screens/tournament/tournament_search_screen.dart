@@ -253,6 +253,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           _buildHeader(),
           if (_showFilter && !_isSavedMode) _buildFilterPanel(),

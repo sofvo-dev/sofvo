@@ -273,6 +273,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           _buildHeader(),
           Expanded(
