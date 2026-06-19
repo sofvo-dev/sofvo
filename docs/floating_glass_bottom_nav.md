@@ -1,0 +1,366 @@
+# 浮島型すりガラス・ボトムナビ（Floating Glass Bottom Nav）
+
+Sofvo で実装した「Instagram 風・浮島型すりガラス・スクロールで縮むボトムナビ」の再利用メモ。
+別アプリにそのまま持っていけるよう、**汎用版コード**・**実装の勘所（ハマりどころ）**・**別アプリに渡すプロンプト**をまとめる。
+
+実体（Sofvo 内）: `lib/screens/home/main_tab_screen.dart`
+
+---
+
+## 仕様（デザインの狙い）
+
+- **浮島型（フローティング・ピル）**: 画面下に浮いた角丸バー（左右・下に余白＋影）
+- **すりガラス（屈折）**: バー越しに後ろのコンテンツがぼけて透ける（`BackdropFilter` + 半透明白）
+- **スクロールで縮む**: 下スクロールでラベルを畳んでアイコンだけ＋高さ/横幅を縮小、上スクロールで戻す
+- **選択タブをカプセル強調**＋**未読バッジ**対応
+- **コンテンツがバー後ろまで回り込む**（透ける演出に必須）
+
+現在の主要パラメータ（好みで調整）:
+| 項目 | 値 |
+|---|---|
+| 角丸 | 30 |
+| 高さ | 通常 66 / 縮小 52 |
+| 左右余白 | 通常 16 / 縮小 64（縮むと左右に絞る） |
+| 下余白 | 8（`SafeArea(top:false)` の内側） |
+| すりガラス透過 | `Colors.white.withValues(alpha: 0.45)` |
+| ぼかし | `ImageFilter.blur(20, 20)` |
+| 影 | `black 0.08 / blur 16 / offset(0,4)` |
+| 選択カプセル | ブランド色 alpha 0.10 / 角丸 22 |
+| アニメ | 200〜220ms / easeOut |
+
+---
+
+## ⚠️ ハマりどころ（これを外すと「背景が残る／重なる」）
+
+このナビは「バーの見た目」だけでは完成しない。**周辺レイアウト**とセットで効く。
+
+1. **`Scaffold(extendBody: true)`**
+   本文をバーの後ろまで広げる。これが無いと後ろにコンテンツが回り込まず、ガラスが効かない。
+
+2. **各タブ画面の `body: SafeArea(bottom: false, ...)`**
+   `SafeArea` の下端インセットがあると、コンテンツがバー手前で止まり「バー後ろが空白／別背景」になる。
+   `bottom: false` で**コンテンツをバー後ろまで伸ばす**のが「透ける」最大のキモ。
+   （`CustomScrollView` 中心の画面は元々 SafeArea で囲っていないことが多く、そのままで OK）
+
+3. **各スクロール（ListView 等）の下パディング ≒ バー高さ + 余白（例: 92 + safe area）**
+   コンテンツはバー後ろを流れるので、**最下部の項目や FAB がバーに隠れない**よう下に「逃がし」を入れる。
+   例: `padding: EdgeInsets.only(bottom: 92 + MediaQuery.of(context).padding.bottom)`
+
+4. **FAB は持ち上げる**
+   画面に `FloatingActionButton` がある場合、浮島バーと重なる。`Padding(padding: EdgeInsets.only(bottom: 76), child: FAB)` などで上げる。
+
+5. **ページ背景は白（バー後ろに「帯」を作らない）**
+   ページ背景がグレーだと、半透明バー越しにグレーが見える。白背景＋白系ガラスにすると馴染む。
+
+6. **スクロール検知は最上位で**
+   `NotificationListener<UserScrollNotification>` で body 全体を包み、`ScrollDirection.reverse/forward` で縮小フラグを切り替える。`ValueNotifier<bool>` にして `ValueListenableBuilder` でバーだけ再描画（リスト全体を rebuild しない）。
+
+7. **Flutter Web は CanvasKit/Impeller 前提**（`BackdropFilter` が効く）。デプロイ後はキャッシュ（Service Worker）が強いので**シークレットタブ**で確認。
+
+---
+
+## 汎用版コード（Firebase・独自テーマ非依存・コピペ可）
+
+`floating_glass_nav.dart` として配置すれば単体で動く。色・タブはコンストラクタで差し替え。
+
+```dart
+import 'dart:ui' show ImageFilter;
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
+
+/// 1タブの定義
+class GlassNavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int badge; // 0 ならバッジ非表示
+  const GlassNavItem({
+    required this.icon,
+    IconData? activeIcon,
+    required this.label,
+    this.badge = 0,
+  }) : activeIcon = activeIcon ?? icon;
+}
+
+/// 浮島型すりガラス・ボトムナビを備えた Scaffold ラッパー。
+/// - extendBody / スクロール縮小 / すりガラス をまとめて提供。
+/// - 各タブ画面側で「body は SafeArea(bottom:false)」「リストの下パディング」「FABの持ち上げ」を忘れずに。
+class GlassNavScaffold extends StatefulWidget {
+  final List<GlassNavItem> items;
+  final List<Widget> pages;          // items と同数
+  final Color selectedColor;         // 選択アイコン/ラベル色（ブランド色）
+  final Color unselectedColor;       // 非選択色
+  final Color badgeColor;
+  final int initialIndex;
+
+  const GlassNavScaffold({
+    super.key,
+    required this.items,
+    required this.pages,
+    this.selectedColor = const Color(0xFF1B3A5C),
+    this.unselectedColor = const Color(0xFF8A94A6),
+    this.badgeColor = const Color(0xFFE5484D),
+    this.initialIndex = 0,
+  });
+
+  @override
+  State<GlassNavScaffold> createState() => _GlassNavScaffoldState();
+}
+
+class _GlassNavScaffoldState extends State<GlassNavScaffold> {
+  late int _index = widget.initialIndex;
+  final ValueNotifier<bool> _collapsed = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _collapsed.dispose();
+    super.dispose();
+  }
+
+  bool _onScroll(UserScrollNotification n) {
+    if (n.metrics.axis != Axis.vertical) return false;
+    if (n.direction == ScrollDirection.reverse) {
+      _collapsed.value = true;   // 下スクロール → 縮める
+    } else if (n.direction == ScrollDirection.forward) {
+      _collapsed.value = false;  // 上スクロール → 戻す
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true, // ★ 本文をバー後ろまで広げる
+      body: NotificationListener<UserScrollNotification>(
+        onNotification: _onScroll,
+        child: IndexedStack(index: _index, children: widget.pages),
+      ),
+      bottomNavigationBar: _GlassBar(
+        items: widget.items,
+        currentIndex: _index,
+        collapsed: _collapsed,
+        selectedColor: widget.selectedColor,
+        unselectedColor: widget.unselectedColor,
+        badgeColor: widget.badgeColor,
+        onTap: (i) {
+          _collapsed.value = false; // タブ切替時は展開
+          setState(() => _index = i);
+        },
+      ),
+    );
+  }
+}
+
+class _GlassBar extends StatelessWidget {
+  final List<GlassNavItem> items;
+  final int currentIndex;
+  final ValueListenable<bool> collapsed;
+  final ValueChanged<int> onTap;
+  final Color selectedColor, unselectedColor, badgeColor;
+  const _GlassBar({
+    required this.items,
+    required this.currentIndex,
+    required this.collapsed,
+    required this.onTap,
+    required this.selectedColor,
+    required this.unselectedColor,
+    required this.badgeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: collapsed,
+        builder: (context, isCollapsed, _) {
+          final bar = Row(
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Expanded(
+                  child: _GlassNavTile(
+                    data: items[i],
+                    selected: i == currentIndex,
+                    collapsed: isCollapsed,
+                    selectedColor: selectedColor,
+                    unselectedColor: unselectedColor,
+                    badgeColor: badgeColor,
+                    onTap: () => onTap(i),
+                  ),
+                ),
+            ],
+          );
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.fromLTRB(
+                isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 8),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    height: isCollapsed ? 52 : 66,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.45), // 透過：小さいほど透ける
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.55), width: 1),
+                    ),
+                    child: bar,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GlassNavTile extends StatelessWidget {
+  final GlassNavItem data;
+  final bool selected, collapsed;
+  final VoidCallback onTap;
+  final Color selectedColor, unselectedColor, badgeColor;
+  const _GlassNavTile({
+    required this.data,
+    required this.selected,
+    required this.collapsed,
+    required this.onTap,
+    required this.selectedColor,
+    required this.unselectedColor,
+    required this.badgeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? selectedColor : unselectedColor;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        margin: EdgeInsets.symmetric(horizontal: 5, vertical: collapsed ? 6 : 9),
+        decoration: BoxDecoration(
+          color: selected ? selectedColor.withValues(alpha: 0.10) : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _icon(color),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: collapsed
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          data.label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.0,
+                            color: color,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _icon(Color color) {
+    final w = Icon(selected ? data.activeIcon : data.icon, size: 22, color: color);
+    if (data.badge > 0) {
+      return Badge(
+        backgroundColor: badgeColor,
+        label: Text('${data.badge}',
+            style: const TextStyle(fontSize: 10, color: Colors.white)),
+        child: w,
+      );
+    }
+    return w;
+  }
+}
+```
+
+### 使い方（各タブ画面側で必須の3点）
+
+```dart
+GlassNavScaffold(
+  items: const [
+    GlassNavItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'ホーム'),
+    GlassNavItem(icon: Icons.search, label: 'さがす'),
+    GlassNavItem(icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble, label: 'チャット', badge: 3),
+    GlassNavItem(icon: Icons.person_outline, activeIcon: Icons.person, label: 'マイページ'),
+  ],
+  pages: [HomePage(), SearchPage(), ChatPage(), MyPage()],
+);
+
+// 各ページ側で：
+// 1) body: SafeArea(bottom: false, child: ...)
+// 2) ListView( padding: EdgeInsets.only(bottom: 92 + MediaQuery.of(context).padding.bottom) )
+// 3) FAB は Padding(padding: EdgeInsets.only(bottom: 76), child: FloatingActionButton(...))
+// 4) ページ背景は白（Scaffold(backgroundColor: Colors.white)）
+```
+
+---
+
+## 別アプリに渡すプロンプト（コピペ用）
+
+> Flutter アプリのボトムナビを「Instagram 風の浮島型すりガラス・ナビ」にしてください。要件：
+>
+> 1. **浮島型**：画面下に浮いた角丸（半径30）のバー。左右16・下8の余白＋柔らかい影で浮かせる。
+> 2. **すりガラス（屈折）**：`BackdropFilter`(`ImageFilter.blur(20,20)`) ＋ 半透明白(`Colors.white` alpha 0.45) ＋ 白の細枠。バー越しに後ろのコンテンツがぼけて透けること。
+> 3. **スクロールで縮む**：最上位を `NotificationListener<UserScrollNotification>` で包み、下スクロール(`ScrollDirection.reverse`)でラベルを畳んでアイコンのみ・高さ66→52・左右余白16→64に縮小、上スクロールで復帰。`ValueNotifier<bool>`＋`ValueListenableBuilder` でバーだけ再描画。アニメは200〜220ms easeOut。
+> 4. **選択タブ**：ブランド色 alpha0.10 の角丸カプセルで強調。アイコンは outlined/filled を切替。**未読バッジ**対応。
+> 5. **重要なレイアウト要件（これが無いと崩れる）**：
+>    - 親 `Scaffold(extendBody: true)`
+>    - 各タブ画面の `body` は `SafeArea(bottom: false, ...)`（コンテンツをバー後ろまで伸ばす）
+>    - 各スクロールの下パディングを `92 + MediaQuery.padding.bottom` 程度にして最下部の項目やボタンがバーに隠れないようにする
+>    - `FloatingActionButton` は下に約76px 持ち上げてバーと重ならないようにする
+>    - ページ背景は白にして、半透明バー越しにグレーの帯が出ないようにする
+> 6. プラットフォームは Android / iOS / Web で同じ見た目にすること（Web は CanvasKit で `BackdropFilter` を有効化）。
+>
+> 上記を満たす再利用可能なウィジェット（`GlassNavScaffold` と `GlassNavItem`）として実装し、色・タブ・バッジはコンストラクタで差し替えられるようにしてください。
+
+---
+
+## 調整チートシート
+
+| やりたいこと | 変える場所 |
+|---|---|
+| もっと透ける | `color: Colors.white.withValues(alpha: 0.45)` の数値を下げる |
+| ぼかしを強く/弱く | `ImageFilter.blur(20, 20)` の数値 |
+| バーを下げる/上げる | `AnimatedPadding` の下余白（現 8） |
+| 角をもっと丸く | `BorderRadius.circular(30)` |
+| 縮みを強く | 縮小時の `height`(52) と左右 `64` |
+| 影を消す | `boxShadow` を削除（白背景なら枠線だけでも可） |
+| 常にラベル表示 | `_GlassNavTile` の `collapsed` 分岐を無効化 |
+</content>
+</invoke>
