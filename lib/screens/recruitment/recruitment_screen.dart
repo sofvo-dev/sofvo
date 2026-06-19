@@ -271,7 +271,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(children: [
           _buildHeader(),
