@@ -169,7 +169,7 @@ class _BottomNav extends StatelessWidget {
                 curve: Curves.easeOut,
                 // 縮小時は左右に絞って小さく見せる。下に詰めて配置
                 padding: EdgeInsets.fromLTRB(
-                  isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 8),
+                  isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 2),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(30),
@@ -237,7 +237,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppTheme.primaryColor : AppTheme.textSecondary;
+    final color = selected ? Colors.black : Colors.black54;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -247,7 +247,7 @@ class _NavItem extends StatelessWidget {
         margin: EdgeInsets.symmetric(horizontal: 5, vertical: collapsed ? 6 : 9),
         decoration: BoxDecoration(
           color: selected
-              ? AppTheme.primaryColor.withValues(alpha: 0.10)
+              ? Colors.black.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
         ),
