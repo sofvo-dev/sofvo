@@ -151,44 +151,46 @@ class _BottomNav extends StatelessWidget {
           child: ValueListenableBuilder<bool>(
             valueListenable: collapsed,
             builder: (context, isCollapsed, _) {
-              final bar = LayoutBuilder(
-                builder: (context, constraints) {
-                  final n = items.length;
-                  final cellW = constraints.maxWidth / n;
-                  final vInset = isCollapsed ? 6.0 : 9.0;
-                  return Stack(
-                    children: [
-                      // 選択カプセル（タブ切替で横にスライド移動）
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 260),
-                        curve: Curves.easeOutCubic,
-                        left: currentIndex * cellW + 5,
-                        top: vInset,
-                        bottom: vInset,
-                        width: cellW - 10,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(22),
+              final n = items.length;
+              final vInset = isCollapsed ? 6.0 : 9.0;
+              // 比率ベース配置: 縮小（幅変化）に追従しつつ、タブ切替時だけスライド
+              final bar = Stack(
+                children: [
+                  Positioned.fill(
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment(
+                          n <= 1 ? 0 : (currentIndex / (n - 1)) * 2 - 1, 0),
+                      child: FractionallySizedBox(
+                        widthFactor: 1 / n,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 5, vertical: vInset),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(22),
+                            ),
                           ),
                         ),
                       ),
-                      Row(
-                        children: [
-                          for (var i = 0; i < items.length; i++)
-                            Expanded(
-                              child: _NavItem(
-                                data: items[i],
-                                selected: i == currentIndex,
-                                collapsed: isCollapsed,
-                                onTap: () => onDestinationSelected(i),
-                              ),
-                            ),
-                        ],
-                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      for (var i = 0; i < items.length; i++)
+                        Expanded(
+                          child: _NavItem(
+                            data: items[i],
+                            selected: i == currentIndex,
+                            collapsed: isCollapsed,
+                            onTap: () => onDestinationSelected(i),
+                          ),
+                        ),
                     ],
-                  );
-                },
+                  ),
+                ],
               );
               return AnimatedPadding(
                 duration: const Duration(milliseconds: 220),
