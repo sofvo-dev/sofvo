@@ -164,6 +164,7 @@ class _BottomNav extends StatelessWidget {
                           n <= 1 ? 0 : (currentIndex / (n - 1)) * 2 - 1, 0),
                       child: FractionallySizedBox(
                         widthFactor: 1 / n,
+                        heightFactor: 1,
                         child: Padding(
                           padding: EdgeInsets.symmetric(
                               horizontal: 5, vertical: vInset),
