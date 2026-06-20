@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../config/app_theme.dart';
 import 'save_image_bytes.dart';
@@ -177,12 +178,25 @@ class ResultShareService {
       ),
     );
     try {
+      // 画像保存用フォント（アプリ全体と同じ Noto Sans JP）をキャプチャ前に
+      // 確実にロードしておく。Google Fonts は非同期取得のため、待たずに
+      // キャプチャするとシステムフォントにフォールバックして「見た目が違う」
+      // 画像になってしまう。
+      await _ensureShareFontLoaded();
       var saved = 0;
       for (var i = 0; i < pages.length; i++) {
         if (!context.mounted) break;
         final png = await captureWidgetToPng(
           context,
-          child: pages[i],
+          // 各 TextStyle は fontFamily を指定していないため、DefaultTextStyle で
+          // Noto Sans JP を継承させてアプリ内の表示とフォントを揃える。
+          child: DefaultTextStyle(
+            style: GoogleFonts.notoSansJp(
+              color: AppTheme.textPrimary,
+              height: 1.2,
+            ),
+            child: pages[i],
+          ),
           size: const Size(_kCardW, _kCardH),
         );
         await saveImageBytes(png, filename: '${stem}_${i + 1}.png');
@@ -222,6 +236,24 @@ class ResultShareService {
       idx += size;
     }
     return out;
+  }
+
+  /// 画像保存に使う Noto Sans JP をロード完了まで待つ。
+  /// `GoogleFonts.pendingFonts` は対象フォントのダウンロード/登録が
+  /// 終わるまで完了しない Future を返す。失敗しても画像保存自体は
+  /// 続行する（システムフォントにフォールバック）。
+  static Future<void> _ensureShareFontLoaded() async {
+    try {
+      await GoogleFonts.pendingFonts([
+        GoogleFonts.notoSansJp(),
+        GoogleFonts.notoSansJp(fontWeight: FontWeight.w500),
+        GoogleFonts.notoSansJp(fontWeight: FontWeight.bold),
+        GoogleFonts.notoSansJp(fontWeight: FontWeight.w800),
+        GoogleFonts.notoSansJp(fontWeight: FontWeight.w900),
+      ]);
+    } catch (_) {
+      // フォント取得に失敗しても保存処理は継続する
+    }
   }
 
   static void _snack(BuildContext context, String msg) {
