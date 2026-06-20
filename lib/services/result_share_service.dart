@@ -9,6 +9,9 @@ import 'widget_capture.dart';
 const double _kCardW = 1080;
 const double _kCardH = 1350; // 4:5（Instagram カルーセル推奨）
 const Color _kLogoGold = Color(0xFFC4A55A);
+const Color _kGold = Color(0xFFD9A521);   // 金（1位）
+const Color _kSilver = Color(0xFF96A0A8); // 銀（2位）
+const Color _kBronze = Color(0xFFB97A3D); // 銅（3位）
 const Color _kGoldDeep = Color(0xFFA98B3F);
 const Color _kHair = Color(0xFFEEF1F5);
 
@@ -84,16 +87,27 @@ class ResultShareService {
       return;
     }
     final pages = <Widget>[];
-    // 1枚目は大きいヘッダーがあるので少なめ(5)にしてゆったり見せ、以降は 9 で分割
-    //（行は伸縮するので切れない）
-    final chunks = _chunkRanking(data.rows, first: 5, rest: 9);
-    for (var i = 0; i < chunks.length; i++) {
-      pages.add(_RankingPage(
+    // 1枚目は「表彰台」で上位3位を大きく見せ、4位以降はリストで分割する。
+    final top3 = data.rows.take(3).toList();
+    final rest = data.rows.length > 3
+        ? data.rows.sublist(3)
+        : const <ShareRankingRow>[];
+    final restChunks = rest.isEmpty
+        ? const <List<ShareRankingRow>>[]
+        : _chunkRanking(rest, first: 9, rest: 9);
+    final pageCount = 1 + restChunks.length;
+    pages.add(_PodiumPage(
+      data: data,
+      top3: top3,
+      pageCount: pageCount,
+      hasMore: rest.isNotEmpty,
+    ));
+    for (var i = 0; i < restChunks.length; i++) {
+      pages.add(_RankingListPage(
         data: data,
-        rows: chunks[i],
-        isFirst: i == 0,
-        pageIndex: i + 1,
-        pageCount: chunks.length,
+        rows: restChunks[i],
+        pageIndex: i + 2,
+        pageCount: pageCount,
       ));
     }
     pages.add(const _SofvoIntroCard());
@@ -306,18 +320,175 @@ Widget _pageBadge(int index, int count) => Container(
               color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
     );
 
-// ====== A: 順位表ページ ======
+// ====== A-1: 順位表 1枚目（表彰台・上位3位を大きく）======
 
-class _RankingPage extends StatelessWidget {
+class _PodiumPage extends StatelessWidget {
+  final ShareRankingData data;
+  final List<ShareRankingRow> top3;
+  final int pageCount;
+  final bool hasMore;
+  const _PodiumPage({
+    required this.data,
+    required this.top3,
+    required this.pageCount,
+    required this.hasMore,
+  });
+
+  Color _medalFor(int rank) => rank == 1
+      ? _kGold
+      : rank == 2
+          ? _kSilver
+          : _kBronze;
+
+  String _labelFor(int rank) => rank == 1
+      ? '優勝'
+      : rank == 2
+          ? '準優勝'
+          : '第$rank位';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _goldTopBar(),
+          // ヘッダー
+          Padding(
+            padding: const EdgeInsets.fromLTRB(64, 44, 64, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Expanded(
+                    child: Text('SOFVO TOURNAMENT',
+                        style: TextStyle(
+                            fontSize: 26,
+                            letterSpacing: 8,
+                            fontWeight: FontWeight.bold,
+                            color: _kGoldDeep)),
+                  ),
+                  if (pageCount > 1) _pageBadge(1, pageCount),
+                ]),
+                const SizedBox(height: 12),
+                Text(data.tournamentTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 52,
+                        height: 1.2,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryColor)),
+                if (data.subtitle != null) ...[
+                  const SizedBox(height: 6),
+                  Text(data.subtitle!,
+                      style: const TextStyle(
+                          fontSize: 28, color: AppTheme.textSecondary)),
+                ],
+              ],
+            ),
+          ),
+          // 表彰台カード（上に詰めて配置）
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(64, 16, 64, 8),
+              child: Column(
+                children: [
+                  for (var i = 0; i < top3.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 26),
+                    _podiumCard(top3[i]),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (hasMore)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 40),
+              child: Text('4位以降は次のページ →',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textSecondary)),
+            )
+          else
+            const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _podiumCard(ShareRankingRow r) {
+    final champ = r.rank == 1;
+    final medal = _medalFor(r.rank);
+    final cardH = champ ? 300.0 : 215.0;
+    final medalSize = champ ? 150.0 : 110.0;
+    final labelColor = Color.lerp(medal, Colors.black, 0.18)!;
+    return Container(
+      height: cardH,
+      padding: const EdgeInsets.symmetric(horizontal: 44),
+      decoration: BoxDecoration(
+        color: medal.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: medal.withValues(alpha: 0.55),
+          width: champ ? 3 : 2,
+        ),
+      ),
+      child: Row(children: [
+        Container(
+          width: medalSize,
+          height: medalSize,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: medal),
+          child: champ
+              ? const Icon(Icons.emoji_events, color: Colors.white, size: 78)
+              : Text('${r.rank}',
+                  style: const TextStyle(
+                      fontSize: 64,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white)),
+        ),
+        const SizedBox(width: 40),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(r.note ?? _labelFor(r.rank),
+                  style: TextStyle(
+                      fontSize: champ ? 34 : 28,
+                      fontWeight: FontWeight.w900,
+                      color: labelColor)),
+              const SizedBox(height: 10),
+              Text(r.teamName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: champ ? 60 : 50,
+                      height: 1.05,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.primaryColor)),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ====== A-2: 順位表 4位以降（リスト）======
+
+class _RankingListPage extends StatelessWidget {
   final ShareRankingData data;
   final List<ShareRankingRow> rows;
-  final bool isFirst;
   final int pageIndex;
   final int pageCount;
-  const _RankingPage({
+  const _RankingListPage({
     required this.data,
     required this.rows,
-    required this.isFirst,
     required this.pageIndex,
     required this.pageCount,
   });
@@ -330,70 +501,35 @@ class _RankingPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _goldTopBar(),
-          if (isFirst)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(56, 44, 56, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('SOFVO TOURNAMENT',
-                      style: TextStyle(
-                          fontSize: 26,
-                          letterSpacing: 8,
-                          fontWeight: FontWeight.bold,
-                          color: _kGoldDeep)),
-                  const SizedBox(height: 10),
-                  Text(data.tournamentTitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 56,
-                          height: 1.2,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.primaryColor)),
-                  if (data.subtitle != null) ...[
-                    const SizedBox(height: 12),
-                    Text(data.subtitle!,
-                        style: const TextStyle(
-                            fontSize: 28, color: AppTheme.textSecondary)),
-                  ],
-                  const SizedBox(height: 22),
-                  Row(children: [
-                    const Icon(Icons.emoji_events,
-                        size: 34, color: AppTheme.primaryColor),
-                    const SizedBox(width: 10),
-                    const Text('RESULT',
-                        style: TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2,
-                            color: AppTheme.primaryColor)),
-                    const Spacer(),
-                    if (pageCount > 1) _pageBadge(pageIndex, pageCount),
-                  ]),
-                ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(64, 40, 64, 0),
+            child: Row(children: [
+              Expanded(
+                child: Text(data.tournamentTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryColor)),
               ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(56, 44, 56, 12),
-              child: Row(children: [
-                Expanded(
-                  child: Text(data.tournamentTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 38,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.primaryColor)),
-                ),
-                const SizedBox(width: 12),
-                if (pageCount > 1) _pageBadge(pageIndex, pageCount),
-              ]),
+              const SizedBox(width: 12),
+              if (pageCount > 1) _pageBadge(pageIndex, pageCount),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(64, 6, 64, 0),
+            child: Text(
+              'RESULT ・ ${rows.isNotEmpty ? rows.first.rank : 4}位〜',
+              style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w600,
+                  color: _kGoldDeep),
             ),
+          ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(48, 4, 48, 28),
+              padding: const EdgeInsets.fromLTRB(64, 16, 64, 24),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -408,80 +544,53 @@ class _RankingPage extends StatelessWidget {
   }
 
   Widget _row(ShareRankingRow r) {
-    final medalColor = r.rank == 1
-        ? const Color(0xFFD9A521) // 金
-        : r.rank == 2
-            ? const Color(0xFF9AA7AD) // 銀
-            : r.rank == 3
-                ? const Color(0xFFB97A3D) // 銅
-                : null;
-    final isTop = medalColor != null;
     return Container(
-      height: 116,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 22),
+      height: 104,
+      margin: const EdgeInsets.symmetric(vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: isTop
-            ? medalColor.withValues(alpha: 0.08)
-            : const Color(0xFFF6F8FA),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isTop
-              ? medalColor.withValues(alpha: 0.45)
-              : const Color(0xFFEAEDF1),
-          width: isTop ? 2 : 1,
-        ),
+        color: const Color(0xFFF7F9FB),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFEAEDF1)),
       ),
       child: Row(children: [
-        // 順位バッジ（上位3位は金/銀/銅の塗り、それ以外は淡いネイビー）
         Container(
-          width: 74,
-          height: 74,
+          width: 66,
+          height: 66,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isTop
-                ? medalColor
-                : AppTheme.primaryColor.withValues(alpha: 0.07),
+            color: AppTheme.primaryColor.withValues(alpha: 0.08),
           ),
-          child: Text(
-            '${r.rank}',
-            style: TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.w900,
-              color: isTop ? Colors.white : AppTheme.primaryColor,
-            ),
-          ),
+          child: Text('${r.rank}',
+              style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.primaryColor)),
         ),
-        const SizedBox(width: 22),
+        const SizedBox(width: 24),
         Expanded(
-          child: Text(
-            r.teamName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 40,
-              fontWeight: isTop ? FontWeight.w800 : FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
-          ),
+          child: Text(r.teamName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary)),
         ),
         if (r.note != null) ...[
           const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             decoration: BoxDecoration(
-              color: (medalColor ?? _kGoldDeep).withValues(alpha: 0.14),
+              color: _kGoldDeep.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(999),
             ),
-            child: Text(
-              r.note!,
-              style: TextStyle(
-                fontSize: 27,
-                fontWeight: FontWeight.w800,
-                color: isTop ? medalColor : _kGoldDeep,
-              ),
-            ),
+            child: Text(r.note!,
+                style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: _kGoldDeep)),
           ),
         ],
       ]),
