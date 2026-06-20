@@ -8,7 +8,6 @@ import 'widget_capture.dart';
 // ====== 配色・サイズ定数 ======
 const double _kCardW = 1080;
 const double _kCardH = 1350; // 4:5（Instagram カルーセル推奨）
-const Color _kLogoNavy = Color(0xFF2C3E5A);
 const Color _kLogoGold = Color(0xFFC4A55A);
 const Color _kGoldDeep = Color(0xFFA98B3F);
 const Color _kHair = Color(0xFFEEF1F5);
@@ -251,6 +250,8 @@ class ResultShareService {
         GoogleFonts.notoSansJp(fontWeight: FontWeight.bold),
         GoogleFonts.notoSansJp(fontWeight: FontWeight.w800),
         GoogleFonts.notoSansJp(fontWeight: FontWeight.w900),
+        // Sofvo ロゴ用
+        GoogleFonts.montserrat(fontWeight: FontWeight.w900),
       ]);
     } catch (_) {
       // フォント取得に失敗しても保存処理は継続する
@@ -271,17 +272,18 @@ class _SofvoLogo extends StatelessWidget {
   const _SofvoLogo({this.size = 40});
   @override
   Widget build(BuildContext context) {
+    // アプリ内ロゴ（home_screen / login_screen）と同じ Montserrat w900 に統一。
+    final base = GoogleFonts.montserrat(
+      fontSize: size,
+      fontWeight: FontWeight.w900,
+      letterSpacing: size * 0.05,
+      height: 1.0,
+    );
     return Text.rich(
-      TextSpan(children: const [
-        TextSpan(text: 'Sof', style: TextStyle(color: _kLogoNavy)),
-        TextSpan(text: 'vo', style: TextStyle(color: _kLogoGold)),
+      TextSpan(children: [
+        TextSpan(text: 'Sof', style: base.copyWith(color: AppTheme.primaryColor)),
+        TextSpan(text: 'vo', style: base.copyWith(color: AppTheme.accentColor)),
       ]),
-      style: TextStyle(
-        fontSize: size,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.5,
-        height: 1.0,
-      ),
     );
   }
 }
@@ -391,15 +393,15 @@ class _RankingPage extends StatelessWidget {
             ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48),
+              padding: const EdgeInsets.fromLTRB(48, 4, 48, 28),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  for (final r in rows) Expanded(child: _row(r)),
+                  for (final r in rows) _row(r),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );
@@ -407,49 +409,81 @@ class _RankingPage extends StatelessWidget {
 
   Widget _row(ShareRankingRow r) {
     final medalColor = r.rank == 1
-        ? const Color(0xFFE0A526)
+        ? const Color(0xFFD9A521) // 金
         : r.rank == 2
-            ? const Color(0xFF9AA7AD)
+            ? const Color(0xFF9AA7AD) // 銀
             : r.rank == 3
-                ? const Color(0xFFB97A3D)
+                ? const Color(0xFFB97A3D) // 銅
                 : null;
+    final isTop = medalColor != null;
     return Container(
+      height: 116,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 22),
       decoration: BoxDecoration(
-        border: const Border(bottom: BorderSide(color: Color(0xFFF2F4F7))),
-        gradient: r.rank <= 3
-            ? LinearGradient(colors: [
-                AppTheme.accentColor.withValues(alpha: 0.16),
-                Colors.transparent,
-              ])
-            : null,
+        color: isTop
+            ? medalColor.withValues(alpha: 0.08)
+            : const Color(0xFFF6F8FA),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isTop
+              ? medalColor.withValues(alpha: 0.45)
+              : const Color(0xFFEAEDF1),
+          width: isTop ? 2 : 1,
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(children: [
-        SizedBox(
-          width: 56,
-          child: medalColor != null
-              ? Icon(Icons.emoji_events, size: 40, color: medalColor)
-              : const SizedBox.shrink(),
+        // 順位バッジ（上位3位は金/銀/銅の塗り、それ以外は淡いネイビー）
+        Container(
+          width: 74,
+          height: 74,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isTop
+                ? medalColor
+                : AppTheme.primaryColor.withValues(alpha: 0.07),
+          ),
+          child: Text(
+            '${r.rank}',
+            style: TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              color: isTop ? Colors.white : AppTheme.primaryColor,
+            ),
+          ),
         ),
-        SizedBox(
-          width: 96,
-          child: Text('${r.rank}位',
-              style: const TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.primaryColor)),
-        ),
+        const SizedBox(width: 22),
         Expanded(
-          child: Text(r.teamName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 40, fontWeight: FontWeight.w500)),
+          child: Text(
+            r.teamName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 40,
+              fontWeight: isTop ? FontWeight.w800 : FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
         ),
-        if (r.note != null)
-          Text(r.note!,
-              style: const TextStyle(
-                  fontSize: 30, fontWeight: FontWeight.bold, color: _kGoldDeep)),
+        if (r.note != null) ...[
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: (medalColor ?? _kGoldDeep).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              r.note!,
+              style: TextStyle(
+                fontSize: 27,
+                fontWeight: FontWeight.w800,
+                color: isTop ? medalColor : _kGoldDeep,
+              ),
+            ),
+          ),
+        ],
       ]),
     );
   }
@@ -791,12 +825,21 @@ class _SofvoIntroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget feat(IconData icon, String title, String sub) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 11),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, size: 44, color: AppTheme.accentColor),
-              const SizedBox(width: 22),
+              Container(
+                width: 84,
+                height: 84,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(icon, size: 42, color: _kGoldDeep),
+              ),
+              const SizedBox(width: 26),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -828,18 +871,21 @@ class _SofvoIntroCard extends StatelessWidget {
       child: Column(
         children: [
           _goldTopBar(),
-          const SizedBox(height: 60),
-          const _SofvoLogo(size: 110),
-          const SizedBox(height: 14),
-          const Text('ソフトバレーの大会を、もっと簡単に。',
-              style: TextStyle(
-                  fontSize: 32, fontWeight: FontWeight.bold, color: _kGoldDeep)),
+          // ロゴ〜機能紹介をまとめて中央寄せにして、間延びした余白をなくす
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 96),
+              padding: const EdgeInsets.symmetric(horizontal: 88),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  const _SofvoLogo(size: 120),
+                  const SizedBox(height: 16),
+                  const Text('ソフトバレーの大会を、もっと簡単に。',
+                      style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: _kGoldDeep)),
+                  const SizedBox(height: 56),
                   feat(Icons.search, '大会をさがす・エントリー', '近くの大会をアプリから申し込み'),
                   feat(Icons.assignment, '対戦表・順位を自動作成', 'スコア入力でリアルタイム集計'),
                   feat(Icons.emoji_events, '結果をシェア', 'この画像もアプリでワンタップ生成'),
@@ -849,7 +895,7 @@ class _SofvoIntroCard extends StatelessWidget {
             ),
           ),
           const Padding(
-            padding: EdgeInsets.only(bottom: 48),
+            padding: EdgeInsets.only(bottom: 56),
             child: Text('sofvo.com',
                 style: TextStyle(
                     fontSize: 30,
