@@ -85,8 +85,9 @@ class ResultShareService {
       return;
     }
     final pages = <Widget>[];
-    // 1枚目は大きいヘッダーで件数が減るため 7、以降は 9 で分割（行は伸縮するので切れない）
-    final chunks = _chunkRanking(data.rows, first: 7, rest: 9);
+    // 1枚目は大きいヘッダーがあるので少なめ(5)にしてゆったり見せ、以降は 9 で分割
+    //（行は伸縮するので切れない）
+    final chunks = _chunkRanking(data.rows, first: 5, rest: 9);
     for (var i = 0; i < chunks.length; i++) {
       pages.add(_RankingPage(
         data: data,
