@@ -12,6 +12,15 @@ const Color _kLogoGold = Color(0xFFC4A55A);
 const Color _kGold = Color(0xFFD9A521);   // 金（1位）
 const Color _kSilver = Color(0xFF96A0A8); // 銀（2位）
 const Color _kBronze = Color(0xFFB97A3D); // 銅（3位）
+
+/// 順位に応じたメダル色（1金/2銀/3銅、それ以外はゴールド系アクセント）。
+Color _medalForRank(int? rank) => rank == 1
+    ? _kGold
+    : rank == 2
+        ? _kSilver
+        : rank == 3
+            ? _kBronze
+            : AppTheme.accentColor;
 const Color _kGoldDeep = Color(0xFFA98B3F);
 const Color _kHair = Color(0xFFEEF1F5);
 
@@ -606,6 +615,8 @@ class _TeamResultOnlyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final medal = _medalForRank(data.rank);
+    final isTop = data.rank != null && data.rank! <= 3;
     return Container(
       color: Colors.white,
       child: Column(
@@ -623,21 +634,26 @@ class _TeamResultOnlyCard extends StatelessWidget {
                           letterSpacing: 8,
                           fontWeight: FontWeight.bold,
                           color: _kGoldDeep)),
-                  const SizedBox(height: 28),
-                  Icon(Icons.emoji_events,
-                      size: 160,
-                      color: data.rank == 2
-                          ? const Color(0xFF9AA7AD)
-                          : data.rank == 3
-                              ? const Color(0xFFB97A3D)
-                              : AppTheme.accentColor),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 32),
+                  // 表彰台と同じメダル色の円バッジにトロフィーを入れる
+                  Container(
+                    width: 210,
+                    height: 210,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: medal.withValues(alpha: 0.16),
+                      border: Border.all(color: medal, width: 4),
+                    ),
+                    child: Icon(Icons.emoji_events, size: 108, color: medal),
+                  ),
+                  const SizedBox(height: 24),
                   Text(data.placeLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 96,
                           height: 1.05,
                           fontWeight: FontWeight.w900,
-                          color: AppTheme.primaryColor)),
+                          color: isTop ? medal : AppTheme.primaryColor)),
                   const SizedBox(height: 14),
                   Text(data.teamName,
                       textAlign: TextAlign.center,
@@ -758,14 +774,37 @@ class _TeamResultDetailPage extends StatelessWidget {
                               fontSize: 50,
                               fontWeight: FontWeight.w900,
                               color: AppTheme.primaryColor)),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${data.placeLabel} ・ ${data.tournamentTitle}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 26, color: AppTheme.textSecondary),
-                      ),
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        // 順位をメダル色のチップで強調
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _medalForRank(data.rank)
+                                .withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(data.placeLabel,
+                              style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color.lerp(
+                                      _medalForRank(data.rank),
+                                      Colors.black,
+                                      0.2))),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            data.tournamentTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 26, color: AppTheme.textSecondary),
+                          ),
+                        ),
+                      ]),
                     ],
                   ),
                 ),
