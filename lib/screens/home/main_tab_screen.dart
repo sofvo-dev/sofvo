@@ -146,8 +146,10 @@ class _BottomNav extends StatelessWidget {
           const _NavItemData(Icons.person_outline, Icons.person, 'マイページ'),
         ];
 
-        return SafeArea(
-          top: false,
+        // セーフエリア（ホームインジケータ領域）の余白を一部だけ残して下に詰める
+        return Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom * 0.35),
           child: ValueListenableBuilder<bool>(
             valueListenable: collapsed,
             builder: (context, isCollapsed, _) {
