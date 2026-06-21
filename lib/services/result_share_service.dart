@@ -329,6 +329,20 @@ Widget _pageBadge(int index, int count) => Container(
               color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
     );
 
+/// 各ページ下端のブランドフッター。下部の余白を「ページの締め」として
+/// 自然に見せるためのアンカー。
+Widget _brandFooter() => const Padding(
+      padding: EdgeInsets.fromLTRB(48, 8, 48, 36),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _SofvoLogo(size: 30),
+          Text(' ・ sofvo.com',
+              style: TextStyle(fontSize: 26, color: AppTheme.textSecondary)),
+        ],
+      ),
+    );
+
 // ====== A-1: 順位表 1枚目（表彰台・上位3位を大きく）======
 
 class _PodiumPage extends StatelessWidget {
@@ -403,27 +417,24 @@ class _PodiumPage extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(64, 16, 64, 8),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  for (var i = 0; i < top3.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 26),
-                    _podiumCard(top3[i]),
-                  ],
+                  for (final r in top3) _podiumCard(r),
                 ],
               ),
             ),
           ),
           if (hasMore)
             const Padding(
-              padding: EdgeInsets.only(bottom: 40),
+              padding: EdgeInsets.only(top: 4),
               child: Text('4位以降は次のページ →',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.textSecondary)),
-            )
-          else
-            const SizedBox(height: 40),
+            ),
+          _brandFooter(),
         ],
       ),
     );
@@ -538,15 +549,16 @@ class _RankingListPage extends StatelessWidget {
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(64, 16, 64, 24),
+              padding: const EdgeInsets.fromLTRB(64, 16, 64, 8),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   for (final r in rows) _row(r),
                 ],
               ),
             ),
           ),
+          _brandFooter(),
         ],
       ),
     );
@@ -555,7 +567,6 @@ class _RankingListPage extends StatelessWidget {
   Widget _row(ShareRankingRow r) {
     return Container(
       height: 104,
-      margin: const EdgeInsets.symmetric(vertical: 7),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F9FB),
@@ -833,18 +844,16 @@ class _TeamResultDetailPage extends StatelessWidget {
             ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(48, 8, 48, 24),
+              padding: const EdgeInsets.fromLTRB(48, 8, 48, 8),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  for (final m in matches)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: _matchCard(m),
-                    ),
+                  for (final m in matches) _matchCard(m),
                 ],
               ),
             ),
           ),
+          _brandFooter(),
         ],
       ),
     );
@@ -1021,8 +1030,9 @@ class _SofvoIntroCard extends StatelessWidget {
           _goldTopBar(),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(72, 56, 72, 36),
+              padding: const EdgeInsets.fromLTRB(72, 48, 72, 40),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const _SofvoLogo(size: 104),
                   const SizedBox(height: 14),
@@ -1050,7 +1060,7 @@ class _SofvoIntroCard extends StatelessWidget {
                   feat(Icons.assignment, '対戦表・順位を自動作成', 'スコア入力でリアルタイム集計'),
                   feat(Icons.emoji_events, '結果をかんたんシェア', 'この画像もアプリでワンタップ生成'),
                   feat(Icons.groups, 'チーム・仲間とつながる', 'フォローで大会情報をキャッチ'),
-                  const Spacer(),
+                  const SizedBox(height: 34),
                   // ダウンロード導線
                   Container(
                     width: double.infinity,
