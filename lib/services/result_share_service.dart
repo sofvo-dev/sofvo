@@ -1019,36 +1019,76 @@ class _SofvoIntroCard extends StatelessWidget {
       child: Column(
         children: [
           _goldTopBar(),
-          // ロゴ〜機能紹介をまとめて中央寄せにして、間延びした余白をなくす
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 88),
+              padding: const EdgeInsets.fromLTRB(72, 56, 72, 36),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const _SofvoLogo(size: 120),
-                  const SizedBox(height: 16),
+                  const _SofvoLogo(size: 104),
+                  const SizedBox(height: 14),
                   const Text('ソフトバレーの大会を、もっと簡単に。',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                          fontSize: 32,
+                          fontSize: 34,
                           fontWeight: FontWeight.bold,
                           color: _kGoldDeep)),
-                  const SizedBox(height: 56),
+                  const SizedBox(height: 22),
+                  // リード文（余白を埋めてサービス内容を説明）
+                  const Text(
+                    '大会さがし・エントリーから、対戦表づくり・'
+                    'スコア集計・順位の自動計算、結果のシェアまで。'
+                    'これひとつで、主催も参加もまるごと完結。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 30,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 30),
                   feat(Icons.search, '大会をさがす・エントリー', '近くの大会をアプリから申し込み'),
                   feat(Icons.assignment, '対戦表・順位を自動作成', 'スコア入力でリアルタイム集計'),
-                  feat(Icons.emoji_events, '結果をシェア', 'この画像もアプリでワンタップ生成'),
+                  feat(Icons.emoji_events, '結果をかんたんシェア', 'この画像もアプリでワンタップ生成'),
                   feat(Icons.groups, 'チーム・仲間とつながる', 'フォローで大会情報をキャッチ'),
+                  const Spacer(),
+                  // ダウンロード導線
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 28),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('アプリは無料でダウンロードできます',
+                            style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
+                        const SizedBox(height: 10),
+                        Text('App Store / Google Play で「Sofvo」を検索',
+                            style: TextStyle(
+                                fontSize: 27,
+                                color: Colors.white.withValues(alpha: 0.85))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const _SofvoLogo(size: 32),
+                      const Text(' ・ sofvo.com',
+                          style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor)),
+                    ],
+                  ),
                 ],
               ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 56),
-            child: Text('sofvo.com',
-                style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor)),
           ),
         ],
       ),
