@@ -71,7 +71,11 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
         .snapshots()
         .listen((roundsSnap) {
       for (final roundDoc in roundsSnap.docs) {
-        final roundNum = int.tryParse(roundDoc.id) ?? 0;
+        // ラウンドIDは "round_1" / "round_2" 形式。int.tryParse("round_1") は
+        // null になり全ラウンドが同一ラベルになって上書き（予選2が漏れる）ため、
+        // "round_" を除いて番号を取り出す。
+        final roundNum =
+            int.tryParse(roundDoc.id.replaceAll('round_', '')) ?? 1;
         final label = roundNum <= 1 ? '予選リーグ' : '予選$roundNumリーグ';
 
         final matchSub = roundDoc.reference
@@ -228,8 +232,14 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
     // 予選は通し番号（1・2・3試合目）で表示。matchOrder は大会全体の番号で
     // 飛び番に見えるため、このチームの予選試合だけを連番にする。
     // 予選が複数ラウンドある場合はラウンド名（予選リーグ／予選2リーグ）を付ける。
-    final multipleRounds = _prelimMatches.length > 1;
-    for (final entry in _prelimMatches.entries) {
+    // 購読が非同期で前後しても並びが安定するようラウンド順にソート。
+    int prelimRoundNo(String key) => key == '予選リーグ'
+        ? 1
+        : int.tryParse(key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 99;
+    final prelimEntries = _prelimMatches.entries.toList()
+      ..sort((a, b) => prelimRoundNo(a.key).compareTo(prelimRoundNo(b.key)));
+    final multipleRounds = prelimEntries.length > 1;
+    for (final entry in prelimEntries) {
       var seq = 0;
       for (final match in entry.value) {
         seq++;
