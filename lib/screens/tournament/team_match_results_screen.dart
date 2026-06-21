@@ -189,7 +189,7 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
   List<ShareMatch> _collectShareMatches() {
     final out = <ShareMatch>[];
 
-    ShareMatch toShareMatch(Map<String, dynamic> match, {required bool isPrelim}) {
+    ShareMatch toShareMatch(Map<String, dynamic> match, {required String stageLabel}) {
       final result = match['result'] as Map<String, dynamic>? ?? {};
       final isA = match['teamAId'] == widget.teamId;
       final myName = isA
@@ -208,14 +208,6 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
       final resultKind = winner == '引き分け'
           ? 0
           : (winner == widget.teamId ? 1 : -1);
-      String stageLabel;
-      if (isPrelim) {
-        final matchNum = (match['matchOrder'] as num?)?.toInt() ?? 0;
-        stageLabel = '予選 ${matchNum}試合目';
-      } else {
-        final round = match['round'] as String? ?? '';
-        stageLabel = _roundLabels[round] ?? round;
-      }
       final rawSets = match['sets'] as List<dynamic>? ?? [];
       final sets = rawSets.map<(int, int)>((s) {
         final sa = (s['a'] as num?)?.toInt() ?? 0;
@@ -233,16 +225,24 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
       );
     }
 
+    // 予選は通し番号（1・2・3試合目）で表示。matchOrder は大会全体の番号で
+    // 飛び番に見えるため、このチームの予選試合だけを連番にする。
+    // 予選が複数ラウンドある場合はラウンド名（予選リーグ／予選2リーグ）を付ける。
+    final multipleRounds = _prelimMatches.length > 1;
     for (final entry in _prelimMatches.entries) {
+      var seq = 0;
       for (final match in entry.value) {
-        out.add(toShareMatch(match, isPrelim: true));
+        seq++;
+        final label = multipleRounds ? '${entry.key} $seq試合目' : '予選 $seq試合目';
+        out.add(toShareMatch(match, stageLabel: label));
       }
     }
     final finals = _finalMatchesByBracket.values.expand((l) => l).toList()
       ..sort((a, b) => (_roundOrder[a['round'] as String? ?? ''] ?? 99)
           .compareTo(_roundOrder[b['round'] as String? ?? ''] ?? 99));
     for (final match in finals) {
-      out.add(toShareMatch(match, isPrelim: false));
+      final round = match['round'] as String? ?? '';
+      out.add(toShareMatch(match, stageLabel: _roundLabels[round] ?? round));
     }
     return out;
   }
