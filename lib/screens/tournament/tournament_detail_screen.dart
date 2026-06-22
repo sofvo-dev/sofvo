@@ -157,6 +157,37 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     _loadMyTeams().then((_) {
       if (mounted && widget.autoCheckIn) _performSelfCheckIn();
     }).catchError((_) {});
+    _recordView();
+  }
+
+  /// 大会詳細の閲覧を記録する（主催者向けの閲覧数表示用）。
+  /// stats/summary に延べアクセス数(viewCount)とユニーク閲覧者数(uniqueViewCount)を、
+  /// views/{uid} に各ユーザーの初回・最終閲覧時刻と回数を保存する。
+  /// 主催者自身のアクセスはカウントしない。
+  Future<void> _recordView() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _tournamentId.isEmpty) return;
+    final organizerId = widget.tournament['organizerId'] as String?;
+    if (organizerId != null && organizerId == uid) return; // 主催者自身は除外
+    final tRef = _firestore.collection('tournaments').doc(_tournamentId);
+    final viewRef = tRef.collection('views').doc(uid);
+    final statRef = tRef.collection('stats').doc('summary');
+    try {
+      final viewDoc = await viewRef.get();
+      final isNew = !viewDoc.exists;
+      await statRef.set({
+        'viewCount': FieldValue.increment(1),
+        if (isNew) 'uniqueViewCount': FieldValue.increment(1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await viewRef.set({
+        'lastViewedAt': FieldValue.serverTimestamp(),
+        'count': FieldValue.increment(1),
+        if (isNew) 'firstViewedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // 閲覧記録の失敗は無視（閲覧体験を妨げない）
+    }
   }
 
   @override
@@ -760,6 +791,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               },
             ),
             const SizedBox(height: 16),
+
+            // ━━━ 閲覧数（主催者のみ） ━━━
+            if (_canManageTournament(live.isNotEmpty ? live : t)) ...[
+              _buildViewStatsCard(),
+              const SizedBox(height: 16),
+            ],
 
             // ━━━ 獲得ポイント ━━━
             _buildCard(
@@ -7091,6 +7128,90 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   // ━━━ 共通ウィジェット ━━━
+  /// 閲覧数カード（主催者のみ表示）。延べアクセス数とユニーク閲覧者数を表示する。
+  Widget _buildViewStatsCard() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _firestore
+          .collection('tournaments')
+          .doc(_tournamentId)
+          .collection('stats')
+          .doc('summary')
+          .snapshots(),
+      builder: (context, snap) {
+        final data = snap.data?.data() as Map<String, dynamic>? ?? {};
+        final viewCount = (data['viewCount'] as num?)?.toInt() ?? 0;
+        final uniqueViewCount = (data['uniqueViewCount'] as num?)?.toInt() ?? 0;
+        return _buildCard(
+          title: '閲覧数',
+          titleIcon: Icons.visibility_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildViewStatItem(
+                      icon: Icons.person_outline,
+                      label: '閲覧した人数',
+                      value: '$uniqueViewCount',
+                      unit: '人',
+                    ),
+                  ),
+                  Container(width: 1, height: 44, color: Colors.grey[200]),
+                  Expanded(
+                    child: _buildViewStatItem(
+                      icon: Icons.bar_chart,
+                      label: '延べアクセス数',
+                      value: '$viewCount',
+                      unit: '回',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '主催者にのみ表示されます',
+                style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildViewStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required String unit,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, size: 20, color: AppTheme.primaryColor),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary)),
+            const SizedBox(width: 2),
+            Text(unit,
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(label,
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      ],
+    );
+  }
+
   Widget _buildCard({String? title, IconData? titleIcon, required Widget child}) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(16),

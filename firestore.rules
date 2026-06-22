@@ -202,6 +202,17 @@ service cloud.firestore {
         allow create: if isAuthenticated();
         allow delete: if isAuthenticated() && canManageTournamentById(tournamentId);
       }
+
+      // 閲覧記録（主催者向けの閲覧数表示用）
+      // views/{uid}: 各ユーザー自身の閲覧記録。stats/summary: 集計カウンタ。
+      match /views/{uid} {
+        allow read: if isAuthenticated();
+        allow create, update: if isAuthenticated() && isOwner(uid);
+      }
+      match /stats/{statId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
     }
 
     // ━━━ フォト（コレクショングループ：マイページのフォト集約用） ━━━
