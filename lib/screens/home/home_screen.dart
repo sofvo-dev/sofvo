@@ -1759,7 +1759,10 @@ class _HomeScreenState extends State<HomeScreen>
 
     if ((type == 'tournament_announcement' ||
             type == 'waitlist_available' ||
-            type == 'points_earned') &&
+            type == 'points_earned' ||
+            type == 'tournament_created' ||
+            type == 'deadline_approaching' ||
+            type == 'slots_low') &&
         tournamentId != null &&
         tournamentId.isNotEmpty) {
       try {
