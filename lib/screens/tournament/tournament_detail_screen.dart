@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1398,6 +1399,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       selectedVenue = {'id': data['venueId'], 'name': data['location'], 'address': data['venueAddress'] ?? ''};
     }
 
+    // タイムスケジュール（概要に表示される5項目）を編集できるようにする
+    String _fmtTime(String t) {
+      final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(t.trim());
+      if (m != null) return '${m.group(1)!.padLeft(2, '0')}:${m.group(2)!}';
+      return t;
+    }
+    String openTime = _fmtTime((data['openTime'] ?? '') as String);
+    String captainMeetingTime = _fmtTime((data['captainMeetingTime'] ?? '') as String);
+    String matchStartTime = _fmtTime((data['matchStartTime'] ?? '') as String);
+    String finalTime = _fmtTime((data['finalTime'] ?? '') as String);
+    String closingTime = _fmtTime((data['closingTime'] ?? '') as String);
+
     // 初期値を保存して変更検出に使う
     final origTitle = titleCtrl.text;
     final origLocation = locationCtrl.text;
@@ -1408,6 +1421,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final origDate = selectedDate;
     final origRules = tournamentRules;
     final origVenue = selectedVenue;
+    final origOpenTime = openTime;
+    final origCaptainMeetingTime = captainMeetingTime;
+    final origMatchStartTime = matchStartTime;
+    final origFinalTime = finalTime;
+    final origClosingTime = closingTime;
 
     Navigator.of(navContext ?? context).push(MaterialPageRoute(
       fullscreenDialog: false,
@@ -1416,7 +1434,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           return titleCtrl.text != origTitle || locationCtrl.text != origLocation ||
               feeCtrl.text != origFee || maxTeamsCtrl.text != origMaxTeams ||
               courtsCtrl.text != origCourts || selectedType != origType ||
-              selectedDate != origDate || tournamentRules != origRules || selectedVenue != origVenue;
+              selectedDate != origDate || tournamentRules != origRules || selectedVenue != origVenue ||
+              openTime != origOpenTime || captainMeetingTime != origCaptainMeetingTime ||
+              matchStartTime != origMatchStartTime || finalTime != origFinalTime || closingTime != origClosingTime;
         }
 
         Future<bool> onWillPop() async {
@@ -1446,6 +1466,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
               'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
               'rules': tournamentRules ?? {},
+              'openTime': openTime, 'captainMeetingTime': captainMeetingTime,
+              'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
             });
             if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success));
             return true;
@@ -1557,6 +1579,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15));
               }).toList()),
               const SizedBox(height: 24),
+              const Text('タイムスケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                child: Column(children: [
+                  _buildEditTimeRow('会場オープン', openTime, (v) => setPageState(() => openTime = v), ctx),
+                  _buildEditTimeRow('キャプテン会議', captainMeetingTime, (v) => setPageState(() => captainMeetingTime = v), ctx),
+                  _buildEditTimeRow('試合開始', matchStartTime, (v) => setPageState(() => matchStartTime = v), ctx),
+                  _buildEditTimeRow('終了', finalTime, (v) => setPageState(() => finalTime = v), ctx),
+                  _buildEditTimeRow('完全撤退', closingTime, (v) => setPageState(() => closingTime = v), ctx),
+                ]),
+              ),
+              const SizedBox(height: 24),
               Builder(builder: (_) {
                 final status = normalizeTournamentStatus(data['status'] ?? '準備中');
                 final isLocked = status == '開催中' || status == '決勝中' || status == '順位決定中' || status.contains('完了');
@@ -1597,6 +1633,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
                           'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
                           'rules': tournamentRules ?? {},
+                          'openTime': openTime, 'captainMeetingTime': captainMeetingTime,
+                          'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                         });
                         if (ctx.mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
                       } : null,
@@ -1610,6 +1648,90 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         );
       }),
     ));
+  }
+
+  /// 大会編集シートのタイムスケジュール用・時刻選択行（CupertinoPicker で 5分刻み選択）。
+  /// 空欄は '--:--' 表示。空にすると '--:--' を保存し、概要のタイムスケジュールでは
+  /// 非表示になる（_hasTime でフィルタ済み）。
+  Widget _buildEditTimeRow(String label, String value, Function(String) onChanged, BuildContext ctx) {
+    final isEmpty = value.isEmpty || value == '--:--';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        SizedBox(width: 96, child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              final parts = (isEmpty ? '08:00' : value).split(':');
+              var h = int.tryParse(parts[0]) ?? 8;
+              var m = ((int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0) ~/ 5) * 5;
+              final hourCtrl = FixedExtentScrollController(initialItem: h);
+              final minCtrl = FixedExtentScrollController(initialItem: m ~/ 5);
+              showModalBottomSheet(
+                context: ctx,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                builder: (_) => SizedBox(
+                  height: 280,
+                  child: Column(children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+                          const Text('時刻を選択', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          TextButton(
+                            onPressed: () {
+                              onChanged('${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}');
+                              Navigator.pop(ctx);
+                            },
+                            child: const Text('完了', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: Row(children: [
+                        Expanded(
+                          child: CupertinoPicker(
+                            scrollController: hourCtrl,
+                            itemExtent: 40,
+                            onSelectedItemChanged: (i) => h = i,
+                            children: List.generate(24, (i) => Center(child: Text('${i.toString().padLeft(2, '0')}時', style: const TextStyle(fontSize: 20)))),
+                          ),
+                        ),
+                        Expanded(
+                          child: CupertinoPicker(
+                            scrollController: minCtrl,
+                            itemExtent: 40,
+                            onSelectedItemChanged: (i) => m = i * 5,
+                            children: List.generate(12, (i) => Center(child: Text('${(i * 5).toString().padLeft(2, '0')}分', style: const TextStyle(fontSize: 20)))),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ]),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey[200]!)),
+              child: Text(isEmpty ? '--:--' : value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isEmpty ? Colors.grey[400] : null)),
+            ),
+          ),
+        ),
+        if (!isEmpty)
+          GestureDetector(
+            onTap: () => onChanged('--:--'),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Icon(Icons.close, size: 18, color: Colors.grey[400]),
+            ),
+          ),
+      ]),
+    );
   }
 
   // ━━━ CSVテンプレートダウンロード ━━━
