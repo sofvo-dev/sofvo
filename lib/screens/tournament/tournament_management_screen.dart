@@ -767,7 +767,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
                 child: Column(children: [
-                  _buildTimeRow('会場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
+                  _buildTimeRow('開場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
                   _buildTimeRow('受付', receptionTime, (v) => setSheetState(() => receptionTime = v), ctx),
                   _buildTimeRow('キャプテン会議', captainMeetingTime, (v) => setSheetState(() => captainMeetingTime = v), ctx),
                   _buildTimeRow('開会式', openingTime, (v) => setSheetState(() => openingTime = v), ctx),

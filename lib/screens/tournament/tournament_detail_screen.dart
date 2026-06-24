@@ -826,7 +826,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             Builder(builder: (_) {
               bool _hasTime(String? v) => v != null && v.isNotEmpty && v != '--:--';
               final scheduleItems = <Map<String, dynamic>>[
-                {'time': live['openTime'] as String? ?? t['openTime'] as String? ?? '', 'label': '会場オープン', 'icon': Icons.location_on},
+                {'time': live['openTime'] as String? ?? t['openTime'] as String? ?? '', 'label': '開場', 'icon': Icons.location_on},
                 {'time': live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '', 'label': '受付開始', 'icon': Icons.how_to_reg},
                 {'time': live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '', 'label': 'キャプテン会議', 'icon': Icons.groups},
                 {'time': live['openingTime'] as String? ?? t['openingTime'] as String? ?? '', 'label': '開会式', 'icon': Icons.campaign},
@@ -1585,7 +1585,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
                 child: Column(children: [
-                  _buildEditTimeRow('会場オープン', openTime, (v) => setPageState(() => openTime = v), ctx),
+                  _buildEditTimeRow('開場', openTime, (v) => setPageState(() => openTime = v), ctx),
                   _buildEditTimeRow('キャプテン会議', captainMeetingTime, (v) => setPageState(() => captainMeetingTime = v), ctx),
                   _buildEditTimeRow('試合開始', matchStartTime, (v) => setPageState(() => matchStartTime = v), ctx),
                   _buildEditTimeRow('終了', finalTime, (v) => setPageState(() => finalTime = v), ctx),
