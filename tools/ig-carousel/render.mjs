@@ -55,7 +55,7 @@ const wordmarkBig = (variant) => {
   return `<div class="wmbig"><span style="color:${sof}">Sof</span><span style="color:${GOLD}">vo</span></div>`;
 };
 
-const heart = `<svg width="34" height="34" viewBox="0 0 24 24"><path fill="${GOLD}" d="M12 21s-7.5-4.9-10-9.2C.3 8.6 1.6 5 5 5c2 0 3.3 1.2 4 2.3C9.7 6.2 11 5 13 5c3.4 0 4.7 3.6 3 6.8C19.5 16.1 12 21 12 21z"/></svg>`;
+const heart = `<svg width="36" height="36" viewBox="0 0 24 24"><path fill="${GOLD}" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
 const mark = `<svg width="30" height="30" viewBox="0 0 24 24"><path fill="#fff" d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>`;
 const footer = `<div class="footer"><span>${heart}</span><span class="ftxt">ソフトバレーを、もっと楽しく。</span><span>${mark}</span></div>`;
 
@@ -63,9 +63,9 @@ function bullets(body) {
   return body.split('／').map(s => `<div class="li"><span class="dot"></span><span class="jptxt jp">${s}</span></div>`).join('');
 }
 
-function coverSlide(d) {
-  return `<div class="slide navy">
-    ${wordmark('navy')}
+function coverSlide(d, bg) {
+  return `<div class="slide ${bg}">
+    ${wordmark(bg)}
     <div class="cover">
       <div class="pill">${d.pill}</div>
       <div class="ctitle jp">${d.cover_title.replace(/"/g,'&quot;')}</div>
@@ -86,10 +86,10 @@ function contentSlide(d, n, bg) {
     ${footer}
   </div>`;
 }
-function ctaSlide(d) {
-  return `<div class="slide navy">
+function ctaSlide(d, bg) {
+  return `<div class="slide ${bg}">
     <div class="cta">
-      ${wordmarkBig('navy')}
+      ${wordmarkBig(bg)}
       <div class="ctatitle jp">${d.cta_title}</div>
       <div class="ctasub">${d.cta_sub}</div>
     </div>
@@ -97,8 +97,10 @@ function ctaSlide(d) {
   </div>`;
 }
 
-function pageHTML(d) {
-  const slides = [coverSlide(d), contentSlide(d,2,'cream'), contentSlide(d,3,'navy'), contentSlide(d,4,'cream'), ctaSlide(d)].join('');
+function pageHTML(d, idx) {
+  const base = idx % 2 === 0 ? 'navy' : 'cream';
+  const other = base === 'navy' ? 'cream' : 'navy';
+  const slides = [coverSlide(d, base), contentSlide(d,2,other), contentSlide(d,3,base), contentSlide(d,4,other), ctaSlide(d, base)].join('');
   return `<!doctype html><html><head><meta charset="utf-8"><style>
   @font-face{font-family:'Dela';src:url(data:font/ttf;base64,${dela}) format('truetype');}
   @font-face{font-family:'Noto';src:url(data:font/ttf;base64,${noto}) format('truetype');font-weight:100 900;}
@@ -135,7 +137,7 @@ const page = await browser.newPage({ viewport: { width: 1080, height: 1350 }, de
 for (const idx of ONLY) {
   const d = data[idx];
   if (!d) { console.log('no row', idx); continue; }
-  await page.setContent(pageHTML(d), { waitUntil: 'networkidle' });
+  await page.setContent(pageHTML(d, idx), { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   const slides = await page.locator('.slide').all();
   const pn = String(idx + 1).padStart(2, '0');
