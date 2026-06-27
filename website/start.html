@@ -29,6 +29,13 @@
     .pill{display:inline-block;background:var(--accent);color:var(--primary);font-weight:700;font-size:14px;padding:7px 18px;border-radius:999px;margin-bottom:22px;}
     .hero h1{font-size:34px;font-weight:800;line-height:1.5;margin-bottom:18px;}
     .hero p{font-size:16px;color:#d8e2ee;max-width:520px;margin:0 auto;}
+    .hero-img{display:block;width:100%;max-width:460px;margin:32px auto 0;border-radius:24px;box-shadow:0 20px 50px rgba(0,0,0,.35);}
+
+    /* phone mockups */
+    .phones{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+    .phone{width:200px;border:8px solid var(--primary-dark);border-radius:34px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.18);background:#000;}
+    .phone img{display:block;width:100%;}
+    .phone-cap{text-align:center;font-size:13px;color:var(--text-sec);margin-top:10px;}
 
     section{padding:54px 0;}
     .sec-title{font-size:24px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:8px;}
@@ -68,6 +75,7 @@
     <span class="pill">はじめての方へ</span>
     <h1>ソフトバレー、<br>はじめよう。</h1>
     <p>ルールはかんたん、痛くない、年齢も問わない。<br>仲間も大会も、ここから見つかります。</p>
+    <img class="hero-img" src="images/lp-hero.png" alt="Sofvo ソフトバレー専用アプリ">
   </header>
 
   <section>
@@ -105,6 +113,20 @@
         <div class="step"><div><h3>アプリ／Web版をひらく</h3><p>スマホでもPCでもOK。登録は無料です。</p></div></div>
         <div class="step"><div><h3>プロフィールを作る</h3><p>お住まいの地域やポジションを入れておくと、仲間が見つかりやすくなります。</p></div></div>
         <div class="step"><div><h3>仲間・大会を探す</h3><p>気になるチームや大会をフォロー。募集に応募して、まずは1回プレーしてみましょう。</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">アプリの画面</h2>
+      <p class="sec-sub">直感的に使えます</p>
+      <!-- ▼ 実機スクショに差し替えるときは images/screen-1.png〜screen-3.png を上書き -->
+      <div class="phones">
+        <div><div class="phone"><img src="images/screen-1.png" alt="対戦表"></div><div class="phone-cap">対戦表</div></div>
+        <div><div class="phone"><img src="images/screen-2.png" alt="スコア入力"></div><div class="phone-cap">スコア入力</div></div>
+        <div><div class="phone"><img src="images/screen-3.png" alt="順位表"></div><div class="phone-cap">順位表</div></div>
       </div>
     </div>
   </section>
