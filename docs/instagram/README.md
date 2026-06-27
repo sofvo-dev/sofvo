@@ -9,8 +9,11 @@ Instagram 運用方針・素材まとめ。
 |---|---|
 | `README.md` | 戦略の全体像（この文書） |
 | `visual-direction.md` | **ビジュアル方針（正式版）**：写真／アプリ画面＋極太ゴシック。まずこれを読む |
-| `predis-setup.md` | **Predis.ai セットアップ＆運用**（採用ツール）。ブランド登録・テーマ文例・予約手順 |
+| `canva-setup.md` | **Canva Pro 半自動運用（採用ツール）**。ブランド登録・テンプレ・Bulk Create・予約 |
+| `canva-bulk/carousels.csv` | Bulk Create 用の投稿文章データ（12本ぶん） |
+| `canva-bulk/captions.md` | 予約時に貼るキャプション＋ハッシュタグ（12本ぶん） |
 | `ai-post-generator.md` | AIに投稿の中身を生成させるプロンプト集（ネタ出し・量産） |
+| `predis-setup.md` | 〔参考〕Predis.ai（有料が高く見送り） |
 | `content-calendar-30.md` | 30投稿の企画一覧＋ハッシュタグ |
 | `post-scripts.md` | 最初の4投稿の台本（リール／カルーセルの秒割り・テロップ・キャプション） |
 | `image-prompts-30.md` | 〔旧・不採用〕AIイラスト前提。基本は使わない |
