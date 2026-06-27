@@ -174,12 +174,13 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
           Material(
-            color: AppTheme.backgroundColor,
+            color: Colors.white,
             child: Column(children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 52),
@@ -273,11 +274,15 @@ class _HomeScreenState extends State<HomeScreen>
         ]),
       ),
       floatingActionButton: _tabController.index == 0
-          ? FloatingActionButton(
-              heroTag: 'home_create_post',
-              onPressed: _openCreatePost,
-              backgroundColor: AppTheme.primaryColor,
-              child: const Icon(Icons.edit, color: Colors.white),
+          ? Padding(
+              // 浮かせた浮島ナビと重ならないよう持ち上げる
+              padding: const EdgeInsets.only(bottom: 76),
+              child: FloatingActionButton(
+                heroTag: 'home_create_post',
+                onPressed: _openCreatePost,
+                backgroundColor: AppTheme.primaryColor,
+                child: const Icon(Icons.edit, color: Colors.white),
+              ),
             )
           : null,
     );
@@ -392,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen>
           },
           child: ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          padding: EdgeInsets.only(top: 4, bottom: 92 + MediaQuery.of(context).padding.bottom),
           itemCount: posts.length + 1,
           separatorBuilder: (_, index) => index == 0
               ? const SizedBox.shrink()
@@ -1754,7 +1759,10 @@ class _HomeScreenState extends State<HomeScreen>
 
     if ((type == 'tournament_announcement' ||
             type == 'waitlist_available' ||
-            type == 'points_earned') &&
+            type == 'points_earned' ||
+            type == 'tournament_created' ||
+            type == 'deadline_approaching' ||
+            type == 'slots_low') &&
         tournamentId != null &&
         tournamentId.isNotEmpty) {
       try {

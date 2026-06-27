@@ -364,8 +364,9 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           // ━━━ 統一ヘッダー ━━━
           Container(
@@ -599,7 +600,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           },
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 4, bottom: 80),
+            padding: EdgeInsets.only(top: 4, bottom: 92 + MediaQuery.of(context).padding.bottom),
             itemCount: chats.length,
             separatorBuilder: (_, __) => Divider(
                 height: 1, thickness: 1, color: Colors.grey[100], indent: 80),
@@ -691,7 +692,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           },
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 4, bottom: 80),
+            padding: EdgeInsets.only(top: 4, bottom: 92 + MediaQuery.of(context).padding.bottom),
             itemCount: chats.length,
             separatorBuilder: (_, __) => Divider(
                 height: 1, thickness: 1, color: Colors.grey[100], indent: 80),

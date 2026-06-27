@@ -1,4 +1,8 @@
+import 'dart:ui' show ImageFilter;
+
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,6 +25,9 @@ class MainTabScreen extends StatefulWidget {
 class _MainTabScreenState extends State<MainTabScreen> {
   int _currentIndex = 0;
 
+  // 下スクロールでボトムナビを縮める（Instagram 風）
+  final ValueNotifier<bool> _navCollapsed = ValueNotifier<bool>(false);
+
   final List<Widget> _screens = [
     const HomeScreen(),
     const TournamentSearchScreen(),
@@ -28,6 +35,23 @@ class _MainTabScreenState extends State<MainTabScreen> {
     const ChatListScreen(),
     const MyPageScreen(),
   ];
+
+  @override
+  void dispose() {
+    _navCollapsed.dispose();
+    super.dispose();
+  }
+
+  bool _onScroll(UserScrollNotification n) {
+    // ネストしたスクロール（横スクロール等）は無視
+    if (n.metrics.axis != Axis.vertical) return false;
+    if (n.direction == ScrollDirection.reverse) {
+      _navCollapsed.value = true; // 下にスクロール → 縮める
+    } else if (n.direction == ScrollDirection.forward) {
+      _navCollapsed.value = false; // 上にスクロール → 戻す
+    }
+    return false;
+  }
 
   // ホーム・チャット = 白背景 → ダークアイコン, マイページ = 暗い背景 → ライトアイコン
   // さがす・マイ大会 = AppBarが自動でハンドル
@@ -46,15 +70,21 @@ class _MainTabScreenState extends State<MainTabScreen> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _statusBarStyle(),
         child: Scaffold(
-          body: ConnectivityBanner(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _screens,
+          extendBody: true,
+          body: NotificationListener<UserScrollNotification>(
+            onNotification: _onScroll,
+            child: ConnectivityBanner(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: _screens,
+              ),
             ),
           ),
           bottomNavigationBar: _BottomNav(
             currentIndex: _currentIndex,
+            collapsed: _navCollapsed,
             onDestinationSelected: (index) {
+              _navCollapsed.value = false; // タブ切替時は展開して見せる
               setState(() => _currentIndex = index);
             },
           ),
@@ -66,9 +96,14 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
 /// 分離されたナビゲーションバー — チャットバッジの更新で他のタブがリビルドされない
 class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.currentIndex, required this.onDestinationSelected});
+  const _BottomNav({
+    required this.currentIndex,
+    required this.onDestinationSelected,
+    required this.collapsed,
+  });
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
+  final ValueListenable<bool> collapsed;
 
   @override
   Widget build(BuildContext context) {
@@ -103,51 +138,189 @@ class _BottomNav extends StatelessWidget {
           }
         }
 
-        return NavigationBar(
-          height: 64,
-          selectedIndex: currentIndex,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          onDestinationSelected: onDestinationSelected,
-          backgroundColor: Colors.white,
-          indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.home, size: 22, color: AppTheme.primaryColor),
-              label: 'ホーム',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.search_outlined, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.search, size: 22, color: AppTheme.primaryColor),
-              label: 'さがす',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_today_outlined, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.calendar_today, size: 22, color: AppTheme.primaryColor),
-              label: 'マイ大会',
-            ),
-            NavigationDestination(
-              icon: _badge(Icons.chat_bubble_outline, AppTheme.textSecondary, unreadCount),
-              selectedIcon: _badge(Icons.chat_bubble, AppTheme.primaryColor, unreadCount),
-              label: 'チャット',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline, size: 22, color: AppTheme.textSecondary),
-              selectedIcon: Icon(Icons.person, size: 22, color: AppTheme.primaryColor),
-              label: 'マイページ',
-            ),
-          ],
+        final items = <_NavItemData>[
+          const _NavItemData(Icons.home_outlined, Icons.home, 'ホーム'),
+          const _NavItemData(Icons.search_outlined, Icons.search, 'さがす'),
+          const _NavItemData(Icons.calendar_today_outlined, Icons.calendar_today, 'マイ大会'),
+          _NavItemData(Icons.chat_bubble_outline, Icons.chat_bubble, 'チャット', badge: unreadCount),
+          const _NavItemData(Icons.person_outline, Icons.person, 'マイページ'),
+        ];
+
+        // セーフエリア（ホームインジケータ領域）の余白を一部だけ残して下に詰める
+        return Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom * 0.35),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: collapsed,
+            builder: (context, isCollapsed, _) {
+              final n = items.length;
+              final vInset = isCollapsed ? 6.0 : 9.0;
+              // 比率ベース配置: 縮小（幅変化）に追従しつつ、タブ切替時だけスライド
+              final bar = Stack(
+                children: [
+                  Positioned.fill(
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment(
+                          n <= 1 ? 0 : (currentIndex / (n - 1)) * 2 - 1, 0),
+                      child: FractionallySizedBox(
+                        widthFactor: 1 / n,
+                        heightFactor: 1,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 5, vertical: vInset),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      for (var i = 0; i < items.length; i++)
+                        Expanded(
+                          child: _NavItem(
+                            data: items[i],
+                            selected: i == currentIndex,
+                            collapsed: isCollapsed,
+                            onTap: () => onDestinationSelected(i),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              );
+              return AnimatedPadding(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                // 縮小時は左右に絞って小さく見せる。下に詰めて配置
+                padding: EdgeInsets.fromLTRB(
+                  isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 2),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  // すりガラス（屈折）: 後ろのコンテンツをぼかして透かす
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                        height: isCollapsed ? 52 : 66,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            width: 1,
+                          ),
+                        ),
+                        child: bar,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
     );
   }
+}
 
-  Widget _badge(IconData icon, Color color, int count) {
-    return Badge(
-      isLabelVisible: count > 0,
-      label: Text('$count', style: const TextStyle(fontSize: 10, color: Colors.white)),
-      backgroundColor: AppTheme.error,
-      child: Icon(icon, size: 22, color: color),
+/// 浮島型ボトムナビのタブ定義
+class _NavItemData {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int badge;
+  const _NavItemData(this.icon, this.activeIcon, this.label, {this.badge = 0});
+}
+
+/// 1タブ分。選択時は角丸カプセルで強調する。
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.data,
+    required this.selected,
+    required this.collapsed,
+    required this.onTap,
+  });
+
+  final _NavItemData data;
+  final bool selected;
+  final bool collapsed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? Colors.black : Colors.black54;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        margin: EdgeInsets.symmetric(horizontal: 5, vertical: collapsed ? 6 : 9),
+        // 選択カプセルはスライドする背景側（AnimatedPositioned）が描くためここは透明
+        decoration: const BoxDecoration(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _icon(color),
+            // 縮小時はラベルを畳んでアイコンだけにする
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: collapsed
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          data.label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.0,
+                            color: color,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Widget _icon(Color color) {
+    final iconWidget = Icon(selected ? data.activeIcon : data.icon, size: 22, color: color);
+    if (data.badge > 0) {
+      return Badge(
+        label: Text('${data.badge}', style: const TextStyle(fontSize: 10, color: Colors.white)),
+        backgroundColor: AppTheme.error,
+        child: iconWidget,
+      );
+    }
+    return iconWidget;
   }
 }

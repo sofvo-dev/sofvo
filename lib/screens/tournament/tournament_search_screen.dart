@@ -251,21 +251,26 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           _buildHeader(),
           if (_showFilter && !_isSavedMode) _buildFilterPanel(),
           Expanded(child: _buildContent()),
         ]),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'search_saved_toggle',
-        onPressed: () => setState(() => _isSavedMode = !_isSavedMode),
-        backgroundColor: _isSavedMode ? AppTheme.primaryColor : AppTheme.accentColor,
-        child: Icon(
-          _isSavedMode ? Icons.search : Icons.bookmark,
-          color: Colors.white,
+      floatingActionButton: Padding(
+        // 浮島ナビと重ならないよう持ち上げる
+        padding: const EdgeInsets.only(bottom: 76),
+        child: FloatingActionButton(
+          heroTag: 'search_saved_toggle',
+          onPressed: () => setState(() => _isSavedMode = !_isSavedMode),
+          backgroundColor: _isSavedMode ? AppTheme.primaryColor : AppTheme.accentColor,
+          child: Icon(
+            _isSavedMode ? Icons.search : Icons.bookmark,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -701,7 +706,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                     ),
                   )
                 : ListView.builder(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 32 + MediaQuery.of(context).padding.bottom),
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 92 + MediaQuery.of(context).padding.bottom),
                     itemCount: visibleItems.length,
                     itemBuilder: (ctx, i) {
                       final doc = visibleItems[i];
@@ -1298,7 +1303,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 32 + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 92 + MediaQuery.of(context).padding.bottom),
             itemCount: filtered.length,
             itemBuilder: (ctx, i) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -1634,7 +1639,7 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           },
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 32 + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 92 + MediaQuery.of(context).padding.bottom),
             itemCount: filtered.length,
             itemBuilder: (ctx, i) => Padding(
               padding: const EdgeInsets.only(bottom: 10),

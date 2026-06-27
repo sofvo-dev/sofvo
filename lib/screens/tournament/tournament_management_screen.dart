@@ -119,6 +119,20 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     );
   }
 
+  /// entries サブコレクションの実数をカウント（denormalized な currentTeams が
+  /// ズレていてもエントリー数表示が正しくなるようにする）。読み取り失敗時は null を
+  /// 返し、呼び出し側で currentTeams にフォールバックする。
+  Future<int?> _entriesCount(String docId) async {
+    try {
+      final agg = await FirebaseFirestore.instance
+          .collection('tournaments').doc(docId).collection('entries')
+          .count().get();
+      return agg.count;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Widget _buildTournamentCard(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final title = data['title'] ?? '無名大会';
@@ -127,7 +141,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final status = normalizeTournamentStatus(data['status'] ?? '準備中');
     final rawFee = data['entryFee'];
     final entryFee = rawFee is int ? '¥$rawFee' : (rawFee ?? '¥0').toString();
-    final currentTeams = data['currentTeams'] ?? 0;
+    final fallbackTeams = (data['currentTeams'] is num) ? (data['currentTeams'] as num).toInt() : 0;
     final maxTeams = data['maxTeams'] ?? 8;
     final courts = data['courts'] ?? 0;
     final type = data['type'] ?? '混合';
@@ -177,13 +191,19 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           if (courts > 0) ...[const SizedBox(height: 6), _buildInfoChip(Icons.grid_view, '$courtsコート')],
           const SizedBox(height: 10),
           Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('エントリー $currentTeams/$maxTeamsチーム', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-              const SizedBox(height: 6),
-              ClipRRect(borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: maxTeams > 0 ? currentTeams / maxTeams : 0,
-                    backgroundColor: Colors.grey[200], color: AppTheme.primaryColor, minHeight: 6)),
-            ])),
+            Expanded(child: FutureBuilder<int?>(
+              future: _entriesCount(doc.id),
+              builder: (context, snap) {
+                final currentTeams = snap.data ?? fallbackTeams;
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('エントリー $currentTeams/$maxTeamsチーム', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 6),
+                  ClipRRect(borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(value: maxTeams > 0 ? (currentTeams / maxTeams).clamp(0.0, 1.0) : 0,
+                        backgroundColor: Colors.grey[200], color: AppTheme.primaryColor, minHeight: 6)),
+                ]);
+              },
+            )),
             const SizedBox(width: 16),
             Text(entryFee, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
           ]),
@@ -747,7 +767,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
                 child: Column(children: [
-                  _buildTimeRow('会場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
+                  _buildTimeRow('開場 *', openTime, (v) => setSheetState(() => openTime = v), ctx),
                   _buildTimeRow('受付', receptionTime, (v) => setSheetState(() => receptionTime = v), ctx),
                   _buildTimeRow('キャプテン会議', captainMeetingTime, (v) => setSheetState(() => captainMeetingTime = v), ctx),
                   _buildTimeRow('開会式', openingTime, (v) => setSheetState(() => openingTime = v), ctx),

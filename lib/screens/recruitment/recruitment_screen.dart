@@ -271,8 +271,9 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
           _buildHeader(),
           Expanded(
@@ -327,7 +328,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     return RefreshIndicator(
       onRefresh: _loadMyTournaments,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 92 + MediaQuery.of(context).padding.bottom),
         children: [
           _buildNextHighlight(_upcoming.first),
           const SizedBox(height: 20),
@@ -678,7 +679,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
     return RefreshIndicator(
       onRefresh: _loadMyTournaments,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 92 + MediaQuery.of(context).padding.bottom),
         children: [
           // サマリー（一般ユーザーのみ。公式は年に数回程度の想定のため枠を省く）
           if (!_isOfficialAccount)

@@ -1,81 +1,8 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../config/app_theme.dart';
-
-class _LaurelWreathPainter extends CustomPainter {
-  final Color color;
-  final Color highlightColor;
-  _LaurelWreathPainter(this.color, {Color? highlightColor})
-      : highlightColor = highlightColor ?? Colors.white;
-
-  Path _leafPath(double length, double width) {
-    final half = length / 2;
-    return Path()
-      ..moveTo(0, -half)
-      ..quadraticBezierTo(width / 2, -half * 0.15, 0, half)
-      ..quadraticBezierTo(-width / 2, -half * 0.15, 0, -half)
-      ..close();
-  }
-
-  Offset _posAt(Offset center, double radius, double rad, bool rightSide) {
-    final sx = rightSide ? math.sin(rad) : -math.sin(rad);
-    final sy = -math.cos(rad);
-    return center + Offset(sx, sy) * radius;
-  }
-
-  void _drawBranch(Canvas canvas, Offset center, double radius, bool rightSide) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
-    final highlightPaint = Paint()
-      ..color = highlightColor.withValues(alpha: 0.45)
-      ..style = PaintingStyle.fill;
-
-    const leafCount = 10;
-    const startDeg = 16.0; // 王冠用に天頂を少し空ける
-    const endDeg = 172.0; // 根本は下部中央で重ねる
-    const eps = 0.01;
-    for (int i = 0; i < leafCount; i++) {
-      final t = i / (leafCount - 1);
-      final deg = startDeg + (endDeg - startDeg) * t;
-      final rad = deg * math.pi / 180;
-
-      final pos = _posAt(center, radius, rad, rightSide);
-      final posNext = _posAt(center, radius, rad + eps, rightSide);
-      final dir = posNext - pos;
-      final tangentAngle = math.atan2(dir.dy, dir.dx);
-
-      // 葉先が外側・上方向にやや跳ねる束感を出す
-      final fan = (rightSide ? 1 : -1) * 0.28;
-
-      final leafLength = 9.0 + 11.0 * t;
-      final leafWidth = leafLength * 0.46;
-
-      canvas.save();
-      canvas.translate(pos.dx, pos.dy);
-      canvas.rotate(tangentAngle - math.pi / 2 + fan);
-      canvas.drawPath(_leafPath(leafLength, leafWidth), paint);
-      canvas.save();
-      canvas.translate(rightSide ? -leafWidth * 0.16 : leafWidth * 0.16, leafLength * 0.04);
-      canvas.drawPath(_leafPath(leafLength * 0.74, leafWidth * 0.42), highlightPaint);
-      canvas.restore();
-      canvas.restore();
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 6;
-    _drawBranch(canvas, center, radius, false);
-    _drawBranch(canvas, center, radius, true);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LaurelWreathPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
+import '../../services/result_share_service.dart';
 
 class TeamMatchResultsScreen extends StatefulWidget {
   final String tournamentId;
@@ -144,7 +71,11 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
         .snapshots()
         .listen((roundsSnap) {
       for (final roundDoc in roundsSnap.docs) {
-        final roundNum = int.tryParse(roundDoc.id) ?? 0;
+        // ラウンドIDは "round_1" / "round_2" 形式。int.tryParse("round_1") は
+        // null になり全ラウンドが同一ラベルになって上書き（予選2が漏れる）ため、
+        // "round_" を除いて番号を取り出す。
+        final roundNum =
+            int.tryParse(roundDoc.id.replaceAll('round_', '')) ?? 1;
         final label = roundNum <= 1 ? '予選リーグ' : '予選$roundNumリーグ';
 
         final matchSub = roundDoc.reference
@@ -258,6 +189,103 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
     super.dispose();
   }
 
+  /// 画像保存用に試合結果を ShareMatch のリストへ変換する。
+  List<ShareMatch> _collectShareMatches() {
+    final out = <ShareMatch>[];
+
+    ShareMatch toShareMatch(Map<String, dynamic> match, {required String stageLabel}) {
+      final result = match['result'] as Map<String, dynamic>? ?? {};
+      final isA = match['teamAId'] == widget.teamId;
+      final myName = isA
+          ? (match['teamAName'] as String? ?? widget.teamName)
+          : (match['teamBName'] as String? ?? widget.teamName);
+      final oppName = isA
+          ? (match['teamBName'] as String? ?? '相手チーム')
+          : (match['teamAName'] as String? ?? '相手チーム');
+      final mySets = isA
+          ? (result['setsA'] as num?)?.toInt() ?? 0
+          : (result['setsB'] as num?)?.toInt() ?? 0;
+      final oppSets = isA
+          ? (result['setsB'] as num?)?.toInt() ?? 0
+          : (result['setsA'] as num?)?.toInt() ?? 0;
+      final winner = result['winner'] as String? ?? '';
+      final resultKind = winner == '引き分け'
+          ? 0
+          : (winner == widget.teamId ? 1 : -1);
+      final rawSets = match['sets'] as List<dynamic>? ?? [];
+      final sets = rawSets.map<(int, int)>((s) {
+        final sa = (s['a'] as num?)?.toInt() ?? 0;
+        final sb = (s['b'] as num?)?.toInt() ?? 0;
+        return isA ? (sa, sb) : (sb, sa);
+      }).toList();
+      return ShareMatch(
+        stageLabel: stageLabel,
+        resultKind: resultKind,
+        myName: myName,
+        oppName: oppName,
+        sets: sets,
+        mySets: mySets,
+        oppSets: oppSets,
+      );
+    }
+
+    // 予選は通し番号（1・2・3試合目）で表示。matchOrder は大会全体の番号で
+    // 飛び番に見えるため、このチームの予選試合だけを連番にする。
+    // 予選が複数ラウンドある場合はラウンド名（予選リーグ／予選2リーグ）を付ける。
+    // 購読が非同期で前後しても並びが安定するようラウンド順にソート。
+    int prelimRoundNo(String key) => key == '予選リーグ'
+        ? 1
+        : int.tryParse(key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 99;
+    final prelimEntries = _prelimMatches.entries.toList()
+      ..sort((a, b) => prelimRoundNo(a.key).compareTo(prelimRoundNo(b.key)));
+    final multipleRounds = prelimEntries.length > 1;
+    for (final entry in prelimEntries) {
+      var seq = 0;
+      for (final match in entry.value) {
+        seq++;
+        final label = multipleRounds ? '${entry.key} $seq試合目' : '予選 $seq試合目';
+        out.add(toShareMatch(match, stageLabel: label));
+      }
+    }
+    final finals = _finalMatchesByBracket.values.expand((l) => l).toList()
+      ..sort((a, b) => (_roundOrder[a['round'] as String? ?? ''] ?? 99)
+          .compareTo(_roundOrder[b['round'] as String? ?? ''] ?? 99));
+    for (final match in finals) {
+      final round = match['round'] as String? ?? '';
+      out.add(toShareMatch(match, stageLabel: _roundLabels[round] ?? round));
+    }
+    return out;
+  }
+
+  String _placeLabel(int? rank) {
+    if (rank == null) return '結果';
+    switch (rank) {
+      case 1:
+        return '優勝';
+      case 2:
+        return '準優勝';
+      case 3:
+        return '第3位';
+      default:
+        return '$rank位';
+    }
+  }
+
+  Future<void> _saveResultImage() async {
+    final data = ShareTeamResultData(
+      teamName: widget.teamName,
+      tournamentTitle: widget.tournamentName,
+      subtitle: widget.finalRank != null ? '${widget.finalRank}位' : null,
+      rank: widget.finalRank,
+      placeLabel: _placeLabel(widget.finalRank),
+      winLoss: '${_wins}勝${_losses}敗',
+      setWinLoss: '$_setWins-$_setLosses',
+      pointDiff: '${_pointDiff >= 0 ? '+' : ''}$_pointDiff',
+      matches: _collectShareMatches(),
+    );
+    await ResultShareService.saveTeamResult(context, data);
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasPrelim = _prelimMatches.values.any((l) => l.isNotEmpty);
@@ -280,6 +308,14 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
           style: const TextStyle(
               fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
         ),
+        actions: [
+          if (_loaded)
+            IconButton(
+              tooltip: '結果を画像で保存',
+              icon: const Icon(Icons.ios_share),
+              onPressed: _saveResultImage,
+            ),
+        ],
       ),
       body: !_loaded
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
@@ -342,107 +378,41 @@ class _TeamMatchResultsScreenState extends State<TeamMatchResultsScreen> {
       ),
       child: Row(children: [
         SizedBox(
-          width: 64, height: 64,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              if (rank != null && rank <= 3)
-                CustomPaint(
-                  size: const Size(64, 64),
-                  painter: _LaurelWreathPainter(
-                    rank == 1
-                        ? const Color(0xFFE0A526)
-                        : rank == 2
-                            ? const Color(0xFF9AA7AD)
-                            : const Color(0xFFB97A3D),
-                  ),
-                )
-              else
-                Container(
-                  width: 56, height: 56,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.grey.withValues(alpha: 0.1),
-                  ),
-                ),
-              rank != null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$rank',
-                          style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.w900, height: 1.1,
-                            color: rank == 1
-                                ? const Color(0xFFC8860A)
-                                : rank == 2
-                                    ? const Color(0xFF78858B)
-                                    : rank == 3
-                                        ? const Color(0xFF9C5A24)
-                                        : AppTheme.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          '位',
-                          style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700, height: 1.1,
-                            color: rank == 1
-                                ? const Color(0xFFC8860A)
-                                : rank == 2
-                                    ? const Color(0xFF78858B)
-                                    : rank == 3
-                                        ? const Color(0xFF9C5A24)
-                                        : AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    )
-                  : const Icon(Icons.emoji_events_outlined, size: 24, color: AppTheme.textSecondary),
-              if (rank != null && rank <= 3)
-                Positioned(
-                  top: -16,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      width: 28, height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: rank == 1
-                              ? [const Color(0xFFFFE082), const Color(0xFFFFA000)]
-                              : rank == 2
-                                  ? [const Color(0xFFECEFF1), const Color(0xFF90A4AE)]
-                                  : [const Color(0xFFE6B17E), const Color(0xFFB06A2E)],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (rank == 1
-                                    ? const Color(0xFFFFA000)
-                                    : rank == 2
-                                        ? const Color(0xFF90A4AE)
-                                        : const Color(0xFFB06A2E))
-                                .withValues(alpha: 0.5),
-                            blurRadius: 6, offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: FaIcon(
-                          FontAwesomeIcons.crown,
-                          size: 14,
+          width: 64,
+          height: 64,
+          child: rank != null && rank <= 3
+              ? Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      Icons.emoji_events,
+                      size: 60,
+                      color: rank == 1
+                          ? const Color(0xFFE0A526)
+                          : rank == 2
+                              ? const Color(0xFF9AA7AD)
+                              : const Color(0xFFB97A3D),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(
+                        '$rank',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
                           color: Colors.white,
+                          shadows: [
+                            Shadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 1)),
+                          ],
                         ),
                       ),
                     ),
-                  ),
+                  ],
+                )
+              : const Center(
+                  child: Icon(Icons.emoji_events_outlined, size: 36, color: AppTheme.textSecondary),
                 ),
-            ],
-          ),
         ),
         const SizedBox(width: 14),
         Expanded(

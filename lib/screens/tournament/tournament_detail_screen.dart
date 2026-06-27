@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,6 +25,7 @@ import 'tournament_rules_screen.dart';
 import 'venue_search_screen.dart';
 import '../../services/csv_download.dart';
 import '../../services/follow_service.dart';
+import '../../services/result_share_service.dart';
 import '../../services/match_generator.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/certified_badge.dart';
@@ -156,6 +158,37 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     _loadMyTeams().then((_) {
       if (mounted && widget.autoCheckIn) _performSelfCheckIn();
     }).catchError((_) {});
+    _recordView();
+  }
+
+  /// 大会詳細の閲覧を記録する（主催者向けの閲覧数表示用）。
+  /// stats/summary に延べアクセス数(viewCount)とユニーク閲覧者数(uniqueViewCount)を、
+  /// views/{uid} に各ユーザーの初回・最終閲覧時刻と回数を保存する。
+  /// 主催者自身のアクセスはカウントしない。
+  Future<void> _recordView() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _tournamentId.isEmpty) return;
+    final organizerId = widget.tournament['organizerId'] as String?;
+    if (organizerId != null && organizerId == uid) return; // 主催者自身は除外
+    final tRef = _firestore.collection('tournaments').doc(_tournamentId);
+    final viewRef = tRef.collection('views').doc(uid);
+    final statRef = tRef.collection('stats').doc('summary');
+    try {
+      final viewDoc = await viewRef.get();
+      final isNew = !viewDoc.exists;
+      await statRef.set({
+        'viewCount': FieldValue.increment(1),
+        if (isNew) 'uniqueViewCount': FieldValue.increment(1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await viewRef.set({
+        'lastViewedAt': FieldValue.serverTimestamp(),
+        'count': FieldValue.increment(1),
+        if (isNew) 'firstViewedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // 閲覧記録の失敗は無視（閲覧体験を妨げない）
+    }
   }
 
   @override
@@ -760,6 +793,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             ),
             const SizedBox(height: 16),
 
+            // ━━━ 閲覧数（主催者のみ） ━━━
+            if (_canManageTournament(live.isNotEmpty ? live : t)) ...[
+              _buildViewStatsCard(),
+              const SizedBox(height: 16),
+            ],
+
             // ━━━ 獲得ポイント ━━━
             _buildCard(
               title: '獲得ポイント',
@@ -787,7 +826,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             Builder(builder: (_) {
               bool _hasTime(String? v) => v != null && v.isNotEmpty && v != '--:--';
               final scheduleItems = <Map<String, dynamic>>[
-                {'time': live['openTime'] as String? ?? t['openTime'] as String? ?? '', 'label': '会場オープン', 'icon': Icons.location_on},
+                {'time': live['openTime'] as String? ?? t['openTime'] as String? ?? '', 'label': '開場', 'icon': Icons.location_on},
                 {'time': live['receptionTime'] as String? ?? t['receptionTime'] as String? ?? '', 'label': '受付開始', 'icon': Icons.how_to_reg},
                 {'time': live['captainMeetingTime'] as String? ?? t['captainMeetingTime'] as String? ?? '', 'label': 'キャプテン会議', 'icon': Icons.groups},
                 {'time': live['openingTime'] as String? ?? t['openingTime'] as String? ?? '', 'label': '開会式', 'icon': Icons.campaign},
@@ -1360,6 +1399,18 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       selectedVenue = {'id': data['venueId'], 'name': data['location'], 'address': data['venueAddress'] ?? ''};
     }
 
+    // タイムスケジュール（概要に表示される5項目）を編集できるようにする
+    String _fmtTime(String t) {
+      final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(t.trim());
+      if (m != null) return '${m.group(1)!.padLeft(2, '0')}:${m.group(2)!}';
+      return t;
+    }
+    String openTime = _fmtTime((data['openTime'] ?? '') as String);
+    String captainMeetingTime = _fmtTime((data['captainMeetingTime'] ?? '') as String);
+    String matchStartTime = _fmtTime((data['matchStartTime'] ?? '') as String);
+    String finalTime = _fmtTime((data['finalTime'] ?? '') as String);
+    String closingTime = _fmtTime((data['closingTime'] ?? '') as String);
+
     // 初期値を保存して変更検出に使う
     final origTitle = titleCtrl.text;
     final origLocation = locationCtrl.text;
@@ -1370,6 +1421,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     final origDate = selectedDate;
     final origRules = tournamentRules;
     final origVenue = selectedVenue;
+    final origOpenTime = openTime;
+    final origCaptainMeetingTime = captainMeetingTime;
+    final origMatchStartTime = matchStartTime;
+    final origFinalTime = finalTime;
+    final origClosingTime = closingTime;
 
     Navigator.of(navContext ?? context).push(MaterialPageRoute(
       fullscreenDialog: false,
@@ -1378,7 +1434,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           return titleCtrl.text != origTitle || locationCtrl.text != origLocation ||
               feeCtrl.text != origFee || maxTeamsCtrl.text != origMaxTeams ||
               courtsCtrl.text != origCourts || selectedType != origType ||
-              selectedDate != origDate || tournamentRules != origRules || selectedVenue != origVenue;
+              selectedDate != origDate || tournamentRules != origRules || selectedVenue != origVenue ||
+              openTime != origOpenTime || captainMeetingTime != origCaptainMeetingTime ||
+              matchStartTime != origMatchStartTime || finalTime != origFinalTime || closingTime != origClosingTime;
         }
 
         Future<bool> onWillPop() async {
@@ -1408,6 +1466,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
               'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
               'rules': tournamentRules ?? {},
+              'openTime': openTime, 'captainMeetingTime': captainMeetingTime,
+              'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
             });
             if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success));
             return true;
@@ -1519,6 +1579,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15));
               }).toList()),
               const SizedBox(height: 24),
+              const Text('タイムスケジュール', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                child: Column(children: [
+                  _buildEditTimeRow('開場', openTime, (v) => setPageState(() => openTime = v), ctx),
+                  _buildEditTimeRow('キャプテン会議', captainMeetingTime, (v) => setPageState(() => captainMeetingTime = v), ctx),
+                  _buildEditTimeRow('試合開始', matchStartTime, (v) => setPageState(() => matchStartTime = v), ctx),
+                  _buildEditTimeRow('終了', finalTime, (v) => setPageState(() => finalTime = v), ctx),
+                  _buildEditTimeRow('完全撤退', closingTime, (v) => setPageState(() => closingTime = v), ctx),
+                ]),
+              ),
+              const SizedBox(height: 24),
               Builder(builder: (_) {
                 final status = normalizeTournamentStatus(data['status'] ?? '準備中');
                 final isLocked = status == '開催中' || status == '決勝中' || status == '順位決定中' || status.contains('完了');
@@ -1559,6 +1633,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                           'entryFee': int.tryParse(feeCtrl.text.trim()) ?? 0, 'type': selectedType,
                           'venueId': selectedVenue?['id'] ?? '', 'venueAddress': selectedVenue?['address'] ?? '',
                           'rules': tournamentRules ?? {},
+                          'openTime': openTime, 'captainMeetingTime': captainMeetingTime,
+                          'matchStartTime': matchStartTime, 'finalTime': finalTime, 'closingTime': closingTime,
                         });
                         if (ctx.mounted) { Navigator.pop(ctx); ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('大会情報を更新しました！'), backgroundColor: AppTheme.success)); }
                       } : null,
@@ -1572,6 +1648,90 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         );
       }),
     ));
+  }
+
+  /// 大会編集シートのタイムスケジュール用・時刻選択行（CupertinoPicker で 5分刻み選択）。
+  /// 空欄は '--:--' 表示。空にすると '--:--' を保存し、概要のタイムスケジュールでは
+  /// 非表示になる（_hasTime でフィルタ済み）。
+  Widget _buildEditTimeRow(String label, String value, Function(String) onChanged, BuildContext ctx) {
+    final isEmpty = value.isEmpty || value == '--:--';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        SizedBox(width: 96, child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              final parts = (isEmpty ? '08:00' : value).split(':');
+              var h = int.tryParse(parts[0]) ?? 8;
+              var m = ((int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0) ~/ 5) * 5;
+              final hourCtrl = FixedExtentScrollController(initialItem: h);
+              final minCtrl = FixedExtentScrollController(initialItem: m ~/ 5);
+              showModalBottomSheet(
+                context: ctx,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                builder: (_) => SizedBox(
+                  height: 280,
+                  child: Column(children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+                          const Text('時刻を選択', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          TextButton(
+                            onPressed: () {
+                              onChanged('${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}');
+                              Navigator.pop(ctx);
+                            },
+                            child: const Text('完了', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: Row(children: [
+                        Expanded(
+                          child: CupertinoPicker(
+                            scrollController: hourCtrl,
+                            itemExtent: 40,
+                            onSelectedItemChanged: (i) => h = i,
+                            children: List.generate(24, (i) => Center(child: Text('${i.toString().padLeft(2, '0')}時', style: const TextStyle(fontSize: 20)))),
+                          ),
+                        ),
+                        Expanded(
+                          child: CupertinoPicker(
+                            scrollController: minCtrl,
+                            itemExtent: 40,
+                            onSelectedItemChanged: (i) => m = i * 5,
+                            children: List.generate(12, (i) => Center(child: Text('${(i * 5).toString().padLeft(2, '0')}分', style: const TextStyle(fontSize: 20)))),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ]),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey[200]!)),
+              child: Text(isEmpty ? '--:--' : value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isEmpty ? Colors.grey[400] : null)),
+            ),
+          ),
+        ),
+        if (!isEmpty)
+          GestureDetector(
+            onTap: () => onChanged('--:--'),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Icon(Icons.close, size: 18, color: Colors.grey[400]),
+            ),
+          ),
+      ]),
+    );
   }
 
   // ━━━ CSVテンプレートダウンロード ━━━
@@ -7090,6 +7250,90 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   // ━━━ 共通ウィジェット ━━━
+  /// 閲覧数カード（主催者のみ表示）。延べアクセス数とユニーク閲覧者数を表示する。
+  Widget _buildViewStatsCard() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _firestore
+          .collection('tournaments')
+          .doc(_tournamentId)
+          .collection('stats')
+          .doc('summary')
+          .snapshots(),
+      builder: (context, snap) {
+        final data = snap.data?.data() as Map<String, dynamic>? ?? {};
+        final viewCount = (data['viewCount'] as num?)?.toInt() ?? 0;
+        final uniqueViewCount = (data['uniqueViewCount'] as num?)?.toInt() ?? 0;
+        return _buildCard(
+          title: '閲覧数',
+          titleIcon: Icons.visibility_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildViewStatItem(
+                      icon: Icons.person_outline,
+                      label: '閲覧した人数',
+                      value: '$uniqueViewCount',
+                      unit: '人',
+                    ),
+                  ),
+                  Container(width: 1, height: 44, color: Colors.grey[200]),
+                  Expanded(
+                    child: _buildViewStatItem(
+                      icon: Icons.bar_chart,
+                      label: '延べアクセス数',
+                      value: '$viewCount',
+                      unit: '回',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '主催者にのみ表示されます',
+                style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildViewStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required String unit,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, size: 20, color: AppTheme.primaryColor),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary)),
+            const SizedBox(width: 2),
+            Text(unit,
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(label,
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      ],
+    );
+  }
+
   Widget _buildCard({String? title, IconData? titleIcon, required Widget child}) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(16),
@@ -8217,8 +8461,45 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
             ),
           ];
         }),
+        // 画像で保存ボタン
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.ios_share, size: 18),
+              label: const Text('順位表を画像で保存'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _saveRankingImage(rankings),
+            ),
+          ),
+        ),
       ]),
     );
+  }
+
+  void _saveRankingImage(List<_RankedTeam> rankings) {
+    String? note(int rank) => rank == 1
+        ? '優勝'
+        : rank == 2
+            ? '準優勝'
+            : rank == 3
+                ? '3位'
+                : null;
+    final data = ShareRankingData(
+      tournamentTitle: widget.tournamentName,
+      subtitle: '全${rankings.length}チーム',
+      rows: [
+        for (final r in rankings)
+          ShareRankingRow(rank: r.globalRank, teamName: r.teamName, note: note(r.globalRank)),
+      ],
+    );
+    ResultShareService.saveRanking(context, data);
   }
 }
 
