@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ソフトバレー、はじめよう｜Sofvo</title>
+  <meta name="description" content="ソフトバレーをこれから始める人へ。ルールの基本から、仲間・大会の見つけ方まで。Sofvoでソフトバレーをもっと楽しく。">
+  <link rel="icon" href="images/icon.svg" type="image/svg+xml">
+  <meta property="og:title" content="ソフトバレー、はじめよう｜Sofvo">
+  <meta property="og:description" content="ルールの基本から仲間・大会の見つけ方まで。はじめての人のためのページです。">
+  <meta property="og:image" content="images/app_icon_512.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --primary:#1B3A5C; --primary-dark:#0F2440; --accent:#C4A962;
+      --cream:#F7F5EF; --text:#1A1A1A; --text-sec:#5B5B5B; --radius:20px;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN',sans-serif;color:var(--text);line-height:1.8;background:#fff;-webkit-font-smoothing:antialiased;}
+    .wrap{max-width:720px;margin:0 auto;padding:0 22px;}
+    a{color:inherit;}
+
+    /* hero */
+    .hero{background:linear-gradient(160deg,var(--primary-dark),var(--primary));color:#fff;text-align:center;padding:70px 22px 64px;}
+    .brand{font-size:26px;font-weight:800;letter-spacing:.5px;margin-bottom:34px;}
+    .brand span{color:var(--accent);}
+    .pill{display:inline-block;background:var(--accent);color:var(--primary);font-weight:700;font-size:14px;padding:7px 18px;border-radius:999px;margin-bottom:22px;}
+    .hero h1{font-size:34px;font-weight:800;line-height:1.5;margin-bottom:18px;}
+    .hero p{font-size:16px;color:#d8e2ee;max-width:520px;margin:0 auto;}
+
+    section{padding:54px 0;}
+    .sec-title{font-size:24px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:8px;}
+    .sec-sub{text-align:center;color:var(--text-sec);font-size:14px;margin-bottom:34px;}
+    .accent-line{width:48px;height:4px;background:var(--accent);border-radius:2px;margin:0 auto 18px;}
+
+    .cards{display:grid;gap:16px;}
+    .card{background:var(--cream);border-radius:var(--radius);padding:26px 24px;}
+    .card h3{font-size:18px;font-weight:800;color:var(--primary);margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+    .card .ico{width:40px;height:40px;flex:0 0 auto;background:var(--primary);color:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;}
+    .card p{font-size:15px;color:var(--text-sec);}
+
+    .steps{counter-reset:s;display:grid;gap:14px;}
+    .step{display:flex;gap:18px;align-items:flex-start;background:#fff;border:1.5px solid #ECECEC;border-radius:var(--radius);padding:22px 22px;}
+    .step::before{counter-increment:s;content:counter(s);flex:0 0 auto;width:42px;height:42px;background:var(--accent);color:var(--primary);font-weight:800;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;}
+    .step h3{font-size:17px;font-weight:700;color:var(--primary);margin-bottom:4px;}
+    .step p{font-size:14px;color:var(--text-sec);}
+
+    /* CTA */
+    .cta{background:var(--cream);text-align:center;}
+    .cta h2{font-size:22px;font-weight:800;color:var(--primary);margin-bottom:10px;}
+    .cta p{font-size:15px;color:var(--text-sec);margin-bottom:26px;}
+    .btn{display:block;max-width:360px;margin:0 auto 14px;background:var(--primary);color:#fff;text-decoration:none;font-weight:700;font-size:17px;padding:17px 24px;border-radius:14px;transition:.2s;}
+    .btn:hover{background:var(--primary-dark);}
+    .btn.gold{background:var(--accent);color:var(--primary);}
+    .note{font-size:12px;color:var(--text-sec);margin-top:8px;}
+
+    footer{background:var(--primary-dark);color:#cdd6e2;text-align:center;font-size:13px;padding:30px 22px;}
+    footer a{color:#cdd6e2;text-decoration:none;margin:0 8px;}
+    footer .cp{display:block;margin-top:14px;color:#8a99ad;font-size:12px;}
+  </style>
+</head>
+<body>
+
+  <header class="hero">
+    <div class="brand">Sof<span>vo</span></div>
+    <span class="pill">はじめての方へ</span>
+    <h1>ソフトバレー、<br>はじめよう。</h1>
+    <p>ルールはかんたん、痛くない、年齢も問わない。<br>仲間も大会も、ここから見つかります。</p>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">ソフトバレーって？</h2>
+      <p class="sec-sub">普通のバレーとはちょっと違います</p>
+      <div class="cards">
+        <div class="card"><h3><span class="ico">🏐</span>柔らかいボール</h3><p>大きめで柔らかいゴム製。当たっても痛くないから、安心して楽しめます。</p></div>
+        <div class="card"><h3><span class="ico">4</span>4人制でアットホーム</h3><p>1チーム4人。少人数で始められて、みんながボールに触れます。</p></div>
+        <div class="card"><h3><span class="ico">◎</span>年齢・経験を問わない</h3><p>お子さんからシニアまで、家族や混合チームでも一緒に楽しめます。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--cream);">
+    <div class="wrap">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">Sofvoでできること</h2>
+      <p class="sec-sub">ソフトバレー専用の無料アプリ</p>
+      <div class="cards">
+        <div class="card" style="background:#fff;"><h3><span class="ico">👥</span>仲間・チームを探す</h3><p>近くのプレイヤーやチームを見つけて、メンバー募集や助っ人探しもかんたん。</p></div>
+        <div class="card" style="background:#fff;"><h3><span class="ico">🔎</span>大会を見つける</h3><p>参加できる大会を探して、そのままエントリー。気になる大会はフォローも。</p></div>
+        <div class="card" style="background:#fff;"><h3><span class="ico">🏆</span>大会を運営する</h3><p>対戦表の自動作成・スコア・順位表・QR受付まで、運営もアプリひとつで。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">はじめ方はかんたん</h2>
+      <p class="sec-sub">3ステップでスタート</p>
+      <div class="steps">
+        <div class="step"><div><h3>アプリ／Web版をひらく</h3><p>スマホでもPCでもOK。登録は無料です。</p></div></div>
+        <div class="step"><div><h3>プロフィールを作る</h3><p>お住まいの地域やポジションを入れておくと、仲間が見つかりやすくなります。</p></div></div>
+        <div class="step"><div><h3>仲間・大会を探す</h3><p>気になるチームや大会をフォロー。募集に応募して、まずは1回プレーしてみましょう。</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <h2>ソフトバレーを、もっと楽しく。</h2>
+      <p>まずは無料で、のぞいてみてください。</p>
+      <a class="btn gold" href="https://sofvo.com">Sofvoをはじめる（無料）</a>
+      <a class="btn" href="https://sofvo.com">Web版を見てみる</a>
+      <p class="note">iOS / Android / Web に対応しています</p>
+    </div>
+  </section>
+
+  <footer>
+    <a href="index.html">トップ</a>・
+    <a href="terms.html">利用規約</a>・
+    <a href="privacy.html">プライバシーポリシー</a>・
+    <a href="contact.html">お問い合わせ</a>
+    <span class="cp">&copy; Sofvo. All rights reserved.</span>
+  </footer>
+
+</body>
+</html>
