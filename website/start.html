@@ -63,6 +63,26 @@
     .btn.gold{background:var(--accent);color:var(--primary);}
     .note{font-size:12px;color:var(--text-sec);margin-top:8px;}
 
+    /* before / after */
+    .compare{display:grid;gap:14px;}
+    .cmp{background:#fff;border:1.5px solid #ECECEC;border-radius:var(--radius);padding:20px 22px;}
+    .cmp .lbl{font-size:14px;font-weight:800;color:var(--primary);margin-bottom:12px;}
+    .cmp .ba{display:flex;align-items:center;gap:12px;}
+    .cmp .before{flex:1;background:#F3F1EC;color:var(--text-sec);border-radius:12px;padding:12px 14px;font-size:14px;text-decoration:line-through;}
+    .cmp .arrow{color:var(--accent);font-weight:800;font-size:20px;}
+    .cmp .after{flex:1;background:rgba(196,169,98,.16);color:var(--primary);border-radius:12px;padding:12px 14px;font-size:15px;font-weight:700;}
+    .stat{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:26px;}
+    .stat .n{font-size:34px;font-weight:800;color:var(--accent);}
+    .stat .box{background:var(--cream);border-radius:16px;padding:18px 22px;text-align:center;min-width:150px;}
+    .stat .t{font-size:13px;color:var(--text-sec);}
+
+    /* organizer benefits */
+    .benefits{display:grid;gap:12px;}
+    .bf{display:flex;gap:14px;align-items:flex-start;background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 6px 18px rgba(0,0,0,.06);}
+    .bf .ck{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;}
+    .bf div b{color:var(--primary);font-size:15px;}
+    .bf div p{font-size:13px;color:var(--text-sec);margin-top:2px;}
+
     footer{background:var(--primary-dark);color:#cdd6e2;text-align:center;font-size:13px;padding:30px 22px;}
     footer a{color:#cdd6e2;text-decoration:none;margin:0 8px;}
     footer .cp{display:block;margin-top:14px;color:#8a99ad;font-size:12px;}
@@ -117,7 +137,41 @@
     </div>
   </section>
 
+  <section style="background:var(--cream);">
+    <div class="wrap">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">どれだけラクになる？</h2>
+      <p class="sec-sub">これまでの手間が、こう変わります</p>
+      <div class="compare">
+        <div class="cmp"><div class="lbl">対戦表づくり</div><div class="ba"><span class="before">手書きで30分以上</span><span class="arrow">→</span><span class="after">数タップで自動作成</span></div></div>
+        <div class="cmp"><div class="lbl">結果の集計</div><div class="ba"><span class="before">電卓でコツコツ計算</span><span class="arrow">→</span><span class="after">順位まで自動でリアルタイム</span></div></div>
+        <div class="cmp"><div class="lbl">当日の受付</div><div class="ba"><span class="before">名簿と一人ずつ照合</span><span class="arrow">→</span><span class="after">QRをかざすだけ</span></div></div>
+        <div class="cmp"><div class="lbl">連絡・情報共有</div><div class="ba"><span class="before">電話やメモでバラバラ</span><span class="arrow">→</span><span class="after">アプリ内で一括</span></div></div>
+      </div>
+      <div class="stat">
+        <div class="box"><div class="n">数タップ</div><div class="t">対戦表が完成</div></div>
+        <div class="box"><div class="n">0円</div><div class="t">ずっと無料で使える</div></div>
+        <div class="box"><div class="n">スマホ1台</div><div class="t">運営も参加もこれだけ</div></div>
+      </div>
+    </div>
+  </section>
+
   <section>
+    <div class="wrap">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">大会を運営する方へ</h2>
+      <p class="sec-sub">作成から当日・集計まで、ぜんぶ1つで</p>
+      <div class="benefits">
+        <div class="bf"><span class="ck">✓</span><div><b>大会の作成・エントリー管理</b><p>募集の告知から参加チームの管理まで一括。</p></div></div>
+        <div class="bf"><span class="ck">✓</span><div><b>対戦表を自動生成</b><p>リーグ戦・トーナメントに対応。組み直しもかんたん。</p></div></div>
+        <div class="bf"><span class="ck">✓</span><div><b>スコア・順位表が自動</b><p>入力すればその場で全員に共有、集計の手間ゼロ。</p></div></div>
+        <div class="bf"><span class="ck">✓</span><div><b>QRチェックインで受付</b><p>当日の受付がスムーズ。掲示用QRも出力できます。</p></div></div>
+        <div class="bf"><span class="ck">✓</span><div><b>PDF・画像で出力＆共有</b><p>対戦表や結果を印刷・SNSシェアもワンタップ。</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:var(--cream);">
     <div class="wrap">
       <div class="accent-line"></div>
       <h2 class="sec-title">アプリの画面</h2>
@@ -128,6 +182,7 @@
         <div><div class="phone"><img src="images/screen-2.png" alt="スコア入力"></div><div class="phone-cap">スコア入力</div></div>
         <div><div class="phone"><img src="images/screen-3.png" alt="順位表"></div><div class="phone-cap">順位表</div></div>
       </div>
+      <p class="note" style="text-align:center;">※画面はイメージです</p>
     </div>
   </section>
 
