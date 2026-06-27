@@ -36,6 +36,8 @@
     .phone{width:200px;border:8px solid var(--primary-dark);border-radius:34px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.18);background:#000;}
     .phone img{display:block;width:100%;}
     .phone-cap{text-align:center;font-size:13px;color:var(--text-sec);margin-top:10px;}
+    .subhead{text-align:center;font-size:16px;font-weight:800;color:var(--primary);margin:30px 0 18px;}
+    .subhead::before{content:"";display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:50%;margin-right:8px;vertical-align:middle;}
 
     section{padding:54px 0;}
     .sec-title{font-size:24px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:8px;}
@@ -176,16 +178,28 @@
       <div class="accent-line"></div>
       <h2 class="sec-title">アプリの画面</h2>
       <p class="sec-sub">直感的に使えます</p>
-      <!-- ▼ 実機スクショ: website/images/ に app-*.png を置くと表示されます -->
+      <!-- ▼ 実機スクショ: website/images/ に下記の app-*.png を置くと自動表示。
+           無いファイルの枠は自動で消えるので、用意できた画像だけでOK。 -->
+
+      <h3 class="subhead">参加する人の画面</h3>
       <div class="phones">
-        <div><div class="phone"><img src="images/app-login.png" alt="ログイン・新規登録"></div><div class="phone-cap">かんたん登録</div></div>
-        <div><div class="phone"><img src="images/app-home.png" alt="タイムライン"></div><div class="phone-cap">タイムライン</div></div>
-        <div><div class="phone"><img src="images/app-mypage.png" alt="マイページ"></div><div class="phone-cap">マイページ・戦績</div></div>
-        <div><div class="phone"><img src="images/app-mytournaments.png" alt="マイ大会"></div><div class="phone-cap">マイ大会</div></div>
-        <div><div class="phone"><img src="images/app-overview.png" alt="大会情報"></div><div class="phone-cap">大会情報・エントリー</div></div>
-        <div><div class="phone"><img src="images/app-bracket.png" alt="対戦表"></div><div class="phone-cap">対戦表（自動作成）</div></div>
-        <div><div class="phone"><img src="images/app-ranking.png" alt="順位表"></div><div class="phone-cap">順位表（自動集計）</div></div>
-        <div><div class="phone"><img src="images/app-venues.png" alt="会場さがす"></div><div class="phone-cap">会場をさがす</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-login.png" alt="ログイン・新規登録" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">かんたん登録</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-home.png" alt="タイムライン" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">タイムライン</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-search-tournaments.png" alt="大会をさがす" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">大会をさがす</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-search-members.png" alt="メンバーをさがす" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">メンバーをさがす</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-mypage.png" alt="マイページ" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">マイページ・戦績</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-notifications.png" alt="お知らせ" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">お知らせ</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-friends.png" alt="友達をさがす" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">友達をさがす</div></div>
+      </div>
+
+      <h3 class="subhead">大会を運営する人の画面</h3>
+      <div class="phones">
+        <div class="pitem"><div class="phone"><img src="images/app-mytournaments.png" alt="マイ大会" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">マイ大会</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-overview.png" alt="大会情報" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">大会情報・エントリー</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-bracket.png" alt="対戦表" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">対戦表（自動作成）</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-ranking.png" alt="順位表" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">順位表（自動集計）</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-checkin.png" alt="QR受付" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">QRで受付</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-venues.png" alt="会場をさがす" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">会場をさがす</div></div>
       </div>
     </div>
   </section>
