@@ -96,6 +96,10 @@
     ],
     "rewrites": [
       {
+        "source": "/start",
+        "destination": "/start.html"
+      },
+      {
         "source": "/auth-action",
         "destination": "/auth-action.html"
       },
