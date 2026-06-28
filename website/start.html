@@ -283,6 +283,16 @@
     .demo-banner-go{flex:0 0 auto;background:var(--accent);color:var(--primary);font-weight:800;font-size:14px;padding:11px 16px;border-radius:999px;white-space:nowrap;}
     .demo-banner:active{transform:scale(.99);}
     @media(hover:hover) and (pointer:fine){.demo-banner:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(27,58,92,.36);}}
+    /* デモの使い方（アプリ内ガイドと同じ3ステップ） */
+    .demo-how{max-width:460px;margin:28px auto 0;text-align:left;}
+    .demo-how-title{font-size:15px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:16px;}
+    .demo-how-list{list-style:none;counter-reset:dh;display:grid;gap:10px;}
+    .demo-how-list li{display:flex;gap:13px;align-items:flex-start;background:var(--cream);border-radius:14px;padding:13px 15px;}
+    .demo-how-list li::before{counter-increment:dh;content:counter(dh);flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--primary);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+    .demo-how-list li>div{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .demo-how-list b{font-size:14px;color:var(--primary);font-weight:800;}
+    .demo-how-list p{font-size:12.5px;color:var(--text-sec);line-height:1.6;margin:0;}
+    .demo-how-note{text-align:center;font-size:11px;color:var(--text-sec);margin-top:10px;}
     @media(prefers-reduced-motion:reduce){.hero-duo figure{animation:none!important;}.demo-phone{transform:none!important;}}
   </style>
   <script>document.documentElement.classList.add('js');</script>
@@ -343,6 +353,17 @@
         </div>
       </div>
       <p class="demo-hint">指でスワイプすると、その場で集計されます</p>
+
+      <div class="demo-how">
+        <h3 class="demo-how-title">デモの使い方（ログイン不要・3ステップ）</h3>
+        <ol class="demo-how-list">
+          <li><div><b>対戦表を自動生成</b><p>「対戦表」タブの「対戦表を自動生成」をタップ</p></div></li>
+          <li><div><b>得点を入力</b><p>試合をタップ → スコアを入れてスライドで確定（面倒なら「残りを自動入力」ボタンでもOK）</p></div></li>
+          <li><div><b>結果を見る</b><p>「順位表」タブで総合順位がリアルタイムに反映</p></div></li>
+        </ol>
+        <p class="demo-how-note">※ 入力した内容は自動的に削除されます</p>
+      </div>
+
       <a class="demo-banner" href="/demo">
         <span class="demo-banner-txt"><b><span class="nb">ログイン不要で、</span><span class="nb">いますぐ体験</span></b><span><span class="nb">アプリの操作を</span><span class="nb">そのまま試せます</span></span></span>
         <span class="demo-banner-go">デモを試す →</span>
