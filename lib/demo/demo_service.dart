@@ -130,16 +130,23 @@ class DemoService {
     final tid = docRef.id;
 
     // 4. エントリー12チームを seed
-    for (final name in _teamNames) {
+    //    先頭チームはデモユーザー自身のチームにする。これにより大会詳細の
+    //    対戦表/順位表の初期表示（自分のコート=MY）が空にならず、生成結果が
+    //    すぐ見える。さらに「自分のチーム」を追える自然なデモになる。
+    for (int i = 0; i < _teamNames.length; i++) {
+      final name = _teamNames[i];
+      final isMyTeam = i == 0;
       final entryRef =
           _firestore.collection('tournaments').doc(tid).collection('entries').doc();
       await entryRef.set({
         'teamId': entryRef.id,
         'teamName': name,
-        'leaderName': '${name}キャプテン',
+        'leaderName': isMyTeam ? 'あなた' : '${name}キャプテン',
         'memberCount': 4,
         'memberNames': <String, String>{},
-        'enteredBy': '',
+        'enteredBy': isMyTeam ? uid : '',
+        if (isMyTeam) 'leaderUid': uid,
+        if (isMyTeam) 'memberUids': [uid],
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
