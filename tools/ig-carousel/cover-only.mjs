@@ -33,7 +33,7 @@ function build(slidesHtml){
  .pill{display:inline-block;background:${GOLD};color:${NAVY};font-weight:700;font-size:30px;padding:10px 28px;border-radius:999px;margin-bottom:18px}
  .ctitle{font-family:'Dela';font-size:58px;line-height:1.1;color:${NAVY};white-space:nowrap}
  .csub{margin-top:14px;font-size:32px;font-weight:700;color:${NAVY};opacity:.78}
- .fphone{position:absolute;left:50%;transform:translateX(-50%);bottom:0;top:500px;width:780px;height:auto;border:14px solid ${DARK};border-radius:56px 56px 0 0;border-bottom:0;overflow:hidden;box-shadow:0 -4px 50px rgba(0,0,0,.22);background:#000;z-index:1}
+ .fphone{position:absolute;left:50%;transform:translateX(-50%);bottom:0;top:450px;width:780px;height:auto;border:14px solid ${DARK};border-radius:56px 56px 0 0;border-bottom:0;overflow:hidden;box-shadow:0 -4px 50px rgba(0,0,0,.22);background:#000;z-index:1}
  .fphone img{width:100%;height:100%;object-fit:cover;display:block}
  </style><body>${slidesHtml}</body>`;
 }
