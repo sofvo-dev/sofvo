@@ -142,6 +142,8 @@
     .reveal.show .cards>*:nth-child(4),.reveal.show .steps>*:nth-child(4),.reveal.show .compare>*:nth-child(4),.reveal.show .benefits>*:nth-child(4),.reveal.show .phones>*:nth-child(4){transition-delay:.21s;}
     .reveal.show .compare>*:nth-child(5),.reveal.show .benefits>*:nth-child(5),.reveal.show .phones>*:nth-child(5){transition-delay:.28s;}
     .reveal.show .phones>*:nth-child(n+6){transition-delay:.34s;}
+    /* 「アプリの画面」ギャラリーの実機は上に上がる演出をしない（横スワイプのため） */
+    .js .phones>*{opacity:1!important;transform:none!important;transition:none!important;}
     @media (prefers-reduced-motion:reduce){.reveal,.js .cards>*,.js .steps>*,.js .compare>*,.js .benefits>*,.js .phones>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important;}.hero-duo img,.pd .ar{animation:none!important;}}
 
     /* hero: 登場（フェード＋拡大）→ ゆっくり浮遊 */
