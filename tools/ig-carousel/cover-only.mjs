@@ -33,7 +33,7 @@ function build(slidesHtml){
  .pill{display:inline-block;background:${GOLD};color:${NAVY};font-weight:700;font-size:30px;padding:10px 28px;border-radius:999px;margin-bottom:18px}
  .ctitle{font-family:'Dela';font-size:58px;line-height:1.1;color:${NAVY};white-space:nowrap}
  .csub{margin-top:14px;font-size:32px;font-weight:700;color:${NAVY};opacity:.78}
- .fphone{position:absolute;left:50%;transform:translateX(-50%);bottom:0;top:450px;width:780px;height:auto;border:14px solid ${DARK};border-radius:56px 56px 0 0;border-bottom:0;overflow:hidden;box-shadow:0 -4px 50px rgba(0,0,0,.22);background:#000;z-index:1}
+ .fphone{position:absolute;left:50%;transform:translateX(-50%);bottom:0;top:400px;width:780px;height:auto;border:14px solid ${DARK};border-radius:56px 56px 0 0;border-bottom:0;overflow:hidden;box-shadow:0 -4px 50px rgba(0,0,0,.22);background:#000;z-index:1}
  .fphone img{width:100%;height:100%;object-fit:cover;display:block}
  </style><body>${slidesHtml}</body>`;
 }
@@ -42,8 +42,8 @@ function build(slidesHtml){
 const covers=[
  {key:'score',  pill:'試合中',  title:'スコアはリアルタイム。',  sub:'入力した瞬間、全員の画面へ', img:'app-score.jpg',  pos:'center top'},
  {key:'ranking',pill:'結果発表', title:'順位は自動で確定。',     sub:'セットの勝敗から即集計',     img:'app-ranking.jpg',pos:'center top'},
- {key:'checkin',pill:'受付',    title:'受付はQRでサッと。',     sub:'名簿チェックの行列をゼロに', img:'app-checkin.jpg',pos:'center 80%'},
- {key:'bracket',pill:'大会運営', title:'対戦表はボタンひとつ。', sub:'手書きはもう卒業',           img:'app-bracket.jpg',pos:'center 40%'},
+ {key:'checkin',pill:'受付',    title:'受付はQRでサッと。',     sub:'名簿チェックの行列をゼロに', img:'app-checkin.jpg',pos:'center top'},
+ {key:'bracket',pill:'大会運営', title:'対戦表はボタンひとつ。', sub:'手書きはもう卒業',           img:'app-bracket.jpg',pos:'center top'},
  {key:'finance',pill:'お金の管理',title:'収支もアプリで丸見え。', sub:'参加費も経費も自動で集計',   img:'app-finance.jpg',pos:'center top'},
 ];
 
