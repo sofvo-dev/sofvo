@@ -25,7 +25,7 @@ const REELS={
   chips:['リアルタイム反映','セット自動集計'],
   appCap:'入力した瞬間、全員の画面へ',
   benefitCap:'もう、紙もペンもいらない。',
-  zoomY:37, // 画面内で注目する高さ(%)＝15-10スコアの位置
+  zoomY:42, // 画面内で注目する高さ(%)＝15-10スコアの位置（実測: 画像35.7%→枠内42%）
   ctaTitle:'スコアも集計も、スマホで。',
  },
 };
@@ -145,7 +145,7 @@ const html=`<!doctype html><meta charset=utf8><style>
     const c0=el.querySelector('.c0'), c1=el.querySelector('.c1');
     const popp=(s)=>{const p=cl((tl-s)/0.32);return {o:p, sc:lerp(0.7,1,easeOut(p))};};
     let a=popp(1.7); c0.style.opacity=(a.o*(1-cl((tl-5.4)/0.4))).toFixed(2);
-    c0.style.left='600px'; c0.style.top='760px'; c0.style.transform='scale('+a.sc.toFixed(3)+')';
+    c0.style.left='600px'; c0.style.top='678px'; c0.style.transform='scale('+a.sc.toFixed(3)+')';
     let bb=popp(2.2); c1.style.opacity=(bb.o*(1-cl((tl-5.4)/0.4))).toFixed(2);
     c1.style.left='60px'; c1.style.top='1130px'; c1.style.transform='scale('+bb.sc.toFixed(3)+')';
     // キャプション差し替え（前半=appCap、後半=benefitCap）
