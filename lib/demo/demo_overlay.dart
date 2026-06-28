@@ -30,6 +30,7 @@ class DemoOverlay extends StatefulWidget {
 class _DemoOverlayState extends State<DemoOverlay> {
   bool _guideDismissed = false;
   bool _browserBannerDismissed = false;
+  bool _helpCollapsed = false; // 下部ヘルパーを畳んで隅の「?」だけにする
   bool _busy = false;
   String? _message;
 
@@ -118,7 +119,16 @@ class _DemoOverlayState extends State<DemoOverlay> {
           ),
 
         // 進行状況に応じたヒント + アクション（ガイド表示中は隠す）
-        if (!showGuide)
+        // 邪魔にならないよう × で右下の小さな「?」に畳める。
+        if (!showGuide && _helpCollapsed)
+          Positioned(
+            right: 12,
+            bottom: 100,
+            child: _CollapsedHelpButton(
+              onTap: () => setState(() => _helpCollapsed = false),
+            ),
+          ),
+        if (!showGuide && !_helpCollapsed)
           Positioned(
             left: 16,
             right: 16,
@@ -130,7 +140,7 @@ class _DemoOverlayState extends State<DemoOverlay> {
               anyCompleted: anyCompleted,
               allCompleted: allCompleted,
               onAutoFill: _runAutoFill,
-              onHelp: () => setState(() => _guideDismissed = false),
+              onCollapse: () => setState(() => _helpCollapsed = true),
               onDismissMessage: () => setState(() => _message = null),
             ),
           ),
@@ -187,6 +197,30 @@ class _BrowserBanner extends StatelessWidget {
   }
 }
 
+/// 畳んだときに右下に出る小さな「?」ボタン。
+class _CollapsedHelpButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _CollapsedHelpButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _navy,
+      shape: const CircleBorder(),
+      elevation: 4,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: const SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(Icons.help_outline, color: Colors.white, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
 /// 進行状況に応じてヒント文とアクションを出し分けるバー。
 class _DemoBar extends StatelessWidget {
   final bool busy;
@@ -195,7 +229,7 @@ class _DemoBar extends StatelessWidget {
   final bool anyCompleted;
   final bool allCompleted;
   final VoidCallback onAutoFill;
-  final VoidCallback onHelp;
+  final VoidCallback onCollapse;
   final VoidCallback onDismissMessage;
 
   const _DemoBar({
@@ -205,7 +239,7 @@ class _DemoBar extends StatelessWidget {
     required this.anyCompleted,
     required this.allCompleted,
     required this.onAutoFill,
-    required this.onHelp,
+    required this.onCollapse,
     required this.onDismissMessage,
   });
 
@@ -257,7 +291,7 @@ class _DemoBar extends StatelessWidget {
               ),
             ),
 
-          // 文脈ヒント + 使い方
+          // 文脈ヒント（× で右下の「?」に畳める）
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
@@ -278,21 +312,11 @@ class _DemoBar extends StatelessWidget {
                   ),
                 ),
                 InkWell(
-                  onTap: busy ? null : onHelp,
+                  onTap: onCollapse,
                   borderRadius: BorderRadius.circular(16),
                   child: const Padding(
                     padding: EdgeInsets.all(6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.help_outline,
-                            size: 16, color: Colors.white70),
-                        SizedBox(width: 2),
-                        Text('使い方',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 11)),
-                      ],
-                    ),
+                    child: Icon(Icons.close, size: 18, color: Colors.white70),
                   ),
                 ),
               ],
