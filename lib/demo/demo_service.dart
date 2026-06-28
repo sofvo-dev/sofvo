@@ -37,7 +37,7 @@ class DemoService {
   static Map<String, dynamic> _demoRules() => {
         'preliminary': {
           'rounds': 1,
-          'sets': 2,
+          'sets': 1, // デモは手入力の手間を抑えるため1セット制
           'deuce': false,
           'deuceCap': 17,
           'points': 15,
@@ -158,6 +158,14 @@ class DemoService {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final rnd = Random();
 
+    // ルールから1試合のセット数・1セットの点数を取得（デモは preliminary.sets=1）
+    final tournDoc =
+        await _firestore.collection('tournaments').doc(tid).get();
+    final rules = (tournDoc.data()?['rules'] as Map<String, dynamic>?) ?? {};
+    final prelim = (rules['preliminary'] as Map<String, dynamic>?) ?? {};
+    final setsPerMatch = (prelim['sets'] as int?) ?? 1;
+    final winPoint = (prelim['points'] as int?) ?? 15;
+
     // 対戦表が無ければ予選1を生成
     final roundsSnap0 =
         await _firestore.collection('tournaments').doc(tid).collection('rounds').get();
@@ -179,13 +187,13 @@ class DemoService {
         courtIds.add(courtId);
         if (data['status'] == 'completed') continue;
 
-        // 2セットのランダムな結果（15点先取）を生成
+        // ルールのセット数ぶん、ランダムな結果を生成
         final setsData = <Map<String, int>>[];
         int setsA = 0, setsB = 0, totalA = 0, totalB = 0;
-        for (int s = 0; s < 2; s++) {
+        for (int s = 0; s < setsPerMatch; s++) {
           final aWins = rnd.nextBool();
-          const win = 15;
-          final lose = 8 + rnd.nextInt(6); // 8..13
+          final win = winPoint;
+          final lose = (winPoint - 7) + rnd.nextInt(6); // 接戦寄りのスコア
           final a = aWins ? win : lose;
           final b = aWins ? lose : win;
           setsData.add({'a': a, 'b': b});
