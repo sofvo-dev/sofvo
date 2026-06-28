@@ -51,7 +51,12 @@
     .pill{display:inline-block;background:var(--accent);color:var(--primary);font-weight:700;font-size:14px;padding:7px 18px;border-radius:999px;margin-bottom:22px;}
     .hero h1{font-size:34px;font-weight:800;line-height:1.5;margin-bottom:18px;}
     .hero p{font-size:16px;color:#d8e2ee;max-width:520px;margin:0 auto;}
-    .hero-img{display:block;width:72%;max-width:300px;margin:36px auto 0;border-radius:30px;border:6px solid rgba(255,255,255,.12);box-shadow:0 28px 60px rgba(0,0,0,.45);}
+    /* ヒーロー: 対戦表＋スコア入力の2枚を横並び */
+    .hero-duo{display:flex;justify-content:center;align-items:flex-end;gap:16px;margin:38px auto 0;max-width:440px;}
+    .hero-duo figure{margin:0;flex:1 1 0;max-width:200px;}
+    .hero-duo img{display:block;width:100%;height:auto;border-radius:26px;border:5px solid rgba(255,255,255,.12);box-shadow:0 24px 52px rgba(0,0,0,.45);}
+    .hero-duo figcaption{text-align:center;color:#cdd9e8;font-size:12px;font-weight:600;margin-top:10px;}
+    @media(max-width:360px){.hero-duo figcaption{font-size:11px;}}
 
     /* phone mockups: 横スクロール（スワイプ）で縦に並ばないように */
     .phones{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 14px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
@@ -61,6 +66,7 @@
     .phone img{display:block;width:100%;}
     .phone-cap{text-align:center;font-size:13px;color:var(--text-sec);margin-top:9px;}
     .swipe{text-align:center;font-size:12px;color:var(--text-hint,#9aa3ad);margin-bottom:6px;}
+    .subnote{text-align:center;font-size:12px;color:var(--text-sec);margin:-10px 0 14px;}
     .subhead{text-align:center;font-size:16px;font-weight:800;color:var(--primary);margin:30px 0 18px;}
     .subhead::before{content:"";display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:50%;margin-right:8px;vertical-align:middle;}
 
@@ -133,12 +139,13 @@
     .reveal.show .cards>*:nth-child(4),.reveal.show .steps>*:nth-child(4),.reveal.show .compare>*:nth-child(4),.reveal.show .benefits>*:nth-child(4),.reveal.show .phones>*:nth-child(4){transition-delay:.21s;}
     .reveal.show .compare>*:nth-child(5),.reveal.show .benefits>*:nth-child(5),.reveal.show .phones>*:nth-child(5){transition-delay:.28s;}
     .reveal.show .phones>*:nth-child(n+6){transition-delay:.34s;}
-    @media (prefers-reduced-motion:reduce){.reveal,.js .cards>*,.js .steps>*,.js .compare>*,.js .benefits>*,.js .phones>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important;}.hero-img,.pd .ar{animation:none!important;}}
+    @media (prefers-reduced-motion:reduce){.reveal,.js .cards>*,.js .steps>*,.js .compare>*,.js .benefits>*,.js .phones>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important;}.hero-duo img,.pd .ar{animation:none!important;}}
 
     /* hero: 登場（フェード＋拡大）→ ゆっくり浮遊 */
     @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
     @keyframes heroIn{from{opacity:0;transform:translateY(30px) scale(.9);filter:blur(8px);}to{opacity:1;transform:none;filter:none;}}
-    .hero-img{animation:heroIn 1.1s cubic-bezier(.16,1,.3,1) both, floaty 5s ease-in-out 1.3s infinite;}
+    .hero-duo .hd-a img{animation:heroIn 1s cubic-bezier(.16,1,.3,1) both, floaty 5s ease-in-out 1.3s infinite;}
+    .hero-duo .hd-b img{animation:heroIn 1s cubic-bezier(.16,1,.3,1) .12s both, floaty 5.6s ease-in-out 1.9s infinite;}
 
     /* paper -> digital */
     .pd{background:linear-gradient(160deg,var(--primary-dark),var(--primary));color:#fff;}
@@ -171,7 +178,7 @@
     @keyframes heroGrad{0%,100%{background-position:0% 0%;}50%{background-position:100% 100%;}}
     @keyframes glowDrift{0%,100%{transform:translate(0,0);opacity:.7;}50%{transform:translate(40%,20%);opacity:1;}}
     /* revealした画像をふわっと拡大して“晴れる” */
-    .js .feat-img,.js .phone img,.js .hero-img{will-change:transform,filter;}
+    .js .feat-img,.js .phone img,.js .hero-duo img{will-change:transform,filter;}
     /* ボタンに軽い押し心地 */
     .btn:active{transform:scale(.98);}
     .pd .free,.pill{transition:transform .2s ease;}
@@ -183,7 +190,8 @@
       .hero{padding:96px 22px 86px;}
       .hero h1{font-size:48px;}
       .hero p{font-size:18px;}
-      .hero-img{max-width:340px;}
+      .hero-duo{max-width:540px;}
+      .hero-duo figure{max-width:240px;}
       .sec-title{font-size:30px;}
       .cards{grid-template-columns:1fr 1fr;}     /* 機能カードを2列に */
       .card.feat{flex-direction:column;text-align:center;}
@@ -223,7 +231,10 @@
     <span class="pill">はじめての方へ</span>
     <h1><span class="nb">ソフトバレー、</span><span class="nb">はじめよう。</span></h1>
     <p><span class="nb">ルールはかんたん、</span><span class="nb">痛くない、</span><span class="nb">年齢も問わない。</span> <span class="nb">仲間も大会も、</span><span class="nb">ここから見つかります。</span></p>
-    <img class="hero-img" src="images/app-bracket.jpg" alt="Sofvoアプリの対戦表（自動作成）画面" width="270" height="545">
+    <div class="hero-duo">
+      <figure class="hd-a"><img src="images/app-bracket.jpg" alt="Sofvoアプリの対戦表（自動作成）画面" width="270" height="545"><figcaption>対戦表を自動作成</figcaption></figure>
+      <figure class="hd-b"><img src="images/app-score.jpg" alt="Sofvoアプリのスコア入力画面" width="270" height="545"><figcaption>スコアもその場で</figcaption></figure>
+    </div>
   </header>
 
   <section class="pd">
@@ -317,24 +328,32 @@
            無いファイルの枠は自動で消えるので、用意できた画像だけでOK。 -->
 
       <h3 class="subhead">参加する人の画面</h3>
+      <p class="subnote">登録から大会さがし・戦績まで</p>
       <p class="swipe">← よこにスワイプ →</p>
       <div class="phones">
         <div class="pitem"><div class="phone"><img src="images/app-login.jpg" alt="ログイン・新規登録" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">かんたん登録</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-home.jpg" alt="タイムライン" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">タイムライン</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-search-tournaments.jpg" alt="大会をさがす" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">大会をさがす</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-search-members.jpg" alt="メンバーをさがす" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">メンバーをさがす</div></div>
+        <div class="pitem"><div class="phone"><img src="images/app-mytournaments.jpg" alt="マイ大会" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">マイ大会</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-mypage.jpg" alt="マイページ" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">マイページ・戦績</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-notifications.jpg" alt="お知らせ" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">お知らせ</div></div>
       </div>
 
-      <h3 class="subhead">大会を運営する人の画面</h3>
+      <h3 class="subhead">大会中の画面</h3>
+      <p class="subnote">参加者もアプリでリアルタイムに見られます</p>
       <p class="swipe">← よこにスワイプ →</p>
       <div class="phones">
-        <div class="pitem"><div class="phone"><img src="images/app-mytournaments.jpg" alt="マイ大会" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">マイ大会</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-overview.jpg" alt="大会情報" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">大会情報・エントリー</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-bracket.jpg" alt="対戦表" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">対戦表（自動作成）</div></div>
-        <div class="pitem"><div class="phone"><img src="images/app-score.jpg" alt="スコア入力" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">スコア入力</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-ranking.jpg" alt="順位表" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">順位表（自動集計）</div></div>
+      </div>
+
+      <h3 class="subhead">大会を運営する人の画面</h3>
+      <p class="subnote">主催者だけが使う画面です</p>
+      <p class="swipe">← よこにスワイプ →</p>
+      <div class="phones">
+        <div class="pitem"><div class="phone"><img src="images/app-score.jpg" alt="スコア入力" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">スコア入力</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-checkin.jpg" alt="QR受付" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">QRで受付</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-finance.jpg" alt="収支管理" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">収支管理</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-organizer-menu.jpg" alt="主催者メニュー" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">主催者メニュー</div></div>
