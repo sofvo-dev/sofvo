@@ -43,6 +43,11 @@
         var path = location.pathname;
         var onPc = path === '/pc' || path.indexOf('/pc/') === 0;
 
+        // 体験デモ (/demo) は常にモバイル版 Flutter アプリで起動する
+        // （PC版にはデモ起動ロジックが無いため、画面幅に関わらずリダイレクトしない）
+        var onDemo = path === '/demo' || path.indexOf('/demo/') === 0;
+        if (onDemo) return;
+
         // 手動選択の優先 (PC選択中はモバイルUIに居ても/pcへ)
         if (manual === 'pc' && !onPc) {
           location.replace('/pc' + path + location.search + location.hash);
