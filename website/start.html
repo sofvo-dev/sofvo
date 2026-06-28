@@ -164,7 +164,8 @@
     .pd .sub{color:#cdd9e8;font-size:14px;margin-bottom:30px;}
     .pd .flow{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
     .pd .ti{background:rgba(255,255,255,.08);border-radius:18px;padding:22px 16px;width:168px;max-width:42vw;}
-    .pd .ti .ic{font-size:40px;margin-bottom:8px;}
+    .pd .ti .ic{font-size:40px;margin-bottom:8px;line-height:1;}
+    .pd .ti .ic-logo{width:46px;height:46px;border-radius:11px;box-shadow:0 4px 14px rgba(0,0,0,.35);vertical-align:middle;}
     .pd .ti.old{opacity:.55;}
     .pd .ti .t{font-weight:700;font-size:15px;}
     .pd .ti .d{font-size:12px;color:#cdd9e8;margin-top:4px;line-height:1.5;}
@@ -246,21 +247,31 @@
     .livedemo{background:#fff;overflow:hidden;}
     .demo-stage{display:flex;justify-content:center;margin-top:6px;perspective:1200px;}
     .demo-phone{width:262px;background:var(--primary-dark);transition:box-shadow .35s ease;transform-style:preserve-3d;will-change:transform;}
-    .demo-screen{background:linear-gradient(165deg,#102844,#1B3A5C);color:#fff;padding:20px 18px 22px;}
-    .ds-bar{font-size:12px;font-weight:700;color:#cdd9e8;background:rgba(255,255,255,.08);border-radius:999px;padding:6px 12px;text-align:center;margin-bottom:16px;}
-    .ds-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border-radius:14px;padding:13px 14px;margin-bottom:10px;transition:background .45s ease,box-shadow .45s ease;}
-    .ds-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:#7f93ab;}
-    .ds-row[data-team="a"] .ds-dot{background:var(--accent);}
-    .ds-row[data-team="b"] .ds-dot{background:#5b9bd5;}
-    .ds-team{font-size:15px;font-weight:700;flex:1;}
-    .ds-pt{font-size:36px;font-weight:800;font-variant-numeric:tabular-nums;min-width:56px;text-align:right;line-height:1;}
-    .ds-meta{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:12px;color:#cdd9e8;}
-    .ds-set{color:var(--accent);font-size:14px;}
-    .ds-prog{flex:0 0 116px;height:6px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden;margin-left:12px;}
-    .ds-prog i{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;}
-    .ds-win{margin-top:14px;text-align:center;font-weight:800;font-size:15px;color:var(--primary);background:var(--accent);border-radius:12px;padding:11px;opacity:0;transform:translateY(8px);transition:opacity .45s ease,transform .45s ease;}
-    .demo-phone.done .ds-win{opacity:1;transform:none;}
-    .demo-phone.done .ds-row[data-team="a"]{background:rgba(196,169,98,.22);box-shadow:0 0 0 1.5px rgba(196,169,98,.55) inset;}
+    /* 実機のスコア入力画面（app-score.jpg）に合わせた配色・レイアウト */
+    .demo-screen{background:#0b0f1e;color:#fff;padding:16px 14px 18px;}
+    .ds-top{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:14px;}
+    .ds-top .ds-back,.ds-top .ds-flag{opacity:.85;font-size:16px;flex:0 0 auto;}
+    .ds-title{flex:1;text-align:center;font-size:12.5px;}
+    .ds-vs{display:flex;align-items:center;justify-content:center;gap:10px;font-weight:800;font-size:15px;margin-bottom:14px;}
+    .ds-vs .tk{color:#5b9bd5;}
+    .ds-vs .ta{color:#ff7b7b;}
+    .ds-vs .vs{color:#8a98ad;font-size:12px;font-weight:700;}
+    .ds-card{background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);border-radius:16px;padding:14px;transition:border-color .5s ease,box-shadow .5s ease;}
+    .ds-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .ds-setname{font-size:14px;font-weight:800;color:#7fb0e6;}
+    .ds-confirm{font-size:12px;font-weight:700;color:#35d0a0;opacity:0;transition:opacity .4s ease;}
+    .ds-scores{display:flex;align-items:center;gap:8px;}
+    .ds-box{flex:1;background:rgba(255,255,255,.05);border-radius:12px;padding:10px 6px 12px;text-align:center;}
+    .ds-bteam{display:block;font-size:11px;font-weight:700;margin-bottom:6px;}
+    .ds-bteam.tk{color:#5b9bd5;}
+    .ds-bteam.ta{color:#ff7b7b;}
+    .ds-num{display:block;font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+    .ds-num.k{color:#6aa9e6;}
+    .ds-num.a{color:#ff7b7b;}
+    .ds-dash{color:#5b6677;font-weight:700;font-size:18px;flex:0 0 auto;}
+    .ds-slide{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid rgba(255,255,255,.16);border-radius:999px;padding:11px;font-size:12.5px;font-weight:700;color:#aeb9c8;}
+    .demo-phone.done .ds-card{border-color:#35d0a0;box-shadow:0 0 0 1px rgba(53,208,160,.4) inset;}
+    .demo-phone.done .ds-confirm{opacity:1;}
     .demo-hint{text-align:center;font-size:12px;color:var(--text-sec);margin-top:16px;}
     @media(prefers-reduced-motion:reduce){.hero-duo figure{animation:none!important;}.demo-phone{transform:none!important;}}
   </style>
@@ -292,7 +303,7 @@
       <div class="flow">
         <div class="ti old"><div class="ic">📋</div><div class="t nb">これまで（紙）</div><div class="d"><span class="nb">手書き・電卓・</span><span class="nb">コピー配布</span></div></div>
         <div class="ar">→</div>
-        <div class="ti"><div class="ic">📱</div><div class="t nb">これから（アプリ）</div><div class="d"><span class="nb">自動作成・</span><span class="nb">自動集計・</span><span class="nb">即共有</span></div></div>
+        <div class="ti"><div class="ic"><img class="ic-logo" src="images/icon.svg" alt="Sofvo" width="46" height="46"></div><div class="t nb">これから（アプリ）</div><div class="d"><span class="nb">自動作成・</span><span class="nb">自動集計・</span><span class="nb">即共有</span></div></div>
       </div>
       <span class="free">しかも、ずっと無料で試せる</span>
     </div>
@@ -307,22 +318,17 @@
       <div class="demo-stage">
         <div class="phone demo-phone" id="demoPhone">
           <div class="demo-screen">
-            <div class="ds-bar">第3セット ・ 25点先取</div>
-            <div class="ds-row" data-team="a">
-              <span class="ds-dot"></span>
-              <span class="ds-team">チーム A</span>
-              <span class="ds-pt" data-final="25">0</span>
+            <div class="ds-top"><span class="ds-back">‹</span><span class="ds-title">予選1 Cコート第1試合</span><span class="ds-flag">⚑</span></div>
+            <div class="ds-vs"><span class="tk">サンプルチームK</span><span class="vs">VS</span><span class="ta">サンプルチームA</span></div>
+            <div class="ds-card">
+              <div class="ds-card-head"><span class="ds-setname">第1セット</span><span class="ds-confirm">✓ 確認済み</span></div>
+              <div class="ds-scores">
+                <div class="ds-box"><span class="ds-bteam tk">サンプルチームK</span><span class="ds-num k" data-final="15">0</span></div>
+                <span class="ds-dash">-</span>
+                <div class="ds-box"><span class="ds-bteam ta">サンプルチームA</span><span class="ds-num a" data-final="10">0</span></div>
+              </div>
             </div>
-            <div class="ds-row" data-team="b">
-              <span class="ds-dot"></span>
-              <span class="ds-team">チーム B</span>
-              <span class="ds-pt" data-final="23">0</span>
-            </div>
-            <div class="ds-meta">
-              <span>セット <b class="ds-set" data-final="2">0</b> - <b class="ds-set" data-final="1">0</b></span>
-              <span class="ds-prog"><i></i></span>
-            </div>
-            <div class="ds-win">🏆 チーム A の勝ち</div>
+            <div class="ds-slide">✓ スライドしてセット確認 ›</div>
           </div>
         </div>
       </div>
