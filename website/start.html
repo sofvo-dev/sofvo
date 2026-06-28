@@ -273,6 +273,16 @@
     .demo-phone.done .ds-card{border-color:#35d0a0;box-shadow:0 0 0 1px rgba(53,208,160,.4) inset;}
     .demo-phone.done .ds-confirm{opacity:1;}
     .demo-hint{text-align:center;font-size:12px;color:var(--text-sec);margin-top:16px;}
+    /* 「デモを試す」バナーリンク（ログイン不要の体験デモ /demo へ） */
+    .demo-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:460px;margin:22px auto 0;
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;text-decoration:none;
+      border-radius:16px;padding:15px 16px 15px 18px;box-shadow:0 12px 30px rgba(27,58,92,.28);transition:transform .2s ease,box-shadow .2s ease;}
+    .demo-banner-txt{display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0;}
+    .demo-banner-txt b{font-size:15px;font-weight:800;line-height:1.4;}
+    .demo-banner-txt span{font-size:12px;color:#cdd9e8;}
+    .demo-banner-go{flex:0 0 auto;background:var(--accent);color:var(--primary);font-weight:800;font-size:14px;padding:11px 16px;border-radius:999px;white-space:nowrap;}
+    .demo-banner:active{transform:scale(.99);}
+    @media(hover:hover) and (pointer:fine){.demo-banner:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(27,58,92,.36);}}
     @media(prefers-reduced-motion:reduce){.hero-duo figure{animation:none!important;}.demo-phone{transform:none!important;}}
   </style>
   <script>document.documentElement.classList.add('js');</script>
@@ -333,6 +343,10 @@
         </div>
       </div>
       <p class="demo-hint">指でスワイプすると、その場で集計されます</p>
+      <a class="demo-banner" href="/demo">
+        <span class="demo-banner-txt"><b><span class="nb">ログイン不要で、</span><span class="nb">いますぐ体験</span></b><span><span class="nb">アプリの操作を</span><span class="nb">そのまま試せます</span></span></span>
+        <span class="demo-banner-go">デモを試す →</span>
+      </a>
     </div>
   </section>
 
