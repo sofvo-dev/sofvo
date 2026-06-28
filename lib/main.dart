@@ -25,6 +25,8 @@ import 'screens/home/main_tab_screen.dart';
 import 'screens/tournament/tournament_detail_screen.dart';
 import 'services/in_app_browser.dart';
 import 'utils/tournament_checkin_link.dart';
+import 'demo/demo_service.dart';
+import 'demo/demo_overlay.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -72,6 +74,8 @@ void main() async {
     if (pendingTournamentId == null && uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'tournament') {
       pendingTournamentId = uri.pathSegments[1];
     }
+    // ログイン不要の体験デモ（/demo または ?demo=1）
+    DemoService.detectFromUri(uri);
   }
 
   // Firestore 設定（Web は SDK 12.x の Watch 不整合対策で long polling 検出を有効化）
@@ -114,6 +118,13 @@ class SofvoApp extends StatelessWidget {
       themeMode: ThemeMode.light,
       debugShowCheckedModeBanner: false,
       home: const AuthGate(),
+      builder: (context, child) {
+        // デモモードのみ、画面全体にガイド/自動入力オーバーレイを重ねる
+        if (DemoService.isDemoLaunch && child != null) {
+          return DemoOverlay(child: child);
+        }
+        return child ?? const SizedBox.shrink();
+      },
     );
   }
 }
@@ -135,6 +146,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   bool _isInitialLoading = true;
   bool _showSplash = true;
   bool _updateChecked = false;
+  // デモモード起動（匿名サインイン + デモ大会 seed）
+  bool _demoBootstrapped = false;
+  bool _demoBootstrapping = false;
 
   @override
   void initState() {
@@ -311,10 +325,18 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       final data = doc.data()!;
       data['id'] = doc.id;
 
+      // デモ大会は対戦表タブに直接着地させる（最初の操作＝対戦表生成を分かりやすく）
+      final demoInitialTab = data['isDemo'] == true ? 'matches' : null;
+
       // 次フレームでpush（buildの最中にnavigateしないように）
       WidgetsBinding.instance.addPostFrameCallback((_) {
         navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data)),
+          MaterialPageRoute(
+            builder: (_) => TournamentDetailScreen(
+              tournament: data,
+              initialTab: demoInitialTab,
+            ),
+          ),
         );
       });
     } catch (e) {
@@ -520,6 +542,24 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // デモモード: 匿名サインイン + デモ大会 seed が完了するまでローディング表示。
+    // 完了後は pendingTournamentId が設定され、通常フロー（プロフィール設定は
+    // デモユーザードキュメントで自動スキップ）→ デモ大会詳細へ自動遷移する。
+    if (DemoService.isDemoLaunch && !_demoBootstrapped) {
+      if (!_demoBootstrapping) {
+        _demoBootstrapping = true;
+        DemoService.startDemo().then((tid) {
+          if (!mounted) return;
+          pendingTournamentId = tid;
+          setState(() => _demoBootstrapped = true);
+        }).catchError((Object e) {
+          debugPrint('デモ起動に失敗: $e');
+          if (mounted) setState(() => _demoBootstrapped = true);
+        });
+      }
+      return const _DemoLoadingScreen();
+    }
+
     // 初期ロード中（ストリームの最初のイベント待ち）
     if (_isInitialLoading && _currentUser == null) {
       return const Scaffold(
@@ -596,6 +636,52 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
         return const MainTabScreen();
       },
+    );
+  }
+}
+
+/// デモ準備中のローディング画面
+class _DemoLoadingScreen extends StatelessWidget {
+  const _DemoLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1B3A5C),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontSize: 44,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+                children: [
+                  TextSpan(text: 'Sof', style: TextStyle(color: Colors.white)),
+                  TextSpan(text: 'vo', style: TextStyle(color: Color(0xFFBFA258))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'デモを準備中…',
+              style: TextStyle(color: Colors.white70, fontSize: 14, letterSpacing: 1),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

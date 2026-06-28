@@ -1818,6 +1818,9 @@ exports.onTournamentStatusChange = functions.firestore
     const before = change.before.data();
     const after = change.after.data();
 
+    // 体験デモ大会はポイント付与・通知対象外
+    if (after.isDemo === true) return null;
+
     // ステータスが「終了」に変わった場合のみ実行
     if (before.status === "終了" || after.status !== "終了") return null;
     // 二重付与防止
@@ -2162,6 +2165,8 @@ exports.sendWelcomeEmail = functions.firestore
   .onCreate(async (snap, context) => {
     const data = snap.data();
     if (!data.profileCompleted) return null;
+    // 体験デモ用の匿名ユーザーにはウェルカムメールを送らない
+    if (data.isDemo === true) return null;
 
     const uid = context.params.uid;
     let email;
@@ -2192,6 +2197,9 @@ exports.sendWelcomeEmailOnUpdate = functions.firestore
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
+
+    // 体験デモ用の匿名ユーザーにはウェルカムメールを送らない
+    if (after.isDemo === true) return null;
 
     // profileCompleted が false/未設定 → true に変わった時だけ
     if (before.profileCompleted || !after.profileCompleted) return null;
@@ -2806,6 +2814,73 @@ exports.autoCloseTournamentEntriesByDeadline = functions.pubsub
 
     functions.logger.info(
       `autoCloseTournamentEntriesByDeadline: todayStr=${todayStr} updated=${updated} scanned=${snap.size}`
+    );
+    return null;
+  });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 体験デモ（ログイン不要）の使い捨てデータを定期削除
+//   - isDemo:true の大会（サブコレクション含む）を再帰削除
+//   - isDemo:true の匿名ユーザー（Firestore ドキュメント + Auth アカウント）を削除
+//   いずれも作成から DEMO_TTL_HOURS 経過したものが対象。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const DEMO_TTL_HOURS = 6;
+
+exports.cleanupDemoData = functions.pubsub
+  .schedule("30 * * * *") // 毎時30分
+  .timeZone("Asia/Tokyo")
+  .onRun(async () => {
+    const db = admin.firestore();
+    const cutoff = admin.firestore.Timestamp.fromMillis(
+      Date.now() - DEMO_TTL_HOURS * 60 * 60 * 1000
+    );
+
+    let deletedTournaments = 0;
+    let deletedUsers = 0;
+
+    // 1. デモ大会を再帰削除
+    try {
+      const tournSnap = await db
+        .collection("tournaments")
+        .where("isDemo", "==", true)
+        .get();
+      for (const doc of tournSnap.docs) {
+        const createdAt = doc.data().createdAt;
+        if (createdAt && createdAt.toMillis && createdAt.toMillis() > cutoff.toMillis()) {
+          continue; // まだ新しい（体験中の可能性）
+        }
+        await db.recursiveDelete(doc.ref);
+        deletedTournaments++;
+      }
+    } catch (e) {
+      functions.logger.error("cleanupDemoData tournaments error", e);
+    }
+
+    // 2. デモユーザーを削除（Firestore + Auth）
+    try {
+      const usersSnap = await db
+        .collection("users")
+        .where("isDemo", "==", true)
+        .get();
+      for (const doc of usersSnap.docs) {
+        const createdAt = doc.data().createdAt;
+        if (createdAt && createdAt.toMillis && createdAt.toMillis() > cutoff.toMillis()) {
+          continue;
+        }
+        await db.recursiveDelete(doc.ref);
+        try {
+          await admin.auth().deleteUser(doc.id);
+        } catch (e) {
+          // Auth アカウントが既に無い場合等は無視
+        }
+        deletedUsers++;
+      }
+    } catch (e) {
+      functions.logger.error("cleanupDemoData users error", e);
+    }
+
+    functions.logger.info(
+      `cleanupDemoData: deletedTournaments=${deletedTournaments} deletedUsers=${deletedUsers}`
     );
     return null;
   });

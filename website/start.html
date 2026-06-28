@@ -65,7 +65,8 @@
     .phones{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 14px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
     .pitem{flex:0 0 auto;scroll-snap-align:center;}
     .phone{width:200px;border:7px solid var(--primary-dark);border-radius:30px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,.16);background:#000;transition:transform .35s cubic-bezier(.16,1,.3,1),box-shadow .35s ease;}
-    .pitem:hover .phone{transform:translateY(-6px);box-shadow:0 22px 44px rgba(0,0,0,.22);}
+    /* 持ち上げはマウス環境のみ（タッチでタップ時に上に上がるのを防ぐ） */
+    @media(hover:hover) and (pointer:fine){.pitem:hover .phone{transform:translateY(-6px);box-shadow:0 22px 44px rgba(0,0,0,.22);}}
     .phone img{display:block;width:100%;}
     .phone-cap{text-align:center;font-size:13px;color:var(--text-sec);margin-top:9px;}
     .swipe{text-align:center;font-size:12px;color:var(--text-hint,#9aa3ad);margin-bottom:6px;}
@@ -86,7 +87,7 @@
     .feat{display:flex;gap:22px;align-items:center;}
     .feat-txt{flex:1;}
     .feat-img{width:150px;flex:0 0 auto;border-radius:18px;border:5px solid #EDEDED;box-shadow:0 8px 22px rgba(0,0,0,.12);transition:transform .35s cubic-bezier(.16,1,.3,1),box-shadow .35s ease;}
-    .card.feat:hover .feat-img{transform:translateY(-4px) scale(1.03);box-shadow:0 16px 36px rgba(0,0,0,.18);}
+    @media(hover:hover) and (pointer:fine){.card.feat:hover .feat-img{transform:translateY(-4px) scale(1.03);box-shadow:0 16px 36px rgba(0,0,0,.18);}}
     @media(max-width:520px){.feat{flex-direction:column;align-items:stretch;}.feat-img{width:210px;margin:8px auto 0;}}
 
     .steps{counter-reset:s;display:grid;gap:14px;}
@@ -103,6 +104,16 @@
     .btn:hover{background:var(--primary-dark);}
     .btn.gold{background:var(--accent);color:var(--primary);}
     .note{font-size:12px;color:var(--text-sec);margin-top:8px;}
+    /* アプリストアのダウンロードボタン */
+    .stores-lead{font-size:13px;font-weight:700;color:var(--text-sec);margin:20px 0 10px;}
+    .stores{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+    .store{display:inline-flex;align-items:center;gap:10px;background:#000;color:#fff;text-decoration:none;border-radius:12px;padding:10px 18px;min-width:188px;transition:transform .2s ease,opacity .2s ease;}
+    .store svg{width:24px;height:24px;flex:0 0 auto;fill:#fff;}
+    .store .st-tx{display:flex;flex-direction:column;line-height:1.12;text-align:left;}
+    .store .st-tx small{font-size:10px;font-weight:600;opacity:.85;letter-spacing:.02em;}
+    .store .st-tx b{font-size:17px;font-weight:700;}
+    .store:active{transform:scale(.98);}
+    @media(hover:hover) and (pointer:fine){.store:hover{opacity:.88;}}
 
     /* before / after */
     .compare{display:grid;gap:14px;}
@@ -163,7 +174,8 @@
     .pd .sub{color:#cdd9e8;font-size:14px;margin-bottom:30px;}
     .pd .flow{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
     .pd .ti{background:rgba(255,255,255,.08);border-radius:18px;padding:22px 16px;width:168px;max-width:42vw;}
-    .pd .ti .ic{font-size:40px;margin-bottom:8px;}
+    .pd .ti .ic{font-size:40px;margin-bottom:8px;line-height:1;}
+    .pd .ti .ic-logo{width:46px;height:46px;border-radius:11px;box-shadow:0 4px 14px rgba(0,0,0,.35);vertical-align:middle;}
     .pd .ti.old{opacity:.55;}
     .pd .ti .t{font-weight:700;font-size:15px;}
     .pd .ti .d{font-size:12px;color:#cdd9e8;margin-top:4px;line-height:1.5;}
@@ -198,7 +210,7 @@
     /* ボタンに軽い押し心地 */
     .btn:active{transform:scale(.98);}
     .pd .free,.pill{transition:transform .2s ease;}
-    .pd .free:hover{transform:translateY(-2px);}
+    @media(hover:hover) and (pointer:fine){.pd .free:hover{transform:translateY(-2px);}}
 
     /* ===== デスクトップ最適化（横に広い画面で見やすく） ===== */
     @media(min-width:768px){
@@ -233,6 +245,65 @@
     footer{background:var(--primary-dark);color:#cdd6e2;text-align:center;font-size:13px;padding:30px 22px 96px;}
     footer a{color:#cdd6e2;text-decoration:none;margin:0 8px;}
     footer .cp{display:block;margin-top:14px;color:#8a99ad;font-size:12px;}
+
+    /* ===== ヒーローの実機をふわっと浮遊させる（Apple風の“動く”） ===== */
+    .hero-duo{perspective:1100px;}
+    .hero-duo figure{animation:floaty 6.5s ease-in-out infinite;}
+    .hero-duo figure:nth-child(1){animation-delay:.2s;}
+    .hero-duo figure:nth-child(2){animation-delay:1s;}
+    .hero-duo figure:nth-child(3){animation-delay:1.8s;}
+
+    /* ===== ライブデモ: スクロール（スワイプ）でスコアが自動入力される実機 ===== */
+    .livedemo{background:#fff;overflow:hidden;}
+    .demo-stage{display:flex;justify-content:center;margin-top:6px;perspective:1200px;}
+    .demo-phone{width:262px;background:var(--primary-dark);transition:box-shadow .35s ease;transform-style:preserve-3d;will-change:transform;}
+    /* 実機のスコア入力画面（app-score.jpg）に合わせた配色・レイアウト */
+    .demo-screen{background:#0b0f1e;color:#fff;padding:16px 14px 18px;}
+    .ds-top{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:14px;}
+    .ds-top .ds-back,.ds-top .ds-flag{opacity:.85;font-size:16px;flex:0 0 auto;}
+    .ds-title{flex:1;text-align:center;font-size:12.5px;}
+    .ds-vs{display:flex;align-items:center;justify-content:center;gap:10px;font-weight:800;font-size:15px;margin-bottom:14px;}
+    .ds-vs .tk{color:#5b9bd5;}
+    .ds-vs .ta{color:#ff7b7b;}
+    .ds-vs .vs{color:#8a98ad;font-size:12px;font-weight:700;}
+    .ds-card{background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);border-radius:16px;padding:14px;transition:border-color .5s ease,box-shadow .5s ease;}
+    .ds-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .ds-setname{font-size:14px;font-weight:800;color:#7fb0e6;}
+    .ds-confirm{font-size:12px;font-weight:700;color:#35d0a0;opacity:0;transition:opacity .4s ease;}
+    .ds-scores{display:flex;align-items:center;gap:8px;}
+    .ds-box{flex:1;background:rgba(255,255,255,.05);border-radius:12px;padding:10px 6px 12px;text-align:center;}
+    .ds-bteam{display:block;font-size:11px;font-weight:700;margin-bottom:6px;}
+    .ds-bteam.tk{color:#5b9bd5;}
+    .ds-bteam.ta{color:#ff7b7b;}
+    .ds-num{display:block;font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+    .ds-num.k{color:#6aa9e6;}
+    .ds-num.a{color:#ff7b7b;}
+    .ds-dash{color:#5b6677;font-weight:700;font-size:18px;flex:0 0 auto;}
+    .ds-slide{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid rgba(255,255,255,.16);border-radius:999px;padding:11px;font-size:12.5px;font-weight:700;color:#aeb9c8;}
+    .demo-phone.done .ds-card{border-color:#35d0a0;box-shadow:0 0 0 1px rgba(53,208,160,.4) inset;}
+    .demo-phone.done .ds-confirm{opacity:1;}
+    .demo-hint{text-align:center;font-size:12px;color:var(--text-sec);margin-top:16px;}
+    /* 「デモを試す」バナーリンク（ログイン不要の体験デモ /demo へ） */
+    .demo-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:460px;margin:22px auto 0;
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;text-decoration:none;
+      border-radius:16px;padding:15px 16px 15px 18px;box-shadow:0 12px 30px rgba(27,58,92,.28);transition:transform .2s ease,box-shadow .2s ease;}
+    .demo-banner-txt{display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0;}
+    .demo-banner-txt b{font-size:15px;font-weight:800;line-height:1.4;}
+    .demo-banner-txt span{font-size:12px;color:#cdd9e8;}
+    .demo-banner-go{flex:0 0 auto;background:var(--accent);color:var(--primary);font-weight:800;font-size:14px;padding:11px 16px;border-radius:999px;white-space:nowrap;}
+    .demo-banner:active{transform:scale(.99);}
+    @media(hover:hover) and (pointer:fine){.demo-banner:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(27,58,92,.36);}}
+    /* デモの使い方（アプリ内ガイドと同じ3ステップ） */
+    .demo-how{max-width:460px;margin:28px auto 0;text-align:left;}
+    .demo-how-title{font-size:15px;font-weight:800;color:var(--primary);text-align:center;margin-bottom:16px;}
+    .demo-how-list{list-style:none;counter-reset:dh;display:grid;gap:10px;}
+    .demo-how-list li{display:flex;gap:13px;align-items:flex-start;background:var(--cream);border-radius:14px;padding:13px 15px;}
+    .demo-how-list li::before{counter-increment:dh;content:counter(dh);flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--primary);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+    .demo-how-list li>div{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .demo-how-list b{font-size:14px;color:var(--primary);font-weight:800;}
+    .demo-how-list p{font-size:12.5px;color:var(--text-sec);line-height:1.6;margin:0;}
+    .demo-how-note{text-align:center;font-size:11px;color:var(--text-sec);margin-top:10px;}
+    @media(prefers-reduced-motion:reduce){.hero-duo figure{animation:none!important;}.demo-phone{transform:none!important;}}
   </style>
   <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -240,7 +311,7 @@
 
   <!-- スクロールすると下から出てくる常時CTA -->
   <div class="sticky-cta" id="stickyCta">
-    <a href="https://sofvo.com">無料ではじめる</a>
+    <a href="contact.html">無料で相談・お問い合わせ</a>
   </div>
 
   <header class="hero">
@@ -253,7 +324,6 @@
       <figure><img src="images/app-score.jpg" alt="Sofvoアプリのスコア入力画面" width="270" height="545"><figcaption>スコアもその場で</figcaption></figure>
       <figure><img src="images/app-ranking.jpg" alt="Sofvoアプリの順位表・大会結果画面" width="270" height="545"><figcaption>順位は自動で集計</figcaption></figure>
     </div>
-    <p class="hero-swipe">← スワイプ →</p>
   </header>
 
   <section class="pd">
@@ -263,9 +333,51 @@
       <div class="flow">
         <div class="ti old"><div class="ic">📋</div><div class="t nb">これまで（紙）</div><div class="d"><span class="nb">手書き・電卓・</span><span class="nb">コピー配布</span></div></div>
         <div class="ar">→</div>
-        <div class="ti"><div class="ic">📱</div><div class="t nb">これから（アプリ）</div><div class="d"><span class="nb">自動作成・</span><span class="nb">自動集計・</span><span class="nb">即共有</span></div></div>
+        <div class="ti"><div class="ic"><img class="ic-logo" src="images/icon.svg" alt="Sofvo" width="46" height="46"></div><div class="t nb">これから（アプリ）</div><div class="d"><span class="nb">自動作成・</span><span class="nb">自動集計・</span><span class="nb">即共有</span></div></div>
       </div>
       <span class="free">しかも、ずっと無料で試せる</span>
+    </div>
+  </section>
+
+  <!-- ライブデモ: スクロール（スワイプ）でスコアが自動入力される実機 -->
+  <section class="livedemo">
+    <div class="wrap reveal">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">スコアは、入れるだけ</h2>
+      <p class="sec-sub">スクロールしてみてください。点数も順位も、自動で。</p>
+      <div class="demo-stage">
+        <div class="phone demo-phone" id="demoPhone">
+          <div class="demo-screen">
+            <div class="ds-top"><span class="ds-back">‹</span><span class="ds-title">予選1 Cコート第1試合</span><span class="ds-flag">⚑</span></div>
+            <div class="ds-vs"><span class="tk">サンプルチームK</span><span class="vs">VS</span><span class="ta">サンプルチームA</span></div>
+            <div class="ds-card">
+              <div class="ds-card-head"><span class="ds-setname">第1セット</span><span class="ds-confirm">✓ 確認済み</span></div>
+              <div class="ds-scores">
+                <div class="ds-box"><span class="ds-bteam tk">サンプルチームK</span><span class="ds-num k" data-final="15">0</span></div>
+                <span class="ds-dash">-</span>
+                <div class="ds-box"><span class="ds-bteam ta">サンプルチームA</span><span class="ds-num a" data-final="10">0</span></div>
+              </div>
+            </div>
+            <div class="ds-slide">✓ スライドしてセット確認 ›</div>
+          </div>
+        </div>
+      </div>
+      <p class="demo-hint">指でスワイプすると、その場で集計されます</p>
+
+      <div class="demo-how">
+        <h3 class="demo-how-title">デモの使い方（ログイン不要・3ステップ）</h3>
+        <ol class="demo-how-list">
+          <li><div><b>対戦表を自動生成</b><p>「対戦表」タブの「対戦表を自動生成」をタップ</p></div></li>
+          <li><div><b>得点を入力</b><p>試合をタップ → スコアを入れてスライドで確定（面倒なら「残りを自動入力」ボタンでもOK）</p></div></li>
+          <li><div><b>結果を見る</b><p>「順位表」タブで総合順位がリアルタイムに反映</p></div></li>
+        </ol>
+        <p class="demo-how-note">※ 入力した内容は自動的に削除されます</p>
+      </div>
+
+      <a class="demo-banner" href="/demo">
+        <span class="demo-banner-txt"><b><span class="nb">ログイン不要で、</span><span class="nb">いますぐ体験</span></b><span><span class="nb">アプリの操作を</span><span class="nb">そのまま試せます</span></span></span>
+        <span class="demo-banner-go">デモを試す →</span>
+      </a>
     </div>
   </section>
 
@@ -348,7 +460,6 @@
 
       <h3 class="subhead">参加する人の画面</h3>
       <p class="subnote">登録から大会さがし・戦績まで</p>
-      <p class="swipe">← よこにスワイプ →</p>
       <div class="phones">
         <div class="pitem"><div class="phone"><img src="images/app-login.jpg" alt="ログイン・新規登録" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">かんたん登録</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-home.jpg" alt="タイムライン" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">タイムライン</div></div>
@@ -361,7 +472,6 @@
 
       <h3 class="subhead">大会中の画面</h3>
       <p class="subnote">対戦表・順位は参加者もリアルタイムで見られます</p>
-      <p class="swipe">← よこにスワイプ →</p>
       <div class="phones">
         <div class="pitem"><div class="phone"><img src="images/app-overview.jpg" alt="大会情報" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">大会情報・エントリー</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-bracket.jpg" alt="対戦表" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">対戦表（自動作成）</div></div>
@@ -372,7 +482,6 @@
 
       <h3 class="subhead">大会を運営する人の画面</h3>
       <p class="subnote">主催者だけが使う画面です</p>
-      <p class="swipe">← よこにスワイプ →</p>
       <div class="phones">
         <div class="pitem"><div class="phone"><img src="images/app-finance.jpg" alt="収支管理" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">収支管理</div></div>
         <div class="pitem"><div class="phone"><img src="images/app-organizer-menu.jpg" alt="主催者メニュー" onerror="this.closest('.pitem').remove()"></div><div class="phone-cap">主催者メニュー</div></div>
@@ -397,11 +506,21 @@
 
   <section class="cta">
     <div class="wrap reveal">
-      <h2>その大会運営、今日からラクに。</h2>
-      <p>まずは無料で、試してみてください。</p>
-      <a class="btn gold" href="https://sofvo.com">Sofvoをはじめる（無料）</a>
-      <a class="btn" href="https://sofvo.com">Web版を見てみる</a>
-      <p class="note">iOS / Android / Web に対応しています</p>
+      <h2>まずは、お気軽にご相談ください。</h2>
+      <p>大会運営のご相談・導入のお問い合わせはこちらから。もちろん無料です。</p>
+      <a class="btn gold" href="contact.html">お問い合わせ・無料相談</a>
+      <p class="stores-lead">アプリのダウンロードはこちら</p>
+      <div class="stores">
+        <a class="store" href="https://apps.apple.com/jp/app/id6760548582" aria-label="App Store でダウンロード">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.46 2.22-1.2 3.01-.79.85-2.08 1.5-3.16 1.42-.14-1.13.45-2.31 1.16-3.05.79-.83 2.16-1.45 3.2-1.38zM20.9 17.06c-.55 1.28-.82 1.85-1.53 2.98-.99 1.58-2.39 3.55-4.12 3.56-1.54.02-1.94-1-4.03-.99-2.09.01-2.53 1.01-4.07.99-1.73-.01-3.05-1.78-4.04-3.36C-1.06 16.32-1.37 9.93 1.04 6.71c1.14-1.55 2.94-2.46 4.63-2.46 1.72 0 2.8 1.01 4.22 1.01 1.38 0 2.22-1.01 4.21-1.01 1.51 0 3.11.82 4.25 2.24-3.73 2.04-3.13 7.36.55 8.57z"/></svg>
+          <span class="st-tx"><small>Download on the</small><b>App Store</b></span>
+        </a>
+        <a class="store" href="https://play.google.com/store/apps/details?id=com.sofvo.app" aria-label="Google Play で手に入れる">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.06 2.6 13.2 12 3.06 21.4a1.07 1.07 0 0 1-.43-.86V3.46c0-.36.17-.68.43-.86zm11.2 10.16 2.62 2.62-9.9 5.7 7.28-8.32zm0-1.52L6.98 2.92l9.9 5.7-2.62 2.62zm1.06 1.06 2.94-2.94 2.92 1.68c.62.36.62 1.26 0 1.62l-2.92 1.68-2.94-2.94z"/></svg>
+          <span class="st-tx"><small>GET IT ON</small><b>Google Play</b></span>
+        </a>
+      </div>
+      <p class="note">iOS / Android アプリでご利用いただけます</p>
     </div>
   </section>
 
@@ -435,6 +554,36 @@
           }
         });
       },500);});
+
+      // ライブデモ: スクロール位置に連動してスコアが自動入力される（指のスワイプで数字がせり上がる）
+      var demo=document.getElementById('demoPhone');
+      if(demo){
+        var nums=[].slice.call(demo.querySelectorAll('[data-final]'));
+        var bar=demo.querySelector('.ds-prog i');
+        var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+        function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;} // easeInOutQuad
+        var ticking=false;
+        function paint(){
+          ticking=false;
+          var r=demo.getBoundingClientRect();
+          var vh=window.innerHeight||document.documentElement.clientHeight;
+          var center=r.top+r.height/2;
+          // 画面下92%に入った時点を0、38%（ほぼ中央）で1になるよう進捗を算出
+          var p=(0.92*vh-center)/((0.92-0.38)*vh);
+          p=Math.max(0,Math.min(1,p));
+          var e=ease(p);
+          nums.forEach(function(el){
+            el.textContent=Math.round((+el.getAttribute('data-final'))*e);
+          });
+          if(bar)bar.style.width=(e*100)+'%';
+          if(!reduce)demo.style.transform='rotateX('+((0.5-p)*7).toFixed(2)+'deg)';
+          demo.classList.toggle('done',p>=0.999);
+        }
+        function onScroll(){if(!ticking){ticking=true;requestAnimationFrame(paint);}}
+        window.addEventListener('scroll',onScroll,{passive:true});
+        window.addEventListener('resize',onScroll);
+        paint();
+      }
     })();
   </script>
 

@@ -1245,6 +1245,8 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
 
         final filtered = allDocs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
+          // 体験デモ用の大会は一覧に出さない
+          if (data['isDemo'] == true) return false;
           final oid = data['organizerId'] ?? '';
           final status = normalizeTournamentStatus(data['status']);
           final isF = _followingIds.contains(oid) || oid == _currentUser?.uid;
