@@ -14,13 +14,14 @@ const mark=`<svg width="30" height="30" viewBox="0 0 24 24"><path fill="#fff" d=
 const footer=`<div class="footer"><span>${heart}</span><span class="ftxt">ソフトバレーを、もっと楽しく。</span><span>${mark}</span></div>`;
 const bullets=b=>b.split('／').map(s=>`<div class="li"><span class="dot"></span><span>${s}</span></div>`).join('');
 
-// 1枚目：実機（下まで突き抜け・少し上げ）
-function coverSlide(d){return `<div class="slide navy">${wm('navy')}
+// 1枚目＝実機表紙（確定仕様：クリーム背景・ロゴなし・タイトル1行・スマホ突き抜け・上から自然表示）
+function coverSlide(d){return `<div class="slide cream">
  <div class="ctop"><div class="pill">${d.pill}</div><div class="ctitle">${d.title}</div><div class="csub">${d.sub}</div></div>
- <div class="fphone"><img src="data:image/jpeg;base64,${img64(d.img)}"></div>${footer}</div>`;}
-// 2枚目以降：解説（カード＋箇条書き）
+ <div class="fphone"><img style="object-position:${d.pos||'center top'}" src="data:image/jpeg;base64,${img64(d.img)}"></div>${footer}</div>`;}
+// 2・3枚目＝解説（カード＋箇条書き）。inner はブランドのため左上ロゴあり
 function textSlide(d){return `<div class="slide ${d.bg}">${wm(d.bg)}
  <div class="content"><div class="card"><div class="chead"><span class="bar"></span>${d.head}</div><div class="cbody">${bullets(d.body)}</div></div></div>${footer}</div>`;}
+// 4枚目＝CTA
 function ctaSlide(d){return `<div class="slide ${d.bg}">${wm(d.bg)}
  <div class="cta"><div class="ctaT">${d.title}</div><div class="ctaS">${d.sub}</div></div>${footer}</div>`;}
 
@@ -35,36 +36,59 @@ function build(post){
  .wm{position:absolute;top:58px;left:74px;font-weight:900;font-size:50px;z-index:7}
  .footer{z-index:6;position:absolute;left:0;right:0;bottom:0;height:92px;background:${DARK};color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 48px}
  .footer .ftxt{font-size:32px;font-weight:700}.footer span{display:flex;align-items:center}
- .ctop{position:absolute;top:140px;left:0;right:0;text-align:center;padding:0 70px;z-index:3}
- .pill{display:inline-block;background:${GOLD};color:${NAVY};font-weight:700;font-size:32px;padding:11px 30px;border-radius:999px;margin-bottom:24px}
- .ctitle{font-family:'Dela';font-size:64px;line-height:1.3}
- .csub{margin-top:16px;font-size:36px;font-weight:700;color:${GOLD}}
- .fphone{position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:780px;height:800px;border:14px solid ${DARK};border-radius:56px 56px 0 0;border-bottom:0;overflow:hidden;box-shadow:0 -4px 50px rgba(0,0,0,.22);background:#000;z-index:1}
- .fphone img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+ /* 表紙 */
+ .ctop{position:absolute;top:50px;left:0;right:0;text-align:center;padding:0 50px;z-index:3}
+ .pill{display:inline-block;background:${GOLD};color:${NAVY};font-weight:700;font-size:30px;padding:10px 28px;border-radius:999px;margin-bottom:18px}
+ .ctitle{font-family:'Dela';font-size:58px;line-height:1.1;color:${NAVY};white-space:nowrap}
+ .csub{margin-top:14px;font-size:32px;font-weight:700;color:${NAVY};opacity:.78}
+ .fphone{position:absolute;left:50%;transform:translateX(-50%);bottom:0;top:300px;width:780px;height:auto;border:14px solid ${DARK};border-radius:56px 56px 0 0;border-bottom:0;overflow:hidden;box-shadow:0 -4px 50px rgba(0,0,0,.22);background:#000;z-index:1}
+ .fphone img{width:100%;height:100%;object-fit:cover;display:block}
+ /* 解説カード */
  .content{position:absolute;top:0;left:0;right:0;bottom:92px;display:flex;align-items:center;padding:80px}
  .card{background:#fff;color:${NAVY};border-radius:40px;padding:76px 64px;width:100%;box-shadow:0 16px 40px rgba(0,0,0,.18)}
  .chead{font-family:'Dela';font-size:58px;line-height:1.32;display:flex;align-items:flex-start;margin-bottom:46px}
  .bar{display:inline-block;width:16px;height:52px;background:${GOLD};border-radius:8px;margin-right:26px;margin-top:6px;flex:0 0 auto}
  .li{display:flex;align-items:flex-start;font-size:46px;line-height:1.6;font-weight:500;margin:30px 0}
  .dot{width:18px;height:18px;border-radius:50%;background:${GOLD};margin:22px 28px 0 0;flex:0 0 auto}
+ /* CTA */
  .cta{position:absolute;top:0;left:0;right:0;bottom:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px}
  .ctaT{font-family:'Dela';font-size:74px;line-height:1.35}.ctaS{margin-top:32px;font-size:44px;font-weight:700;color:${GOLD}}
  </style><body>${slides.join('')}</body>`;
 }
 
-// 機能投稿①：対戦表（1実機＋解説）
-const post={
- name:'対戦表',
- cover:{pill:'大会運営',title:'対戦表、<br>ボタンひとつ。',sub:'手書きはもう卒業',img:'app-bracket.jpg'},
- slides:[
-  {bg:'cream',head:'こんな悩み、ありませんか？',body:'手書きで30分以上かかる／組み直しが大変／書き間違いが起きる'},
-  {bg:'navy',head:'Sofvoなら数タップ',body:'チーム数を入れるだけ／リーグもトーナメントも対応／組み直しもワンタップ'},
- ],
- cta:{bg:'cream',title:'対戦表づくり、ゼロに。',sub:'無料・プロフィールのリンクから'},
-};
-const br=await chromium.launch();
+// 大会フロー順：対戦表 → スコア → 順位表（各4枚）
+// スライド配色は表紙クリームから ナビ／クリーム交互（スワイプのコントラスト）
+const posts=[
+ {key:'bracket',
+  cover:{pill:'大会運営',title:'対戦表はボタンひとつ。',sub:'手書きはもう卒業',img:'app-bracket.jpg'},
+  slides:[
+   {bg:'navy', head:'こんな悩み、ありませんか？', body:'手書きで30分以上かかる／組み替えのたびに書き直し／コート割りや対戦の組み方が複雑'},
+   {bg:'cream',head:'Sofvoなら数タップ',         body:'チーム数を入れるだけで自動作成／リーグもトーナメントも対応／コートも試合数も自動で割り当て／組み直しもワンタップ'},
+  ],
+  cta:{bg:'navy',title:'対戦表づくり、ゼロに。',sub:'無料・プロフィールのリンクから'}},
+ {key:'score',
+  cover:{pill:'試合中',title:'スコアはリアルタイム。',sub:'入力した瞬間、全員の画面へ',img:'app-score.jpg'},
+  slides:[
+   {bg:'navy', head:'こんな悩み、ありませんか？', body:'紙のスコアシートが行方不明／今どっちが勝ってる？が分からない／集計ミスでもめる'},
+   {bg:'cream',head:'Sofvoならその場で共有',     body:'入力した瞬間に全員の画面へ反映／セットの勝敗・得点を自動集計／結果はそのまま順位に反映'},
+  ],
+  cta:{bg:'navy',title:'スコアも集計も、スマホで。',sub:'無料・プロフィールのリンクから'}},
+ {key:'ranking',
+  cover:{pill:'結果発表',title:'順位は自動で確定。',sub:'セットの勝敗から即集計',img:'app-ranking.jpg'},
+  slides:[
+   {bg:'navy', head:'こんな悩み、ありませんか？', body:'順位の計算が大変／同率のときの順位付けで迷う／発表までやたら時間がかかる'},
+   {bg:'cream',head:'Sofvoなら即発表',           body:'セット数・得失点から自動で順位確定／同率もルールで自動判定／その場で発表・シェアできる'},
+  ],
+  cta:{bg:'navy',title:'順位発表、待たせない。',sub:'無料・プロフィールのリンクから'}},
+];
+
+const br=await chromium.launch(process.env.PW_CHROMIUM?{executablePath:process.env.PW_CHROMIUM}:{});
 const p=await br.newPage({viewport:{width:1080,height:1350},deviceScaleFactor:1});
-await p.setContent(build(post),{waitUntil:'networkidle'});await p.evaluate(()=>document.fonts.ready);
-const els=await p.locator('.slide').all();
-for(let i=0;i<els.length;i++){await els[i].screenshot({path:path.join(OUT,`single_${i+1}.png`)});}
-await br.close();console.log('done',els.length,'slides');
+for(const post of posts){
+ await p.setContent(build(post),{waitUntil:'networkidle'});
+ await p.evaluate(()=>document.fonts.ready);
+ const els=await p.locator('.slide').all();
+ for(let i=0;i<els.length;i++){await els[i].screenshot({path:path.join(OUT,`${post.key}_${i+1}.png`)});}
+ console.log('done',post.key,els.length,'slides');
+}
+await br.close();
