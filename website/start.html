@@ -85,10 +85,43 @@
     .bf div b{color:var(--primary);font-size:15px;}
     .bf div p{font-size:13px;color:var(--text-sec);margin-top:2px;}
 
+    /* scroll reveal (JS有効時のみ隠す→フォールバックで必ず表示) */
+    .js .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1);}
+    .reveal.show{opacity:1;transform:none;}
+    @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none;}.hero-img,.pd .ar{animation:none!important;}}
+
+    /* hero float */
+    @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    .hero-img{animation:floaty 5s ease-in-out infinite;}
+
+    /* paper -> digital */
+    .pd{background:linear-gradient(160deg,var(--primary-dark),var(--primary));color:#fff;}
+    .pd .wrap{text-align:center;}
+    .pd h2{font-size:26px;font-weight:800;margin-bottom:8px;color:#fff;}
+    .pd .sub{color:#cdd9e8;font-size:14px;margin-bottom:30px;}
+    .pd .flow{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
+    .pd .ti{background:rgba(255,255,255,.08);border-radius:18px;padding:22px 18px;width:150px;}
+    .pd .ti .ic{font-size:40px;margin-bottom:8px;}
+    .pd .ti.old{opacity:.55;}
+    .pd .ti .t{font-weight:700;font-size:15px;}
+    .pd .ti .d{font-size:12px;color:#cdd9e8;margin-top:4px;line-height:1.5;}
+    .pd .ar{font-size:30px;color:var(--accent);animation:slideRight 1.4s ease-in-out infinite;}
+    @keyframes slideRight{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
+    .pd .free{display:inline-block;margin-top:26px;background:var(--accent);color:var(--primary);font-weight:800;font-size:15px;padding:10px 24px;border-radius:999px;}
+
+    /* free support */
+    .support .box{background:var(--primary);color:#fff;border-radius:24px;padding:34px 26px;text-align:center;}
+    .support .box h3{font-size:22px;font-weight:800;margin-bottom:10px;color:#fff;}
+    .support .box>p{font-size:14px;color:#d8e2ee;margin-bottom:22px;}
+    .support .pts{display:grid;gap:10px;text-align:left;max-width:420px;margin:0 auto 24px;}
+    .support .pts div{background:rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;font-size:14px;font-weight:600;}
+    .support .box .btn{background:var(--accent);color:var(--primary);max-width:320px;}
+
     footer{background:var(--primary-dark);color:#cdd6e2;text-align:center;font-size:13px;padding:30px 22px;}
     footer a{color:#cdd6e2;text-decoration:none;margin:0 8px;}
     footer .cp{display:block;margin-top:14px;color:#8a99ad;font-size:12px;}
   </style>
+  <script>document.documentElement.classList.add('js');</script>
 </head>
 <body>
 
@@ -100,8 +133,21 @@
     <img class="hero-img" src="images/lp-hero.png" alt="Sofvo ソフトバレー専用アプリ">
   </header>
 
+  <section class="pd">
+    <div class="wrap reveal">
+      <h2>紙の時代から、デジタルへ。</h2>
+      <p class="sub">手書きの対戦表も、電卓での集計も、もういりません。</p>
+      <div class="flow">
+        <div class="ti old"><div class="ic">📋</div><div class="t">これまで（紙）</div><div class="d">手書き・電卓・コピー配布</div></div>
+        <div class="ar">→</div>
+        <div class="ti"><div class="ic">📱</div><div class="t">これから（アプリ）</div><div class="d">自動作成・自動集計・即共有</div></div>
+      </div>
+      <span class="free">しかも、ずっと無料で試せる</span>
+    </div>
+  </section>
+
   <section>
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="accent-line"></div>
       <h2 class="sec-title">ソフトバレーって？</h2>
       <p class="sec-sub">普通のバレーとはちょっと違います</p>
@@ -114,7 +160,7 @@
   </section>
 
   <section style="background:var(--cream);">
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="accent-line"></div>
       <h2 class="sec-title">Sofvoでできること</h2>
       <p class="sec-sub">ソフトバレー専用の無料アプリ</p>
@@ -127,7 +173,7 @@
   </section>
 
   <section>
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="accent-line"></div>
       <h2 class="sec-title">はじめ方はかんたん</h2>
       <p class="sec-sub">3ステップでスタート</p>
@@ -140,7 +186,7 @@
   </section>
 
   <section style="background:var(--cream);">
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="accent-line"></div>
       <h2 class="sec-title">どれだけラクになる？</h2>
       <p class="sec-sub">これまでの手間が、こう変わります</p>
@@ -159,7 +205,7 @@
   </section>
 
   <section>
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="accent-line"></div>
       <h2 class="sec-title">大会を運営する方へ</h2>
       <p class="sec-sub">作成から当日・集計まで、ぜんぶ1つで</p>
@@ -174,7 +220,7 @@
   </section>
 
   <section style="background:var(--cream);">
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="accent-line"></div>
       <h2 class="sec-title">アプリの画面</h2>
       <p class="sec-sub">直感的に使えます</p>
@@ -209,8 +255,23 @@
     </div>
   </section>
 
+  <section class="support">
+    <div class="wrap reveal">
+      <div class="box">
+        <h3>初めての大会運営も、無料でサポート</h3>
+        <p>「いきなり自分で運営できるか不安…」そんな方こそ、お任せください。<br>オンラインで一緒に準備します。もちろん打ち合わせも無料です。</p>
+        <div class="pts">
+          <div>✓ オンライン打ち合わせ無料</div>
+          <div>✓ 大会作成・対戦表の設定を一緒に</div>
+          <div>✓ 当日の進行の不安も相談OK</div>
+        </div>
+        <a class="btn" href="contact.html">無料で相談する</a>
+      </div>
+    </div>
+  </section>
+
   <section class="cta">
-    <div class="wrap">
+    <div class="wrap reveal">
       <h2>ソフトバレーを、もっと楽しく。</h2>
       <p>まずは無料で、のぞいてみてください。</p>
       <a class="btn gold" href="https://sofvo.com">Sofvoをはじめる（無料）</a>
@@ -226,6 +287,23 @@
     <a href="contact.html">お問い合わせ</a>
     <span class="cp">&copy; Sofvo. All rights reserved.</span>
   </footer>
+
+  <script>
+    (function(){
+      var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('show');io.unobserve(e.target);}});},{threshold:.12});
+      document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+      // 画像が無いギャラリーは見出しごと隠す
+      window.addEventListener('load',function(){setTimeout(function(){
+        document.querySelectorAll('.phones').forEach(function(g){
+          if(g.querySelectorAll('.pitem').length===0){
+            g.style.display='none';
+            var h=g.previousElementSibling;
+            if(h&&h.classList.contains('subhead'))h.style.display='none';
+          }
+        });
+      },500);});
+    })();
+  </script>
 
 </body>
 </html>
