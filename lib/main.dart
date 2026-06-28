@@ -325,10 +325,18 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       final data = doc.data()!;
       data['id'] = doc.id;
 
+      // デモ大会は対戦表タブに直接着地させる（最初の操作＝対戦表生成を分かりやすく）
+      final demoInitialTab = data['isDemo'] == true ? 'matches' : null;
+
       // 次フレームでpush（buildの最中にnavigateしないように）
       WidgetsBinding.instance.addPostFrameCallback((_) {
         navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data)),
+          MaterialPageRoute(
+            builder: (_) => TournamentDetailScreen(
+              tournament: data,
+              initialTab: demoInitialTab,
+            ),
+          ),
         );
       });
     } catch (e) {

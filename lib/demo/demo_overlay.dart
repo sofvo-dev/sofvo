@@ -79,6 +79,7 @@ class _DemoOverlayState extends State<DemoOverlay> {
               busy: _busy,
               message: _message,
               onTap: _runAutoFill,
+              onHelp: () => setState(() => _guideDismissed = false),
               onDismissMessage: () => setState(() => _message = null),
             ),
           ),
@@ -139,11 +140,13 @@ class _AutoFillBar extends StatelessWidget {
   final bool busy;
   final String? message;
   final VoidCallback onTap;
+  final VoidCallback onHelp;
   final VoidCallback onDismissMessage;
   const _AutoFillBar({
     required this.busy,
     required this.message,
     required this.onTap,
+    required this.onHelp,
     required this.onDismissMessage,
   });
 
@@ -180,6 +183,29 @@ class _AutoFillBar extends StatelessWidget {
                 ],
               ),
             ),
+          // 使い方を再表示
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: TextButton.icon(
+                onPressed: busy ? null : onHelp,
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: _navy,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                  minimumSize: Size.zero,
+                ),
+                icon: const Icon(Icons.help_outline, size: 16),
+                label: const Text('使い方',
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -200,9 +226,9 @@ class _AutoFillBar extends StatelessWidget {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.fast_forward),
+                  : const Icon(Icons.auto_awesome),
               label: Text(
-                busy ? '入力中…' : '残りを自動入力して結果を見る',
+                busy ? '自動入力中…' : 'おまかせで結果まで進める',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -294,13 +320,37 @@ class _GuideCard extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
                 ),
                 const SizedBox(height: 16),
-                _step(Icons.auto_fix_high, '①対戦表を自動生成',
-                    '「対戦表」タブの「対戦表を自動生成」をタップ'),
-                _step(Icons.scoreboard, '②得点を入力',
-                    '試合をタップ → スコアを入れてスライドで確定（面倒なら下のボタンで自動入力）'),
+                _step(Icons.auto_fix_high, '①対戦表をつくる',
+                    'いま開いている「対戦表」タブの青いボタン「対戦表を自動生成」をタップ'),
+                _step(Icons.scoreboard, '②得点を入れる',
+                    '試合をタップ → スコアを入れてスライドで確定'),
                 _step(Icons.leaderboard, '③結果を見る',
-                    '「順位表」タブで総合順位がリアルタイムに反映'),
-                const SizedBox(height: 8),
+                    '上の「順位表」タブで総合順位がリアルタイムに反映'),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _gold.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.auto_awesome, size: 18, color: _gold),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '面倒なら下の金色のボタン「おまかせで結果まで進める」をタップ。ワンタップで結果まで自動で進みます。',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B5A2A),
+                              height: 1.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
                 const Text(
                   '※ 入力した内容は自動的に削除されます',
                   style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
