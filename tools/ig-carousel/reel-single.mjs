@@ -25,7 +25,7 @@ const REELS={
   chips:['リアルタイム反映','セット自動集計'],
   appCap:'入力した瞬間、全員の画面へ',
   benefitCap:'もう、紙もペンもいらない。',
-  zoomY:42, // 画面内で注目する高さ(%)＝15-10スコアの位置（実測: 画像35.7%→枠内42%）
+  zoomY:41.3, // 画面内で注目する高さ(%)＝15-10スコアの位置（ピクセル実測: 画像35.6%→枠内41.3%）
   ctaTitle:'スコアも集計も、スマホで。',
  },
 };
@@ -63,7 +63,7 @@ const html=`<!doctype html><meta charset=utf8><style>
  .wm{position:absolute;top:50px;left:64px;font-weight:900;font-size:46px;z-index:5}
  .ph{position:absolute;left:50%;top:330px;transform:translateX(-50%);width:760px;height:1300px;border:15px solid ${DARK};border-radius:60px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.35);background:#000;z-index:2}
  .ph img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;transform-origin:50% ${R.zoomY}%}
- .ring{position:absolute;left:50%;border:8px solid ${GOLD};border-radius:28px;width:540px;height:250px;transform:translate(-50%,-50%);z-index:3;opacity:0;box-shadow:0 0 0 6px rgba(196,169,98,.18)}
+ .ring{position:absolute;left:50%;border:6px solid ${GOLD};border-radius:20px;width:480px;height:150px;transform:translate(-50%,-50%);z-index:3;opacity:0;box-shadow:0 0 0 5px rgba(196,169,98,.18)}
  .chip{position:absolute;background:#fff;color:${NAVY};font-weight:800;font-size:36px;padding:16px 28px;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.22);z-index:4;opacity:0;white-space:nowrap}
  .chip .gd{color:${GOLD}}
  /* cta */
@@ -140,7 +140,7 @@ const html=`<!doctype html><meta charset=utf8><style>
     const ringOp= tl>=1.4&&tl<5.6? cl((tl-1.4)/0.4)*(1-cl((tl-5.2)/0.4)) :0;
     const pulse=1+0.05*Math.sin(tl*7);
     ring.style.top=cy+'px'; ring.style.opacity=ringOp.toFixed(2);
-    ring.style.transform='translate(-50%,-50%) scale('+(0.95*pulse).toFixed(3)+')';
+    ring.style.transform='translate(-50%,-50%) scale('+(z*pulse).toFixed(3)+')'; // 数字と同じ倍率で拡大＝常に枠が一致
     // チップ：ポップイン（スコアの左右）
     const c0=el.querySelector('.c0'), c1=el.querySelector('.c1');
     const popp=(s)=>{const p=cl((tl-s)/0.32);return {o:p, sc:lerp(0.7,1,easeOut(p))};};
