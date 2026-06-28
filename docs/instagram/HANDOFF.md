@@ -105,6 +105,16 @@
   - フォントは `tools/ig-carousel/fonts/`（Dela Gothic One・Noto Sans JP。`.gitignore`済み。READMEのcurlで取得）。
 - **TODO**：残り3枚（②悩み→③Sofvoなら→④CTA）も同じ表紙仕様に合わせて `feature-single.mjs` 側を更新する（旧ネイビー表紙のままなので要差し替え）。
 
+### 3-4-2. リール（動画）★2026-06-28 追加
+ツール：**`tools/ig-carousel/reel.mjs`**（Playwrightでフレーム単位レンダリング→ffmpegでMP4/H.264）。
+- 仕様：**1080×1920・約15秒・30fps・無音MP4**（投稿時にInstagramでトレンド音源を付ける運用）。
+- スタイル：**モーショングラフィック**（フック→実機6機能を1.55秒ずつ→CTA）。背景はクリーム/ネイビー交互、文字Dela、実機は角丸フル端末で中央配置。
+- 構成：イントロ「ソフトバレーの大会、ぜんぶこれ1つ。」→ 対戦表/スコア/順位表/QR受付/収支/大会さがす → CTA「無料で、はじめよう。/ @sofvo.official / プロフィールのリンクから」。
+- アニメは CSS ではなく **`window.renderAt(t)` でフレーム毎に opacity/transform を駆動**（決定論的。クロスフェード＋スライドイン）。
+- **ffmpeg**：同梱の Playwright ffmpeg は VP8 のみ（H.264不可）。`@ffmpeg-installer/ffmpeg`（npm経由＝プロキシのサイズ制限を回避）を使う。`ffmpeg-static` は GitHub DL が途中で切れて壊れるので不可。環境変数 `FFMPEG` でバイナリ指定可。
+- 生成：`REEL_OUT=<出力先> FFMPEG=<ffmpegパス> PW_CHROMIUM=<chromium> node tools/ig-carousel/reel.mjs` → `<REEL_OUT>/sofvo-reel-15s.mp4`（中間フレームは `<REEL_OUT>/frames/`）。
+- 出力（`reel-out/`）は `.gitignore` 済み。配布はチャット添付のMP4。
+
 ### 3-5. 実機スクショ素材（`website/images/`）
 ユーザーがアップ済み（jpg・iPhone実機）。**使える主なもの**：
 | ファイル | 画面 | 用途（機能投稿） |
