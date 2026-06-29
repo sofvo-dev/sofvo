@@ -114,6 +114,8 @@
 - **ffmpeg**：同梱の Playwright ffmpeg は VP8 のみ（H.264不可）。`@ffmpeg-installer/ffmpeg`（npm経由＝プロキシのサイズ制限を回避）を使う。`ffmpeg-static` は GitHub DL が途中で切れて壊れるので不可。環境変数 `FFMPEG` でバイナリ指定可。
 - 生成：`REEL_OUT=<出力先> FFMPEG=<ffmpegパス> PW_CHROMIUM=<chromium> node tools/ig-carousel/reel.mjs` → `<REEL_OUT>/sofvo-reel-15s.mp4`（中間フレームは `<REEL_OUT>/frames/`）。
 - 出力（`reel-out/`）は `.gitignore` 済み。配布はチャット添付のMP4。
+- **フィード配置の決定（2026-06-29）**：3-2の3サイクル「①ネイビー文字／②クリーム文字／③実機」の **③実機枠に、この機能リール（動画）を入れる**運用。＝静止画の機能投稿カルーセルの代わりに、同じ機能をリールで出す（グリッドのリズムは保たれる）。
+- **ナレーション合成**：`reel-single.mjs` は `DUR_HOOK/DUR_PAIN/DUR_APP/DUR_CTA` でナレーション尺に追従、`AUDIO=<mp3>` でMP4に音声をmux。音声尺は `silencedetect` で無音位置を測り、文の区切りにシーン境目を合わせる（スコア版は約3.1/10.6/17.7/22.3s→計31.2s）。台本は `docs/instagram/reel-scripts.md`。AI音声はElevenLabs（声=Yui等）、「Sofvo」は「ソフボ」とカナ入力で安定。
 
 ### 3-5. 実機スクショ素材（`website/images/`）
 ユーザーがアップ済み（jpg・iPhone実機）。**使える主なもの**：
