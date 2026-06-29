@@ -44,7 +44,10 @@ class PointService {
     // 二重付与防止
     if (tournament['pointsAwarded'] == true) return;
 
-    final teamCount = (tournament['currentTeams'] as num?)?.toInt() ?? 0;
+    // ポイントは募集枠(maxTeams)を基準に計算する（大会詳細の「獲得ポイント」表示と一致させる）。
+    // maxTeams 未設定の古い大会のみ currentTeams にフォールバック。
+    final teamCount = (tournament['maxTeams'] as num?)?.toInt()
+        ?? (tournament['currentTeams'] as num?)?.toInt() ?? 0;
     if (teamCount == 0) return;
 
     final tournamentName = tournament['title'] as String? ?? tournament['name'] as String? ?? '';
