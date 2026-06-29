@@ -16,17 +16,29 @@ const img64=n=>fs.readFileSync(path.join(ROOT,'website/images',n)).toString('bas
 const NAVY='#1B3A5C',CREAM='#F7F5EF',GOLD='#C4A962',DARK='#0F2440',RED='#E0524B';
 const FPS=30;
 
-// ---- 機能ごとの設定（スコア版） ----
+// ---- 機能ごとの設定 ----
 const REELS={
  score:{
-  img:'app-score.jpg',
+  img:'app-score.jpg', pill:'試合中',
   hookA:'まだ、紙で', hookB:'スコアつけてるの？', strike:'紙',
+  hookSub:'…その手間、もう終わりにしませんか？🏐',
   painA:'集計ミスでもめたり', painB:'「今どっち勝ってる？」',
   chips:['リアルタイム反映','セット自動集計'],
-  appCap:'入力した瞬間、全員の画面へ',
-  benefitCap:'もう、紙もペンもいらない。',
-  zoomY:41.3, // 画面内で注目する高さ(%)＝15-10スコアの位置（ピクセル実測: 画像35.6%→枠内41.3%）
+  appCap:'入力した瞬間、全員の画面へ', benefitCap:'もう、紙もペンもいらない。',
+  zoomY:41.3, zoomMax:1.45, ringW:480, ringH:150, // 注目=15-10（ピクセル実測 画像35.6%→枠内41.3%）
+  chip0:{l:600,t:678}, chip1:{l:60,t:1130},
   ctaTitle:'スコアも集計も、スマホで。',
+ },
+ bracket:{
+  img:'app-bracket.jpg', pill:'大会運営',
+  hookA:'まだ、手書きで', hookB:'対戦表つくってる？', strike:'手書き',
+  hookSub:'その30分、まるごと無くせます。🏐',
+  painA:'組み替えのたび書き直し', painB:'コート割りもひと苦労',
+  chips:['チーム数を入れるだけ','組み直しもワンタップ'],
+  appCap:'リーグもトーナメントも自動で', benefitCap:'あの30分が、ゼロに。',
+  zoomY:55.5, zoomMax:1.12, ringW:640, ringH:185, // 注目=第1試合カード
+  chip0:{l:540,t:800}, chip1:{l:60,t:1240},
+  ctaTitle:'対戦表づくり、ゼロに。',
  },
 };
 const R=REELS[KEY];
@@ -66,7 +78,7 @@ const html=`<!doctype html><meta charset=utf8><style>
  .wm{position:absolute;top:50px;left:64px;font-weight:900;font-size:46px;z-index:5}
  .ph{position:absolute;left:50%;top:330px;transform:translateX(-50%);width:760px;height:1300px;border:15px solid ${DARK};border-radius:60px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.35);background:#000;z-index:2}
  .ph img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;transform-origin:50% ${R.zoomY}%}
- .ring{position:absolute;left:50%;border:6px solid ${GOLD};border-radius:20px;width:480px;height:150px;transform:translate(-50%,-50%);z-index:3;opacity:0;box-shadow:0 0 0 5px rgba(196,169,98,.18)}
+ .ring{position:absolute;left:50%;border:6px solid ${GOLD};border-radius:20px;width:${R.ringW}px;height:${R.ringH}px;transform:translate(-50%,-50%);z-index:3;opacity:0;box-shadow:0 0 0 5px rgba(196,169,98,.18)}
  .chip{position:absolute;background:#fff;color:${NAVY};font-weight:800;font-size:36px;padding:16px 28px;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.22);z-index:4;opacity:0;white-space:nowrap}
  .chip .gd{color:${GOLD}}
  /* cta */
@@ -77,7 +89,7 @@ const html=`<!doctype html><meta charset=utf8><style>
 </style><body>
  <div class="scene" data-i="0" style="background:${CREAM}"><div class="center">
    <div class="hookT up">${R.hookA.replace(R.strike,`<span class="kami">${R.strike}<span class="sl"></span></span>`)}<br>${R.hookB}</div>
-   <div class="hookSub up">…その手間、もう終わりにしませんか？🏐</div>
+   <div class="hookSub up">${R.hookSub}</div>
  </div></div>
 
  <div class="scene" data-i="1" style="background:${NAVY}"><div class="center">
@@ -87,7 +99,7 @@ const html=`<!doctype html><meta charset=utf8><style>
 
  <div class="scene" data-i="2" style="background:${CREAM}">
    <div class="wm"><span style="color:${NAVY}">Sof</span><span style="color:${GOLD}">vo</span></div>
-   <div class="lbl up"><div class="pill">試合中</div></div>
+   <div class="lbl up"><div class="pill">${R.pill}</div></div>
    <div class="ph"><img src="data:image/jpeg;base64,${img64(R.img)}"></div>
    <div class="ring"></div>
    <div class="chip c0"><span class="gd">⚡</span> ${R.chips[0]}</div>
@@ -134,8 +146,8 @@ const html=`<!doctype html><meta charset=utf8><style>
     ph.style.transform='translateX(-50%) translateY('+dy.toFixed(2)+'px)';
     // ズーム：AZIN0→ で 1.0→1.45、AZOUT0→ で戻す（appの尺に追従）
     let z=1.0;
-    if(tl>=${AZIN0}&&tl<${AZOUT0}) z=lerp(1.0,1.45,easeIO((tl-${AZIN0})/${AZINd}));
-    else if(tl>=${AZOUT0}) z=lerp(1.45,1.0,easeIO((tl-${AZOUT0})/${AZOUTd}));
+    if(tl>=${AZIN0}&&tl<${AZOUT0}) z=lerp(1.0,${R.zoomMax},easeIO((tl-${AZIN0})/${AZINd}));
+    else if(tl>=${AZOUT0}) z=lerp(${R.zoomMax},1.0,easeIO((tl-${AZOUT0})/${AZOUTd}));
     img.style.transform='scale('+z.toFixed(3)+')';
     // リング（スコアを囲む）＋パルス
     const ring=el.querySelector('.ring');
@@ -149,9 +161,9 @@ const html=`<!doctype html><meta charset=utf8><style>
     const popp=(s)=>{const p=cl((tl-s)/0.32);return {o:p, sc:lerp(0.7,1,easeOut(p))};};
     const chipOff=1-cl((tl-(${AZOUT0}-0.2))/0.4);
     let a=popp(1.7); c0.style.opacity=(a.o*chipOff).toFixed(2);
-    c0.style.left='600px'; c0.style.top='678px'; c0.style.transform='scale('+a.sc.toFixed(3)+')';
+    c0.style.left='${R.chip0.l}px'; c0.style.top='${R.chip0.t}px'; c0.style.transform='scale('+a.sc.toFixed(3)+')';
     let bb=popp(2.2); c1.style.opacity=(bb.o*chipOff).toFixed(2);
-    c1.style.left='60px'; c1.style.top='1130px'; c1.style.transform='scale('+bb.sc.toFixed(3)+')';
+    c1.style.left='${R.chip1.l}px'; c1.style.top='${R.chip1.t}px'; c1.style.transform='scale('+bb.sc.toFixed(3)+')';
     // キャプション差し替え（前半=appCap、後半=benefitCap）
     const cap=el.querySelector('#cap');
     if(tl<${ACAP}){cap.textContent=APPCAP; cap.style.opacity=cl((tl-0.5)/0.4).toFixed(2);}
