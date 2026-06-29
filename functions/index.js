@@ -2598,6 +2598,188 @@ exports.distributePoints = functions.https.onCall(async (data, context) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 既に付与済みの大会ポイントを募集枠(maxTeams)基準で再計算して差分補正する
+// （付与基準を currentTeams → maxTeams に変更した際の過去分修正用）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 共通コア: 指定大会のポイントを maxTeams 基準で再計算して差分補正する。
+// 履歴の現在値から目標値への差分を加算するため、複数回実行しても安全（2回目以降は差分0）。
+async function recomputeTournamentPointsCore(tournamentId) {
+  const db = admin.firestore();
+  const tournDoc = await db.collection("tournaments").doc(tournamentId).get();
+  if (!tournDoc.exists) {
+    return { ok: false, code: "not-found", message: "大会が見つかりません" };
+  }
+  const tournData = tournDoc.data();
+
+  // 新しい基準チーム数（募集枠）。未設定なら currentTeams にフォールバック。
+  const newTeamCount = tournData.maxTeams || tournData.currentTeams || 0;
+  if (newTeamCount === 0) {
+    return { ok: false, code: "failed-precondition", message: "maxTeams/currentTeams が0です" };
+  }
+
+  const now = new Date();
+  const currentSeason = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+
+  // 付与対象 UID を収集（エントリー参加者＋主催者）。collectionGroup を使わず、
+  // 各 users/{uid}/pointHistory/{tournamentId} を直接読むためインデックス不要。
+  const uidSet = new Set();
+  const entriesSnap = await db.collection("tournaments").doc(tournamentId).collection("entries").get();
+  for (const eDoc of entriesSnap.docs) {
+    const e = eDoc.data();
+    if (Array.isArray(e.memberUids)) {
+      for (const uid of e.memberUids) { if (uid) uidSet.add(uid); }
+    }
+    if (e.leaderUid) uidSet.add(e.leaderUid);
+    if (e.enteredBy) uidSet.add(e.enteredBy);
+  }
+  if (tournData.organizerId) uidSet.add(tournData.organizerId);
+
+  // 各 UID の pointHistory/{tournamentId} を取得
+  const histRefs = [...uidSet].map((uid) =>
+    db.collection("users").doc(uid).collection("pointHistory").doc(tournamentId));
+  const histDocs = histRefs.length > 0 ? await db.getAll(...histRefs) : [];
+
+  const batch = db.batch();
+  let adjustedUsers = 0;
+  let totalDiff = 0;
+  let historyDocs = 0;
+  const tournamentName = tournData.title || tournData.name || "";
+
+  for (const hDoc of histDocs) {
+    if (!hDoc.exists) continue; // ポイント未付与のユーザーはスキップ
+    historyDocs += 1;
+    const userRef = hDoc.ref.parent.parent; // users/{uid}
+    if (!userRef) continue;
+    const d = hDoc.data();
+
+    const oldTotal = d.totalEarned || 0;
+    const storedRank = d.rank || 99; // 1〜4 か null(=99: 参加)
+    const mult = rankMultiplier(storedRank);
+
+    // 元々ランクポイント(参加含む)があった人のみ再計算（主催者のみの人は0のまま）
+    const hadRankPoints = (d.rankPoints || 0) > 0;
+    const newRankPoints = hadRankPoints ? Math.round(newTeamCount * mult) : 0;
+
+    const hadOrgBonus = (d.organizerBonus || 0) > 0;
+    const newOrgBonus = hadOrgBonus ? calcOrganizerBonus(newTeamCount) : 0;
+
+    const streakBonus = d.streakBonus || 0;
+    const newTotal = newRankPoints + newOrgBonus + streakBonus;
+    const diff = newTotal - oldTotal;
+
+    // 履歴を新しい値に更新
+    batch.update(hDoc.ref, {
+      teamCount: newTeamCount,
+      rankPoints: newRankPoints,
+      organizerBonus: newOrgBonus,
+      totalEarned: newTotal,
+    });
+
+    if (diff !== 0) {
+      const userUpdate = {
+        totalPoints: admin.firestore.FieldValue.increment(diff),
+      };
+      // シーズンポイントは同一シーズンのときだけ補正（過去シーズン分は既にリセット済み）
+      if ((d.season || currentSeason) === currentSeason) {
+        userUpdate.seasonPoints = admin.firestore.FieldValue.increment(diff);
+      }
+      batch.update(userRef, userUpdate);
+
+      // 補正通知
+      const notifRef = userRef.collection("notifications").doc();
+      const sign = diff > 0 ? "+" : "";
+      batch.set(notifRef, {
+        type: "points_earned",
+        senderId: "system",
+        senderName: "ポイント補正",
+        message: `「${tournamentName}」のポイントを再計算しました（${sign}${diff}pt）。`,
+        tournamentId,
+        points: diff,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      adjustedUsers += 1;
+      totalDiff += diff;
+    }
+  }
+
+  await batch.commit();
+  return {
+    ok: true,
+    tournamentId,
+    newTeamCount,
+    historyDocs,
+    adjustedUsers,
+    totalDiff,
+  };
+}
+
+// アプリから呼ぶ callable（主催者・編集者・管理者のみ）
+exports.recomputeTournamentPoints = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+
+  const { tournamentId } = data || {};
+  if (!tournamentId) {
+    throw new functions.https.HttpsError("invalid-argument", "tournamentId が必要です");
+  }
+
+  const db = admin.firestore();
+  const tournDoc = await db.collection("tournaments").doc(tournamentId).get();
+  if (!tournDoc.exists) throw new functions.https.HttpsError("not-found", "大会が見つかりません");
+  const tournData = tournDoc.data();
+
+  // 権限チェック: 主催者・編集者・管理者のみ
+  const callerDoc = await db.collection("users").doc(context.auth.uid).get();
+  const isAdmin = callerDoc.exists && callerDoc.data().isAdmin === true;
+  const isOrganizer = tournData.organizerId === context.auth.uid;
+  const isEditor = (tournData.editors || []).includes(context.auth.uid);
+  if (!isOrganizer && !isEditor && !isAdmin) {
+    throw new functions.https.HttpsError("permission-denied", "権限がありません");
+  }
+
+  const result = await recomputeTournamentPointsCore(tournamentId);
+  if (!result.ok) throw new functions.https.HttpsError(result.code, result.message);
+  return result;
+});
+
+// 手動実行用 HTTP エンドポイント（curl で叩く）。
+// 例: .../recomputeTournamentPointsNow?tournamentId=XXXX
+// 履歴の現在値→目標値の差分補正なので冪等（重複実行しても二重加算されない）。
+exports.recomputeTournamentPointsNow = functions.https.onRequest(async (req, res) => {
+  try {
+    const db = admin.firestore();
+    let tournamentId = req.query.tournamentId || (req.body && req.body.tournamentId);
+
+    // tournamentId が無ければ title から解決（例: ?title=試合結果自動集計アプリ導入大会）
+    const title = req.query.title || (req.body && req.body.title);
+    if (!tournamentId && title) {
+      const q = await db.collection("tournaments").where("title", "==", title).limit(2).get();
+      if (q.empty) {
+        res.status(404).json({ ok: false, message: `title「${title}」の大会が見つかりません` });
+        return;
+      }
+      if (q.size > 1) {
+        res.status(409).json({ ok: false, message: `title「${title}」が複数あります。tournamentId で指定してください`, ids: q.docs.map((d) => d.id) });
+        return;
+      }
+      tournamentId = q.docs[0].id;
+    }
+
+    if (!tournamentId) {
+      res.status(400).json({ ok: false, message: "tournamentId または title クエリパラメータが必要です" });
+      return;
+    }
+
+    const result = await recomputeTournamentPointsCore(tournamentId);
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (e) {
+    console.error("[recomputeTournamentPointsNow]", e);
+    res.status(500).json({ ok: false, message: String(e) });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会作成時にフォロワーへ通知
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.onTournamentCreate = functions.firestore
