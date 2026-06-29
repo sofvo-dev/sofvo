@@ -126,6 +126,12 @@
 |---|---|---|---|
 | スコア | **ズームで1点強調**（15-10にズーム＋金枠＋チップ） | `reel-single.mjs`（REEL=score） | 無音19s／音声31.2s |
 | 対戦表 | **ビフォーアフター**（手書きぐちゃぐちゃ→自動対戦表＋「30分→10秒」） | `reel-bracket.mjs` | 無音19s／音声38.9s |
+| 順位表 | **結果発表ドラマ**（🎉結果発表＋紙吹雪＋1位に金枠＋🏆） | `reel-ranking.mjs` | 無音19s |
+| QR受付 | **行列スッと**（行列→QRに✅→人が1人ずつ消える「行列ゼロに」） | `reel-checkin.mjs` | 無音19s |
+| 収支 | **カウントアップ**（¥0→¥11,500を一気に集計＋コイン） | `reel-finance.mjs` | 無音19s |
+
+- **各スクリプト共通の作り**：4シーン（hook→pain→app/climax→cta）。`window.renderAt(t)`でフレーム駆動。`DUR_*`環境変数で尺可変・`AUDIO=`で音声mux（reel-single/bracketと同じ。ranking/checkin/financeは `DUR_HOOK/DUR_PAIN(またはPAIN相当)/DUR_AFTER(またはREVEAL)/DUR_CTA`）。
+- **⚠️ハマりどころ（重要）**：シーン内で `painT` のような**囲みdivを使ったら閉じ`</div>`を1つ追加**すること。閉じ忘れると後続シーンがそのシーンに**入れ子**になり、親が`display:none`になる時間帯で**まるごと消える**（cream/navyの空白フレームになる）。ranking/financeで実際に踏んだ。デバッグは `ph.offsetWidth===0` ＆ 祖先チェーンに `display:none` の`.scene`が出るかで判定。
 
 **重要方針：リールごとに“型”を変える**（毎回同じ構成・同じ台本・同じCTAにしない）。台本のフック/CTAも毎回フレーズを変える。型の未使用案：順位表=結果発表ドラマ／QR受付=行列スッと/収支=数字カウントアップ。
 
