@@ -1828,7 +1828,9 @@ exports.onTournamentStatusChange = functions.firestore
 
     const db = admin.firestore();
     const tournamentId = context.params.tournamentId;
-    const teamCount = after.currentTeams || 0;
+    // ポイントは募集枠(maxTeams)を基準に計算する（大会詳細の「獲得ポイント」表示と一致させる）。
+    // maxTeams 未設定の古い大会のみ currentTeams にフォールバック。
+    const teamCount = after.maxTeams || after.currentTeams || 0;
     if (teamCount === 0) return null;
 
     const organizerId = after.organizerId || "";
