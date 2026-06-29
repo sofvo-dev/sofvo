@@ -36,9 +36,9 @@ const html=`<!doctype html><meta charset=utf8><style>
  .badge{position:absolute;top:104px;left:0;right:0;text-align:center;z-index:7}
  .bChip{display:inline-block;background:${GOLD};color:${NAVY};font-family:'Dela';font-size:48px;padding:14px 40px;border-radius:999px;box-shadow:0 16px 40px rgba(0,0,0,.2)}
  .ph{position:absolute;left:50%;top:300px;transform:translateX(-50%);width:740px;height:1180px;border:15px solid ${DARK};border-radius:60px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.32);background:#000;z-index:2}
- .ph img{width:100%;height:100%;object-fit:cover;object-position:center 50%;display:block}
+ .ph img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
  .scan{position:absolute;left:0;right:0;height:90px;background:linear-gradient(${'rgba(52,199,89,0)'},rgba(52,199,89,.55),rgba(52,199,89,0));box-shadow:0 0 30px rgba(52,199,89,.6);z-index:3;opacity:0}
- .check{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:200px;z-index:4;opacity:0}
+ .check{position:absolute;left:50%;top:61%;transform:translate(-50%,-50%);font-size:200px;z-index:4;opacity:0}
  .chip{position:absolute;background:#fff;color:${NAVY};font-weight:800;font-size:36px;padding:16px 28px;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.22);z-index:5;opacity:0;white-space:nowrap}
  .chip .gd{color:${GOLD}}
  .queue{position:absolute;bottom:70px;left:0;right:0;text-align:center;font-size:86px;z-index:6;letter-spacing:-4px}
