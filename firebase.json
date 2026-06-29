@@ -96,6 +96,10 @@
     ],
     "rewrites": [
       {
+        "source": "/start",
+        "destination": "/start.html"
+      },
+      {
         "source": "/auth-action",
         "destination": "/auth-action.html"
       },
@@ -133,6 +137,14 @@
       },
       {
         "source": "/app/**",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/demo",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/demo/**",
         "destination": "/index.html"
       }
     ]

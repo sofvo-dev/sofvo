@@ -1,0 +1,9 @@
+fonts/
+output/
+output-feature/
+node_modules/
+package.json
+package-lock.json
+
+# IG reel
+reel-out/
