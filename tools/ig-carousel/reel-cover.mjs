@@ -17,7 +17,7 @@ const COVERS={
  score:{pill:'試合中',title:'スコアはリアルタイム。',sub:'入力した瞬間、全員の画面へ',img:'app-score.jpg',pos:'center 22%'},
  bracket:{pill:'大会運営',title:'対戦表はボタンひとつ。',sub:'手書きはもう卒業',img:'app-bracket.jpg',pos:'center top'},
  ranking:{pill:'結果発表',title:'順位は自動で確定。',sub:'セットの勝敗から即集計',img:'app-ranking.jpg',pos:'center top'},
- checkin:{pill:'受付',title:'受付はQRでサッと。',sub:'名簿チェックの行列をゼロに',img:'app-checkin.jpg',pos:'center 78%'},
+ checkin:{pill:'受付',title:'受付はQRでサッと。',sub:'名簿チェックの行列をゼロに',img:'app-checkin.jpg',pos:'center 30%'},
  finance:{pill:'お金の管理',title:'収支もアプリで丸見え。',sub:'参加費も経費も自動で集計',img:'app-finance.jpg',pos:'center top'},
 };
 const C=COVERS[KEY];
