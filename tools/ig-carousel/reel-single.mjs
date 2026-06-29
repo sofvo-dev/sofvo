@@ -31,14 +31,17 @@ const REELS={
 };
 const R=REELS[KEY];
 
-// ---- タイムライン（秒） ----
+// ---- タイムライン（秒）。ナレーションに合わせて環境変数で上書き可 ----
+const D={hook:+(process.env.DUR_HOOK||3.2), pain:+(process.env.DUR_PAIN||3.2), app:+(process.env.DUR_APP||9.0), cta:+(process.env.DUR_CTA||3.6)};
 const beats=[
- {id:'hook',   dur:3.2, bg:'cream'},
- {id:'pain',   dur:3.2, bg:'navy'},
- {id:'app',    dur:9.0, bg:'cream'}, // フォン連続（イン→ズーム→戻し）
- {id:'cta',    dur:3.6, bg:'navy'},
+ {id:'hook',   dur:D.hook, bg:'cream'},
+ {id:'pain',   dur:D.pain, bg:'navy'},
+ {id:'app',    dur:D.app,  bg:'cream'}, // フォン連続（イン→ズーム→戻し）
+ {id:'cta',    dur:D.cta,  bg:'navy'},
 ];
 let acc=0; for(const b of beats){b.start=acc; acc+=b.dur;} const TOTAL=acc; const NF=Math.round(TOTAL*FPS);
+// アプリbeat内アニメのタイミング（appの尺に追従）
+const AZIN0=1.0, AZINd=Math.min(1.2,D.app*0.16), AZOUT0=Math.max(AZIN0+AZINd+0.6, D.app-3.8), AZOUTd=1.0, ACAP=AZOUT0-0.1;
 
 const html=`<!doctype html><meta charset=utf8><style>
  @font-face{font-family:'Dela';src:url(data:font/ttf;base64,${dela})}
@@ -129,29 +132,30 @@ const html=`<!doctype html><meta charset=utf8><style>
     // フォン：スライドイン＋オーバーシュート
     const inE=easeOut(tl/0.7); const dy=(1-inE)*120;
     ph.style.transform='translateX(-50%) translateY('+dy.toFixed(2)+'px)';
-    // ズーム：1.2s→2.4s で 1.0→1.45、5.6s→6.6s で戻す
+    // ズーム：AZIN0→ で 1.0→1.45、AZOUT0→ で戻す（appの尺に追従）
     let z=1.0;
-    if(tl>=1.2&&tl<5.6) z=lerp(1.0,1.45,easeIO((tl-1.2)/1.1));
-    else if(tl>=5.6) z=lerp(1.45,1.0,easeIO((tl-5.6)/1.0));
+    if(tl>=${AZIN0}&&tl<${AZOUT0}) z=lerp(1.0,1.45,easeIO((tl-${AZIN0})/${AZINd}));
+    else if(tl>=${AZOUT0}) z=lerp(1.45,1.0,easeIO((tl-${AZOUT0})/${AZOUTd}));
     img.style.transform='scale('+z.toFixed(3)+')';
     // リング（スコアを囲む）＋パルス
     const ring=el.querySelector('.ring');
     const phTop=330, phH=1300; const cy=phTop+15+ (phH-30)*${R.zoomY}/100;
-    const ringOp= tl>=1.4&&tl<5.6? cl((tl-1.4)/0.4)*(1-cl((tl-5.2)/0.4)) :0;
+    const ringOp= tl>=1.4&&tl<${AZOUT0}? cl((tl-1.4)/0.4)*(1-cl((tl-(${AZOUT0}-0.4))/0.4)) :0;
     const pulse=1+0.05*Math.sin(tl*7);
     ring.style.top=cy+'px'; ring.style.opacity=ringOp.toFixed(2);
     ring.style.transform='translate(-50%,-50%) scale('+(z*pulse).toFixed(3)+')'; // 数字と同じ倍率で拡大＝常に枠が一致
     // チップ：ポップイン（スコアの左右）
     const c0=el.querySelector('.c0'), c1=el.querySelector('.c1');
     const popp=(s)=>{const p=cl((tl-s)/0.32);return {o:p, sc:lerp(0.7,1,easeOut(p))};};
-    let a=popp(1.7); c0.style.opacity=(a.o*(1-cl((tl-5.4)/0.4))).toFixed(2);
+    const chipOff=1-cl((tl-(${AZOUT0}-0.2))/0.4);
+    let a=popp(1.7); c0.style.opacity=(a.o*chipOff).toFixed(2);
     c0.style.left='600px'; c0.style.top='678px'; c0.style.transform='scale('+a.sc.toFixed(3)+')';
-    let bb=popp(2.2); c1.style.opacity=(bb.o*(1-cl((tl-5.4)/0.4))).toFixed(2);
+    let bb=popp(2.2); c1.style.opacity=(bb.o*chipOff).toFixed(2);
     c1.style.left='60px'; c1.style.top='1130px'; c1.style.transform='scale('+bb.sc.toFixed(3)+')';
     // キャプション差し替え（前半=appCap、後半=benefitCap）
     const cap=el.querySelector('#cap');
-    if(tl<5.4){cap.textContent=APPCAP; cap.style.opacity=cl((tl-0.5)/0.4).toFixed(2);}
-    else{cap.textContent=BENCAP; cap.style.opacity=cl((tl-6.0)/0.4).toFixed(2);}
+    if(tl<${ACAP}){cap.textContent=APPCAP; cap.style.opacity=cl((tl-0.5)/0.4).toFixed(2);}
+    else{cap.textContent=BENCAP; cap.style.opacity=cl((tl-(${ACAP}+0.5))/0.4).toFixed(2);}
    }
   });
  };
@@ -166,5 +170,10 @@ console.log('rendering',NF,'frames /',TOTAL.toFixed(2),'s ·',KEY);
 for(let i=0;i<NF;i++){await p.evaluate(t=>window.renderAt(t),i/FPS);await p.screenshot({path:path.join(FRAMES,`f${String(i).padStart(4,'0')}.png`)});}
 await br.close();
 const mp4=path.join(SCRATCH,`sofvo-reel-${KEY}.mp4`);
-execFileSync(FF,['-y','-framerate',String(FPS),'-i',path.join(FRAMES,'f%04d.png'),'-c:v','libx264','-pix_fmt','yuv420p','-r',String(FPS),'-movflags','+faststart',mp4],{stdio:'inherit'});
-console.log('done ->',mp4);
+const args=['-y','-framerate',String(FPS),'-i',path.join(FRAMES,'f%04d.png')];
+if(process.env.AUDIO){args.push('-i',process.env.AUDIO);}
+args.push('-c:v','libx264','-pix_fmt','yuv420p','-r',String(FPS),'-movflags','+faststart');
+if(process.env.AUDIO){args.push('-c:a','aac','-b:a','192k','-shortest','-map','0:v:0','-map','1:a:0');}
+args.push(mp4);
+execFileSync(FF,args,{stdio:'inherit'});
+console.log('done ->',mp4,'audio:',process.env.AUDIO?'yes':'no');
