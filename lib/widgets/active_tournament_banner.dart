@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/app_theme.dart';
 import '../utils/tournament_status.dart';
-import '../utils/official_permissions.dart';
 import '../screens/tournament/tournament_detail_screen.dart';
 
 /// ホーム上部に表示する「進行中の大会」バナー。
@@ -49,15 +48,6 @@ class _ActiveTournamentBannerState extends State<ActiveTournamentBanner> {
     try {
       final firestore = FirebaseFirestore.instance;
 
-      // 運営判定に使う自分の権限フラグ（管理者・公式）
-      bool isAdmin = false;
-      bool isOfficial = false;
-      try {
-        final me = await firestore.collection('users').doc(uid).get();
-        isAdmin = me.data()?['isAdmin'] == true;
-        isOfficial = me.data()?['isOfficial'] == true;
-      } catch (_) {}
-
       // 進行中の大会は常に少数なので、まずステータスで絞ってから判定する。
       final snap = await firestore
           .collection('tournaments')
@@ -75,12 +65,12 @@ class _ActiveTournamentBannerState extends State<ActiveTournamentBanner> {
         // 自分のチームID（参加者として）
         final myTeamIds = await _loadMyTeamIds(doc.reference, uid);
         final isParticipant = myTeamIds.isNotEmpty;
-        final isOrganizer = canManageTournament(
-          uid: uid,
-          tournament: data,
-          isAdmin: isAdmin,
-          viewerIsOfficial: isOfficial,
-        );
+        // このバナーは「自分が実際に関わる進行中の大会」だけを出す。
+        // 公式・管理者の包括権限（canManageTournament）はここでは使わない
+        // （使うと進行中の全大会が表示され、ホームが埋め尽くされてしまう）。
+        final editors = List<String>.from(data['editors'] ?? []);
+        final isOrganizer =
+            data['organizerId'] == uid || editors.contains(uid);
 
         if (!isParticipant && !isOrganizer) continue;
 
