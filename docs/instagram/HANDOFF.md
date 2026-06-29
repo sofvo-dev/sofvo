@@ -117,6 +117,72 @@
 - **フィード配置の決定（2026-06-29）**：3-2の3サイクル「①ネイビー文字／②クリーム文字／③実機」の **③実機枠に、この機能リール（動画）を入れる**運用。＝静止画の機能投稿カルーセルの代わりに、同じ機能をリールで出す（グリッドのリズムは保たれる）。
 - **ナレーション合成**：`reel-single.mjs` は `DUR_HOOK/DUR_PAIN/DUR_APP/DUR_CTA` でナレーション尺に追従、`AUDIO=<mp3>` でMP4に音声をmux。音声尺は `silencedetect` で無音位置を測り、文の区切りにシーン境目を合わせる（スコア版は約3.1/10.6/17.7/22.3s→計31.2s）。台本は `docs/instagram/reel-scripts.md`。AI音声はElevenLabs（声=Yui等）、「Sofvo」は「ソフボ」とカナ入力で安定。
 
+### 3-4-3. リール／カバー／キャプション 制作 完全手順（★新セッション再現用）
+
+これまで作ったもの（2026-06-29 時点）と、同じものを再現する手順。**ツールはすべて `tools/ig-carousel/`**。
+
+#### A. できているリール
+| 機能 | 型（シグネチャ） | スクリプト | 尺 |
+|---|---|---|---|
+| スコア | **ズームで1点強調**（15-10にズーム＋金枠＋チップ） | `reel-single.mjs`（REEL=score） | 無音19s／音声31.2s |
+| 対戦表 | **ビフォーアフター**（手書きぐちゃぐちゃ→自動対戦表＋「30分→10秒」） | `reel-bracket.mjs` | 無音19s／音声38.9s |
+
+**重要方針：リールごとに“型”を変える**（毎回同じ構成・同じ台本・同じCTAにしない）。台本のフック/CTAも毎回フレーズを変える。型の未使用案：順位表=結果発表ドラマ／QR受付=行列スッと/収支=数字カウントアップ。
+
+#### B. 環境セットアップ（最初に1回・新セッションで必須）
+```bash
+cd tools/ig-carousel
+# 1) フォント（.gitignore済。README.mdのcurlでもOK）
+mkdir -p fonts
+curl -sSL -o fonts/DelaGothicOne-Regular.ttf "https://github.com/google/fonts/raw/main/ofl/delagothicone/DelaGothicOne-Regular.ttf"
+curl -sSL -o fonts/NotoSansJP.ttf "https://github.com/google/fonts/raw/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf"
+# 2) Playwright（npm）。Chromium本体はリモート環境にプリインストール
+npm install playwright
+# 3) H.264が使えるffmpeg（mp4用）。※ffmpeg-staticは壊れる、@ffmpeg-installerを使う
+npm install @ffmpeg-installer/ffmpeg
+```
+- **Chromium本体**：リモート環境では `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`（バージョン番号は変わりうる。`ls /opt/pw-browsers` で確認 → `find /opt/pw-browsers/chromium-* -name chrome -type f`）。これを `PW_CHROMIUM` に渡す。ローカルMacなら `npx playwright install chromium` 済みで `PW_CHROMIUM` 未指定でも可。
+- **ffmpeg**：`node_modules/@ffmpeg-installer/linux-x64/ffmpeg`。`FFMPEG` 環境変数で指定（未指定でもこのパスを既定で探す）。Playwright同梱のffmpegはVP8のみ＝**H.264(mp4)不可**。`ffmpeg-static` は GitHub DL が途中で切れて壊れる（segfault）ので使わない。
+
+#### C. リール生成（無音）→ ナレーション合成
+```bash
+# 無音リール（ズーム型。score/bracket/ranking… は REELS の設定で）
+REEL=score REEL_OUT=/tmp/out PW_CHROMIUM=<chrome> node reel-single.mjs        # 汎用ズーム型
+REEL_OUT=/tmp/out PW_CHROMIUM=<chrome> node reel-bracket.mjs                  # 対戦表(ビフォーアフター)
+
+# ナレーション尺に合わせて合成（手順）
+# 1) 音声の長さ・段落の無音位置を測る（境目を見つける）
+<ffmpeg> -hide_banner -i voice.mp3 2>&1 | grep Duration
+<ffmpeg> -hide_banner -i voice.mp3 -af "silencedetect=noise=-25dB:d=0.3" -f null - 2>&1 | grep -oE "silence_(start|end): [0-9.]+"
+#    → 段落の大きめの無音 = シーン境目。境目から各シーンの秒数を出す。
+# 2) その秒数で再レンダリング＋音声mux
+REEL=score DUR_HOOK=.. DUR_PAIN=.. DUR_APP=.. DUR_CTA=.. AUDIO=voice.mp3 FFMPEG=<ff> PW_CHROMIUM=<chrome> REEL_OUT=/tmp/out node reel-single.mjs
+#    対戦表は DUR_HOOK/DUR_BEFORE/DUR_AFTER/DUR_CTA（reel-bracket.mjs）
+```
+- 実測例：スコア音声31.2s→境目 約8.0/10.6/17.7/22.3… ／対戦表音声38.9s→`DUR_HOOK=7.95 DUR_BEFORE=14.05 DUR_AFTER=11.4 DUR_CTA=5.47`。
+- アニメは `window.renderAt(t)` でフレーム毎に駆動＝**決定論的**（同じ入力なら同じ動画）。アプリ内アニメのタイミングは app/after の尺に自動追従。
+- **枠ズレ対策**：実機内の注目要素（例:15-10）の位置は**ピクセル実測**で出す（目視はズレる）。`zoomY`＝枠内%。スコアは画像35.6%→枠内41.3%。枠は**ズーム率`z`に連動**させて常に一致させる。
+
+#### D. AI音声（ElevenLabs）
+- 台本は `docs/instagram/reel-scripts.md`。**読む言葉だけ**を貼る（ト書き・絵文字・タイムコードは入れない）。
+- **「Sofvo」→「ソフボ」とカナ入力**（英字だと読み崩れ）。声=Yui（Warm/Natural）等、Stability 40〜50%・少しゆっくり。シリーズで声を統一。
+- 無音で書き出し → ここで合成、が基本。BGM（トレンド音源）はIG側で小さめに重ねる。
+
+#### E. カバー（サムネ）
+```bash
+REEL=score|bracket|ranking|checkin|finance REEL_OUT=/tmp/out PW_CHROMIUM=<chrome> node reel-cover.mjs
+```
+- **1080×1920・実機が見えるクリーム版**（`cover_reel_<key>.png`）。中央バンド(y420〜1500)にタイトル＋実機を配置＝グリッドの1:1切り取りでも崩れない。
+- IG設定：リール投稿→カバー→「ファイルから追加」→このPNG→中央切り抜き。**デフォルト1フレーム目（フック文字）はグリッド市松が崩れるので使わない**。
+
+#### F. キャプション（ルール）
+- **ハッシュタグは最大5つ**。構成＝メイン2（#ソフトバレー #ソフトバレーボール）＋機能1＋文脈1＋ブランド（**#ソフボ**）。
+- ブランド表記は **ソフボ**（×ソフバ）。本文の誘導は必ず **sofvo.com/start**（プロフィールのリンク）。
+- 静止画用＝`feature-captions.md`（14本）、リール用＝`reel-scripts.md`（機能ごと）。
+
+#### G. 機能の言い回し（正確さ）
+- 対戦表は「チーム数を入れるだけ」ではなく **「エントリー機能で参加チームが登録 → そのエントリーから対戦表を自動生成」**。流れ：主催者が大会作成 → チームがエントリー → エントリー済みチームから対戦表を自動生成。
+
 ### 3-5. 実機スクショ素材（`website/images/`）
 ユーザーがアップ済み（jpg・iPhone実機）。**使える主なもの**：
 | ファイル | 画面 | 用途（機能投稿） |
@@ -199,11 +265,20 @@ docs/instagram/
   canva-setup.md          Canva Pro 半自動運用（代替手段）
   canva-bulk/carousels.csv   テキスト投稿24本のデータ
   canva-bulk/captions.md     同キャプション
+  feature-captions.md     ★静止画 機能投稿14本のキャプション（5タグ・ソフボ）
+  reel-scripts.md         ★リールのナレーション台本＋キャプション（機能ごと）
 tools/ig-carousel/
   render.mjs              テキストカルーセル生成
   feature.mjs             複数機能まとめカルーセル（実機入り）
-  feature-single.mjs      ★単機能＝1投稿（現在の主軸）
+  feature-single.mjs      ★静止画 単機能4枚（14本）＋汎用リール(ズーム型)エンジン
+  cover-only.mjs          静止画の実機表紙のみ量産（4:5）
+  reel-single.mjs         ★汎用リールエンジン(ズーム型・機能別パラメータ・DUR_*でナレーション尺追従・AUDIOで音声mux)
+  reel-bracket.mjs        ★対戦表リール(ビフォーアフター型・手書き→自動対戦表＋30分→10秒)
+  reel-cover.mjs          ★リール用カバー(9:16・実機クリーム・グリッド中央安全)
+  reel.mjs                旧:全機能まとめ15秒リール（参考）
+  fonts/ output*/ reel-out/ node_modules/  ← すべて.gitignore（動画/画像はチャット配布）
   README.md               ツールの使い方
+  ※ 詳細な再現手順は本ファイル「3-4-3」を参照
 website/
   start.html              初心者LP（sofvo.com/start）
   images/app-*.jpg        実機スクショ素材
