@@ -219,10 +219,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         try {
           final result = await InviteService.redeemInvite(inviteCode);
           final teamName = (result['teamName'] ?? '') as String;
+          final requestedTeam = result['requestedTeam'] == true;
+          final joinedTeam = result['joinedTeam'] == true;
           if (mounted && teamName.isNotEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('チーム「$teamName」に参加しました！'), backgroundColor: AppTheme.success),
-            );
+            final msg = requestedTeam
+                ? 'チーム「$teamName」に参加リクエストを送りました。承認をお待ちください'
+                : joinedTeam
+                    ? 'チーム「$teamName」に参加しました！'
+                    : '';
+            if (msg.isNotEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(msg), backgroundColor: AppTheme.success),
+              );
+            }
           }
         } catch (e) {
           debugPrint('招待コードの引き換えに失敗: $e');
