@@ -55,6 +55,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
 
         for (final doc in hostedSnap.docs) {
           final data = doc.data();
+          if (data['isDemo'] == true) continue; // 体験デモ大会は一般表示しない
           final status = normalizeTournamentStatus(data['status']);
           final entryCountSnap =
               await doc.reference.collection('entries').count().get();
@@ -80,6 +81,7 @@ class _RecruitmentScreenState extends State<RecruitmentScreen>
 
         for (final doc in tournSnap.docs) {
           final data = doc.data();
+          if (data['isDemo'] == true) continue; // 体験デモ大会は一般表示しない
           final isOrganizer = data['organizerId'] == uid;
           final entriesSnap =
               await doc.reference.collection('entries').get();
