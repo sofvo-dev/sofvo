@@ -73,7 +73,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
           }
-          final docs = snapshot.data?.docs ?? [];
+          final docs = (snapshot.data?.docs ?? [])
+              .where((d) => (d.data() as Map<String, dynamic>)['isDemo'] != true)
+              .toList(); // 体験デモ大会は除外
           if (docs.isEmpty) return _buildEmptyState();
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),

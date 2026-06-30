@@ -3008,10 +3008,10 @@ exports.autoCloseTournamentEntriesByDeadline = functions.pubsub
 //   - isDemo:true の匿名ユーザー（Firestore ドキュメント + Auth アカウント）を削除
 //   いずれも作成から DEMO_TTL_HOURS 経過したものが対象。
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const DEMO_TTL_HOURS = 6;
+const DEMO_TTL_HOURS = 2;
 
 exports.cleanupDemoData = functions.pubsub
-  .schedule("30 * * * *") // 毎時30分
+  .schedule("*/15 * * * *") // 15分ごと（デモのゲスト/大会が長く残らないようにする）
   .timeZone("Asia/Tokyo")
   .onRun(async () => {
     const db = admin.firestore();
