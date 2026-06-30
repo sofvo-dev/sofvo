@@ -80,8 +80,15 @@ class DemoService {
   /// 匿名サインイン → デモユーザー作成 → デモ大会 seed。大会 ID を返す。
   static Future<String> startDemo() async {
     // 1. 匿名サインイン
+    //    デモは必ず「使い捨ての匿名セッション」で動かす。
+    //    本物のユーザーがログイン中のまま進めると、その人の users ドキュメントに
+    //    isDemo:true / nickname:'ゲスト' が書き込まれ、cleanupDemoData によって
+    //    本物のアカウントごと削除されてしまうため、匿名ユーザー以外は一旦サインアウトする。
     User? user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+    if (user == null || !user.isAnonymous) {
+      if (user != null && !user.isAnonymous) {
+        await FirebaseAuth.instance.signOut();
+      }
       final cred = await FirebaseAuth.instance.signInAnonymously();
       user = cred.user;
     }
