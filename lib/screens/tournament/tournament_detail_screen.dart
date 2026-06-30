@@ -7151,12 +7151,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   // ━━━ シェアシート ━━━
   String _buildShareUrl() {
-    final base = Uri.base.origin;
-    return '$base/?t=$_tournamentId';
+    // Uri.base.origin はネイティブ（file:// スキーム）で例外を投げ、共有ボタンが
+    // 無反応になる。ドメイン統一済みの sofvo.com を直接使う。
+    return 'https://sofvo.com/?t=$_tournamentId';
   }
 
   void _showShareOptions(BuildContext context) {
-    final tournamentName = widget.tournament['name'] ?? '';
+    final tournamentName = (widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String;
+    final canManage = _canManageTournament(widget.tournament);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -7203,6 +7205,68 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                 },
               ),
             ]),
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                canManage ? '\u62db\u5f85\u3057\u3066\u767b\u9332\u30fb\u53c2\u52a0\u3057\u3066\u3082\u3089\u3046' : '\u30e1\u30f3\u30d0\u30fc\u3092\u62db\u5f85\u3059\u308b',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // \u5927\u4f1a\u904b\u55b6\u8005\uff1a\u30ad\u30e3\u30d7\u30c6\u30f3\u62db\u5f85\uff08\u5927\u4f1a\u30a8\u30f3\u30c8\u30ea\u30fc\u3078\u8a98\u5c0e\uff09
+            if (canManage) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    showInviteShareSheet(
+                      context,
+                      tournamentId: _tournamentId,
+                      tournamentName: tournamentName,
+                      title: '\u30ad\u30e3\u30d7\u30c6\u30f3\u3092\u62db\u5f85',
+                      description: '\u3053\u306e\u5927\u4f1a\u306b\u51fa\u5834\u3059\u308b\u30c1\u30fc\u30e0\u306e\u30ad\u30e3\u30d7\u30c6\u30f3\u3092\u62db\u5f85\u3057\u307e\u3059\u3002\u30ea\u30f3\u30af\u3068\u30b3\u30fc\u30c9\u3092\u9001\u308b\u3068\u3001\u76f8\u624b\u306f\u767b\u9332\u5f8c\u306b\u3053\u306e\u5927\u4f1a\u3078\u6848\u5185\u3055\u308c\u3001\u30c1\u30fc\u30e0\u3067\u30a8\u30f3\u30c8\u30ea\u30fc\u3067\u304d\u307e\u3059\u3002',
+                    );
+                  },
+                  icon: const Icon(Icons.shield_outlined, size: 20),
+                  label: const Text('\u30ad\u30e3\u30d7\u30c6\u30f3\u3092\u62db\u5f85', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            // \u30ad\u30e3\u30d7\u30c6\u30f3\uff0f\u53c2\u52a0\u8005\uff1a\u30e1\u30f3\u30d0\u30fc\u62db\u5f85
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  showInviteShareSheet(
+                    context,
+                    tournamentId: _tournamentId,
+                    tournamentName: tournamentName,
+                    title: '\u30e1\u30f3\u30d0\u30fc\u3092\u62db\u5f85',
+                    description: '\u4e00\u7dd2\u306b\u51fa\u308b\u30e1\u30f3\u30d0\u30fc\u3092\u62db\u5f85\u3057\u307e\u3059\u3002\u30ea\u30f3\u30af\u3068\u30b3\u30fc\u30c9\u3092\u9001\u308b\u3068\u3001\u76f8\u624b\u306f\u767b\u9332\u5f8c\u306b\u3053\u306e\u5927\u4f1a\u3078\u6848\u5185\u3055\u308c\u3001\u30d5\u30a9\u30ed\u30fc\u4e2d\u306b\u4e26\u3093\u3067\u30e1\u30f3\u30d0\u30fc\u3068\u3057\u3066\u9078\u3079\u308b\u3088\u3046\u306b\u306a\u308a\u307e\u3059\u3002',
+                  );
+                },
+                icon: const Icon(Icons.person_add_alt, size: 20),
+                label: const Text('\u30e1\u30f3\u30d0\u30fc\u3092\u62db\u5f85', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  side: const BorderSide(color: AppTheme.primaryColor),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
           ]),
         ),
       ),

@@ -228,6 +228,14 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
       allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+
+      // 参加リクエスト（承認制）。作成は redeemInvite、承認/却下は
+      // respondTeamJoinRequest（いずれも admin 権限）で行うため、
+      // クライアントは参照のみ可能。
+      match /joinRequests/{applicantUid} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
     }
 
     // ━━━ 招待コード ━━━
