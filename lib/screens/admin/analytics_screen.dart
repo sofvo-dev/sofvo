@@ -36,12 +36,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       usersRef.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(fourteenDaysAgo)).get(), // 1: recent
       _firestore.collection('posts').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(),  // 2: posts
       _firestore.collection('tournaments').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(), // 3: tournaments
+      usersRef.where('isDemo', isEqualTo: true).count().get(),                   // 4: 体験デモのゲスト（登録者数から除外する）
+      _firestore.collection('tournaments').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).where('isDemo', isEqualTo: true).count().get(), // 5: 今月の体験デモ大会
     ]);
 
-    final totalUsers = (results[0] as AggregateQuerySnapshot).count ?? 0;
+    // 体験デモの匿名ゲスト（isDemo:true）は登録者数に含めない。
+    // cleanupDemoData で削除されるまでの間カウントに乗ってしまうため差し引く。
+    final demoUsers = (results[4] as AggregateQuerySnapshot).count ?? 0;
+    final demoTournaments = (results[5] as AggregateQuerySnapshot).count ?? 0;
+    final totalUsers = ((results[0] as AggregateQuerySnapshot).count ?? 0) - demoUsers;
     final recentUsersSnap = results[1] as QuerySnapshot;
     final monthPosts = (results[2] as AggregateQuerySnapshot).count ?? 0;
-    final monthTournaments = (results[3] as AggregateQuerySnapshot).count ?? 0;
+    final monthTournaments = ((results[3] as AggregateQuerySnapshot).count ?? 0) - demoTournaments;
 
     // 日別カウント
     final dailyEntries = <MapEntry<DateTime, int>>[];
@@ -52,7 +58,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
     int todayCount = 0, weekCount = 0, monthCount = 0;
     for (final doc in recentUsersSnap.docs) {
-      final createdAt = doc.data() is Map ? (doc.data() as Map)['createdAt'] : null;
+      final data = doc.data() is Map ? (doc.data() as Map) : null;
+      if (data == null) continue;
+      if (data['isDemo'] == true) continue; // 体験デモのゲストは新規登録に数えない
+      final createdAt = data['createdAt'];
       if (createdAt == null || createdAt is! Timestamp) continue;
       final date = createdAt.toDate();
       final dayKey = '${date.year}-${date.month}-${date.day}';

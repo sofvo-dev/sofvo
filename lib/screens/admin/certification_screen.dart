@@ -75,6 +75,7 @@ class _CertificationScreenState extends State<CertificationScreen>
 
         final docs = snapshot.data!.docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
+          if (data['isDemo'] == true) return false; // 体験デモ大会は除外
           final isCertified = data['isCertified'] == true;
           return certified ? isCertified : !isCertified;
         }).toList()
