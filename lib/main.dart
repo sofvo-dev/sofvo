@@ -4,7 +4,7 @@ import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
-import 'package:flutter/services.dart' show Clipboard, ClipboardData, MethodChannel;
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,6 +16,7 @@ import 'config/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/follow_service.dart';
 import 'services/notification_service.dart';
+import 'services/invite_service.dart';
 import 'services/update_check_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'screens/auth/login_screen.dart';
@@ -44,6 +45,10 @@ String? pendingCheckInTournamentId;
 /// 友達紹介リンクで渡された紹介者UID（?ref=xxx）
 String? pendingReferrerUserId;
 
+/// 招待コード（?code=XXXXXX）。友達紹介・チーム招待・大会招待の共通コード。
+/// クリップボードに頼らず、登録後に redeemInvite で相互フォロー＋チーム参加を確定する。
+String? pendingInviteCode;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -67,6 +72,7 @@ void main() async {
     final uri = Uri.base;
     pendingTournamentId = uri.queryParameters['t'];
     pendingReferrerUserId = uri.queryParameters['ref'];
+    pendingInviteCode = uri.queryParameters['code'];
     final checkinId = parseCheckInTournamentIdFromDeepLinkUri(uri);
     if (checkinId != null && checkinId.isNotEmpty) {
       pendingCheckInTournamentId = checkinId;
@@ -139,6 +145,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   bool _navigatedToTournament = false;
   bool _processedReferral = false;
+  bool _processedInviteCode = false;
   // 現在の認証ユーザー（StreamBuilderを使わず手動で管理）
   User? _currentUser;
   StreamSubscription<User?>? _authSubscription;
@@ -202,9 +209,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
   }
 
-  /// 新規インストール時の紹介コード引き継ぎ
+  /// 新規インストール時の紹介コード引き継ぎ（Android のみ）
   /// Android: Play Install Referrer API（MethodChannel）
-  /// iOS: クリップボードに保存された ref を読み取り
+  /// iOS: クリップボード経由は廃止。新規インストールは登録画面での招待コード入力で確実に成立させる。
   Future<void> _checkDeferredReferral() async {
     if (kIsWeb) return;
     // 既にディープリンクで ref が取得済みの場合はスキップ
@@ -223,21 +230,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             if (mounted) setState(() {});
           }
         }
-      } else if (Platform.isIOS) {
-        // クリップボードから ref を読み取り（invite.html でコピー済み）
-        final data = await Clipboard.getData('text/plain');
-        final text = data?.text ?? '';
-        // "sofvo-ref:USERID" 形式で保存されているか確認
-        if (text.startsWith('sofvo-ref:')) {
-          final ref = text.substring('sofvo-ref:'.length).trim();
-          if (ref.isNotEmpty) {
-            pendingReferrerUserId = ref;
-            // 使い終わったらクリップボードを消去
-            await Clipboard.setData(const ClipboardData(text: ''));
-            if (mounted) setState(() {});
-          }
-        }
       }
+      // iOS のクリップボード経由の ref 取得は廃止。
+      // Smart App Banner・ペースト権限・LINE内ブラウザ・上書きで取りこぼしが多く
+      // 信頼できないため、新規インストール経路は「招待コード入力」に一本化した
+      // （登録完了画面でコードを入力 → redeemInvite で確実に成立）。
     } catch (e) {
       debugPrint('deferred referral check: $e');
     }
@@ -252,6 +249,14 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     if (ref != null && ref.isNotEmpty) {
       pendingReferrerUserId = ref;
       _processedReferral = false;
+      changed = true;
+    }
+
+    // 招待コード（?code=XXXXXX）→ 登録後に redeemInvite で確定する
+    final code = uri.queryParameters['code'];
+    if (code != null && code.isNotEmpty) {
+      pendingInviteCode = code;
+      _processedInviteCode = false;
       changed = true;
     }
 
@@ -452,6 +457,62 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
   }
 
+  /// 招待コード（?code=）の引き換え。redeemInvite が相互フォロー＋チーム参加を確定し、
+  /// 大会招待なら該当大会へ誘導する。新規ユーザーは ProfileSetupScreen 側でも入力できる
+  /// ため、そちらで処理済みなら pendingInviteCode は null になっている。
+  Future<void> _handlePendingInviteCode() async {
+    if (_processedInviteCode || pendingInviteCode == null) return;
+    _processedInviteCode = true;
+    final code = pendingInviteCode!;
+    pendingInviteCode = null;
+
+    try {
+      final result = await InviteService.redeemInvite(code);
+      if (!mounted) return;
+
+      final referrerName = result['referrerName'] as String?;
+      final teamName = result['teamName'] as String?;
+      final tournamentId = result['tournamentId'] as String?;
+
+      final messages = <String>[];
+      if (referrerName != null && referrerName.isNotEmpty) {
+        messages.add('$referrerNameさんと友達になりました');
+      }
+      if (teamName != null && teamName.isNotEmpty) {
+        messages.add('チーム「$teamName」に参加しました');
+      }
+      if (messages.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text('${messages.join(' / ')}！'),
+              backgroundColor: const Color(0xFF2E7D32),
+            ),
+          );
+        });
+      }
+
+      // 大会招待なら該当大会へ誘導
+      if (tournamentId != null && tournamentId.isNotEmpty) {
+        pendingTournamentId = tournamentId;
+        _navigatedToTournament = false;
+        _navigateToInvitedTournament();
+      }
+    } catch (e) {
+      debugPrint('招待コードの引き換えに失敗: $e');
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(
+              content: Text('招待コードの引き換えに失敗しました'),
+              backgroundColor: Color(0xFFC62828),
+            ),
+          );
+        });
+      }
+    }
+  }
+
   /// アプリ更新チェック
   Future<void> _checkForUpdate() async {
     if (_updateChecked) return;
@@ -580,6 +641,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     if (_currentUser == null) {
       _navigatedToTournament = false;
       _processedReferral = false;
+      _processedInviteCode = false;
       if (pendingReferrerUserId != null) {
         return RegisterScreen(
           onAuthSuccess: _onAuthSuccess,
@@ -632,6 +694,10 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         // 紹介リンク（既存ユーザー向け）
         if (pendingReferrerUserId != null) {
           _handlePendingReferral(_currentUser!.uid);
+        }
+        // 招待コード（友達紹介・チーム招待・大会招待の共通コード）
+        if (pendingInviteCode != null) {
+          _handlePendingInviteCode();
         }
 
         return const MainTabScreen();

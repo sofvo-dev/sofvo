@@ -29,6 +29,7 @@ import '../../services/result_share_service.dart';
 import '../../services/match_generator.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/certified_badge.dart';
+import '../../widgets/invite_share_sheet.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
@@ -6137,7 +6138,32 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                         color: selectedMembers.length < 3 ? AppTheme.textHint : AppTheme.primaryColor,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+
+                    // 未登録メンバーの招待（登録するとフォロー中に並び、選択できるようになる）
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          showInviteShareSheet(
+                            context,
+                            tournamentId: _tournamentId,
+                            tournamentName: (widget.tournament['name'] ?? widget.tournament['title'] ?? '') as String,
+                            title: '未登録のメンバーを招待',
+                            description: '一緒に出るメンバーがまだ登録していない場合、招待リンクとコードを送ってください。登録するとフォロー中に並び、メンバーとして選べるようになります。',
+                          );
+                        },
+                        icon: const Icon(Icons.person_add_alt, size: 20),
+                        label: const Text('未登録のメンバーを招待', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: AppTheme.primaryColor),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // エントリーボタン
                     SizedBox(

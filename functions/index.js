@@ -2549,6 +2549,120 @@ exports.onFollowingDeleted = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 招待コードの引き換え（相互フォロー＋チーム参加）
+// invites/{CODE} = { referrerUid, teamId?, tournamentId?, expiresAt? }
+// クライアントは相手側コレクションへ書けない（Firestoreルール）ため、
+// admin 権限のこの関数でまとめて確定する。クリップボード等に頼らない確実な経路。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.redeemInvite = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  }
+  const uid = context.auth.uid;
+  const code = (data && data.code ? String(data.code) : "").trim().toUpperCase();
+  if (!code) {
+    throw new functions.https.HttpsError("invalid-argument", "招待コードが空です");
+  }
+
+  const db = admin.firestore();
+  const inviteSnap = await db.collection("invites").doc(code).get();
+  if (!inviteSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "招待コードが見つかりません");
+  }
+  const invite = inviteSnap.data() || {};
+
+  // 有効期限チェック
+  if (invite.expiresAt && typeof invite.expiresAt.toMillis === "function" &&
+      invite.expiresAt.toMillis() < Date.now()) {
+    throw new functions.https.HttpsError("failed-precondition", "招待コードの有効期限が切れています");
+  }
+
+  const referrerUid = invite.referrerUid || null;
+  const result = {
+    referrerName: null,
+    teamId: null,
+    teamName: null,
+    tournamentId: invite.tournamentId || null,
+    followed: false,
+    joinedTeam: false,
+  };
+
+  // 自分の情報
+  const meSnap = await db.collection("users").doc(uid).get();
+  const myName = (meSnap.exists && meSnap.data().nickname) || "名前なし";
+  const myAvatar = (meSnap.exists && meSnap.data().avatarUrl) || "";
+
+  // ── 相互フォロー（自分以外の紹介者がいる場合のみ）──
+  if (referrerUid && referrerUid !== uid) {
+    const refSnap = await db.collection("users").doc(referrerUid).get();
+    if (refSnap.exists) {
+      const refName = refSnap.data().nickname || "名前なし";
+      const refAvatar = refSnap.data().avatarUrl || "";
+      result.referrerName = refName;
+
+      const now = admin.firestore.FieldValue.serverTimestamp();
+      const meRef = db.collection("users").doc(uid);
+      const refRef = db.collection("users").doc(referrerUid);
+
+      // 既存判定（カウント二重加算とフォロー通知の重複を避ける）
+      const [meFollowsRef, refFollowsMe] = await Promise.all([
+        meRef.collection("following").doc(referrerUid).get(),
+        refRef.collection("following").doc(uid).get(),
+      ]);
+
+      const batch = db.batch();
+      if (!meFollowsRef.exists) {
+        batch.set(meRef.collection("following").doc(referrerUid), { nickname: refName, avatarUrl: refAvatar, createdAt: now });
+        batch.set(refRef.collection("followers").doc(uid), { createdAt: now });
+      }
+      if (!refFollowsMe.exists) {
+        batch.set(refRef.collection("following").doc(uid), { nickname: myName, avatarUrl: myAvatar, createdAt: now });
+        batch.set(meRef.collection("followers").doc(referrerUid), { createdAt: now });
+      }
+      await batch.commit();
+      result.followed = true;
+
+      // 紹介者に通知（初回フォロー時のみ）
+      if (!meFollowsRef.exists) {
+        try {
+          await refRef.collection("notifications").add({
+            type: "follow",
+            senderId: uid,
+            senderName: myName,
+            senderAvatar: myAvatar,
+            message: "があなたをフォローしました",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (e) {
+          console.error("[redeemInvite] follow notification failed:", e);
+        }
+      }
+    }
+  }
+
+  // ── チーム参加（teamId 指定時）──
+  if (invite.teamId) {
+    const teamRef = db.collection("teams").doc(invite.teamId);
+    const teamSnap = await teamRef.get();
+    if (teamSnap.exists) {
+      const teamData = teamSnap.data() || {};
+      result.teamId = invite.teamId;
+      result.teamName = teamData.name || teamData.teamName || "";
+      const update = {
+        memberIds: admin.firestore.FieldValue.arrayUnion(uid),
+      };
+      update[`memberNames.${uid}`] = myName;
+      update[`memberAvatars.${uid}`] = myAvatar;
+      await teamRef.update(update);
+      result.joinedTeam = true;
+    }
+  }
+
+  return result;
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ポイント付与（サーバーサイド）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.distributePoints = functions.https.onCall(async (data, context) => {

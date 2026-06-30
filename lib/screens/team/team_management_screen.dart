@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/invite_share_sheet.dart';
 import 'team_detail_screen.dart';
 import '../chat/chat_screen.dart';
 
@@ -588,8 +589,34 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                   children: [
                     Text('「$teamName」にメンバーを招待',
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                    const SizedBox(height: 4),
-                    const Text('フォローしている人から選択してください',
+                    const SizedBox(height: 12),
+
+                    // 招待リンク/コードで招待（まだ登録していない人もOK）
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          showInviteShareSheet(
+                            context,
+                            teamId: teamId,
+                            teamName: teamName,
+                            title: 'リンク/コードで招待',
+                            description: 'まだSofvoに登録していない人も招待できます。リンクとコードを送ると、登録するだけで自動でチームに参加します。',
+                          );
+                        },
+                        icon: const Icon(Icons.link, size: 20),
+                        label: const Text('招待リンク/コードで招待（未登録の人もOK）',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: AppTheme.primaryColor),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('または、フォローしている人から選択',
                         style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                     const SizedBox(height: 16),
                   Row(

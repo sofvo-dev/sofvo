@@ -414,6 +414,13 @@
     <p>大会運営・チーム募集・コミュニティが<br>ひとつのアプリに。</p>
   </div>
 
+  <!-- 招待コードカード（コード招待時のみ表示） -->
+  <div class="referrer-card" id="codeCard">
+    <div class="label">招待コード</div>
+    <div class="name" id="codeValue" style="font-size:28px;letter-spacing:4px;color:var(--primary);">------</div>
+    <div class="sub">アプリ登録時にこのコードを入力してください</div>
+  </div>
+
   <!-- 紹介者カード -->
   <div class="referrer-card" id="referrerCard">
     <div class="label">あなたを招待した人</div>
@@ -522,6 +529,8 @@
   <script>
     var params = new URLSearchParams(window.location.search);
     var refUserId = params.get('ref');
+    // 招待コード（友達紹介・チーム招待・大会招待の共通コード）
+    var inviteCode = (params.get('code') || '').toUpperCase();
 
     var ua = navigator.userAgent.toLowerCase();
     var isIOS = /iphone|ipad|ipod/.test(ua);
@@ -560,20 +569,21 @@
       (refUserId ? '&referrer=' + encodeURIComponent('ref=' + refUserId) : '');
 
     // ── ディープリンク（アプリ導入済みユーザー向け）──
-    var deepLink = 'sofvo://invite' + (refUserId ? '?ref=' + encodeURIComponent(refUserId) : '');
+    // 招待コードがあればコードを優先（友達紹介・チーム・大会の共通経路）
+    var deepLinkQuery = inviteCode ? '?code=' + encodeURIComponent(inviteCode)
+      : (refUserId ? '?ref=' + encodeURIComponent(refUserId) : '');
+    var deepLink = 'sofvo://invite' + deepLinkQuery;
 
     // ── Web版URL（フォールバック）──
-    var webUrl = window.location.origin + '/app/' + (refUserId ? '?ref=' + encodeURIComponent(refUserId) : '');
+    var webUrl = window.location.origin + '/app/' + deepLinkQuery;
 
     // ── CTAクリック処理 ──
     function handleCtaClick(e) {
       e.preventDefault();
 
       if (isIOS) {
-        // iOS: ref をクリップボードに保存（アプリ初回起動時に読み取り）
-        if (refUserId && navigator.clipboard) {
-          navigator.clipboard.writeText('sofvo-ref:' + refUserId).catch(function() {});
-        }
+        // iOS のクリップボード経由 ref 保存は廃止（取りこぼしが多いため）。
+        // 新規インストール経路は登録画面での「招待コード」入力に一本化している。
         // アプリが入っていれば Universal Links で自動で開く。
         // 入っていない場合のフォールバックとして App Store へ。
         window.location.href = deepLink;
@@ -615,6 +625,12 @@
       var webLink = document.getElementById('ctaWebLink');
       webLink.style.display = 'block';
       webLink.href = webUrl;
+    }
+
+    // 招待コードがあれば画面に表示（登録時に手入力してもらう確実な経路）
+    if (inviteCode) {
+      document.getElementById('codeValue').textContent = inviteCode;
+      document.getElementById('codeCard').classList.add('show');
     }
 
     // Cloud Function経由で紹介者の公開プロフィールを取得
