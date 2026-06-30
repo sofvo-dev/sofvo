@@ -37,15 +37,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       _firestore.collection('posts').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(),  // 2: posts
       _firestore.collection('tournaments').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).count().get(), // 3: tournaments
       usersRef.where('isDemo', isEqualTo: true).count().get(),                   // 4: 体験デモのゲスト（登録者数から除外する）
+      _firestore.collection('tournaments').where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart)).where('isDemo', isEqualTo: true).count().get(), // 5: 今月の体験デモ大会
     ]);
 
     // 体験デモの匿名ゲスト（isDemo:true）は登録者数に含めない。
     // cleanupDemoData で削除されるまでの間カウントに乗ってしまうため差し引く。
     final demoUsers = (results[4] as AggregateQuerySnapshot).count ?? 0;
+    final demoTournaments = (results[5] as AggregateQuerySnapshot).count ?? 0;
     final totalUsers = ((results[0] as AggregateQuerySnapshot).count ?? 0) - demoUsers;
     final recentUsersSnap = results[1] as QuerySnapshot;
     final monthPosts = (results[2] as AggregateQuerySnapshot).count ?? 0;
-    final monthTournaments = (results[3] as AggregateQuerySnapshot).count ?? 0;
+    final monthTournaments = ((results[3] as AggregateQuerySnapshot).count ?? 0) - demoTournaments;
 
     // 日別カウント
     final dailyEntries = <MapEntry<DateTime, int>>[];
