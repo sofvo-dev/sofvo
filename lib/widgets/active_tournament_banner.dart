@@ -59,6 +59,9 @@ class _ActiveTournamentBannerState extends State<ActiveTournamentBanner> {
         final data = Map<String, dynamic>.from(doc.data());
         data['id'] = doc.id;
 
+        // 体験用デモ大会はどの画面でも一般表示しない（「さがす」と同じ扱い）
+        if (data['isDemo'] == true) continue;
+
         final status = normalizeTournamentStatus(data['status']);
         if (!_inProgressStatuses.contains(status)) continue;
 
