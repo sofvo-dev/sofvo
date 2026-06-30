@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
-import '../../main.dart' show pendingReferrerUserId;
+import '../../main.dart' show pendingReferrerUserId, pendingInviteCode;
 import '../../services/notification_service.dart';
+import '../../services/invite_service.dart';
 import '../onboarding/onboarding_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _nicknameController = TextEditingController();
   final _searchIdController = TextEditingController();
   final _bioController = TextEditingController();
+  final _inviteCodeController = TextEditingController();
   String? _searchIdError;
   Timer? _debounceTimer;
   bool _isCheckingId = false;
@@ -52,11 +54,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // 招待リンク（?code=）経由なら招待コードを初期入力しておく。
+    // 自動取得できない新規インストール経路でも、本人が手入力できる。
+    if (pendingInviteCode != null && pendingInviteCode!.isNotEmpty) {
+      _inviteCodeController.text = pendingInviteCode!;
+    }
+  }
+
+  @override
   void dispose() {
     _debounceTimer?.cancel();
     _nicknameController.dispose();
     _searchIdController.dispose();
     _bioController.dispose();
+    _inviteCodeController.dispose();
     super.dispose();
   }
 
@@ -196,6 +209,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       // 友達紹介リンクからの登録 → 自動相互フォロー
       if (pendingReferrerUserId != null && pendingReferrerUserId != user.uid) {
         await _processReferral(user.uid, nickname);
+      }
+
+      // 招待コード入力 → 相互フォロー＋チーム参加（redeemInvite で確定）
+      // ここで処理したら pendingInviteCode を消し、AuthGate 側の二重実行を防ぐ。
+      final inviteCode = _inviteCodeController.text.trim();
+      if (inviteCode.isNotEmpty) {
+        pendingInviteCode = null;
+        try {
+          final result = await InviteService.redeemInvite(inviteCode);
+          final teamName = (result['teamName'] ?? '') as String;
+          if (mounted && teamName.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('チーム「$teamName」に参加しました！'), backgroundColor: AppTheme.success),
+            );
+          }
+        } catch (e) {
+          debugPrint('招待コードの引き換えに失敗: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('招待コードが無効か、期限切れの可能性があります'), backgroundColor: AppTheme.warning),
+            );
+          }
+        }
       }
 
       // pushAndRemoveUntilではなくpushを使用する。
@@ -598,6 +634,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   style: const TextStyle(fontSize: 15),
                   decoration: const InputDecoration(
                     hintText: '一言自己紹介（任意）',
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── 招待コード ──
+                const Text(
+                  '招待コード',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '友達やチームから招待された方は入力してください（任意）',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _inviteCodeController,
+                  textCapitalization: TextCapitalization.characters,
+                  style: const TextStyle(fontSize: 16, letterSpacing: 2),
+                  decoration: const InputDecoration(
+                    hintText: '例: ABC234',
+                    prefixIcon: Icon(Icons.card_giftcard, color: AppTheme.primaryColor),
                   ),
                 ),
                 const SizedBox(height: 32),
