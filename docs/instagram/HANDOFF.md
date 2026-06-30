@@ -31,7 +31,7 @@
 
 ## 2. ここまでの成果（ざっくり）
 - **LP**：`website/start.html`（= `sofvo.com/start`）公開済み。アニメ・「紙→デジタル」・無料サポート・実機画面ギャラリー入り。**404は解消済み**（後述）。※LPの改行/サイズ/デスクトップ/アニメの微調整は別AIが対応中。
-- **Instagram テキストカルーセル 24本**（`docs/instagram/canva-bulk/carousels.csv`）生成済み・PNG納品済み。
+- **Instagram テキストカルーセル 48本**（`docs/instagram/canva-bulk/carousels.csv`）データ生成済み（1〜24はPNG納品済み、25〜48はデータ追記済み・PNG未生成）。
 - **Instagram 機能カルーセル（実機画像入り）** の型を確立。
 - **実機スクショ 19枚** をリポジトリに保存（`website/images/app-*.jpg`）。
 - **生成ツール一式**（`tools/ig-carousel/`）。
@@ -60,7 +60,7 @@
 - 注意：実機投稿の**中の**スライドでクリームを使うのはOK（グリッドに出ないので「クリーム2回」にはならない）。
 
 ### 3-3. 投稿タイプA：テキストカルーセル（お役立ち/入門/コミュニティ）
-- データ：`docs/instagram/canva-bulk/carousels.csv`（24本ぶん。列：pill, cover_title, cover_sub, s2_title, s2_body, s3_title, s3_body, s4_title, s4_body, cta_title, cta_sub）
+- データ：`docs/instagram/canva-bulk/carousels.csv`（48本ぶん。列：pill, cover_title, cover_sub, s2_title, s2_body, s3_title, s3_body, s4_title, s4_body, cta_title, cta_sub）
 - キャプション：`docs/instagram/canva-bulk/captions.md`（同じ並び順）
 - 生成：`tools/ig-carousel/render.mjs`（5スライド：表紙＋中3＋CTA。表紙は index 偶数=ネイビー / 奇数=クリーム）
 - ※ `／` 区切りが箇条書きになる。`""` でくくる（CSVルール）。
@@ -269,7 +269,7 @@ docs/instagram/
   content-calendar-30.md  企画30本＋ハッシュタグ
   ai-post-generator.md    AIに中身を作らせるプロンプト
   canva-setup.md          Canva Pro 半自動運用（代替手段）
-  canva-bulk/carousels.csv   テキスト投稿24本のデータ
+  canva-bulk/carousels.csv   テキスト投稿48本のデータ
   canva-bulk/captions.md     同キャプション
   feature-captions.md     ★静止画 機能投稿14本のキャプション（5タグ・ソフボ）
   reel-scripts.md         ★リールのナレーション台本＋キャプション（機能ごと）
