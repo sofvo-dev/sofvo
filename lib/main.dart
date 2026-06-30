@@ -473,13 +473,19 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       final referrerName = result['referrerName'] as String?;
       final teamName = result['teamName'] as String?;
       final tournamentId = result['tournamentId'] as String?;
+      final requestedTeam = result['requestedTeam'] == true;
+      final joinedTeam = result['joinedTeam'] == true;
 
       final messages = <String>[];
       if (referrerName != null && referrerName.isNotEmpty) {
         messages.add('$referrerNameさんと友達になりました');
       }
       if (teamName != null && teamName.isNotEmpty) {
-        messages.add('チーム「$teamName」に参加しました');
+        if (requestedTeam) {
+          messages.add('チーム「$teamName」に参加リクエストを送りました（承認待ち）');
+        } else if (joinedTeam) {
+          messages.add('チーム「$teamName」に参加しました');
+        }
       }
       if (messages.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
