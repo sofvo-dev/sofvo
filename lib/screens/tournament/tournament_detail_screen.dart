@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
@@ -514,6 +515,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       body: Column(
         children: [
           _buildHeader(t, status, statusColor),
+          _buildEntryDraftBanner(),
           if (!_isFollowing) _buildFollowBanner(),
           _buildTabBar(),
           Expanded(
@@ -6203,6 +6205,149 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     ));
   }
 
+  // ━━━ 承認待ちエントリー（ドラフト）バナー ━━━
+  // 自分がキャプテン → 承認状況＋取り消し。自分が招待メンバー → 承認/辞退。
+  Widget _buildEntryDraftBanner() {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('tournaments').doc(_tournamentId)
+          .collection('entryDrafts')
+          .where('invitedUids', arrayContains: uid)
+          .snapshots(),
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox.shrink();
+        return Column(
+          children: docs.map((d) {
+            final data = d.data() as Map<String, dynamic>;
+            final teamName = (data['teamName'] ?? '').toString();
+            final leaderUid = (data['leaderUid'] ?? '').toString();
+            final invited = List<String>.from((data['invitedUids'] as List<dynamic>?) ?? []);
+            final approvals = Map<String, dynamic>.from(data['approvals'] as Map? ?? {});
+            final memberNames = Map<String, dynamic>.from(data['memberNames'] as Map? ?? {});
+            final approvedCount = invited.where((u) => approvals[u] == 'approved').length;
+            final isLeader = leaderUid == uid;
+            final myState = (approvals[uid] ?? 'pending').toString();
+
+            return Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.how_to_reg, size: 18, color: AppTheme.primaryColor),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text('承認待ちエントリー「$teamName」',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                    ),
+                    Text('承認 $approvedCount/${invited.length}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                  ]),
+                  const SizedBox(height: 8),
+                  if (isLeader) ...[
+                    // キャプテン視点：未承認メンバーの一覧＋取り消し
+                    ...invited.where((u) => u != uid).map((u) {
+                      final st = (approvals[u] ?? 'pending').toString();
+                      final nm = (memberNames[u] ?? '?').toString();
+                      final label = st == 'approved' ? '承認済み' : st == 'declined' ? '辞退' : '承認待ち';
+                      final c = st == 'approved' ? AppTheme.success : st == 'declined' ? AppTheme.error : AppTheme.textSecondary;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Row(children: [
+                          Expanded(child: Text(nm, style: const TextStyle(fontSize: 13))),
+                          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)),
+                        ]),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => _cancelEntryDraft(d.id),
+                        icon: const Icon(Icons.close, size: 16, color: AppTheme.error),
+                        label: const Text('招待を取り消す', style: TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.bold)),
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 32)),
+                      ),
+                    ),
+                  ] else if (myState == 'pending') ...[
+                    // 招待メンバー視点：承認 / 辞退
+                    Text('${(data['leaderName'] ?? '').toString()} さんから招待されています', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _respondEntryInvite(d.id, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 38), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                          child: const Text('承認する', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton(
+                        onPressed: () => _respondEntryInvite(d.id, false),
+                        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error, side: const BorderSide(color: AppTheme.error),
+                            minimumSize: const Size(0, 38), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                        child: const Text('辞退', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                    ]),
+                  ] else ...[
+                    Text(myState == 'approved' ? '承認済み・他のメンバーの承認を待っています' : '辞退済み',
+                        style: TextStyle(fontSize: 13, color: myState == 'approved' ? AppTheme.success : AppTheme.error, fontWeight: FontWeight.w600)),
+                  ],
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _respondEntryInvite(String draftId, bool approve) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('respondEntryInvite');
+      final res = await callable.call({'tournamentId': _tournamentId, 'draftId': draftId, 'approve': approve});
+      final finalized = (res.data as Map)['finalized'] == true;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(!approve
+            ? '招待を辞退しました'
+            : finalized
+                ? 'エントリーが成立しました！'
+                : '承認しました。他のメンバーの承認を待っています'),
+        backgroundColor: approve ? AppTheme.success : AppTheme.textSecondary,
+      ));
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? '処理に失敗しました'), backgroundColor: AppTheme.error));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('処理に失敗しました'), backgroundColor: AppTheme.error));
+    }
+  }
+
+  Future<void> _cancelEntryDraft(String draftId) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('cancelEntryDraft');
+      await callable.call({'tournamentId': _tournamentId, 'draftId': draftId});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('招待を取り消しました'), backgroundColor: AppTheme.textSecondary),
+        );
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('取り消しに失敗しました'), backgroundColor: AppTheme.error));
+    }
+  }
+
   Future<void> _confirmNewEntry(BuildContext sheetContext, String teamName, Map<String, String> members) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -6227,6 +6372,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               const SizedBox(height: 12),
               Text('メンバー: ${members.values.join(", ")}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+              child: const Text(
+                '選んだメンバーに招待を送ります。全員が承認するとエントリーが成立します。',
+                style: TextStyle(fontSize: 12.5, color: AppTheme.primaryColor, height: 1.5),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -6235,7 +6389,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            child: const Text('エントリーする', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('招待を送る', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -6243,68 +6397,37 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     if (confirmed != true) return;
 
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-
-    // エントリー重複チェック（全メンバーが他チームに所属していないか）
-    final newMemberUids = [uid, ...members.keys];
-    final allEntries = await _firestore
-        .collection('tournaments').doc(_tournamentId)
-        .collection('entries').get();
-    for (final doc in allEntries.docs) {
-      final otherData = doc.data();
-      final otherUids = List<String>.from((otherData['memberUids'] as List<dynamic>?) ?? []);
-      final otherTeam = otherData['teamName'] ?? '';
-      for (final mUid in newMemberUids) {
-        if (otherUids.contains(mUid)) {
-          final name = members[mUid] ?? (mUid == uid ? 'あなた' : mUid);
-          Navigator.pop(sheetContext);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$nameは既に「$otherTeam」に所属しています'), backgroundColor: AppTheme.error),
-            );
-          }
-          return;
-        }
+    // 承認制：本物のエントリーは作らず、招待（entryDraft）を作成する。
+    // 重複チェック・名前収集・通知はサーバー側（createEntryDraft）で行う。
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('createEntryDraft');
+      await callable.call({
+        'tournamentId': _tournamentId,
+        'teamName': teamName,
+        'memberUids': members.keys.toList(),
+      });
+      if (mounted) Navigator.pop(sheetContext);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('招待を送信しました。メンバー全員が承認するとエントリーが成立します。'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+        setState(() {});
       }
-    }
-
-    // ユーザー名取得
-    final userDoc = await _firestore.collection('users').doc(uid).get();
-    final leaderName = userDoc.data()?['nickname'] ?? '名前なし';
-
-    // エントリー保存
-    final entryId = _firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc().id;
-    await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc(entryId).set({
-      'teamId': entryId,
-      'teamName': teamName,
-      'leaderUid': uid,
-      'leaderName': leaderName,
-      'memberUids': [uid, ...members.keys],
-      'memberNames': {uid: leaderName, ...members},
-      'enteredBy': uid,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    // currentTeamsはCloud Function (onEntryCreated) で自動更新
-
-    // 掲示板に自動投稿
-    await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add({
-      'authorId': 'system',
-      'authorName': 'システム',
-      'authorAvatar': '',
-      'text': '$teamNameがエントリーしました！',
-      'isOrganizer': false,
-      'pinned': false,
-      'likesCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    Navigator.pop(sheetContext);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('エントリーが完了しました！'), backgroundColor: AppTheme.success),
-      );
-      setState(() {});
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'エントリーに失敗しました'), backgroundColor: AppTheme.error),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('エントリーに失敗しました'), backgroundColor: AppTheme.error),
+        );
+      }
     }
   }
   // ━━━ 下部ボタン ━━━
