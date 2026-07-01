@@ -2339,7 +2339,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ),
             const SizedBox(height: 16),
 
-            _buildSectionLabel('エリア（都道府県）'),
+            _buildSectionLabel('エリア（都道府県） *'),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -2352,7 +2352,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 value: _selectedArea.isEmpty ? null : _selectedArea,
                 isExpanded: true,
                 underline: const SizedBox(),
-                hint: const Text('未選択', style: TextStyle(color: AppTheme.textHint)),
+                hint: const Text('都道府県を選択', style: TextStyle(color: AppTheme.textHint)),
                 items: _areas
                     .map((a) =>
                         DropdownMenuItem(value: a, child: Text(a)))
@@ -2495,6 +2495,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       if (_birthDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('生年月日を選択してください'), backgroundColor: AppTheme.warning));
+        return;
+      }
+      if (_selectedArea.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('エリア（都道府県）を選択してください'), backgroundColor: AppTheme.warning));
         return;
       }
     }
