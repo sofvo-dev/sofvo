@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/invite_share_sheet.dart';
 import 'team_detail_screen.dart';
@@ -376,10 +377,114 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                 ],
               ),
             ),
+            if (isOwner) _buildJoinRequests(doc.id),
           ],
         ),
       ),
     );
+  }
+
+  // ── 参加リクエスト（承認制）— オーナーのみ表示 ──
+  Widget _buildJoinRequests(String teamId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('teams')
+          .doc(teamId)
+          .collection('joinRequests')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.accentColor.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.how_to_reg, size: 16, color: AppTheme.accentColor),
+                  const SizedBox(width: 6),
+                  Text('参加リクエスト ${docs.length}件',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...docs.map((req) {
+                final r = req.data() as Map<String, dynamic>;
+                final applicantUid = (r['uid'] ?? req.id).toString();
+                final name = (r['name'] ?? '名前なし').toString();
+                final avatar = (r['avatar'] ?? '').toString();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      avatar.isNotEmpty
+                          ? CircleAvatar(radius: 16, backgroundImage: NetworkImage(avatar))
+                          : CircleAvatar(
+                              radius: 16,
+                              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                              child: Text(name.isNotEmpty ? name[0] : '?',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                      TextButton(
+                        onPressed: () => _respondJoinRequest(teamId, applicantUid, name, true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: AppTheme.primaryColor,
+                          minimumSize: const Size(0, 32),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: const Text('承認', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 6),
+                      TextButton(
+                        onPressed: () => _respondJoinRequest(teamId, applicantUid, name, false),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.error,
+                          minimumSize: const Size(0, 32),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        child: const Text('却下', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _respondJoinRequest(String teamId, String applicantUid, String applicantName, bool approve) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('respondTeamJoinRequest');
+      await callable.call({'teamId': teamId, 'applicantUid': applicantUid, 'approve': approve});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(approve ? '$applicantNameさんの参加を承認しました' : '$applicantNameさんの参加を却下しました'),
+            backgroundColor: approve ? AppTheme.success : AppTheme.textSecondary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('処理に失敗しました。もう一度お試しください'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
   }
 
   // ── チームチャットを開く or 作成 ──
@@ -601,7 +706,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                             teamId: teamId,
                             teamName: teamName,
                             title: 'リンク/コードで招待',
-                            description: 'まだSofvoに登録していない人も招待できます。リンクとコードを送ると、登録するだけで自動でチームに参加します。',
+                            description: 'まだSofvoに登録していない人も招待できます。リンクとコードを送ると、相手の登録後に「参加リクエスト」が届くので、オーナーが承認するとチームに参加します。',
                           );
                         },
                         icon: const Icon(Icons.link, size: 20),

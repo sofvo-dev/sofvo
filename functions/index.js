@@ -2585,6 +2585,7 @@ exports.redeemInvite = functions.https.onCall(async (data, context) => {
     tournamentId: invite.tournamentId || null,
     followed: false,
     joinedTeam: false,
+    requestedTeam: false,
   };
 
   // 自分の情報
@@ -2641,7 +2642,9 @@ exports.redeemInvite = functions.https.onCall(async (data, context) => {
     }
   }
 
-  // ── チーム参加（teamId 指定時）──
+  // ── チーム参加リクエスト（teamId 指定時・承認制）──
+  // 「同じ招待URLで誰でもチームに入れてしまう」を防ぐため、ここでは直接参加させず
+  // teams/{id}/joinRequests/{uid} に参加リクエストを作成し、オーナーの承認を待つ。
   if (invite.teamId) {
     const teamRef = db.collection("teams").doc(invite.teamId);
     const teamSnap = await teamRef.get();
@@ -2649,17 +2652,119 @@ exports.redeemInvite = functions.https.onCall(async (data, context) => {
       const teamData = teamSnap.data() || {};
       result.teamId = invite.teamId;
       result.teamName = teamData.name || teamData.teamName || "";
-      const update = {
-        memberIds: admin.firestore.FieldValue.arrayUnion(uid),
-      };
-      update[`memberNames.${uid}`] = myName;
-      update[`memberAvatars.${uid}`] = myAvatar;
-      await teamRef.update(update);
-      result.joinedTeam = true;
+      const memberIds = Array.isArray(teamData.memberIds) ? teamData.memberIds : [];
+
+      if (memberIds.includes(uid)) {
+        // 既にメンバー（招待者自身など）はそのまま参加扱い
+        result.joinedTeam = true;
+      } else {
+        // 参加リクエストを作成（set でべき等：再引き換えしても重複しない）
+        await teamRef.collection("joinRequests").doc(uid).set({
+          uid,
+          name: myName,
+          avatar: myAvatar,
+          referrerUid: referrerUid || null,
+          status: "pending",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        result.requestedTeam = true;
+
+        // チームオーナーに承認依頼を通知
+        const ownerId = teamData.ownerId;
+        if (ownerId && ownerId !== uid) {
+          try {
+            await db.collection("users").doc(ownerId).collection("notifications").add({
+              type: "team_join_request",
+              teamId: invite.teamId,
+              teamName: result.teamName,
+              senderId: uid,
+              senderName: myName,
+              senderAvatar: myAvatar,
+              message: `がチーム「${result.teamName}」への参加をリクエストしました`,
+              read: false,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          } catch (e) {
+            console.error("[redeemInvite] join request notification failed:", e);
+          }
+        }
+      }
     }
   }
 
   return result;
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// チーム参加リクエストの承認 / 却下（チームオーナーのみ）
+// teams/{teamId}/joinRequests/{applicantUid} を処理する。
+// 承認時はメンバーへ追加し申請者へ通知、却下時はリクエストを削除する。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.respondTeamJoinRequest = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  }
+  const ownerUid = context.auth.uid;
+  const teamId = data && data.teamId ? String(data.teamId) : "";
+  const applicantUid = data && data.applicantUid ? String(data.applicantUid) : "";
+  const approve = !!(data && data.approve);
+  if (!teamId || !applicantUid) {
+    throw new functions.https.HttpsError("invalid-argument", "パラメータが不足しています");
+  }
+
+  const db = admin.firestore();
+  const teamRef = db.collection("teams").doc(teamId);
+  const teamSnap = await teamRef.get();
+  if (!teamSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "チームが見つかりません");
+  }
+  const teamData = teamSnap.data() || {};
+  if (teamData.ownerId !== ownerUid) {
+    throw new functions.https.HttpsError("permission-denied", "チームのオーナーのみ操作できます");
+  }
+
+  const reqRef = teamRef.collection("joinRequests").doc(applicantUid);
+  const reqSnap = await reqRef.get();
+  if (!reqSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "参加リクエストが見つかりません");
+  }
+  const reqData = reqSnap.data() || {};
+  const teamName = teamData.name || teamData.teamName || "";
+
+  if (approve) {
+    // 申請者の最新プロフィールを取得
+    const applicantSnap = await db.collection("users").doc(applicantUid).get();
+    const applicantName = (applicantSnap.exists && applicantSnap.data().nickname) || reqData.name || "名前なし";
+    const applicantAvatar = (applicantSnap.exists && applicantSnap.data().avatarUrl) || reqData.avatar || "";
+
+    const update = {
+      memberIds: admin.firestore.FieldValue.arrayUnion(applicantUid),
+    };
+    update[`memberNames.${applicantUid}`] = applicantName;
+    update[`memberAvatars.${applicantUid}`] = applicantAvatar;
+    await teamRef.update(update);
+    await reqRef.delete();
+
+    // 申請者に承認を通知
+    try {
+      await db.collection("users").doc(applicantUid).collection("notifications").add({
+        type: "team_join_approved",
+        teamId,
+        teamName,
+        senderId: ownerUid,
+        message: `チーム「${teamName}」への参加が承認されました`,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      console.error("[respondTeamJoinRequest] approve notification failed:", e);
+    }
+    return { approved: true };
+  }
+
+  // 却下：リクエストを削除（通知はしない）
+  await reqRef.delete();
+  return { approved: false };
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
