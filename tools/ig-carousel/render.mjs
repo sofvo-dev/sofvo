@@ -132,7 +132,9 @@ function pageHTML(d, idx) {
   </style></head><body>${slides}</body></html>`;
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}
+);
 const page = await browser.newPage({ viewport: { width: 1080, height: 1350 }, deviceScaleFactor: 1 });
 for (const idx of ONLY) {
   const d = data[idx];
