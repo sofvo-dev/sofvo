@@ -315,8 +315,8 @@ class _BottomNavState extends State<_BottomNav>
                                     final glass =
                                         math.max(pulse, _glassCtrl.value);
                                     return Transform.scale(
-                                      scaleX: 1 + 0.16 * glass,
-                                      scaleY: 1 + 0.10 * glass,
+                                      scaleX: 1 + 0.30 * glass,
+                                      scaleY: 1 + 0.22 * glass,
                                       child: _LiquidCapsule(glass: glass),
                                     );
                                   },
@@ -376,6 +376,21 @@ class _LiquidCapsule extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.06 + 0.02 * glass),
         borderRadius: BorderRadius.circular(25),
       ),
+      // 上面の白い反射（ガラスの照り）— 移動中だけ現れる
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(25),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white.withValues(alpha: 0.45 * glass),
+              Colors.white.withValues(alpha: 0.0),
+            ],
+            stops: const [0.0, 0.6],
+          ),
+        ),
+      ),
     );
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -386,14 +401,22 @@ class _LiquidCapsule extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: 0.90 * glass),
-            Colors.white.withValues(alpha: 0.25 * glass),
-            Colors.white.withValues(alpha: 0.12 * glass),
-            Colors.white.withValues(alpha: 0.30 * glass),
-            Colors.white.withValues(alpha: 0.65 * glass),
+            Colors.white.withValues(alpha: 0.95 * glass),
+            Colors.white.withValues(alpha: 0.35 * glass),
+            Colors.white.withValues(alpha: 0.15 * glass),
+            Colors.white.withValues(alpha: 0.40 * glass),
+            Colors.white.withValues(alpha: 0.75 * glass),
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
+        boxShadow: [
+          // 移動中だけ足元に影が出て「浮いた水滴」になる
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16 * glass),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         // 縁の線の太さ（グラデーションが見える幅）
@@ -405,7 +428,7 @@ class _LiquidCapsule extends StatelessWidget {
                 borderRadius: BorderRadius.circular(25),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(
-                      sigmaX: 4 * glass, sigmaY: 4 * glass),
+                      sigmaX: 8 * glass, sigmaY: 8 * glass),
                   child: fill,
                 ),
               ),
