@@ -285,10 +285,11 @@ class _BottomNavState extends State<_BottomNav>
                     // 選択カプセル（バー内に収まる横長ピル・うっすらネイビーのガラス）
                     Positioned.fill(
                       child: AnimatedAlign(
-                        // なぞり中は指にピタッと追従、通常はゆったりスライド
-                        duration: Duration(milliseconds: _dragging ? 60 : 260),
+                        // なぞり中は指にピタッと追従。通常は勢い余って
+                        // 少し行き過ぎて戻る（液体の慣性）
+                        duration: Duration(milliseconds: _dragging ? 60 : 300),
                         curve:
-                            _dragging ? Curves.linear : Curves.easeOutCubic,
+                            _dragging ? Curves.linear : Curves.easeOutBack,
                         alignment: Alignment(alignX, 0),
                         child: FractionallySizedBox(
                           widthFactor: 1 / n,
@@ -298,15 +299,20 @@ class _BottomNavState extends State<_BottomNav>
                                 horizontal: 5,
                                 vertical: isCollapsed ? 6 : 8),
                             child: TweenAnimationBuilder<double>(
-                              // タブ切替のたびに0→1を再生。移動中（中間）だけ
-                              // ガラス化して膨らみ、着地すると元の薄いピルに戻る
-                              // （iOS 26 Liquid Glass の挙動の近似）
+                              // タブ切替のたびに0→1を再生。前半は泡（ほぼ真円）に
+                              // 膨らんでガラス化し、着地後は減衰振動でぷるぷる
+                              // 震えながら元の薄いピルに戻る
                               key: ValueKey<int>(widget.currentIndex),
                               tween: Tween(begin: 0.0, end: 1.0),
-                              duration: const Duration(milliseconds: 320),
-                              curve: Curves.easeOut,
+                              duration: const Duration(milliseconds: 620),
+                              curve: Curves.linear, // カーブは下で自前計算
                               builder: (context, t, _) {
-                                final pulse = math.sin(math.pi * t);
+                                // 前半55%で膨らんで戻る山なりカーブ
+                                final pulse = math.sin(
+                                    math.pi * math.min(t / 0.55, 1.0));
+                                // 着地後のジェリー振動（減衰するサイン波）
+                                final wobble = math.sin(math.pi * 6 * t) *
+                                    math.exp(-4 * t);
                                 // なぞり中のガラス化（_glassCtrl）と
                                 // タブ切替パルスの強い方を採用
                                 return AnimatedBuilder(
@@ -314,9 +320,16 @@ class _BottomNavState extends State<_BottomNav>
                                   builder: (context, _) {
                                     final glass =
                                         math.max(pulse, _glassCtrl.value);
+                                    // 縦を大きく伸ばして移動中はほぼ真円の
+                                    // 泡にする。wobble は縦横逆位相＝体積が
+                                    // 保存されたような「ぷるぷる」
                                     return Transform.scale(
-                                      scaleX: 1 + 0.50 * glass,
-                                      scaleY: 1 + 0.40 * glass,
+                                      scaleX: 1 +
+                                          0.25 * glass +
+                                          0.06 * wobble,
+                                      scaleY: 1 +
+                                          0.55 * glass -
+                                          0.06 * wobble,
                                       child: _LiquidCapsule(glass: glass),
                                     );
                                   },

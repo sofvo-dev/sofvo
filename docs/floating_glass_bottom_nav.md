@@ -39,8 +39,10 @@ iOS 26 の Liquid Glass の**本来の挙動**に合わせる: **静止時はた
   - **`RawMagnifier` で下のコンテンツを本当に屈折拡大**（`magnificationScale: 1 + 0.25 × s`）。BackdropFilter の行列変換なのでシェーダー不要＝Web でも動く
   - 縁の白いハイライト＋ごく薄い虹色（プリズム）＋上面の白い反射（照り）＋足元の影（いずれも alpha を `× s`）
   - 拡大した像の上に `BackdropFilter.blur(5 × s)` を重ねてすりガラスに
-  - `scaleX +50% / scaleY +40%` に膨らむ＝バーの上下にはっきりはみ出す（外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
-  - 着地（t=1）で s=0 に戻り、元の薄いピルに戻る
+  - **移動中はほぼ真円の泡に膨らむ**: `scaleX +25% / scaleY +55%`（横長ピル→球体。外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
+  - **着地後は減衰振動でぷるぷる**: `wobble = sin(6πt) × e^(-4t)` を縦横逆位相で加算（体積保存風のジェリー）。アニメ全体は620ms、前半55%が膨らみ・残りが振動
+  - **位置は easeOutBack** で勢い余って少し行き過ぎて戻る（液体の慣性）
+  - 着地して振動が収まると元の薄いピルに戻る
 - **指なぞりで泡が追従**: バーを横ドラッグすると泡（カプセル）がガラス化したまま指に追従し、離すと最寄りのタブに吸着して選択される。
   - バー全体を `GestureDetector(behavior: translucent)` で包み `onHorizontalDrag*` を拾う（タップは各タブの子が処理するので共存できる）
   - なぞり中は `AnimatedAlign` を 60ms/linear にしてピタッと追従、通常時は 260ms/easeOutCubic
@@ -388,6 +390,7 @@ GlassNavScaffold(
 | 選択アイコンの色 | Sofvo実体: `_NavItem` の `AppTheme.primaryColor`（ネイビー） |
 | 移動中レンズの拡大率 | Sofvo実体: `_LiquidCapsule` の `magnificationScale: 1 + 0.25 * glass` |
 | 移動中ガラスのぼかし | Sofvo実体: `_LiquidCapsule` の `blur(5 × glass)` |
-| 移動中の膨らみの強さ | Sofvo実体: `scaleX: 1 + 0.50 * glass` / `scaleY: 1 + 0.40 * glass` |
+| 移動中の泡の丸さ・大きさ | Sofvo実体: `scaleX: 1 + 0.25 * glass` / `scaleY: 1 + 0.55 * glass`（縦横比≒1で真円） |
+| ぷるぷるの強さ・減衰 | Sofvo実体: `0.06 * wobble`（振幅）・`sin(6πt) × e^(-4t)`（周波数・減衰） |
 </content>
 </invoke>
