@@ -282,9 +282,29 @@ class _BottomNavState extends State<_BottomNav>
                         ),
                       ),
                     ),
-                    // 選択カプセル（バー内に収まる横長ピル・うっすらネイビーのガラス）
+                    // タブ（アイコン＋ラベル）はガラスの下に置く。
+                    // 移動中の泡が上を通るとアイコン自体が拡大・歪んで見える
+                    // （iOS 26 と同じ「ガラス越しにアイコンの色が滲む」効果）
                     Positioned.fill(
-                      child: AnimatedAlign(
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < items.length; i++)
+                            Expanded(
+                              child: _NavItem(
+                                data: items[i],
+                                selected: i == widget.currentIndex,
+                                collapsed: isCollapsed,
+                                onTap: () =>
+                                    widget.onDestinationSelected(i),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // 選択カプセル（最前面。タップは下のタブに通す）
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: AnimatedAlign(
                         // なぞり中は指にピタッと追従。通常は勢い余って
                         // 少し行き過ぎて戻る（液体の慣性）
                         duration: Duration(milliseconds: _dragging ? 60 : 300),
@@ -338,23 +358,7 @@ class _BottomNavState extends State<_BottomNav>
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    // タブ（アイコン＋ラベル）はカプセルより前面に置いて滲ませない
-                    Positioned.fill(
-                      child: Row(
-                        children: [
-                          for (var i = 0; i < items.length; i++)
-                            Expanded(
-                              child: _NavItem(
-                                data: items[i],
-                                selected: i == widget.currentIndex,
-                                collapsed: isCollapsed,
-                                onTap: () =>
-                                    widget.onDestinationSelected(i),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
