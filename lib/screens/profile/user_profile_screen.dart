@@ -887,7 +887,6 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
               final title = (d['title'] ?? d['name'] ?? '大会') as String;
               final date = (d['date'] ?? '') as String;
               final location = (d['location'] ?? d['venue'] ?? '') as String;
-              final status = normalizeTournamentStatus(d['status'] ?? '', emptyAsPreparing: false);
               final type = (d['type'] ?? '') as String;
               final docId = d['id'] as String;
 
@@ -907,17 +906,12 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.textSecondary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(status.isEmpty ? '終了' : status,
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                          ),
-                          if (type.isNotEmpty) ...[
+                          // 順位を先頭で目立たせる（終了チップは冗長のため廃止）
+                          if (d['myRank'] != null) ...[
+                            RankBadge(rank: d['myRank'] as int?),
                             const SizedBox(width: 4),
+                          ],
+                          if (type.isNotEmpty)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -926,11 +920,6 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                               ),
                               child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                             ),
-                          ],
-                          if (d['myRank'] != null) ...[
-                            const SizedBox(width: 4),
-                            RankBadge(rank: d['myRank'] as int?),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 8),
