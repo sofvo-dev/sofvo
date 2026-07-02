@@ -303,32 +303,41 @@
     .demo-how-list b{font-size:14px;color:var(--primary);font-weight:800;}
     .demo-how-list p{font-size:12.5px;color:var(--text-sec);line-height:1.6;margin:0;}
     .demo-how-note{text-align:center;font-size:11px;color:var(--text-sec);margin-top:10px;}
-    /* ===== 対戦表デモ: ボタンを押すと対戦表が自動生成される実機 ===== */
-    .bd-sub{font-size:10.5px;font-weight:700;color:#8a98ad;margin-bottom:6px;}
+    /* ===== 対戦表デモ: ボタンを押すと対戦表が自動生成される実機 =====
+       実機の対戦表画面（app-bracket.jpg）に合わせたライト配色（背景白・ネイビーのヘッダー） */
+    .demo-screen.bd-screen{background:#F6F7F9;color:var(--text);padding:0 0 14px;}
+    .bd-head{display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;font-size:12.5px;font-weight:700;padding:12px 14px;}
+    .bd-head .bd-back,.bd-head .bd-flag{opacity:.85;font-size:15px;flex:0 0 auto;}
+    .bd-head .bd-title{flex:1;text-align:center;}
+    .bd-tabs{display:flex;background:#fff;border-bottom:1.5px solid #ECECEC;padding:0 8px;margin-bottom:12px;}
+    .bd-tab{flex:1;text-align:center;font-size:10.5px;font-weight:700;color:#9aa3ad;padding:9px 0 7px;border-bottom:2px solid transparent;}
+    .bd-tab.on{color:var(--primary);border-bottom-color:var(--primary);}
+    .bd-body{padding:0 12px;}
+    .bd-sub{font-size:10.5px;font-weight:700;color:#8a94a0;margin-bottom:6px;}
     .bd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
-    .bd-chip{font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#cdd9e8;}
+    .bd-chip{font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff;border:1px solid #DDE3EA;color:var(--primary);}
     .bd-stage{position:relative;min-height:252px;}
-    .bd-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;border:1.5px dashed rgba(255,255,255,.18);border-radius:16px;padding:18px 12px;text-align:center;transition:opacity .3s ease,transform .3s ease;}
-    .bd-empty p{font-size:11.5px;color:#8a98ad;line-height:1.7;}
+    .bd-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;border:1.5px dashed #CBD3DD;border-radius:16px;padding:18px 12px;text-align:center;transition:opacity .3s ease,transform .3s ease;}
+    .bd-empty p{font-size:11.5px;color:#8a94a0;line-height:1.7;}
     .bd-empty.hide{opacity:0;transform:scale(.97);pointer-events:none;}
     .bd-gen{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#dcc584,var(--accent));color:var(--primary);font-weight:800;font-size:13.5px;padding:12px 22px;border-radius:999px;box-shadow:0 8px 22px rgba(196,169,98,.35);animation:bdPulse 2.2s ease-in-out infinite;transition:transform .15s ease;}
     .bd-gen:active{transform:scale(.95);}
     .bd-gen[disabled]{animation:none;opacity:.75;cursor:default;}
     @keyframes bdPulse{0%,100%{box-shadow:0 8px 22px rgba(196,169,98,.35);transform:none;}50%{box-shadow:0 10px 30px rgba(196,169,98,.6);transform:translateY(-2px);}}
     .bd-list{display:grid;gap:7px;}
-    .bd-round{font-size:10px;font-weight:800;color:#7fb0e6;letter-spacing:.04em;margin-top:3px;}
-    .bd-match{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.08);border-radius:12px;padding:9px 10px;}
+    .bd-round{font-size:10.5px;font-weight:800;color:var(--primary);letter-spacing:.04em;margin-top:3px;}
+    .bd-match{display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid #E7EAEF;border-radius:12px;padding:9px 10px;box-shadow:0 2px 8px rgba(27,58,92,.05);}
     .js .bd-list>*{opacity:0;transform:translateY(16px) scale(.97);}
     .js .bd-list>.in{opacity:1;transform:none;transition:opacity .45s ease,transform .55s cubic-bezier(.16,1,.3,1);}
     .bd-court{flex:0 0 auto;font-size:9.5px;font-weight:800;color:var(--primary);background:var(--accent);border-radius:6px;padding:2px 7px;}
     .bd-teams{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:11.5px;font-weight:700;min-width:0;}
-    .bd-teams .t1{color:#6aa9e6;}
-    .bd-teams .t2{color:#ff7b7b;}
-    .bd-teams .vs{color:#5b6677;font-size:9px;font-weight:700;}
+    .bd-teams .t1{color:#22344A;}
+    .bd-teams .t2{color:#D64545;}
+    .bd-teams .vs{color:#9aa3ad;font-size:9px;font-weight:700;background:#F0F2F5;border-radius:5px;padding:2px 5px;}
     .bd-done{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;opacity:0;transition:opacity .5s ease;}
     .bd-done.in{opacity:1;}
-    .bd-done .ok{font-size:11.5px;font-weight:800;color:#35d0a0;white-space:nowrap;}
-    .bd-redo{appearance:none;-webkit-appearance:none;border:1.5px solid rgba(255,255,255,.2);background:none;color:#aeb9c8;font-family:inherit;font-weight:700;font-size:11px;padding:6px 13px;border-radius:999px;cursor:pointer;transition:transform .15s ease;white-space:nowrap;flex:0 0 auto;}
+    .bd-done .ok{font-size:11.5px;font-weight:800;color:#1FA57C;white-space:nowrap;}
+    .bd-redo{appearance:none;-webkit-appearance:none;border:1.5px solid #D5DBE3;background:#fff;color:#55606d;font-family:inherit;font-weight:700;font-size:11px;padding:6px 13px;border-radius:999px;cursor:pointer;transition:transform .15s ease;white-space:nowrap;flex:0 0 auto;}
     .bd-redo:active{transform:scale(.95);}
     @media(prefers-reduced-motion:reduce){.hero-duo figure{animation:none!important;}.demo-phone{transform:none!important;}.bd-gen{animation:none!important;}.js .bd-list>*{opacity:1!important;transform:none!important;transition:none!important;}}
   </style>
@@ -374,20 +383,23 @@
       <p class="sec-sub"><span class="nb">タップしてみてください。</span><span class="nb">組み合わせも試合順も、自動で。</span></p>
       <div class="demo-stage">
         <div class="phone demo-phone">
-          <div class="demo-screen">
-            <div class="ds-top"><span class="ds-back">‹</span><span class="ds-title">予選リーグ 対戦表</span><span class="ds-flag">⚑</span></div>
-            <div class="bd-sub">参加チーム（4）</div>
-            <div class="bd-chips"><span class="bd-chip">チームA</span><span class="bd-chip">チームB</span><span class="bd-chip">チームC</span><span class="bd-chip">チームD</span></div>
-            <div class="bd-stage">
-              <div class="bd-empty" id="bdEmpty">
-                <p><span class="nb">まだ対戦表がありません。</span><br><span class="nb">ボタンひとつで自動作成できます。</span></p>
-                <button class="bd-gen" id="bdGen" type="button">⚡ 対戦表を自動生成</button>
+          <div class="demo-screen bd-screen">
+            <div class="bd-head"><span class="bd-back">‹</span><span class="bd-title">予選リーグ</span><span class="bd-flag">⚑</span></div>
+            <div class="bd-tabs"><span class="bd-tab">概要</span><span class="bd-tab on">対戦表</span><span class="bd-tab">順位表</span><span class="bd-tab">チーム</span></div>
+            <div class="bd-body">
+              <div class="bd-sub">参加チーム（4）</div>
+              <div class="bd-chips"><span class="bd-chip">チームA</span><span class="bd-chip">チームB</span><span class="bd-chip">チームC</span><span class="bd-chip">チームD</span></div>
+              <div class="bd-stage">
+                <div class="bd-empty" id="bdEmpty">
+                  <p><span class="nb">まだ対戦表がありません。</span><br><span class="nb">ボタンひとつで自動作成できます。</span></p>
+                  <button class="bd-gen" id="bdGen" type="button">⚡ 対戦表を自動生成</button>
+                </div>
+                <div class="bd-list" id="bdList" aria-live="polite"></div>
               </div>
-              <div class="bd-list" id="bdList" aria-live="polite"></div>
-            </div>
-            <div class="bd-done" id="bdDone">
-              <span class="ok">✓ 6試合を自動生成</span>
-              <button class="bd-redo" id="bdRedo" type="button">↻ もう一度</button>
+              <div class="bd-done" id="bdDone">
+                <span class="ok">✓ 6試合を自動生成</span>
+                <button class="bd-redo" id="bdRedo" type="button">↻ もう一度</button>
+              </div>
             </div>
           </div>
         </div>
@@ -674,7 +686,7 @@
             var h=document.createElement('div');h.className='bd-round';h.textContent='第'+(ri+1)+'試合';frag.appendChild(h);
             rd.forEach(function(pair,ci){
               var m=document.createElement('div');m.className='bd-match';
-              m.innerHTML='<span class="bd-court">'+(ci?'B':'A')+'コート</span><span class="bd-teams"><span class="t1">'+t[pair[0]]+'</span><span class="vs">VS</span><span class="t2">'+t[pair[1]]+'</span></span>';
+              m.innerHTML='<span class="bd-court">'+(ci?'B':'A')+'コート</span><span class="bd-teams"><span class="t1">'+t[pair[0]]+'</span><span class="vs">vs</span><span class="t2">'+t[pair[1]]+'</span></span>';
               frag.appendChild(m);
             });
           });
