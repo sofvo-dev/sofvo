@@ -266,10 +266,10 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-/// Liquid Glass 風の選択カプセル（iOS 26 の水滴レンズの近似）。
+/// Liquid Glass 風の選択カプセル（iOS 26 の水滴レンズの近似・ブランドネイビーのティント）。
 /// 本物の屈折歪み・色収差はフラグメントシェーダーが必要（Web非対応）なため行わず、
-/// ①縁のハイライト（うっすら虹色）②内側の BackdropFilter（軽いぼかし＋彩度アップ）
-/// ③固有の影 の3点で「浮いた水滴レンズ」に見せる。
+/// ①縁のハイライト（白＋うっすらネイビー）②内側の BackdropFilter（軽いぼかし＋彩度アップ＋ネイビーティント）
+/// ③ネイビーの影 の3点で「ブランド色に光る水滴レンズ」に見せる。
 class _LiquidCapsule extends StatelessWidget {
   const _LiquidCapsule();
 
@@ -287,22 +287,23 @@ class _LiquidCapsule extends StatelessWidget {
       decoration: BoxDecoration(
         // 高さ以上の角丸で常に完全なカプセル形
         borderRadius: BorderRadius.circular(40),
-        // 縁のハイライト。左上の白い光＋青/桃をわずかに混ぜて色収差（虹のフリンジ）を演出
-        gradient: const LinearGradient(
+        // 縁のハイライト。左上の白い光にブランドネイビーを混ぜてレンズの縁を演出
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xE6FFFFFF),
-            Color(0x2E81D4FA),
-            Color(0x1FFFFFFF),
-            Color(0x2EF48FB1),
-            Color(0x99FFFFFF),
+            const Color(0xE6FFFFFF),
+            AppTheme.primaryLight.withValues(alpha: 0.28),
+            const Color(0x1FFFFFFF),
+            AppTheme.primaryColor.withValues(alpha: 0.32),
+            const Color(0x99FFFFFF),
           ],
-          stops: [0.0, 0.3, 0.5, 0.7, 1.0],
+          stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
         boxShadow: [
+          // ネイビーの影で「ブランド色に光る」水滴にする
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
+            color: AppTheme.primaryDark.withValues(alpha: 0.18),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -320,7 +321,8 @@ class _LiquidCapsule extends StatelessWidget {
             ),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
+                // レンズ内側のネイビーティント
+                color: AppTheme.primaryColor.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(39),
               ),
             ),
