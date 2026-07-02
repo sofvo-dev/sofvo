@@ -18,13 +18,13 @@ Sofvo で実装した「Instagram 風・浮島型すりガラス・スクロー�
 現在の主要パラメータ（好みで調整）:
 | 項目 | 値 |
 |---|---|
-| 角丸 | 30 |
+| 角丸 | 33（高さの半分以上を指定して常に完全なカプセル形） |
 | 高さ | 通常 66 / 縮小 52 |
 | 左右余白 | 通常 16 / 縮小 64（縮むと左右に絞る） |
 | 下余白 | 8（`SafeArea(top:false)` の内側） |
-| すりガラス透過 | `Colors.white.withValues(alpha: 0.45)` |
+| すりガラス透過 | `Colors.white.withValues(alpha: 0.85)`（低くしすぎると輪郭がぼやけて平坦に見える） |
 | ぼかし | `ImageFilter.blur(20, 20)` |
-| 影 | `black 0.08 / blur 16 / offset(0,4)` |
+| 影 | `black 0.14 / blur 24 / offset(0,6)` |
 | 選択カプセル | ブランド色 alpha 0.10 / 角丸 22 |
 | アニメ | 200〜220ms / easeOut |
 
@@ -197,17 +197,17 @@ class _GlassBar extends StatelessWidget {
                 isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 8),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(33),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 24,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(33),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: AnimatedContainer(
@@ -215,8 +215,8 @@ class _GlassBar extends StatelessWidget {
                     curve: Curves.easeOut,
                     height: isCollapsed ? 52 : 66,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.45), // 透過：小さいほど透ける
-                      borderRadius: BorderRadius.circular(30),
+                      color: Colors.white.withValues(alpha: 0.85), // 透過：小さいほど透ける（下げすぎると平坦に見える）
+                      borderRadius: BorderRadius.circular(33),
                       border: Border.all(
                           color: Colors.white.withValues(alpha: 0.55), width: 1),
                     ),
@@ -295,7 +295,7 @@ class _GlassNavTile extends StatelessWidget {
   }
 
   Widget _icon(Color color) {
-    final w = Icon(selected ? data.activeIcon : data.icon, size: 22, color: color);
+    final w = Icon(selected ? data.activeIcon : data.icon, size: 25, color: color);
     if (data.badge > 0) {
       return Badge(
         backgroundColor: badgeColor,
@@ -335,8 +335,8 @@ GlassNavScaffold(
 
 > Flutter アプリのボトムナビを「Instagram 風の浮島型すりガラス・ナビ」にしてください。要件：
 >
-> 1. **浮島型**：画面下に浮いた角丸（半径30）のバー。左右16・下8の余白＋柔らかい影で浮かせる。
-> 2. **すりガラス（屈折）**：`BackdropFilter`(`ImageFilter.blur(20,20)`) ＋ 半透明白(`Colors.white` alpha 0.45) ＋ 白の細枠。バー越しに後ろのコンテンツがぼけて透けること。
+> 1. **浮島型**：画面下に浮いた完全カプセル形（角丸は高さの半分以上、例: 33）のバー。左右16・下8の余白＋柔らかい影（black 0.14 / blur 24 / offset(0,6)）で浮かせる。
+> 2. **すりガラス（屈折）**：`BackdropFilter`(`ImageFilter.blur(20,20)`) ＋ 半透明白(`Colors.white` alpha 0.85) ＋ 白の細枠。バー越しに後ろのコンテンツがうっすらぼけて透けること（透過を強くしすぎると輪郭がぼやけて平坦に見えるので注意）。
 > 3. **スクロールで縮む**：最上位を `NotificationListener<UserScrollNotification>` で包み、下スクロール(`ScrollDirection.reverse`)でラベルを畳んでアイコンのみ・高さ66→52・左右余白16→64に縮小、上スクロールで復帰。`ValueNotifier<bool>`＋`ValueListenableBuilder` でバーだけ再描画。アニメは200〜220ms easeOut。
 > 4. **選択タブ**：ブランド色 alpha0.10 の角丸カプセルで強調。アイコンは outlined/filled を切替。**未読バッジ**対応。
 > 5. **重要なレイアウト要件（これが無いと崩れる）**：
@@ -355,10 +355,10 @@ GlassNavScaffold(
 
 | やりたいこと | 変える場所 |
 |---|---|
-| もっと透ける | `color: Colors.white.withValues(alpha: 0.45)` の数値を下げる |
+| もっと透ける | `color: Colors.white.withValues(alpha: 0.85)` の数値を下げる（下げすぎると平坦に見える） |
 | ぼかしを強く/弱く | `ImageFilter.blur(20, 20)` の数値 |
 | バーを下げる/上げる | `AnimatedPadding` の下余白（現 8） |
-| 角をもっと丸く | `BorderRadius.circular(30)` |
+| 角をもっと丸く | `BorderRadius.circular(33)`（高さの半分以上なら完全カプセル） |
 | 縮みを強く | 縮小時の `height`(52) と左右 `64` |
 | 影を消す | `boxShadow` を削除（白背景なら枠線だけでも可） |
 | 常にラベル表示 | `_GlassNavTile` の `collapsed` 分岐を無効化 |
