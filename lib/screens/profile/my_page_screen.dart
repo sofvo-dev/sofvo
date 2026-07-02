@@ -20,6 +20,7 @@ import '../tournament/venue_search_screen.dart';
 import '../tournament/prize_search_screen.dart';
 import '../gadget/all_gadgets_screen.dart';
 import '../../utils/entry_membership.dart';
+import '../../widgets/rank_badge.dart';
 import '../tournament/tournament_management_screen.dart';
 import '../notification/create_notice_screen.dart';
 import '../notification/notice_history_screen.dart';
@@ -1264,6 +1265,21 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
     final result = resultMap.values.toList()
       ..sort((a, b) => ((b['date'] ?? '') as String).compareTo((a['date'] ?? '') as String));
     if (result.length > 10) result.removeRange(10, result.length);
+
+    // 順位（pointHistory の rank: 1〜3位）を紐付け。取れなくても一覧自体は表示する
+    try {
+      final ph = await firestore
+          .collection('users').doc(uid).collection('pointHistory').get();
+      final rankMap = <String, int>{};
+      for (final doc in ph.docs) {
+        final r = doc.data()['rank'];
+        if (r is num) rankMap[doc.id] = r.toInt();
+      }
+      for (final t in result) {
+        final r = rankMap[t['id']];
+        if (r != null) t['myRank'] = r;
+      }
+    } catch (_) {}
     return result;
   }
 
@@ -1348,6 +1364,10 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                               ),
                               child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                             ),
+                          ],
+                          if (d['myRank'] != null) ...[
+                            const SizedBox(width: 4),
+                            RankBadge(rank: d['myRank'] as int?),
                           ],
                         ],
                       ),
