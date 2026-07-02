@@ -3469,6 +3469,28 @@ exports.cleanupDemoData = functions.pubsub
         if (createdAt && createdAt.toMillis && createdAt.toMillis() > cutoff.toMillis()) {
           continue;
         }
+        // ── 実アカウント保護ガード ──
+        // デモは匿名セッション限定のはずだが、旧ビルドの不具合等で実アカウントに
+        // isDemo:true が付く（汚染される）ことがある。公式/管理者フラグ持ち、または
+        // Auth 側にメール等のログイン手段がある実ユーザーは削除せず、
+        // isDemo フラグだけ外して自己修復する。
+        const data = doc.data();
+        let isRealAccount = data.isOfficial === true || data.isAdmin === true;
+        if (!isRealAccount) {
+          try {
+            const authUser = await admin.auth().getUser(doc.id);
+            isRealAccount = !!(authUser.email || (authUser.providerData || []).length > 0);
+          } catch (e) {
+            // Auth に存在しない（Firestore ドキュメントだけ残っている）→ 削除してよい
+          }
+        }
+        if (isRealAccount) {
+          await doc.ref.update({ isDemo: admin.firestore.FieldValue.delete() });
+          functions.logger.error(
+            `cleanupDemoData: 実アカウント ${doc.id} に isDemo:true が付いていたため、削除せず isDemo を外しました（デモ汚染の可能性。nickname 等は要確認）`
+          );
+          continue;
+        }
         await db.recursiveDelete(doc.ref);
         try {
           await admin.auth().deleteUser(doc.id);
@@ -3486,6 +3508,93 @@ exports.cleanupDemoData = functions.pubsub
     );
     return null;
   });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 公式アカウント復旧（一時関数）
+//   デモ汚染（isDemo:true 混入）により cleanupDemoData が公式アカウント
+//   （info@sofvo.com / uid: zlBy8aWUlCYjyy0NUU9HidrQu983）を Firestore + Auth ごと
+//   削除してしまった事故からの復旧用。UID はアプリ/Functions にハードコードされて
+//   いるため、必ず同じ UID で再作成する。
+// 使い方:
+//   ドライラン: /restoreOfficialAccount → 現状（Auth/ドキュメントの有無）を返すだけ
+//   実行: /restoreOfficialAccount?confirm=1
+//     - Auth ユーザーを同 UID + info@sofvo.com で再作成（パスワードはランダム。
+//       ログイン画面の「パスワードをお忘れですか」から再設定する）
+//     - users ドキュメントを isOfficial:true で再作成
+// 復旧確認後はこの関数をコードから削除すること。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.restoreOfficialAccount = functions.https.onRequest(async (req, res) => {
+  const db = admin.firestore();
+  const OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983";
+  const OFFICIAL_EMAIL = "info@sofvo.com";
+  const execute = req.query.confirm === "1";
+  const report = { executed: execute };
+
+  try {
+    // ── 現状確認 ──
+    report.authByUid = await admin.auth().getUser(OFFICIAL_UID)
+      .then((u) => ({ exists: true, email: u.email || null }))
+      .catch(() => ({ exists: false }));
+    report.authByEmail = await admin.auth().getUserByEmail(OFFICIAL_EMAIL)
+      .then((u) => ({ exists: true, uid: u.uid }))
+      .catch(() => ({ exists: false }));
+    const docSnap = await db.collection("users").doc(OFFICIAL_UID).get();
+    report.userDoc = docSnap.exists
+      ? { exists: true, isDemo: docSnap.data().isDemo === true, isOfficial: docSnap.data().isOfficial === true, nickname: docSnap.data().nickname || null }
+      : { exists: false };
+
+    if (execute) {
+      // ── Auth 再作成（同じ UID で）──
+      if (!report.authByUid.exists) {
+        if (report.authByEmail.exists) {
+          // 別 UID で info@sofvo.com が既に存在 → 手動確認が必要なので何もしない
+          report.authRecreated = false;
+          report.warning = `info@sofvo.com は別の UID (${report.authByEmail.uid}) で存在します。手動確認が必要です`;
+        } else {
+          const crypto = require("crypto");
+          await admin.auth().createUser({
+            uid: OFFICIAL_UID,
+            email: OFFICIAL_EMAIL,
+            emailVerified: true,
+            password: crypto.randomBytes(24).toString("base64url"),
+          });
+          report.authRecreated = true;
+        }
+      }
+
+      // ── users ドキュメント復元 ──
+      if (!docSnap.exists) {
+        await db.collection("users").doc(OFFICIAL_UID).set({
+          uid: OFFICIAL_UID,
+          nickname: "【公式】Sofvo",
+          searchId: "sofvo_official",
+          bio: "Sofvo公式アカウントです。",
+          avatarUrl: "",
+          isOfficial: true,
+          profileCompleted: true,
+          followersCount: 0,
+          followingCount: 0,
+          createdAt: admin.firestore.Timestamp.now(),
+          updatedAt: admin.firestore.Timestamp.now(),
+        });
+        report.docRecreated = true;
+      } else if (docSnap.data().isDemo === true) {
+        // ドキュメントは残っているが汚染されている場合はフラグを直す
+        await docSnap.ref.update({
+          isDemo: admin.firestore.FieldValue.delete(),
+          isOfficial: true,
+          updatedAt: admin.firestore.Timestamp.now(),
+        });
+        report.docHealed = true;
+      }
+    }
+
+    res.json({ success: true, ...report });
+  } catch (e) {
+    functions.logger.error("restoreOfficialAccount error", e);
+    res.status(500).json({ success: false, error: String(e) });
+  }
+});
 
 // ── テスト送信用（管理者のみ） ──
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
