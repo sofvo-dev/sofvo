@@ -4741,6 +4741,32 @@ exports.syncStoreVersions = functions.pubsub
 // バージョンを直接指定できる（iTunes/Play の CDN キャッシュ遅延を回避）
 exports.syncStoreVersionsNow = functions.https.onRequest(async (req, res) => {
   try {
+    // ── 一時パラメータ: 大会ポイント再計算 ──
+    // recomputeTournamentPointsNow / V2 に公開呼び出し権限（allUsers invoker）が
+    // 付与できず 403 になるため、公開済みのこのエンドポイントから一時的に実行できるようにする。
+    // 使い方: ?recomputeTitle=大会名 または ?recomputeTournamentId=ID（実行後にこの分岐は削除する）
+    const recomputeTitle = req.query.recomputeTitle || null;
+    const recomputeId = req.query.recomputeTournamentId || null;
+    if (recomputeTitle || recomputeId) {
+      let tournamentId = recomputeId;
+      if (!tournamentId) {
+        const q = await admin.firestore().collection("tournaments")
+          .where("title", "==", recomputeTitle).limit(2).get();
+        if (q.empty) {
+          res.status(404).json({ ok: false, message: `title「${recomputeTitle}」の大会が見つかりません` });
+          return;
+        }
+        if (q.size > 1) {
+          res.status(409).json({ ok: false, message: `title「${recomputeTitle}」が複数あります`, ids: q.docs.map((d) => d.id) });
+          return;
+        }
+        tournamentId = q.docs[0].id;
+      }
+      const result = await recomputeTournamentPointsCore(tournamentId);
+      res.status(result.ok ? 200 : 400).json(result);
+      return;
+    }
+
     const iosOverride = req.query.iosVersion || null;
     const androidOverride = req.query.androidVersion || null;
 
