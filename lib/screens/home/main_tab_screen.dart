@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -154,92 +155,178 @@ class _BottomNav extends StatelessWidget {
             valueListenable: collapsed,
             builder: (context, isCollapsed, _) {
               final n = items.length;
-              final vInset = isCollapsed ? 6.0 : 9.0;
               // 比率ベース配置: 縮小（幅変化）に追従しつつ、タブ切替時だけスライド
-              final bar = Stack(
-                children: [
-                  Positioned.fill(
-                    child: AnimatedAlign(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment(
-                          n <= 1 ? 0 : (currentIndex / (n - 1)) * 2 - 1, 0),
-                      child: FractionallySizedBox(
-                        widthFactor: 1 / n,
-                        heightFactor: 1,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 5, vertical: vInset),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(22),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      for (var i = 0; i < items.length; i++)
-                        Expanded(
-                          child: _NavItem(
-                            data: items[i],
-                            selected: i == currentIndex,
-                            collapsed: isCollapsed,
-                            onTap: () => onDestinationSelected(i),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              );
+              final alignX =
+                  n <= 1 ? 0.0 : (currentIndex / (n - 1)) * 2 - 1;
               return AnimatedPadding(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOut,
                 // 縮小時は左右に絞って小さく見せる
                 padding: EdgeInsets.fromLTRB(
                   isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 6),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    // 高さ以上の角丸を指定して常に完全なカプセル形にする
-                    borderRadius: BorderRadius.circular(33),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.14),
-                        blurRadius: 24,
-                        offset: const Offset(0, 6),
+                child: Stack(
+                  // 選択カプセルをバーの上下にはみ出させる（水滴レンズ）
+                  clipBehavior: Clip.none,
+                  children: [
+                    // すりガラスのバー本体（背景のみ・タブは最前面のRowが描く）
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        // 高さ以上の角丸を指定して常に完全なカプセル形にする
+                        borderRadius: BorderRadius.circular(33),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.14),
+                            blurRadius: 24,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  // すりガラス（屈折）: 後ろのコンテンツをぼかして透かす
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(33),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOut,
-                        height: isCollapsed ? 52 : 66,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(33),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            width: 1,
+                      // すりガラス（屈折）: 後ろのコンテンツをぼかして透かす
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(33),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOut,
+                            height: isCollapsed ? 52 : 66,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(33),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                width: 1,
+                              ),
+                            ),
                           ),
                         ),
-                        child: bar,
                       ),
                     ),
-                  ),
+                    // 選択カプセル（Liquid Glass 風の水滴レンズ）
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: -4,
+                      bottom: -4,
+                      child: AnimatedAlign(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment(alignX, 0),
+                        child: FractionallySizedBox(
+                          widthFactor: 1 / n,
+                          heightFactor: 1,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 3),
+                            child: TweenAnimationBuilder<double>(
+                              // タブ切替のたびに0→1を再生し、中間で横に伸びて
+                              // 縦に潰れる（液体の伸縮）
+                              key: ValueKey<int>(currentIndex),
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                              child: const _LiquidCapsule(),
+                              builder: (context, t, child) {
+                                final s = math.sin(math.pi * t);
+                                return Transform.scale(
+                                  scaleX: 1 + 0.14 * s,
+                                  scaleY: 1 - 0.06 * s,
+                                  child: child,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // タブ（アイコン＋ラベル）はカプセルより前面に置いて滲ませない
+                    Positioned.fill(
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < items.length; i++)
+                            Expanded(
+                              child: _NavItem(
+                                data: items[i],
+                                selected: i == currentIndex,
+                                collapsed: isCollapsed,
+                                onTap: () => onDestinationSelected(i),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
           ),
         );
       },
+    );
+  }
+}
+
+/// Liquid Glass 風の選択カプセル（iOS 26 の水滴レンズの近似）。
+/// 本物の屈折歪み・色収差はフラグメントシェーダーが必要（Web非対応）なため行わず、
+/// ①縁のハイライト（うっすら虹色）②内側の BackdropFilter（軽いぼかし＋彩度アップ）
+/// ③固有の影 の3点で「浮いた水滴レンズ」に見せる。
+class _LiquidCapsule extends StatelessWidget {
+  const _LiquidCapsule();
+
+  // 彩度を1.35倍にする ColorFilter 行列（レンズ越しに色が少し乗って見える演出）
+  static const List<double> _saturationBoost = [
+    1.27559, -0.25032, -0.02527, 0, 0, //
+    -0.07441, 1.09968, -0.02527, 0, 0, //
+    -0.07441, -0.25032, 1.32473, 0, 0, //
+    0, 0, 0, 1, 0,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // 高さ以上の角丸で常に完全なカプセル形
+        borderRadius: BorderRadius.circular(40),
+        // 縁のハイライト。左上の白い光＋青/桃をわずかに混ぜて色収差（虹のフリンジ）を演出
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xE6FFFFFF),
+            Color(0x2E81D4FA),
+            Color(0x1FFFFFFF),
+            Color(0x2EF48FB1),
+            Color(0x99FFFFFF),
+          ],
+          stops: [0.0, 0.3, 0.5, 0.7, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        // 縁の線の太さ（グラデーションが見える幅）
+        padding: const EdgeInsets.all(1.4),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(39),
+          child: BackdropFilter(
+            filter: ImageFilter.compose(
+              outer: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              inner: const ColorFilter.matrix(_saturationBoost),
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(39),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -277,7 +364,7 @@ class _NavItem extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
         margin: EdgeInsets.symmetric(horizontal: 5, vertical: collapsed ? 6 : 9),
-        // 選択カプセルはスライドする背景側（AnimatedPositioned）が描くためここは透明
+        // 選択カプセルはスライドする背面側（_LiquidCapsule）が描くためここは透明
         decoration: const BoxDecoration(),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
