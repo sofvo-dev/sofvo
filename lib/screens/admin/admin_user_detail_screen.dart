@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/official_badge.dart';
 import '../chat/chat_screen.dart';
+import '../profile/my_page_screen.dart';
 
 /// ユーザー詳細画面（管理者用）
 class AdminUserDetailScreen extends StatefulWidget {
@@ -308,6 +309,18 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
         children: [
           _buildSectionHeader('管理アクション', Icons.admin_panel_settings_rounded),
           const SizedBox(height: 12),
+          _buildActionTile(
+            icon: Icons.account_circle_rounded,
+            label: 'プロフィールページを表示',
+            color: AppTheme.primaryColor,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MyPageScreen(targetUserId: widget.userId),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
           _buildActionTile(
             icon: isBanned ? Icons.lock_open_rounded : Icons.block_rounded,
             label: isBanned ? 'アカウント凍結を解除' : 'アカウントを凍結',
