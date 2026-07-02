@@ -34,15 +34,20 @@ iOS 26 の Liquid Glass の**本来の挙動**に合わせる: **静止時はた
 **タブ間を移動している間だけ**水滴ガラスに変化する（常時レンズ表示は白バーでは濁った塊に見えて失敗だった）。
 本物の屈折歪みはフラグメントシェーダーが必要（Impeller 必須＝Web 非対応）なため使わず、全プラットフォームで動く近似で構成:
 
-- **静止時**: バー内に収まる横長ピル（ブランドネイビー `primaryColor` alpha 0.10）。`BackdropFilter` なし（コスト削減＋濁り防止）
+- **静止時**: バー内に収まる横長ピル。カプセルは**無色の透明ガラス**（黒 alpha 0.06 のみ）で、選択の主張は**アイコン＋ラベルのネイビー**（`AppTheme.primaryColor`）が担う。`BackdropFilter` なし（コスト削減＋濁り防止）
 - **移動中だけガラス化**: `TweenAnimationBuilder`（`key: ValueKey(currentIndex)` で切替ごとに 0→1 再生）の `s = sin(πt)` を強度にして、
-  - 縁の白いハイライト＋ネイビーのフリンジ（`LinearGradient` の alpha を `× s`）
+  - 縁の白いハイライト（`LinearGradient` の alpha を `× s`）
   - 内側の `BackdropFilter.blur(4 × s)`（下のガラスがぼける）
   - `scaleX +16% / scaleY +10%` に膨らむ（外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
   - 着地（t=1）で s=0 に戻り、元の薄いピルに戻る
-- **描画順**: バー背景 → カプセル → タブ（アイコン＋ラベル）。アイコンをカプセルの前面に置き、ぼかしで滲まないようにする
+- **指なぞりで泡が追従**: バーを横ドラッグすると泡（カプセル）がガラス化したまま指に追従し、離すと最寄りのタブに吸着して選択される。
+  - バー全体を `GestureDetector(behavior: translucent)` で包み `onHorizontalDrag*` を拾う（タップは各タブの子が処理するので共存できる）
+  - なぞり中は `AnimatedAlign` を 60ms/linear にしてピタッと追従、通常時は 260ms/easeOutCubic
+  - ガラス化は `AnimationController`（180ms）でフェードイン/アウトし、タブ切替パルスと `max()` で合成
+  - タブ境界を跨ぐたびに `HapticFeedback.selectionClick()`
+  - ドラッグキャンセル時はタブを切り替えず泡だけ元に戻す
 
-実装は `lib/screens/home/main_tab_screen.dart` の `_LiquidCapsule`（`glass` パラメータ）を参照。
+実装は `lib/screens/home/main_tab_screen.dart` の `_BottomNavState`（ドラッグ）と `_LiquidCapsule`（`glass` パラメータ）を参照。
 
 ---
 
@@ -378,7 +383,8 @@ GlassNavScaffold(
 | 縮みを強く | 縮小時の `height`(52) と左右 `64` |
 | 影を消す | `boxShadow` を削除（白背景なら枠線だけでも可） |
 | 常にラベル表示 | `_GlassNavTile` の `collapsed` 分岐を無効化 |
-| 静止時カプセルの濃さ | Sofvo実体: `_LiquidCapsule` の `primaryColor` alpha 0.10 |
+| 静止時カプセルの濃さ | Sofvo実体: `_LiquidCapsule` の黒 alpha 0.06（無色ガラス） |
+| 選択アイコンの色 | Sofvo実体: `_NavItem` の `AppTheme.primaryColor`（ネイビー） |
 | 移動中ガラスのぼかし | Sofvo実体: `_LiquidCapsule` の `blur(4 × glass)` |
 | 移動中の膨らみの強さ | Sofvo実体: `scaleX: 1 + 0.16 * s` / `scaleY: 1 + 0.10 * s` |
 </content>

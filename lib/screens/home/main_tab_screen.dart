@@ -96,7 +96,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
 }
 
 /// 分離されたナビゲーションバー — チャットバッジの更新で他のタブがリビルドされない
-class _BottomNav extends StatelessWidget {
+class _BottomNav extends StatefulWidget {
   const _BottomNav({
     required this.currentIndex,
     required this.onDestinationSelected,
@@ -105,6 +105,70 @@ class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
   final ValueListenable<bool> collapsed;
+
+  @override
+  State<_BottomNav> createState() => _BottomNavState();
+}
+
+class _BottomNavState extends State<_BottomNav>
+    with SingleTickerProviderStateMixin {
+  // 指でなぞっている間のガラス化（1へフェードイン、離すとフェードアウト）
+  late final AnimationController _glassCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
+  bool _dragging = false;
+  double _dragFrac = 0; // バー幅に対する指の位置（0〜1）
+  int _dragHover = -1; // なぞり中に指が乗っているタブ（ハプティクス用）
+
+  @override
+  void dispose() {
+    _glassCtrl.dispose();
+    super.dispose();
+  }
+
+  // 指の位置（0〜1）→ カプセル中心の Alignment.x（スロット中心にクランプ）
+  double _alignForFrac(double f, int n) {
+    if (n <= 1) return 0;
+    final x = ((f - 0.5 / n) / (1 - 1 / n)) * 2 - 1;
+    return x.clamp(-1.0, 1.0);
+  }
+
+  int _hoverIndex(double f, int n) => ((f * n).floor()).clamp(0, n - 1);
+
+  void _onDragStart(double dx, double width, int n) {
+    setState(() {
+      _dragging = true;
+      _dragFrac = (dx / width).clamp(0.0, 1.0);
+      _dragHover = _hoverIndex(_dragFrac, n);
+    });
+    _glassCtrl.forward();
+  }
+
+  void _onDragUpdate(double dx, double width, int n) {
+    final f = (dx / width).clamp(0.0, 1.0);
+    final hover = _hoverIndex(f, n);
+    if (hover != _dragHover) {
+      HapticFeedback.selectionClick(); // タブ境界を跨いだらコツッと
+    }
+    setState(() {
+      _dragFrac = f;
+      _dragHover = hover;
+    });
+  }
+
+  void _onDragEnd(int n) {
+    final target = _hoverIndex(_dragFrac, n);
+    setState(() => _dragging = false);
+    _glassCtrl.reverse();
+    widget.onDestinationSelected(target); // 最寄りのタブに吸着
+  }
+
+  void _onDragCancel() {
+    // キャンセル時はタブを切り替えず、泡だけ元のタブへ戻す
+    setState(() => _dragging = false);
+    _glassCtrl.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,19 +216,35 @@ class _BottomNav extends StatelessWidget {
           padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).padding.bottom * 0.75),
           child: ValueListenableBuilder<bool>(
-            valueListenable: collapsed,
+            valueListenable: widget.collapsed,
             builder: (context, isCollapsed, _) {
               final n = items.length;
-              // 比率ベース配置: 縮小（幅変化）に追従しつつ、タブ切替時だけスライド
-              final alignX =
-                  n <= 1 ? 0.0 : (currentIndex / (n - 1)) * 2 - 1;
+              // 比率ベース配置: 縮小（幅変化）に追従しつつ、タブ切替時だけスライド。
+              // なぞり中は指の位置に追従する
+              final alignX = _dragging
+                  ? _alignForFrac(_dragFrac, n)
+                  : n <= 1
+                      ? 0.0
+                      : (widget.currentIndex / (n - 1)) * 2 - 1;
               return AnimatedPadding(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOut,
                 // 縮小時は左右に絞って小さく見せる
                 padding: EdgeInsets.fromLTRB(
                   isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 6),
-                child: Stack(
+                child: LayoutBuilder(builder: (context, box) {
+                  final width = box.maxWidth;
+                  return GestureDetector(
+                    // タップは各タブ（子）が処理。横ドラッグだけここで拾い、
+                    // 泡（カプセル）を指に追従させる
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragStart: (d) =>
+                        _onDragStart(d.localPosition.dx, width, n),
+                    onHorizontalDragUpdate: (d) =>
+                        _onDragUpdate(d.localPosition.dx, width, n),
+                    onHorizontalDragEnd: (_) => _onDragEnd(n),
+                    onHorizontalDragCancel: _onDragCancel,
+                    child: Stack(
                   // 移動中に膨らむ選択カプセルをクリップしない
                   clipBehavior: Clip.none,
                   children: [
@@ -205,8 +285,10 @@ class _BottomNav extends StatelessWidget {
                     // 選択カプセル（バー内に収まる横長ピル・うっすらネイビーのガラス）
                     Positioned.fill(
                       child: AnimatedAlign(
-                        duration: const Duration(milliseconds: 260),
-                        curve: Curves.easeOutCubic,
+                        // なぞり中は指にピタッと追従、通常はゆったりスライド
+                        duration: Duration(milliseconds: _dragging ? 60 : 260),
+                        curve:
+                            _dragging ? Curves.linear : Curves.easeOutCubic,
                         alignment: Alignment(alignX, 0),
                         child: FractionallySizedBox(
                           widthFactor: 1 / n,
@@ -219,16 +301,25 @@ class _BottomNav extends StatelessWidget {
                               // タブ切替のたびに0→1を再生。移動中（中間）だけ
                               // ガラス化して膨らみ、着地すると元の薄いピルに戻る
                               // （iOS 26 Liquid Glass の挙動の近似）
-                              key: ValueKey<int>(currentIndex),
+                              key: ValueKey<int>(widget.currentIndex),
                               tween: Tween(begin: 0.0, end: 1.0),
                               duration: const Duration(milliseconds: 320),
                               curve: Curves.easeOut,
                               builder: (context, t, _) {
-                                final s = math.sin(math.pi * t);
-                                return Transform.scale(
-                                  scaleX: 1 + 0.16 * s,
-                                  scaleY: 1 + 0.10 * s,
-                                  child: _LiquidCapsule(glass: s),
+                                final pulse = math.sin(math.pi * t);
+                                // なぞり中のガラス化（_glassCtrl）と
+                                // タブ切替パルスの強い方を採用
+                                return AnimatedBuilder(
+                                  animation: _glassCtrl,
+                                  builder: (context, _) {
+                                    final glass =
+                                        math.max(pulse, _glassCtrl.value);
+                                    return Transform.scale(
+                                      scaleX: 1 + 0.16 * glass,
+                                      scaleY: 1 + 0.10 * glass,
+                                      child: _LiquidCapsule(glass: glass),
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -244,16 +335,19 @@ class _BottomNav extends StatelessWidget {
                             Expanded(
                               child: _NavItem(
                                 data: items[i],
-                                selected: i == currentIndex,
+                                selected: i == widget.currentIndex,
                                 collapsed: isCollapsed,
-                                onTap: () => onDestinationSelected(i),
+                                onTap: () =>
+                                    widget.onDestinationSelected(i),
                               ),
                             ),
                         ],
                       ),
                     ),
                   ],
-                ),
+                    ),
+                  );
+                }),
               );
             },
           ),
@@ -263,21 +357,23 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-/// 選択カプセル。静止時はうっすらネイビーの横長ピル、タブ間を移動する間だけ
-/// 「液体ガラス」になる（iOS 26 の挙動の近似）: 縁に白い光とネイビーのフリンジが
-/// 現れ、下のガラスを軽くぼかしながら少し膨らんで滑り、着地すると元に戻る。
+/// 選択カプセル。色を付けない「透明なガラス」— 静止時はごく薄いニュートラルの
+/// ピル、タブ間を移動する間だけ「液体ガラス」になる（iOS 26 の挙動の近似）:
+/// 縁に白い光が現れ、下のガラスを軽くぼかしながら少し膨らんで滑り、着地すると戻る。
+/// 選択の主張はカプセルの色ではなくアイコン（ネイビー）が担う。
 /// 本物の屈折歪みはシェーダーが必要（Web非対応）なため行わない。
 class _LiquidCapsule extends StatelessWidget {
   const _LiquidCapsule({required this.glass});
 
-  /// 0 = 静止（薄いネイビーのピル）〜 1 = 移動中のピーク（ガラスの水滴）
+  /// 0 = 静止（透明なガラスのピル）〜 1 = 移動中のピーク（ガラスの水滴）
   final double glass;
 
   @override
   Widget build(BuildContext context) {
     final fill = DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.10 + 0.05 * glass),
+        // 無色のガラス。輪郭が分かる程度のごく薄いグレーのみ
+        color: Colors.black.withValues(alpha: 0.06 + 0.02 * glass),
         borderRadius: BorderRadius.circular(25),
       ),
     );
@@ -285,16 +381,16 @@ class _LiquidCapsule extends StatelessWidget {
       decoration: BoxDecoration(
         // 高さの半分以上の角丸で常に完全なカプセル形
         borderRadius: BorderRadius.circular(26),
-        // 移動中だけ縁が白く光り、ネイビーのフリンジが乗る（静止時は透明）
+        // 移動中だけ縁が白く光る（静止時は透明）
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
             Colors.white.withValues(alpha: 0.90 * glass),
-            AppTheme.primaryLight.withValues(alpha: 0.30 * glass),
+            Colors.white.withValues(alpha: 0.25 * glass),
             Colors.white.withValues(alpha: 0.12 * glass),
-            AppTheme.primaryColor.withValues(alpha: 0.32 * glass),
-            Colors.white.withValues(alpha: 0.60 * glass),
+            Colors.white.withValues(alpha: 0.30 * glass),
+            Colors.white.withValues(alpha: 0.65 * glass),
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
@@ -343,7 +439,8 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.black : Colors.black87;
+    // 選択中はブランドネイビーで主張、非選択は濃いグレー
+    final color = selected ? AppTheme.primaryColor : Colors.black87;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
