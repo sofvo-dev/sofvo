@@ -25,8 +25,21 @@ Sofvo で実装した「Instagram 風・浮島型すりガラス・スクロー�
 | すりガラス透過 | `Colors.white.withValues(alpha: 0.85)`（低くしすぎると輪郭がぼやけて平坦に見える） |
 | ぼかし | `ImageFilter.blur(20, 20)` |
 | 影 | `black 0.14 / blur 24 / offset(0,6)` |
-| 選択カプセル | ブランド色 alpha 0.10 / 角丸 22 |
-| アニメ | 200〜220ms / easeOut |
+| 選択カプセル | Liquid Glass 風の水滴レンズ（下記参照）。汎用版コードは簡易版（ブランド色 alpha 0.10 / 角丸 22） |
+| アニメ | 200〜220ms / easeOut（カプセルのスライドは 260ms easeOutCubic） |
+
+### 選択カプセルの Liquid Glass 化（Sofvo 実体のみ・2026/07 追加）
+
+iOS 26 の Liquid Glass（時計アプリ等の水滴レンズ）の近似。本物の屈折歪み・色収差は
+フラグメントシェーダーが必要（Impeller 必須＝Web 非対応）なため使わず、全プラットフォームで動く近似で構成:
+
+- **バーの上下に 4px はみ出す**独立したカプセル（外側 `Stack(clipBehavior: Clip.none)` でバーのクリップの外に描く）
+- **縁のハイライト**: 左上が白く光る `LinearGradient` の枠（1.4px）に、青/桃をわずかに混ぜて色収差風のフリンジ
+- **内側に2枚目の `BackdropFilter`**: `blur(4)` ＋ 彩度1.35倍の `ColorFilter.matrix` を `ImageFilter.compose` で合成（レンズ越し感）
+- **タブ切替時の液体アニメ**: `TweenAnimationBuilder`（`key: ValueKey(currentIndex)` で切替ごとに再生）で移動中に `scaleX +14% / scaleY -6%` の伸縮
+- **描画順**: バー背景 → カプセル → タブ（アイコン＋ラベル）。アイコンをカプセルの前面に置き、ぼかしで滲まないようにする
+
+実装は `lib/screens/home/main_tab_screen.dart` の `_LiquidCapsule` を参照。
 
 ---
 
@@ -362,5 +375,8 @@ GlassNavScaffold(
 | 縮みを強く | 縮小時の `height`(52) と左右 `64` |
 | 影を消す | `boxShadow` を削除（白背景なら枠線だけでも可） |
 | 常にラベル表示 | `_GlassNavTile` の `collapsed` 分岐を無効化 |
+| 水滴レンズのはみ出し量 | Sofvo実体: カプセルの `Positioned(top/bottom: -4)` |
+| 水滴レンズのぼかし/彩度 | Sofvo実体: `_LiquidCapsule` の `blur(4)` と `_saturationBoost`（1.35倍） |
+| 液体伸縮の強さ | Sofvo実体: `scaleX: 1 + 0.14 * s` / `scaleY: 1 - 0.06 * s` |
 </content>
 </invoke>
