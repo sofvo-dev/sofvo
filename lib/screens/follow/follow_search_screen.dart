@@ -87,14 +87,19 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         addedUids.add(doc.id);
       }
 
-      // 完全一致がない場合、ID・ニックネーム・エリアで部分一致検索
+      // 完全一致がない場合、ID・ニックネームで部分一致検索
       if (results.isEmpty) {
         final allSnap = await FirebaseFirestore.instance
             .collection('users')
-            .limit(100)
+            .limit(500)
+            .get();
+        // 公式アカウントは limit で漏れないよう必ず検索対象に含める
+        final officialSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .where('isOfficial', isEqualTo: true)
             .get();
         final lowerQuery = query.toLowerCase();
-        for (final doc in allSnap.docs) {
+        for (final doc in [...allSnap.docs, ...officialSnap.docs]) {
           if (doc.id == _currentUser?.uid) continue;
           if (addedUids.contains(doc.id)) continue;
           final data = doc.data();
@@ -104,6 +109,7 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
               nick.contains(lowerQuery)) {
             data['uid'] = doc.id;
             results.add(data);
+            addedUids.add(doc.id);
           }
         }
       }

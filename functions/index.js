@@ -1798,16 +1798,44 @@ function calcRankPoints(teamCount, rank) {
   return Math.round(teamCount * rankMultiplier(rank));
 }
 
-function calcOrganizerBonus(teamCount) {
-  return Math.round(teamCount * 0.3);
+// ブラケットの決勝結果から全体順位（teamId → 順位）を作る。
+// 複数ブラケット（1部/2部/3部…のティア分け）の場合、各ブラケットの決勝勝者を
+// 一律 rank 1（優勝）にすると全ティアの勝者が優勝扱いになってしまうため、
+// ブラケットの rankRange（例 "5〜8位"）の先頭数字を起点に全体順位へ変換する。
+// （順位表ウィジェット _FinalRankingsWidget と同じ考え方）
+async function buildTeamRanksFromBrackets(db, tournamentId) {
+  const teamRanks = {};
+  const bracketsSnap = await db.collection("tournaments").doc(tournamentId).collection("brackets").get();
+  for (const bDoc of bracketsSnap.docs) {
+    const rankRange = (bDoc.data().rankRange || "").toString();
+    const m = rankRange.match(/(\d+)/);
+    const rankStart = m ? parseInt(m[1], 10) : 1; // "全チーム"・未設定は 1 位起点
+
+    const matchesSnap = await bDoc.ref.collection("matches")
+      .where("status", "==", "completed").get();
+    for (const mDoc of matchesSnap.docs) {
+      const mData = mDoc.data();
+      const result = mData.result || {};
+      if (!result.winner) continue;
+      const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
+
+      let localRank = null; // ブラケット内順位（勝者側）
+      if (mData.round === "final" || mData.round === "final_1st") localRank = 1;
+      else if (mData.round === "third_place" || mData.round === "final_3rd") localRank = 3;
+      else if (mData.round === "final_5th") localRank = 5;
+      else if (mData.round === "final_7th") localRank = 7;
+      if (localRank === null) continue;
+
+      teamRanks[result.winner] = rankStart + localRank - 1;
+      if (loserId) teamRanks[loserId] = rankStart + localRank;
+    }
+  }
+  return teamRanks;
 }
 
-function calcStreakBonus(streak) {
-  if (streak >= 4) return 15;
-  if (streak >= 3) return 10;
-  if (streak >= 2) return 5;
-  return 0;
-}
+// ※ 主催者ボーナス（calcOrganizerBonus）・連続参加ボーナス（calcStreakBonus）は
+//   廃止済み（2026/07）。ポイントは「ポイントの仕組み」に公表している
+//   順位ポイントのみとする。
 
 /**
  * 大会のステータスが「終了」に変わったらポイントを自動付与
@@ -1828,19 +1856,27 @@ exports.onTournamentStatusChange = functions.firestore
 
     const db = admin.firestore();
     const tournamentId = context.params.tournamentId;
-    // ポイントは募集枠(maxTeams)を基準に計算する（大会詳細の「獲得ポイント」表示と一致させる）。
-    // maxTeams 未設定の古い大会のみ currentTeams にフォールバック。
-    const teamCount = after.maxTeams || after.currentTeams || 0;
-    if (teamCount === 0) return null;
 
     const organizerId = after.organizerId || "";
     const tournamentName = after.title || after.name || "";
     const tournamentDate = after.date || "";
 
-    console.log(`[Points] Awarding points for tournament: ${tournamentName} (${tournamentId}), teams: ${teamCount}`);
-
     // エントリーデータ取得
     const entriesSnap = await db.collection("tournaments").doc(tournamentId).collection("entries").get();
+
+    // ポイントは実際に参加したチーム数（エントリー数）を基準に計算する。
+    // エントリーが取れない場合のみ maxTeams / currentTeams にフォールバック。
+    // （募集枠 maxTeams 基準だと、枠より多い/少ないチーム数で開催された場合に実態とずれる）
+    const entryTeamIds = new Set();
+    for (const doc of entriesSnap.docs) {
+      entryTeamIds.add(doc.data().teamId || doc.id);
+    }
+    const teamCount = entryTeamIds.size > 0
+      ? entryTeamIds.size
+      : (after.maxTeams || after.currentTeams || 0);
+    if (teamCount === 0) return null;
+
+    console.log(`[Points] Awarding points for tournament: ${tournamentName} (${tournamentId}), teams: ${teamCount}`);
     const userTeamMap = {};  // uid -> teamId
     const teamUserMap = {};  // teamId -> [uids]
 
@@ -1876,43 +1912,8 @@ exports.onTournamentStatusChange = functions.firestore
 
     const allUserIds = Object.keys(userTeamMap);
 
-    // ━━━ 順位取得（ブラケットから） ━━━
-    const teamRanks = {};
-    const bracketsSnap = await db.collection("tournaments").doc(tournamentId).collection("brackets").get();
-
-    for (const bDoc of bracketsSnap.docs) {
-      const matchesSnap = await bDoc.ref.collection("matches")
-        .where("status", "==", "completed").get();
-
-      for (const mDoc of matchesSnap.docs) {
-        const mData = mDoc.data();
-        const result = mData.result || {};
-
-        if ((mData.round === "final" || mData.round === "final_1st") && result.winner) {
-          teamRanks[result.winner] = 1;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 2;
-        }
-
-        if ((mData.round === "third_place" || mData.round === "final_3rd") && result.winner) {
-          teamRanks[result.winner] = 3;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 4;
-        }
-
-        if (mData.round === "final_5th" && result.winner) {
-          teamRanks[result.winner] = 5;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 6;
-        }
-
-        if (mData.round === "final_7th" && result.winner) {
-          teamRanks[result.winner] = 7;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 8;
-        }
-      }
-    }
+    // ━━━ 順位取得（ブラケットから・全体順位） ━━━
+    const teamRanks = await buildTeamRanksFromBrackets(db, tournamentId);
 
     // ━━━ ポイント付与 ━━━
     const batch = db.batch();
@@ -1970,52 +1971,13 @@ exports.onTournamentStatusChange = functions.firestore
       });
     }
 
-    // ━━━ 主催者ボーナス ━━━
+    // ━━━ 主催回数カウント ━━━
+    // ※ 主催者ボーナス・連続参加ボーナスは廃止（2026/07）。
+    //   「ポイントの仕組み」の公表仕様（順位ポイント＋シーズン制）に実装を合わせる。
+    //   主催回数（tournamentsHosted）は統計として引き続きカウントする。
     if (organizerId) {
-      const orgBonus = calcOrganizerBonus(teamCount);
-      const userRef = db.collection("users").doc(organizerId);
-      batch.update(userRef, {
-        totalPoints: admin.firestore.FieldValue.increment(orgBonus),
-        seasonPoints: admin.firestore.FieldValue.increment(orgBonus),
+      batch.update(db.collection("users").doc(organizerId), {
         "stats.tournamentsHosted": admin.firestore.FieldValue.increment(1),
-      });
-
-      const historyRef = userRef.collection("pointHistory").doc(tournamentId);
-      if (userPointData[organizerId]) {
-        // 参加者かつ主催者 → 履歴を更新
-        batch.update(historyRef, {
-          organizerBonus: orgBonus,
-          totalEarned: admin.firestore.FieldValue.increment(orgBonus),
-        });
-      } else {
-        // 主催者のみ（参加していない）
-        batch.set(historyRef, {
-          tournamentId,
-          tournamentName,
-          date: tournamentDate,
-          teamCount,
-          rank: null,
-          rankPoints: 0,
-          streakBonus: 0,
-          organizerBonus: orgBonus,
-          totalEarned: orgBonus,
-          isOrganizer: true,
-          season,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-
-      // 主催者通知
-      const notifRef = userRef.collection("notifications").doc();
-      batch.set(notifRef, {
-        type: "points_earned",
-        senderId: "system",
-        senderName: "ポイント獲得",
-        message: `「${tournamentName}」の主催ボーナス +${orgBonus}pt 獲得！`,
-        tournamentId,
-        points: orgBonus,
-        read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
 
@@ -2024,57 +1986,6 @@ exports.onTournamentStatusChange = functions.firestore
 
     await batch.commit();
     console.log(`[Points] Awarded points to ${allUserIds.length} users for tournament ${tournamentId}`);
-
-    // ━━━ ストリークボーナス（バッチ外で個別実行） ━━━
-    // 期間ベース: 前回参加から30日以内なら連続、30日空いたらリセット
-    const STREAK_WINDOW_DAYS = 30;
-    for (const uid of allUserIds) {
-      try {
-        // 今回含む直近の履歴を日付降順で取得
-        const histSnap = await db.collection("users").doc(uid)
-          .collection("pointHistory")
-          .orderBy("createdAt", "desc")
-          .limit(20)
-          .get();
-
-        // 連続参加カウント（期間ベース）
-        let streak = 1; // 今回の参加で最低1
-        const docs = histSnap.docs;
-        for (let i = 0; i < docs.length - 1; i++) {
-          const current = docs[i].data().createdAt;
-          const prev = docs[i + 1].data().createdAt;
-          if (!current || !prev) break;
-          const diffMs = current.toMillis() - prev.toMillis();
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
-          if (diffDays <= STREAK_WINDOW_DAYS) {
-            streak++;
-          } else {
-            break;
-          }
-        }
-
-        const streakBonus = calcStreakBonus(streak);
-
-        if (streakBonus > 0) {
-          await db.collection("users").doc(uid).update({
-            totalPoints: admin.firestore.FieldValue.increment(streakBonus),
-            seasonPoints: admin.firestore.FieldValue.increment(streakBonus),
-            streak,
-          });
-          await db.collection("users").doc(uid)
-            .collection("pointHistory").doc(tournamentId)
-            .update({
-              streakBonus,
-              totalEarned: admin.firestore.FieldValue.increment(streakBonus),
-            });
-        } else {
-          await db.collection("users").doc(uid).update({ streak });
-        }
-      } catch (e) {
-        console.error(`[Points] Streak update error for ${uid}:`, e.message);
-      }
-    }
-
     return null;
   });
 
@@ -3006,7 +2917,7 @@ exports.distributePoints = functions.https.onCall(async (data, context) => {
       tournamentName: tournamentName || "",
       rankPoints,
       totalEarned: rankPoints,
-      rank: rank <= 3 ? rank : null,
+      rank: rank <= 8 ? rank : null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
@@ -3016,10 +2927,11 @@ exports.distributePoints = functions.https.onCall(async (data, context) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 既に付与済みの大会ポイントを募集枠(maxTeams)基準で再計算して差分補正する
-// （付与基準を currentTeams → maxTeams に変更した際の過去分修正用）
+// 既に付与済みの大会ポイントを実参加チーム数基準で再計算して差分補正する
+// （付与基準を変更した際の過去分修正用。順位ごとの係数で再計算するため
+//   優勝チームだけでなく全参加者がそれぞれの順位の新ポイントに補正される）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 共通コア: 指定大会のポイントを maxTeams 基準で再計算して差分補正する。
+// 共通コア: 指定大会のポイントを実参加チーム数基準で再計算して差分補正する。
 // 履歴の現在値から目標値への差分を加算するため、複数回実行しても安全（2回目以降は差分0）。
 async function recomputeTournamentPointsCore(tournamentId) {
   const db = admin.firestore();
@@ -3029,28 +2941,41 @@ async function recomputeTournamentPointsCore(tournamentId) {
   }
   const tournData = tournDoc.data();
 
-  // 新しい基準チーム数（募集枠）。未設定なら currentTeams にフォールバック。
-  const newTeamCount = tournData.maxTeams || tournData.currentTeams || 0;
-  if (newTeamCount === 0) {
-    return { ok: false, code: "failed-precondition", message: "maxTeams/currentTeams が0です" };
-  }
-
   const now = new Date();
   const currentSeason = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
 
   // 付与対象 UID を収集（エントリー参加者＋主催者）。collectionGroup を使わず、
   // 各 users/{uid}/pointHistory/{tournamentId} を直接読むためインデックス不要。
   const uidSet = new Set();
+  const userTeamMap = {}; // uid → teamId（順位の再導出用）
   const entriesSnap = await db.collection("tournaments").doc(tournamentId).collection("entries").get();
   for (const eDoc of entriesSnap.docs) {
     const e = eDoc.data();
+    const entryTeamId = e.teamId || eDoc.id;
     if (Array.isArray(e.memberUids)) {
-      for (const uid of e.memberUids) { if (uid) uidSet.add(uid); }
+      for (const uid of e.memberUids) { if (uid) { uidSet.add(uid); userTeamMap[uid] = entryTeamId; } }
     }
-    if (e.leaderUid) uidSet.add(e.leaderUid);
-    if (e.enteredBy) uidSet.add(e.enteredBy);
+    if (e.leaderUid) { uidSet.add(e.leaderUid); userTeamMap[e.leaderUid] = entryTeamId; }
+    if (e.enteredBy) { uidSet.add(e.enteredBy); userTeamMap[e.enteredBy] = entryTeamId; }
   }
   if (tournData.organizerId) uidSet.add(tournData.organizerId);
+
+  // 新しい基準チーム数: 実際に参加したチーム数（エントリー数）。
+  // エントリーが取れない場合のみ maxTeams / currentTeams にフォールバック。
+  const entryTeamIds = new Set();
+  for (const eDoc of entriesSnap.docs) {
+    entryTeamIds.add(eDoc.data().teamId || eDoc.id);
+  }
+  const newTeamCount = entryTeamIds.size > 0
+    ? entryTeamIds.size
+    : (tournData.maxTeams || tournData.currentTeams || 0);
+  if (newTeamCount === 0) {
+    return { ok: false, code: "failed-precondition", message: "参加チーム数が0です" };
+  }
+
+  // 順位もブラケットから再導出する（保存済みの rank は
+  // 「全ブラケットの決勝勝者が優勝扱い」だった旧バグの値を含むため信用しない）
+  const teamRanks = await buildTeamRanksFromBrackets(db, tournamentId);
 
   // 各 UID の pointHistory/{tournamentId} を取得
   const histRefs = [...uidSet].map((uid) =>
@@ -3071,51 +2996,68 @@ async function recomputeTournamentPointsCore(tournamentId) {
     const d = hDoc.data();
 
     const oldTotal = d.totalEarned || 0;
-    const storedRank = d.rank || 99; // 1〜4 か null(=99: 参加)
-    const mult = rankMultiplier(storedRank);
+    const oldRank = d.rank || 99; // 1〜8 か null(=99: 参加)
+
+    // 順位はブラケットから再導出した値を使う
+    const uid = userRef.id;
+    const teamId = userTeamMap[uid];
+    const newRank = (teamId && teamRanks[teamId]) || 99;
+    const mult = rankMultiplier(newRank);
 
     // 元々ランクポイント(参加含む)があった人のみ再計算（主催者のみの人は0のまま）
     const hadRankPoints = (d.rankPoints || 0) > 0;
     const newRankPoints = hadRankPoints ? Math.round(newTeamCount * mult) : 0;
 
-    const hadOrgBonus = (d.organizerBonus || 0) > 0;
-    const newOrgBonus = hadOrgBonus ? calcOrganizerBonus(newTeamCount) : 0;
-
-    const streakBonus = d.streakBonus || 0;
-    const newTotal = newRankPoints + newOrgBonus + streakBonus;
+    // 主催者ボーナス・連続参加ボーナスは廃止（2026/07）→ 補正時に0へ巻き戻す
+    const newTotal = newRankPoints;
     const diff = newTotal - oldTotal;
 
-    // 履歴を新しい値に更新
+    // 優勝数の補正（旧バグで複数チームが優勝扱いになっていた分を巻き戻す）
+    let champDiff = 0;
+    if (hadRankPoints) {
+      if (oldRank === 1 && newRank !== 1) champDiff = -1;
+      if (oldRank !== 1 && newRank === 1) champDiff = 1;
+    }
+
+    // 履歴を新しい値に更新（rank も再導出値で上書き・廃止ボーナスは0に）
     batch.update(hDoc.ref, {
       teamCount: newTeamCount,
       rankPoints: newRankPoints,
-      organizerBonus: newOrgBonus,
+      organizerBonus: 0,
+      streakBonus: 0,
       totalEarned: newTotal,
+      rank: hadRankPoints && newRank <= 8 ? newRank : null,
     });
 
-    if (diff !== 0) {
-      const userUpdate = {
-        totalPoints: admin.firestore.FieldValue.increment(diff),
-      };
-      // シーズンポイントは同一シーズンのときだけ補正（過去シーズン分は既にリセット済み）
-      if ((d.season || currentSeason) === currentSeason) {
-        userUpdate.seasonPoints = admin.firestore.FieldValue.increment(diff);
+    if (diff !== 0 || champDiff !== 0) {
+      const userUpdate = {};
+      if (diff !== 0) {
+        userUpdate.totalPoints = admin.firestore.FieldValue.increment(diff);
+        // シーズンポイントは同一シーズンのときだけ補正（過去シーズン分は既にリセット済み）
+        if ((d.season || currentSeason) === currentSeason) {
+          userUpdate.seasonPoints = admin.firestore.FieldValue.increment(diff);
+        }
+      }
+      if (champDiff !== 0) {
+        userUpdate["stats.championships"] = admin.firestore.FieldValue.increment(champDiff);
       }
       batch.update(userRef, userUpdate);
 
-      // 補正通知
-      const notifRef = userRef.collection("notifications").doc();
-      const sign = diff > 0 ? "+" : "";
-      batch.set(notifRef, {
-        type: "points_earned",
-        senderId: "system",
-        senderName: "ポイント補正",
-        message: `「${tournamentName}」のポイントを再計算しました（${sign}${diff}pt）。`,
-        tournamentId,
-        points: diff,
-        read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      if (diff !== 0) {
+        // 補正通知（ポイントが変わった人にのみ）
+        const notifRef = userRef.collection("notifications").doc();
+        const sign = diff > 0 ? "+" : "";
+        batch.set(notifRef, {
+          type: "points_earned",
+          senderId: "system",
+          senderName: "ポイント補正",
+          message: `「${tournamentName}」のポイントを再計算しました（${sign}${diff}pt）。`,
+          tournamentId,
+          points: diff,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
 
       adjustedUsers += 1;
       totalDiff += diff;
@@ -3164,7 +3106,7 @@ exports.recomputeTournamentPoints = functions.https.onCall(async (data, context)
 // 手動実行用 HTTP エンドポイント（curl で叩く）。
 // 例: .../recomputeTournamentPointsNow?tournamentId=XXXX
 // 履歴の現在値→目標値の差分補正なので冪等（重複実行しても二重加算されない）。
-exports.recomputeTournamentPointsNow = functions.https.onRequest(async (req, res) => {
+const recomputeTournamentPointsHttpHandler = async (req, res) => {
   try {
     const db = admin.firestore();
     let tournamentId = req.query.tournamentId || (req.body && req.body.tournamentId);
@@ -3195,7 +3137,13 @@ exports.recomputeTournamentPointsNow = functions.https.onRequest(async (req, res
     console.error("[recomputeTournamentPointsNow]", e);
     res.status(500).json({ ok: false, message: String(e) });
   }
-});
+};
+
+exports.recomputeTournamentPointsNow = functions.https.onRequest(recomputeTournamentPointsHttpHandler);
+
+// 旧 recomputeTournamentPointsNow に公開呼び出し権限（allUsers invoker）が
+// 付いておらず 403 になるため、新しい関数名でも公開する（新規作成時は権限が付く）。
+exports.recomputeTournamentPointsV2 = functions.https.onRequest(recomputeTournamentPointsHttpHandler);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会作成時にフォロワーへ通知
@@ -3469,6 +3417,28 @@ exports.cleanupDemoData = functions.pubsub
         if (createdAt && createdAt.toMillis && createdAt.toMillis() > cutoff.toMillis()) {
           continue;
         }
+        // ── 実アカウント保護ガード ──
+        // デモは匿名セッション限定のはずだが、旧ビルドの不具合等で実アカウントに
+        // isDemo:true が付く（汚染される）ことがある。公式/管理者フラグ持ち、または
+        // Auth 側にメール等のログイン手段がある実ユーザーは削除せず、
+        // isDemo フラグだけ外して自己修復する。
+        const data = doc.data();
+        let isRealAccount = data.isOfficial === true || data.isAdmin === true;
+        if (!isRealAccount) {
+          try {
+            const authUser = await admin.auth().getUser(doc.id);
+            isRealAccount = !!(authUser.email || (authUser.providerData || []).length > 0);
+          } catch (e) {
+            // Auth に存在しない（Firestore ドキュメントだけ残っている）→ 削除してよい
+          }
+        }
+        if (isRealAccount) {
+          await doc.ref.update({ isDemo: admin.firestore.FieldValue.delete() });
+          functions.logger.error(
+            `cleanupDemoData: 実アカウント ${doc.id} に isDemo:true が付いていたため、削除せず isDemo を外しました（デモ汚染の可能性。nickname 等は要確認）`
+          );
+          continue;
+        }
         await db.recursiveDelete(doc.ref);
         try {
           await admin.auth().deleteUser(doc.id);
@@ -3588,380 +3558,6 @@ exports.onFollowingDeleted = functions.firestore
       console.error(`[onFollowingDeleted] ${userId}: ${e.message}`);
     }
   });
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// サンプルデータ投入（App Store 審査用）
-// firebase functions:shell → seedReviewData()
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-exports.seedReviewData = functions.https.onRequest(async (req, res) => {
-  const db = admin.firestore();
-  const now = admin.firestore.Timestamp.now();
-  const TEST_UID = "nRE9MEEBq2YNGRNIqCiMe66x8ah1";
-
-  // ── ダミーユーザー（主催者・投稿者として使う）──
-  const dummyUsers = [
-    { uid: "dummy_user_001", nickname: "バレー太郎", area: "東京都", experience: "5〜10年", searchId: "volley_taro", bio: "ソフトバレー歴8年。週末は都内で活動中！" },
-    { uid: "dummy_user_002", nickname: "スパイク花子", area: "神奈川県", experience: "3〜5年", searchId: "spike_hanako", bio: "横浜でチーム運営してます。初心者歓迎！" },
-    { uid: "dummy_user_003", nickname: "レシーブ次郎", area: "大阪府", experience: "10年以上", searchId: "receive_jiro", bio: "関西のソフトバレー仲間を探しています。" },
-    { uid: "dummy_user_004", nickname: "トス美咲", area: "愛知県", experience: "1〜3年", searchId: "toss_misaki", bio: "名古屋で初心者チームを作りました！" },
-    { uid: "dummy_user_005", nickname: "サーブ健太", area: "福岡県", experience: "3〜5年", searchId: "serve_kenta", bio: "福岡でソフトバレーを楽しんでます。" },
-  ];
-
-  for (const u of dummyUsers) {
-    await db.collection("users").doc(u.uid).set({
-      uid: u.uid,
-      nickname: u.nickname,
-      area: u.area,
-      experience: u.experience,
-      searchId: u.searchId,
-      bio: u.bio,
-      avatarUrl: "",
-      totalPoints: Math.floor(Math.random() * 500) + 100,
-      seasonPoints: Math.floor(Math.random() * 200) + 50,
-      followersCount: Math.floor(Math.random() * 30) + 5,
-      followingCount: Math.floor(Math.random() * 20) + 3,
-      profileCompleted: true,
-      stats: {
-        tournamentsPlayed: Math.floor(Math.random() * 15) + 3,
-        tournamentsHosted: Math.floor(Math.random() * 5),
-        wins: Math.floor(Math.random() * 20) + 5,
-        losses: Math.floor(Math.random() * 15) + 2,
-        championships: Math.floor(Math.random() * 3),
-        helperCount: Math.floor(Math.random() * 5),
-      },
-      createdAt: now,
-      updatedAt: now,
-    }, { merge: true });
-  }
-
-  // ── テストユーザーのプロフィールを充実 ──
-  await db.collection("users").doc(TEST_UID).update({
-    totalPoints: 320,
-    seasonPoints: 150,
-    followersCount: 8,
-    followingCount: 5,
-    stats: {
-      tournamentsPlayed: 6,
-      tournamentsHosted: 0,
-      wins: 12,
-      losses: 8,
-      championships: 1,
-      helperCount: 2,
-    },
-    updatedAt: now,
-  });
-
-  // ── 大会データ（6件）──
-  const tournaments = [
-    {
-      title: "第12回 東京ソフトバレーボール交流大会",
-      date: "2026/04/20",
-      location: "東京体育館",
-      venueAddress: "東京都渋谷区千駄ヶ谷1-17-1",
-      area: "東京都",
-      type: "混合",
-      description: "初心者から経験者まで楽しめる交流大会です。試合後に懇親会も予定しています。お気軽にご参加ください！",
-      status: "募集中",
-      organizerId: "dummy_user_001",
-      organizerName: "バレー太郎",
-      icon: "emoji_events",
-      maxTeams: 16,
-      currentTeams: 10,
-      entryFee: 3000,
-      courts: 3,
-      openTime: "08:30",
-      receptionTime: "09:00",
-      matchStartTime: "09:30",
-      finalTime: "15:00",
-      closingTime: "16:00",
-    },
-    {
-      title: "横浜カップ 春季ソフトバレー大会",
-      date: "2026/04/27",
-      location: "横浜文化体育館",
-      venueAddress: "神奈川県横浜市中区不老町2-7",
-      area: "神奈川県",
-      type: "混合",
-      description: "横浜エリア最大級のソフトバレー大会！チーム戦で白熱の試合を楽しもう。",
-      status: "募集中",
-      organizerId: "dummy_user_002",
-      organizerName: "スパイク花子",
-      icon: "sports_volleyball",
-      maxTeams: 24,
-      currentTeams: 18,
-      entryFee: 4000,
-      courts: 4,
-      openTime: "08:00",
-      receptionTime: "08:30",
-      matchStartTime: "09:00",
-      finalTime: "16:00",
-      closingTime: "17:00",
-    },
-    {
-      title: "関西ソフトバレーフェスティバル",
-      date: "2026/05/05",
-      location: "大阪市中央体育館",
-      venueAddress: "大阪府大阪市港区田中3-1-40",
-      area: "大阪府",
-      type: "混合",
-      description: "GW特別企画！関西のソフトバレー愛好家が集まるお祭りイベント。初心者大歓迎！",
-      status: "募集中",
-      organizerId: "dummy_user_003",
-      organizerName: "レシーブ次郎",
-      icon: "celebration",
-      maxTeams: 20,
-      currentTeams: 12,
-      entryFee: 3500,
-      courts: 3,
-      openTime: "09:00",
-      receptionTime: "09:30",
-      matchStartTime: "10:00",
-      finalTime: "16:00",
-      closingTime: "17:00",
-    },
-    {
-      title: "名古屋初心者ソフトバレー体験会",
-      date: "2026/05/11",
-      location: "名古屋市スポーツセンター",
-      venueAddress: "愛知県名古屋市中区栄1-25-10",
-      area: "愛知県",
-      type: "混合",
-      description: "ソフトバレー未経験者・初心者向けの体験イベントです。道具は全て無料貸出！",
-      status: "募集中",
-      organizerId: "dummy_user_004",
-      organizerName: "トス美咲",
-      icon: "school",
-      maxTeams: 12,
-      currentTeams: 5,
-      entryFee: 1500,
-      courts: 2,
-      openTime: "10:00",
-      receptionTime: "10:15",
-      matchStartTime: "10:30",
-      finalTime: "14:00",
-      closingTime: "15:00",
-    },
-    {
-      title: "福岡ソフトバレーリーグ 第3節",
-      date: "2026/05/18",
-      location: "福岡市総合体育館",
-      venueAddress: "福岡県福岡市東区香椎照葉6-1-1",
-      area: "福岡県",
-      type: "混合",
-      description: "福岡リーグ戦の第3節です。リーグポイントを賭けた真剣勝負！",
-      status: "募集中",
-      organizerId: "dummy_user_005",
-      organizerName: "サーブ健太",
-      icon: "leaderboard",
-      maxTeams: 8,
-      currentTeams: 7,
-      entryFee: 2500,
-      courts: 2,
-      openTime: "09:00",
-      receptionTime: "09:15",
-      matchStartTime: "09:30",
-      finalTime: "15:00",
-      closingTime: "15:30",
-    },
-    {
-      title: "第5回 全日本シニアソフトバレー選手権",
-      date: "2026/04/13",
-      location: "代々木第二体育館",
-      venueAddress: "東京都渋谷区神南2-1-1",
-      area: "東京都",
-      type: "混合",
-      description: "全国から集まったシニアチームの大会です。熱い戦いが繰り広げられました！",
-      status: "終了",
-      organizerId: "dummy_user_001",
-      organizerName: "バレー太郎",
-      icon: "emoji_events",
-      maxTeams: 32,
-      currentTeams: 32,
-      entryFee: 5000,
-      courts: 6,
-      openTime: "08:00",
-      receptionTime: "08:30",
-      matchStartTime: "09:00",
-      finalTime: "16:00",
-      closingTime: "17:00",
-    },
-  ];
-
-  const tournamentIds = [];
-  for (const t of tournaments) {
-    const ref = await db.collection("tournaments").add({
-      ...t,
-      entryTeamIds: [],
-      rules: {},
-      createdAt: now,
-      updatedAt: now,
-    });
-    tournamentIds.push({ id: ref.id, ...t });
-  }
-
-  // ── メンバー募集（4件）──
-  const recruitments = [
-    {
-      tournamentId: tournamentIds[0].id,
-      tournamentName: tournamentIds[0].title,
-      tournamentDate: tournamentIds[0].date,
-      userId: "dummy_user_001",
-      nickname: "バレー太郎",
-      experience: "5〜10年",
-      recruitCount: 2,
-      comment: "東京交流大会に一緒に出ませんか？あと2人募集中です。初心者でもOK！楽しくやりましょう！",
-      status: "募集中",
-      needed: 2,
-      approvedCount: 0,
-      pendingCount: 1,
-    },
-    {
-      tournamentId: tournamentIds[1].id,
-      tournamentName: tournamentIds[1].title,
-      tournamentDate: tournamentIds[1].date,
-      userId: "dummy_user_002",
-      nickname: "スパイク花子",
-      experience: "3〜5年",
-      recruitCount: 1,
-      comment: "横浜カップに出場予定！セッターができる方を1名探しています。女性歓迎です！",
-      status: "募集中",
-      needed: 1,
-      approvedCount: 0,
-      pendingCount: 0,
-    },
-    {
-      tournamentId: tournamentIds[2].id,
-      tournamentName: tournamentIds[2].title,
-      tournamentDate: tournamentIds[2].date,
-      userId: "dummy_user_003",
-      nickname: "レシーブ次郎",
-      experience: "10年以上",
-      recruitCount: 3,
-      comment: "GWの関西フェスに参加します！チームメンバー3名募集。経験不問、楽しめる方大歓迎！",
-      status: "募集中",
-      needed: 3,
-      approvedCount: 1,
-      pendingCount: 0,
-    },
-    {
-      tournamentId: tournamentIds[3].id,
-      tournamentName: tournamentIds[3].title,
-      tournamentDate: tournamentIds[3].date,
-      userId: "dummy_user_004",
-      nickname: "トス美咲",
-      experience: "1〜3年",
-      recruitCount: 4,
-      comment: "名古屋の体験会、一緒に参加しませんか？初心者チームなので気軽に来てください！",
-      status: "募集中",
-      needed: 4,
-      approvedCount: 2,
-      pendingCount: 1,
-    },
-  ];
-
-  for (const r of recruitments) {
-    await db.collection("recruitments").add({
-      ...r,
-      avatarUrl: "",
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  // ── 投稿（5件）──
-  const posts = [
-    {
-      userId: "dummy_user_001",
-      userNickname: "バレー太郎",
-      userAvatarUrl: "",
-      text: "今日の練習、新しいフォーメーション試してみました！なかなか良い感じ。来週の大会が楽しみです💪",
-      images: [],
-      likesCount: 12,
-      commentsCount: 3,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_002",
-      userNickname: "スパイク花子",
-      userAvatarUrl: "",
-      text: "横浜カップの会場下見してきました。きれいな体育館で設備も充実！参加チーム募集中なのでお気軽にどうぞ。",
-      images: [],
-      likesCount: 8,
-      commentsCount: 2,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_003",
-      userNickname: "レシーブ次郎",
-      userAvatarUrl: "",
-      text: "GWの関西フェスティバル、続々エントリーいただいてます！残り枠わずかなのでお早めに〜",
-      images: [],
-      likesCount: 15,
-      commentsCount: 5,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_004",
-      userNickname: "トス美咲",
-      userAvatarUrl: "",
-      text: "初心者チームで練習始めて3ヶ月、みんな上達してきてうれしい！名古屋で仲間増やしたいです。",
-      images: [],
-      likesCount: 20,
-      commentsCount: 4,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_005",
-      userNickname: "サーブ健太",
-      userAvatarUrl: "",
-      text: "福岡リーグ第2節、チームが2位に入りました！次は優勝目指して頑張ります。応援よろしく！",
-      images: [],
-      likesCount: 25,
-      commentsCount: 7,
-      autoGenerated: false,
-    },
-  ];
-
-  for (const p of posts) {
-    await db.collection("posts").add({
-      ...p,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  // ── テストユーザーのフォロー関係 ──
-  for (const u of dummyUsers.slice(0, 3)) {
-    await db.collection("users").doc(TEST_UID).collection("following").doc(u.uid).set({
-      uid: u.uid,
-      nickname: u.nickname,
-      createdAt: now,
-    });
-    await db.collection("users").doc(u.uid).collection("followers").doc(TEST_UID).set({
-      uid: TEST_UID,
-      createdAt: now,
-    });
-  }
-
-  // ── テストユーザーのポイント履歴 ──
-  const pointHistory = [
-    { type: "tournament_participation", points: 50, description: "大会参加ポイント", tournamentName: "第5回 全日本シニアソフトバレー選手権" },
-    { type: "tournament_participation", points: 50, description: "大会参加ポイント", tournamentName: "春季交流大会" },
-    { type: "tournament_win", points: 100, description: "優勝ポイント", tournamentName: "春季交流大会" },
-    { type: "daily_login", points: 10, description: "ログインボーナス" },
-    { type: "profile_complete", points: 30, description: "プロフィール完成ボーナス" },
-    { type: "first_follow", points: 20, description: "初フォローボーナス" },
-  ];
-
-  for (const ph of pointHistory) {
-    await db.collection("users").doc(TEST_UID).collection("pointHistory").add({
-      ...ph,
-      createdAt: now,
-    });
-  }
-
-  res.json({ success: true, message: "サンプルデータ投入完了", tournaments: tournamentIds.length, recruitments: recruitments.length, posts: posts.length });
-});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FCMプッシュ通知ヘルパー

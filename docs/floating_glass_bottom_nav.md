@@ -18,15 +18,37 @@ Sofvo で実装した「Instagram 風・浮島型すりガラス・スクロー�
 現在の主要パラメータ（好みで調整）:
 | 項目 | 値 |
 |---|---|
-| 角丸 | 30 |
+| 角丸 | 33（高さの半分以上を指定して常に完全なカプセル形） |
 | 高さ | 通常 66 / 縮小 52 |
 | 左右余白 | 通常 16 / 縮小 64（縮むと左右に絞る） |
 | 下余白 | 8（`SafeArea(top:false)` の内側） |
-| すりガラス透過 | `Colors.white.withValues(alpha: 0.45)` |
+| すりガラス透過 | `Colors.white.withValues(alpha: 0.85)`（低くしすぎると輪郭がぼやけて平坦に見える） |
 | ぼかし | `ImageFilter.blur(20, 20)` |
-| 影 | `black 0.08 / blur 16 / offset(0,4)` |
-| 選択カプセル | ブランド色 alpha 0.10 / 角丸 22 |
-| アニメ | 200〜220ms / easeOut |
+| 影 | `black 0.14 / blur 24 / offset(0,6)` |
+| 選択カプセル | Liquid Glass 風の水滴レンズ（下記参照）。汎用版コードは簡易版（ブランド色 alpha 0.10 / 角丸 22） |
+| アニメ | 200〜220ms / easeOut（カプセルのスライドは 260ms easeOutCubic） |
+
+### 選択カプセルの Liquid Glass 化（Sofvo 実体のみ・2026/07 追加）
+
+iOS 26 の Liquid Glass の**本来の挙動**に合わせる: **静止時はただの薄いカプセル**で、
+**タブ間を移動している間だけ**水滴ガラスに変化する（常時レンズ表示は白バーでは濁った塊に見えて失敗だった）。
+本物の屈折歪みはフラグメントシェーダーが必要（Impeller 必須＝Web 非対応）なため使わず、全プラットフォームで動く近似で構成:
+
+- **静止時**: バー内に収まる横長ピル。カプセルは**無色の透明ガラス**（黒 alpha 0.06 のみ）で、選択の主張は**アイコン＋ラベルのネイビー**（`AppTheme.primaryColor`）が担う。`BackdropFilter` なし（コスト削減＋濁り防止）
+- **移動中だけガラス化**: `TweenAnimationBuilder`（`key: ValueKey(currentIndex)` で切替ごとに 0→1 再生）の `s = sin(πt)` を強度にして、
+  - **`RawMagnifier` で下のコンテンツを本当に屈折拡大**（`magnificationScale: 1 + 0.25 × s`）。BackdropFilter の行列変換なのでシェーダー不要＝Web でも動く
+  - 縁の白いハイライト＋ごく薄い虹色（プリズム）＋上面の白い反射（照り）＋足元の影（いずれも alpha を `× s`）
+  - 拡大した像の上に `BackdropFilter.blur(5 × s)` を重ねてすりガラスに
+  - `scaleX +50% / scaleY +40%` に膨らむ＝バーの上下にはっきりはみ出す（外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
+  - 着地（t=1）で s=0 に戻り、元の薄いピルに戻る
+- **指なぞりで泡が追従**: バーを横ドラッグすると泡（カプセル）がガラス化したまま指に追従し、離すと最寄りのタブに吸着して選択される。
+  - バー全体を `GestureDetector(behavior: translucent)` で包み `onHorizontalDrag*` を拾う（タップは各タブの子が処理するので共存できる）
+  - なぞり中は `AnimatedAlign` を 60ms/linear にしてピタッと追従、通常時は 260ms/easeOutCubic
+  - ガラス化は `AnimationController`（180ms）でフェードイン/アウトし、タブ切替パルスと `max()` で合成
+  - タブ境界を跨ぐたびに `HapticFeedback.selectionClick()`
+  - ドラッグキャンセル時はタブを切り替えず泡だけ元に戻す
+
+実装は `lib/screens/home/main_tab_screen.dart` の `_BottomNavState`（ドラッグ）と `_LiquidCapsule`（`glass` パラメータ）を参照。
 
 ---
 
@@ -197,17 +219,17 @@ class _GlassBar extends StatelessWidget {
                 isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 8),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(33),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 24,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(33),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: AnimatedContainer(
@@ -215,8 +237,8 @@ class _GlassBar extends StatelessWidget {
                     curve: Curves.easeOut,
                     height: isCollapsed ? 52 : 66,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.45), // 透過：小さいほど透ける
-                      borderRadius: BorderRadius.circular(30),
+                      color: Colors.white.withValues(alpha: 0.85), // 透過：小さいほど透ける（下げすぎると平坦に見える）
+                      borderRadius: BorderRadius.circular(33),
                       border: Border.all(
                           color: Colors.white.withValues(alpha: 0.55), width: 1),
                     ),
@@ -295,7 +317,7 @@ class _GlassNavTile extends StatelessWidget {
   }
 
   Widget _icon(Color color) {
-    final w = Icon(selected ? data.activeIcon : data.icon, size: 22, color: color);
+    final w = Icon(selected ? data.activeIcon : data.icon, size: 25, color: color);
     if (data.badge > 0) {
       return Badge(
         backgroundColor: badgeColor,
@@ -335,8 +357,8 @@ GlassNavScaffold(
 
 > Flutter アプリのボトムナビを「Instagram 風の浮島型すりガラス・ナビ」にしてください。要件：
 >
-> 1. **浮島型**：画面下に浮いた角丸（半径30）のバー。左右16・下8の余白＋柔らかい影で浮かせる。
-> 2. **すりガラス（屈折）**：`BackdropFilter`(`ImageFilter.blur(20,20)`) ＋ 半透明白(`Colors.white` alpha 0.45) ＋ 白の細枠。バー越しに後ろのコンテンツがぼけて透けること。
+> 1. **浮島型**：画面下に浮いた完全カプセル形（角丸は高さの半分以上、例: 33）のバー。左右16・下8の余白＋柔らかい影（black 0.14 / blur 24 / offset(0,6)）で浮かせる。
+> 2. **すりガラス（屈折）**：`BackdropFilter`(`ImageFilter.blur(20,20)`) ＋ 半透明白(`Colors.white` alpha 0.85) ＋ 白の細枠。バー越しに後ろのコンテンツがうっすらぼけて透けること（透過を強くしすぎると輪郭がぼやけて平坦に見えるので注意）。
 > 3. **スクロールで縮む**：最上位を `NotificationListener<UserScrollNotification>` で包み、下スクロール(`ScrollDirection.reverse`)でラベルを畳んでアイコンのみ・高さ66→52・左右余白16→64に縮小、上スクロールで復帰。`ValueNotifier<bool>`＋`ValueListenableBuilder` でバーだけ再描画。アニメは200〜220ms easeOut。
 > 4. **選択タブ**：ブランド色 alpha0.10 の角丸カプセルで強調。アイコンは outlined/filled を切替。**未読バッジ**対応。
 > 5. **重要なレイアウト要件（これが無いと崩れる）**：
@@ -355,12 +377,17 @@ GlassNavScaffold(
 
 | やりたいこと | 変える場所 |
 |---|---|
-| もっと透ける | `color: Colors.white.withValues(alpha: 0.45)` の数値を下げる |
+| もっと透ける | `color: Colors.white.withValues(alpha: 0.85)` の数値を下げる（下げすぎると平坦に見える） |
 | ぼかしを強く/弱く | `ImageFilter.blur(20, 20)` の数値 |
 | バーを下げる/上げる | `AnimatedPadding` の下余白（現 8） |
-| 角をもっと丸く | `BorderRadius.circular(30)` |
+| 角をもっと丸く | `BorderRadius.circular(33)`（高さの半分以上なら完全カプセル） |
 | 縮みを強く | 縮小時の `height`(52) と左右 `64` |
 | 影を消す | `boxShadow` を削除（白背景なら枠線だけでも可） |
 | 常にラベル表示 | `_GlassNavTile` の `collapsed` 分岐を無効化 |
+| 静止時カプセルの濃さ | Sofvo実体: `_LiquidCapsule` の黒 alpha 0.06（無色ガラス） |
+| 選択アイコンの色 | Sofvo実体: `_NavItem` の `AppTheme.primaryColor`（ネイビー） |
+| 移動中レンズの拡大率 | Sofvo実体: `_LiquidCapsule` の `magnificationScale: 1 + 0.25 * glass` |
+| 移動中ガラスのぼかし | Sofvo実体: `_LiquidCapsule` の `blur(5 × glass)` |
+| 移動中の膨らみの強さ | Sofvo実体: `scaleX: 1 + 0.50 * glass` / `scaleY: 1 + 0.40 * glass` |
 </content>
 </invoke>

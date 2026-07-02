@@ -31,6 +31,7 @@ import '../../services/match_generator.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/certified_badge.dart';
 import '../../widgets/invite_share_sheet.dart';
+import '../../widgets/follower_member_picker.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
@@ -807,11 +808,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               title: '獲得ポイント',
               titleIcon: Icons.star_rounded,
               child: Builder(builder: (context) {
-                final pointTable = PointService.getPointTable(liveMaxTeams);
+                // 実参加チーム数（currentTeams）基準。未エントリー時は募集枠で仮表示
+                final pointTable = PointService.getPointTable(
+                    PointService.effectiveTeamCount(
+                        currentTeams: liveCurrentTeams, maxTeams: liveMaxTeams));
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('この大会で獲得できるポイント',
+                    Text('この大会で獲得できるポイント（参加チーム数に応じて変動）',
                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     const SizedBox(height: 10),
                     _buildPointTableRow(Icons.military_tech, '優勝', '${pointTable['優勝']}pt', Colors.amber),
@@ -5822,75 +5826,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     // メンバー選択（フォロワーから）
                     const Text('メンバーを選択（フォロワーから）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _firestore.collection('users').doc(uid)
-                          .collection('following').snapshots(),
-                      builder: (context, followSnap) {
-                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                        final followings = followSnap.data!.docs;
-                        if (followings.isEmpty) {
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                            child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                          );
-                        }
-                        return FutureBuilder<List<DocumentSnapshot>>(
-                          future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
-                          builder: (context, userSnaps) {
-                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppTheme.primaryColor)));
-                            final activeIndexes = <int>[];
-                            for (int i = 0; i < followings.length; i++) {
-                              if (userSnaps.data![i].exists) activeIndexes.add(i);
-                            }
-                            if (activeIndexes.isEmpty) {
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                                child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                              );
-                            }
-                        return Container(
-                          constraints: const BoxConstraints(maxHeight: 250),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[200]!),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: activeIndexes.length,
-                            itemBuilder: (context, index) {
-                              final fDoc = followings[activeIndexes[index]];
-                              final userData = userSnaps.data![activeIndexes[index]].data() as Map<String, dynamic>? ?? {};
-                              final fUid = fDoc.id;
-                              final fName = userData['nickname'] ?? '名前なし';
-                              final fAvatar = userData['avatarUrl'] ?? '';
-                              final isSelected = selectedMembers.containsKey(fUid);
-
-                              return ListTile(
-                                leading: fAvatar.toString().isNotEmpty
-                                    ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
-                                    : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
-                                        child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?', style: TextStyle(color: AppTheme.primaryColor))),
-                                title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
-                                trailing: isSelected
-                                    ? const Icon(Icons.check_circle, color: AppTheme.primaryColor)
-                                    : Icon(Icons.circle_outlined, color: Colors.grey[400]),
-                                onTap: () {
-                                  setSheetState(() {
-                                    if (isSelected) {
-                                      selectedMembers.remove(fUid);
-                                    } else {
-                                      selectedMembers[fUid] = fName.toString();
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ),
-                        );
-                          },
-                        );
+                    FollowerMemberPicker(
+                      uid: uid,
+                      selectedMembers: selectedMembers,
+                      onToggle: (fUid, fName) {
+                        setSheetState(() {
+                          if (selectedMembers.containsKey(fUid)) {
+                            selectedMembers.remove(fUid);
+                          } else {
+                            selectedMembers[fUid] = fName;
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 8),
@@ -6058,75 +6004,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     // メンバー選択（フォロワーから）
                     const Text('メンバーを選択（フォロワーから）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _firestore.collection('users').doc(uid)
-                          .collection('following').snapshots(),
-                      builder: (context, followSnap) {
-                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                        final followings = followSnap.data!.docs;
-                        if (followings.isEmpty) {
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                            child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                          );
-                        }
-                        return FutureBuilder<List<DocumentSnapshot>>(
-                          future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
-                          builder: (context, userSnaps) {
-                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppTheme.primaryColor)));
-                            final activeIndexes = <int>[];
-                            for (int i = 0; i < followings.length; i++) {
-                              if (userSnaps.data![i].exists) activeIndexes.add(i);
-                            }
-                            if (activeIndexes.isEmpty) {
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                                child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                              );
-                            }
-                        return Container(
-                          constraints: const BoxConstraints(maxHeight: 250),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[200]!),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: activeIndexes.length,
-                            itemBuilder: (context, index) {
-                              final fDoc = followings[activeIndexes[index]];
-                              final userData = userSnaps.data![activeIndexes[index]].data() as Map<String, dynamic>? ?? {};
-                              final fUid = fDoc.id;
-                              final fName = userData['nickname'] ?? '名前なし';
-                              final fAvatar = userData['avatarUrl'] ?? '';
-                              final isSelected = selectedMembers.containsKey(fUid);
-
-                              return ListTile(
-                                leading: fAvatar.toString().isNotEmpty
-                                    ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
-                                    : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
-                                        child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?', style: TextStyle(color: AppTheme.primaryColor))),
-                                title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
-                                trailing: isSelected
-                                    ? const Icon(Icons.check_circle, color: AppTheme.primaryColor)
-                                    : Icon(Icons.circle_outlined, color: Colors.grey[400]),
-                                onTap: () {
-                                  setSheetState(() {
-                                    if (isSelected) {
-                                      selectedMembers.remove(fUid);
-                                    } else {
-                                      selectedMembers[fUid] = fName.toString();
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ),
-                        );
-                          },
-                        );
+                    FollowerMemberPicker(
+                      uid: uid,
+                      selectedMembers: selectedMembers,
+                      onToggle: (fUid, fName) {
+                        setSheetState(() {
+                          if (selectedMembers.containsKey(fUid)) {
+                            selectedMembers.remove(fUid);
+                          } else {
+                            selectedMembers[fUid] = fName;
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 8),
@@ -8409,7 +8297,11 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
       if (!mounted) return;
       final data = snap.data() as Map<String, dynamic>? ?? {};
       setState(() {
-        _maxTeams = (data['maxTeams'] as num?)?.toInt() ?? 0;
+        // ポイント表示は実参加チーム数（currentTeams）基準。無ければ募集枠
+        _maxTeams = PointService.effectiveTeamCount(
+          currentTeams: (data['currentTeams'] as num?)?.toInt(),
+          maxTeams: (data['maxTeams'] as num?)?.toInt(),
+        );
       });
     });
   }

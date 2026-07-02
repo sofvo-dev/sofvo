@@ -18,6 +18,9 @@ import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
 import '../tournament/prize_search_screen.dart';
+import '../gadget/all_gadgets_screen.dart';
+import '../../utils/entry_membership.dart';
+import '../../widgets/rank_badge.dart';
 import '../tournament/tournament_management_screen.dart';
 import '../notification/create_notice_screen.dart';
 import '../notification/notice_history_screen.dart';
@@ -628,6 +631,34 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
+                    // ── 公式アカウント専用メニュー ──
+                    if (isOfficial) ...[
+                      _buildCardSection(
+                        context: context,
+                        title: '公式メニュー',
+                        icon: Icons.verified_rounded,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _buildMenuCard(
+                                  icon: Icons.devices_other_outlined,
+                                  title: 'みんなのガジェット',
+                                  subtitle: '全ユーザーの登録ガジェット',
+                                  color: Colors.blueGrey,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllGadgetsScreen())),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(child: SizedBox()),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
                     // ── みんなのツール（カード型） ──
                     _buildCardSection(
                       context: context,
@@ -767,8 +798,7 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // ━━━ ランキング ※公式アカウントは非表示 ━━━
-                    if (!isOfficial)
+                    // ━━━ ランキング（公式アカウントも閲覧可能） ━━━
                     _buildCardSection(
                       context: context,
                       title: 'ランキング',
@@ -1225,10 +1255,8 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           .collection('tournaments')
           .doc(doc.id)
           .collection('entries')
-          .where('enteredBy', isEqualTo: uid)
-          .limit(1)
           .get();
-      if (entries.docs.isNotEmpty) {
+      if (entriesForUser(entries, uid).isNotEmpty) {
         data['id'] = doc.id;
         resultMap[doc.id] = data;
       }
@@ -1237,6 +1265,21 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
     final result = resultMap.values.toList()
       ..sort((a, b) => ((b['date'] ?? '') as String).compareTo((a['date'] ?? '') as String));
     if (result.length > 10) result.removeRange(10, result.length);
+
+    // 順位（pointHistory の rank: 1〜3位）を紐付け。取れなくても一覧自体は表示する
+    try {
+      final ph = await firestore
+          .collection('users').doc(uid).collection('pointHistory').get();
+      final rankMap = <String, int>{};
+      for (final doc in ph.docs) {
+        final r = doc.data()['rank'];
+        if (r is num) rankMap[doc.id] = r.toInt();
+      }
+      for (final t in result) {
+        final r = rankMap[t['id']];
+        if (r != null) t['myRank'] = r;
+      }
+    } catch (_) {}
     return result;
   }
 
@@ -1279,7 +1322,6 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
               final title = (d['title'] ?? d['name'] ?? '大会') as String;
               final date = (d['date'] ?? '') as String;
               final location = (d['location'] ?? d['venue'] ?? '') as String;
-              final status = normalizeTournamentStatus(d['status'] ?? '', emptyAsPreparing: false);
               final type = (d['type'] ?? '') as String;
               final docId = d['id'] as String;
 
@@ -1299,20 +1341,12 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: status == '終了'
-                                  ? AppTheme.textSecondary.withValues(alpha: 0.1)
-                                  : AppTheme.primaryColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(status.isEmpty ? '終了' : status,
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                                    color: status == '終了' ? AppTheme.textSecondary : AppTheme.primaryColor)),
-                          ),
-                          if (type.isNotEmpty) ...[
+                          // 順位を先頭で目立たせる（終了チップは冗長のため廃止）
+                          if (d['myRank'] != null) ...[
+                            RankBadge(rank: d['myRank'] as int?),
                             const SizedBox(width: 4),
+                          ],
+                          if (type.isNotEmpty)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -1321,7 +1355,6 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                               ),
                               child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                             ),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 8),

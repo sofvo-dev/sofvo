@@ -30,6 +30,16 @@ class PointService {
     };
   }
 
+  /// ポイント計算の基準チーム数。
+  /// 実際に参加しているチーム数（currentTeams / エントリー数）を優先し、
+  /// 未確定の場合のみ募集枠（maxTeams）にフォールバックする。
+  /// （募集枠基準だと、枠より多い/少ないチーム数で開催された場合に実態とずれるため）
+  static int effectiveTeamCount({int? currentTeams, int? maxTeams}) {
+    final current = currentTeams ?? 0;
+    if (current > 0) return current;
+    return maxTeams ?? 0;
+  }
+
   /// 大会終了時にポイントを付与する
   /// Cloud Functionsでも同様のロジックを持つが、クライアント側でも実行可能
   static Future<void> awardTournamentPoints({
@@ -44,16 +54,23 @@ class PointService {
     // 二重付与防止
     if (tournament['pointsAwarded'] == true) return;
 
-    // ポイントは募集枠(maxTeams)を基準に計算する（大会詳細の「獲得ポイント」表示と一致させる）。
-    // maxTeams 未設定の古い大会のみ currentTeams にフォールバック。
-    final teamCount = (tournament['maxTeams'] as num?)?.toInt()
-        ?? (tournament['currentTeams'] as num?)?.toInt() ?? 0;
-    if (teamCount == 0) return;
-
     final tournamentName = tournament['title'] as String? ?? tournament['name'] as String? ?? '';
 
     // エントリーデータ取得
     final entries = await tournamentRef.collection('entries').get();
+
+    // ポイントは実際に参加したチーム数（エントリー数）を基準に計算する。
+    // エントリーが取れない場合のみ maxTeams / currentTeams にフォールバック。
+    final entryTeamIds = <String>{};
+    for (final doc in entries.docs) {
+      final tid = (doc.data()['teamId'] as String?) ?? '';
+      entryTeamIds.add(tid.isNotEmpty ? tid : doc.id);
+    }
+    final teamCount = entryTeamIds.isNotEmpty
+        ? entryTeamIds.length
+        : ((tournament['maxTeams'] as num?)?.toInt()
+            ?? (tournament['currentTeams'] as num?)?.toInt() ?? 0);
+    if (teamCount == 0) return;
 
     // 全参加者のUID → チームID マッピング
     final userTeamMap = <String, String>{};
@@ -90,52 +107,41 @@ class PointService {
       teamUserMap[teamId] = uids;
     }
 
-    // ━━━ 順位情報取得（1〜3位のみ） ━━━
+    // ━━━ 順位情報取得（ブラケットから・全体順位） ━━━
+    // 複数ブラケット（1部/2部/3部…のティア分け）の場合、各ブラケットの決勝勝者を
+    // 一律1位にすると全ティアの勝者が優勝扱いになるため、ブラケットの rankRange
+    // （例 "5〜8位"）の先頭数字を起点に全体順位へ変換する（サーバー側と同じロジック）
     final teamRanks = <String, int>{};
 
-    // ブラケット（決勝トーナメント）から順位取得
     final brackets = await tournamentRef.collection('brackets').get();
-    if (brackets.docs.isNotEmpty) {
-      for (final bDoc in brackets.docs) {
-        final matches = await bDoc.reference.collection('matches')
-            .where('status', isEqualTo: 'completed')
-            .get();
+    for (final bDoc in brackets.docs) {
+      final rankRange = (bDoc.data()['rankRange'] ?? '').toString();
+      final rankMatch = RegExp(r'(\d+)').firstMatch(rankRange);
+      final rankStart = rankMatch != null ? int.parse(rankMatch.group(1)!) : 1;
 
-        // 決勝戦（round: 'final' or 'final_1st'）
-        final finalMatch = matches.docs.where((m) {
-          final round = m.data()['round'] as String? ?? '';
-          return round == 'final' || round == 'final_1st';
-        }).firstOrNull;
+      final matches = await bDoc.reference.collection('matches')
+          .where('status', isEqualTo: 'completed')
+          .get();
 
-        if (finalMatch != null) {
-          final fm = finalMatch.data();
-          final result = fm['result'] as Map<String, dynamic>? ?? {};
-          final winnerId = result['winner'] as String? ?? '';
-          final teamAId = fm['teamAId'] as String? ?? '';
-          final teamBId = fm['teamBId'] as String? ?? '';
+      for (final mDoc in matches.docs) {
+        final m = mDoc.data();
+        final round = m['round'] as String? ?? '';
+        final result = m['result'] as Map<String, dynamic>? ?? {};
+        final winnerId = result['winner'] as String? ?? '';
+        if (winnerId.isEmpty) continue;
+        final teamAId = m['teamAId'] as String? ?? '';
+        final teamBId = m['teamBId'] as String? ?? '';
+        final loserId = winnerId == teamAId ? teamBId : teamAId;
 
-          if (winnerId.isNotEmpty) {
-            teamRanks[winnerId] = 1;
-            final loserId = winnerId == teamAId ? teamBId : teamAId;
-            if (loserId.isNotEmpty) teamRanks[loserId] = 2;
-          }
-        }
+        int? localRank; // ブラケット内順位（勝者側）
+        if (round == 'final' || round == 'final_1st') localRank = 1;
+        else if (round == 'third_place' || round == 'final_3rd') localRank = 3;
+        else if (round == 'final_5th') localRank = 5;
+        else if (round == 'final_7th') localRank = 7;
+        if (localRank == null) continue;
 
-        // 3位決定戦（round: 'third_place' or 'final_3rd'）
-        final thirdPlaceMatch = matches.docs.where((m) {
-          final round = m.data()['round'] as String? ?? '';
-          return round == 'third_place' || round == 'final_3rd';
-        }).firstOrNull;
-
-        if (thirdPlaceMatch != null) {
-          final tm = thirdPlaceMatch.data();
-          final result = tm['result'] as Map<String, dynamic>? ?? {};
-          final winnerId = result['winner'] as String? ?? '';
-
-          if (winnerId.isNotEmpty) {
-            teamRanks[winnerId] = 3;
-          }
-        }
+        teamRanks[winnerId] = rankStart + localRank - 1;
+        if (loserId.isNotEmpty) teamRanks[loserId] = rankStart + localRank;
       }
     }
 
@@ -161,7 +167,7 @@ class PointService {
       pointHistoryData[uid] = {
         'rankPoints': rankPoints,
         'totalEarned': rankPoints,
-        'rank': rank <= 3 ? rank : null,
+        'rank': rank <= 8 ? rank : null,
       };
     }
 
