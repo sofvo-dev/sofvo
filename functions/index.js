@@ -3180,7 +3180,7 @@ exports.recomputeTournamentPoints = functions.https.onCall(async (data, context)
 // 手動実行用 HTTP エンドポイント（curl で叩く）。
 // 例: .../recomputeTournamentPointsNow?tournamentId=XXXX
 // 履歴の現在値→目標値の差分補正なので冪等（重複実行しても二重加算されない）。
-exports.recomputeTournamentPointsNow = functions.https.onRequest(async (req, res) => {
+const recomputeTournamentPointsHttpHandler = async (req, res) => {
   try {
     const db = admin.firestore();
     let tournamentId = req.query.tournamentId || (req.body && req.body.tournamentId);
@@ -3211,7 +3211,13 @@ exports.recomputeTournamentPointsNow = functions.https.onRequest(async (req, res
     console.error("[recomputeTournamentPointsNow]", e);
     res.status(500).json({ ok: false, message: String(e) });
   }
-});
+};
+
+exports.recomputeTournamentPointsNow = functions.https.onRequest(recomputeTournamentPointsHttpHandler);
+
+// 旧 recomputeTournamentPointsNow に公開呼び出し権限（allUsers invoker）が
+// 付いておらず 403 になるため、新しい関数名でも公開する（新規作成時は権限が付く）。
+exports.recomputeTournamentPointsV2 = functions.https.onRequest(recomputeTournamentPointsHttpHandler);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会作成時にフォロワーへ通知
