@@ -149,7 +149,7 @@ class _BottomNav extends StatelessWidget {
         // セーフエリア（ホームインジケータ領域）の余白を一部だけ残して下に詰める
         return Padding(
           padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom * 0.35),
+              bottom: MediaQuery.of(context).padding.bottom * 0.75),
           child: ValueListenableBuilder<bool>(
             valueListenable: collapsed,
             builder: (context, isCollapsed, _) {
@@ -198,23 +198,24 @@ class _BottomNav extends StatelessWidget {
               return AnimatedPadding(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOut,
-                // 縮小時は左右に絞って小さく見せる。下に詰めて配置
+                // 縮小時は左右に絞って小さく見せる
                 padding: EdgeInsets.fromLTRB(
-                  isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 2),
+                  isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 6),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(30),
+                    // 高さ以上の角丸を指定して常に完全なカプセル形にする
+                    borderRadius: BorderRadius.circular(33),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
+                        color: Colors.black.withValues(alpha: 0.14),
+                        blurRadius: 24,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
                   // すりガラス（屈折）: 後ろのコンテンツをぼかして透かす
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(33),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                       child: AnimatedContainer(
@@ -222,8 +223,8 @@ class _BottomNav extends StatelessWidget {
                         curve: Curves.easeOut,
                         height: isCollapsed ? 52 : 66,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(30),
+                          color: Colors.white.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(33),
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.55),
                             width: 1,
@@ -268,7 +269,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.black : Colors.black54;
+    final color = selected ? Colors.black : Colors.black87;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -313,7 +314,7 @@ class _NavItem extends StatelessWidget {
   }
 
   Widget _icon(Color color) {
-    final iconWidget = Icon(selected ? data.activeIcon : data.icon, size: 22, color: color);
+    final iconWidget = Icon(selected ? data.activeIcon : data.icon, size: 25, color: color);
     if (data.badge > 0) {
       return Badge(
         label: Text('${data.badge}', style: const TextStyle(fontSize: 10, color: Colors.white)),
