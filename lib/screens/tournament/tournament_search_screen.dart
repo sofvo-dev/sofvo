@@ -10,6 +10,7 @@ import '../../services/bookmark_notification_service.dart';
 import '../../utils/tournament_status.dart';
 import 'tournament_detail_screen.dart';
 import '../chat/chat_screen.dart';
+import '../profile/user_profile_screen.dart';
 
 class TournamentSearchScreen extends StatefulWidget {
   const TournamentSearchScreen({super.key});
@@ -1683,20 +1684,32 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-              child: Text(
-                nickname.isNotEmpty ? nickname[0] : '?',
-                style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16),
+            GestureDetector(
+              onTap: recruiterId.isNotEmpty
+                  ? () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => UserProfileScreen(userId: recruiterId)))
+                  : null,
+              child: CircleAvatar(
+                radius: 22,
+                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                child: Text(
+                  nickname.isNotEmpty ? nickname[0] : '?',
+                  style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Flexible(child: Text(nickname,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis)),
+                Flexible(child: GestureDetector(
+                  onTap: recruiterId.isNotEmpty
+                      ? () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => UserProfileScreen(userId: recruiterId)))
+                      : null,
+                  child: Text(nickname,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis),
+                )),
                 if (_officialCache[recruiterId] == true)
                   const OfficialBadge(size: 15),
                 const Spacer(),

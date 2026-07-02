@@ -1828,19 +1828,27 @@ exports.onTournamentStatusChange = functions.firestore
 
     const db = admin.firestore();
     const tournamentId = context.params.tournamentId;
-    // ポイントは募集枠(maxTeams)を基準に計算する（大会詳細の「獲得ポイント」表示と一致させる）。
-    // maxTeams 未設定の古い大会のみ currentTeams にフォールバック。
-    const teamCount = after.maxTeams || after.currentTeams || 0;
-    if (teamCount === 0) return null;
 
     const organizerId = after.organizerId || "";
     const tournamentName = after.title || after.name || "";
     const tournamentDate = after.date || "";
 
-    console.log(`[Points] Awarding points for tournament: ${tournamentName} (${tournamentId}), teams: ${teamCount}`);
-
     // エントリーデータ取得
     const entriesSnap = await db.collection("tournaments").doc(tournamentId).collection("entries").get();
+
+    // ポイントは実際に参加したチーム数（エントリー数）を基準に計算する。
+    // エントリーが取れない場合のみ maxTeams / currentTeams にフォールバック。
+    // （募集枠 maxTeams 基準だと、枠より多い/少ないチーム数で開催された場合に実態とずれる）
+    const entryTeamIds = new Set();
+    for (const doc of entriesSnap.docs) {
+      entryTeamIds.add(doc.data().teamId || doc.id);
+    }
+    const teamCount = entryTeamIds.size > 0
+      ? entryTeamIds.size
+      : (after.maxTeams || after.currentTeams || 0);
+    if (teamCount === 0) return null;
+
+    console.log(`[Points] Awarding points for tournament: ${tournamentName} (${tournamentId}), teams: ${teamCount}`);
     const userTeamMap = {};  // uid -> teamId
     const teamUserMap = {};  // teamId -> [uids]
 
