@@ -3596,6 +3596,49 @@ exports.restoreOfficialAccount = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 孤児メンバー募集の掃除（一時関数）
+//   審査用ダミー大会の削除後、その大会を指したままの募集（テストユーザー名義等）が
+//   「さがす→メンバーをさがす」に残っていたため、大会が存在しない募集を一括削除する。
+// 使い方:
+//   ドライラン: /cleanupOrphanRecruitments → 対象一覧を返すだけ
+//   実行: /cleanupOrphanRecruitments?confirm=1
+// 実行確認後はこの関数をコードから削除してよい。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.cleanupOrphanRecruitments = functions.runWith({ timeoutSeconds: 300 }).https.onRequest(async (req, res) => {
+  const db = admin.firestore();
+  const execute = req.query.confirm === "1";
+  try {
+    const snap = await db.collection("recruitments").get();
+    const orphans = [];
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      const tid = d.tournamentId;
+      if (!tid) continue; // 大会に紐づかない募集は対象外
+      const t = await db.collection("tournaments").doc(String(tid)).get();
+      if (t.exists) continue;
+      orphans.push({
+        id: doc.id,
+        nickname: d.nickname || null,
+        tournamentName: d.tournamentName || null,
+        tournamentDate: d.tournamentDate || null,
+      });
+      if (execute) await db.recursiveDelete(doc.ref);
+    }
+    res.json({
+      success: true,
+      executed: execute,
+      totalRecruitments: snap.size,
+      orphanCount: orphans.length,
+      orphans,
+      message: execute ? "孤児募集を削除しました" : "ドライラン（?confirm=1 を付けると実行）",
+    });
+  } catch (e) {
+    functions.logger.error("cleanupOrphanRecruitments error", e);
+    res.status(500).json({ success: false, error: String(e) });
+  }
+});
+
 // ── テスト送信用（管理者のみ） ──
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 招待ページ用: 公開プロフィール取得（未認証OK）
