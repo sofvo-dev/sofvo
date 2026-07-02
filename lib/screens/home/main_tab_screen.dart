@@ -376,8 +376,8 @@ class _BottomNavState extends State<_BottomNav>
 
 /// 選択カプセル。色を付けない「透明なガラス」— 静止時はごく薄いニュートラルの
 /// ピル、タブ間を移動する間だけ「液体ガラス」になる（iOS 26 の挙動の近似）:
-/// RawMagnifier で下のコンテンツを本当に屈折拡大し、縁の白い光＋薄い虹色・
-/// 上面の照り・足元の影をまとって膨らみながら滑り、着地すると戻る。
+/// RawMagnifier で下のコンテンツ（アイコン）を本当に屈折拡大し、縁の白い光・
+/// 上面の照り・足元の影をまとって膨らみながら滑り、着地すると戻る。色は付けない。
 /// 選択の主張はカプセルの色ではなくアイコン（ネイビー）が担う。
 /// RawMagnifier は BackdropFilter の行列変換なのでシェーダー不要＝Webでも動く。
 class _LiquidCapsule extends StatelessWidget {
@@ -390,11 +390,12 @@ class _LiquidCapsule extends StatelessWidget {
   Widget build(BuildContext context) {
     final fill = DecoratedBox(
       decoration: BoxDecoration(
-        // 無色のガラス。輪郭が分かる程度のごく薄いグレーのみ
-        color: Colors.black.withValues(alpha: 0.06 + 0.02 * glass),
+        // 無色のガラス。輪郭が分かる程度のごく薄いグレーのみ。
+        // 移動中も濃くしない（下のアイコンが透けて見えるのがレンズの命）
+        color: Colors.black.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(25),
       ),
-      // 上面の白い反射（ガラスの照り）— 移動中だけ現れる
+      // 上面の白い反射（ガラスの照り）— ごく控えめ。強くすると霧の玉になる
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(25),
@@ -402,10 +403,10 @@ class _LiquidCapsule extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.white.withValues(alpha: 0.45 * glass),
+              Colors.white.withValues(alpha: 0.18 * glass),
               Colors.white.withValues(alpha: 0.0),
             ],
-            stops: const [0.0, 0.6],
+            stops: const [0.0, 0.5],
           ),
         ),
       ),
@@ -414,16 +415,16 @@ class _LiquidCapsule extends StatelessWidget {
       decoration: BoxDecoration(
         // 高さの半分以上の角丸で常に完全なカプセル形
         borderRadius: BorderRadius.circular(26),
-        // 移動中だけ縁が白く光り、ごく薄い虹色（プリズム）が乗る（静止時は透明）
+        // 移動中だけ縁が白く光る（色は付けない・静止時は透明）
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: 0.95 * glass),
-            const Color(0xFF81D4FA).withValues(alpha: 0.30 * glass),
-            Colors.white.withValues(alpha: 0.15 * glass),
-            const Color(0xFFF8BBD0).withValues(alpha: 0.30 * glass),
-            Colors.white.withValues(alpha: 0.80 * glass),
+            Colors.white.withValues(alpha: 0.90 * glass),
+            Colors.white.withValues(alpha: 0.25 * glass),
+            Colors.white.withValues(alpha: 0.12 * glass),
+            Colors.white.withValues(alpha: 0.28 * glass),
+            Colors.white.withValues(alpha: 0.70 * glass),
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
@@ -448,19 +449,20 @@ class _LiquidCapsule extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // 本物のレンズ: 泡の下のコンテンツを屈折拡大する
+                      // 本物のレンズ: 泡の下のコンテンツ（アイコン）を屈折拡大する
                       // （RawMagnifier = BackdropFilter の行列変換。シェーダー不要）
                       RawMagnifier(
                         size: Size(c.maxWidth, c.maxHeight),
-                        magnificationScale: 1 + 0.25 * glass,
+                        magnificationScale: 1 + 0.35 * glass,
                         decoration: const MagnifierDecoration(
                           shape: StadiumBorder(),
                         ),
                       ),
-                      // 拡大した像を軽くぼかしてすりガラスに
+                      // ごくわずかな曇りだけ乗せる。強いぼかしは拡大した
+                      // アイコンを消して「霧の玉」になるので厳禁
                       BackdropFilter(
                         filter: ImageFilter.blur(
-                            sigmaX: 5 * glass, sigmaY: 5 * glass),
+                            sigmaX: 1.5 * glass, sigmaY: 1.5 * glass),
                         child: fill,
                       ),
                     ],
