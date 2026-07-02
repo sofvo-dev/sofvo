@@ -1833,16 +1833,9 @@ async function buildTeamRanksFromBrackets(db, tournamentId) {
   return teamRanks;
 }
 
-function calcOrganizerBonus(teamCount) {
-  return Math.round(teamCount * 0.3);
-}
-
-function calcStreakBonus(streak) {
-  if (streak >= 4) return 15;
-  if (streak >= 3) return 10;
-  if (streak >= 2) return 5;
-  return 0;
-}
+// ※ 主催者ボーナス（calcOrganizerBonus）・連続参加ボーナス（calcStreakBonus）は
+//   廃止済み（2026/07）。ポイントは「ポイントの仕組み」に公表している
+//   順位ポイントのみとする。
 
 /**
  * 大会のステータスが「終了」に変わったらポイントを自動付与
@@ -1978,52 +1971,13 @@ exports.onTournamentStatusChange = functions.firestore
       });
     }
 
-    // ━━━ 主催者ボーナス ━━━
+    // ━━━ 主催回数カウント ━━━
+    // ※ 主催者ボーナス・連続参加ボーナスは廃止（2026/07）。
+    //   「ポイントの仕組み」の公表仕様（順位ポイント＋シーズン制）に実装を合わせる。
+    //   主催回数（tournamentsHosted）は統計として引き続きカウントする。
     if (organizerId) {
-      const orgBonus = calcOrganizerBonus(teamCount);
-      const userRef = db.collection("users").doc(organizerId);
-      batch.update(userRef, {
-        totalPoints: admin.firestore.FieldValue.increment(orgBonus),
-        seasonPoints: admin.firestore.FieldValue.increment(orgBonus),
+      batch.update(db.collection("users").doc(organizerId), {
         "stats.tournamentsHosted": admin.firestore.FieldValue.increment(1),
-      });
-
-      const historyRef = userRef.collection("pointHistory").doc(tournamentId);
-      if (userPointData[organizerId]) {
-        // 参加者かつ主催者 → 履歴を更新
-        batch.update(historyRef, {
-          organizerBonus: orgBonus,
-          totalEarned: admin.firestore.FieldValue.increment(orgBonus),
-        });
-      } else {
-        // 主催者のみ（参加していない）
-        batch.set(historyRef, {
-          tournamentId,
-          tournamentName,
-          date: tournamentDate,
-          teamCount,
-          rank: null,
-          rankPoints: 0,
-          streakBonus: 0,
-          organizerBonus: orgBonus,
-          totalEarned: orgBonus,
-          isOrganizer: true,
-          season,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-
-      // 主催者通知
-      const notifRef = userRef.collection("notifications").doc();
-      batch.set(notifRef, {
-        type: "points_earned",
-        senderId: "system",
-        senderName: "ポイント獲得",
-        message: `「${tournamentName}」の主催ボーナス +${orgBonus}pt 獲得！`,
-        tournamentId,
-        points: orgBonus,
-        read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
 
@@ -2032,57 +1986,6 @@ exports.onTournamentStatusChange = functions.firestore
 
     await batch.commit();
     console.log(`[Points] Awarded points to ${allUserIds.length} users for tournament ${tournamentId}`);
-
-    // ━━━ ストリークボーナス（バッチ外で個別実行） ━━━
-    // 期間ベース: 前回参加から30日以内なら連続、30日空いたらリセット
-    const STREAK_WINDOW_DAYS = 30;
-    for (const uid of allUserIds) {
-      try {
-        // 今回含む直近の履歴を日付降順で取得
-        const histSnap = await db.collection("users").doc(uid)
-          .collection("pointHistory")
-          .orderBy("createdAt", "desc")
-          .limit(20)
-          .get();
-
-        // 連続参加カウント（期間ベース）
-        let streak = 1; // 今回の参加で最低1
-        const docs = histSnap.docs;
-        for (let i = 0; i < docs.length - 1; i++) {
-          const current = docs[i].data().createdAt;
-          const prev = docs[i + 1].data().createdAt;
-          if (!current || !prev) break;
-          const diffMs = current.toMillis() - prev.toMillis();
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
-          if (diffDays <= STREAK_WINDOW_DAYS) {
-            streak++;
-          } else {
-            break;
-          }
-        }
-
-        const streakBonus = calcStreakBonus(streak);
-
-        if (streakBonus > 0) {
-          await db.collection("users").doc(uid).update({
-            totalPoints: admin.firestore.FieldValue.increment(streakBonus),
-            seasonPoints: admin.firestore.FieldValue.increment(streakBonus),
-            streak,
-          });
-          await db.collection("users").doc(uid)
-            .collection("pointHistory").doc(tournamentId)
-            .update({
-              streakBonus,
-              totalEarned: admin.firestore.FieldValue.increment(streakBonus),
-            });
-        } else {
-          await db.collection("users").doc(uid).update({ streak });
-        }
-      } catch (e) {
-        console.error(`[Points] Streak update error for ${uid}:`, e.message);
-      }
-    }
-
     return null;
   });
 
@@ -3105,11 +3008,8 @@ async function recomputeTournamentPointsCore(tournamentId) {
     const hadRankPoints = (d.rankPoints || 0) > 0;
     const newRankPoints = hadRankPoints ? Math.round(newTeamCount * mult) : 0;
 
-    const hadOrgBonus = (d.organizerBonus || 0) > 0;
-    const newOrgBonus = hadOrgBonus ? calcOrganizerBonus(newTeamCount) : 0;
-
-    const streakBonus = d.streakBonus || 0;
-    const newTotal = newRankPoints + newOrgBonus + streakBonus;
+    // 主催者ボーナス・連続参加ボーナスは廃止（2026/07）→ 補正時に0へ巻き戻す
+    const newTotal = newRankPoints;
     const diff = newTotal - oldTotal;
 
     // 優勝数の補正（旧バグで複数チームが優勝扱いになっていた分を巻き戻す）
@@ -3119,11 +3019,12 @@ async function recomputeTournamentPointsCore(tournamentId) {
       if (oldRank !== 1 && newRank === 1) champDiff = 1;
     }
 
-    // 履歴を新しい値に更新（rank も再導出値で上書き）
+    // 履歴を新しい値に更新（rank も再導出値で上書き・廃止ボーナスは0に）
     batch.update(hDoc.ref, {
       teamCount: newTeamCount,
       rankPoints: newRankPoints,
-      organizerBonus: newOrgBonus,
+      organizerBonus: 0,
+      streakBonus: 0,
       totalEarned: newTotal,
       rank: hadRankPoints && newRank <= 8 ? newRank : null,
     });
@@ -4766,6 +4667,29 @@ exports.syncStoreVersions = functions.pubsub
 // バージョンを直接指定できる（iTunes/Play の CDN キャッシュ遅延を回避）
 exports.syncStoreVersionsNow = functions.https.onRequest(async (req, res) => {
   try {
+    // ── 一時パラメータ: 大会ポイント再計算（ボーナス廃止版の実行用・実行後に削除）──
+    const recomputeTitle = req.query.recomputeTitle || null;
+    const recomputeId = req.query.recomputeTournamentId || null;
+    if (recomputeTitle || recomputeId) {
+      let tournamentId = recomputeId;
+      if (!tournamentId) {
+        const q = await admin.firestore().collection("tournaments")
+          .where("title", "==", recomputeTitle).limit(2).get();
+        if (q.empty) {
+          res.status(404).json({ ok: false, message: `title「${recomputeTitle}」の大会が見つかりません` });
+          return;
+        }
+        if (q.size > 1) {
+          res.status(409).json({ ok: false, message: `title「${recomputeTitle}」が複数あります`, ids: q.docs.map((d) => d.id) });
+          return;
+        }
+        tournamentId = q.docs[0].id;
+      }
+      const result = await recomputeTournamentPointsCore(tournamentId);
+      res.status(result.ok ? 200 : 400).json(result);
+      return;
+    }
+
     const iosOverride = req.query.iosVersion || null;
     const androidOverride = req.query.androidVersion || null;
 
