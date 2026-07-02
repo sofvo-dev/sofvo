@@ -4668,6 +4668,23 @@ exports.syncStoreVersions = functions.pubsub
 exports.syncStoreVersionsNow = functions.https.onRequest(async (req, res) => {
   try {
     // ── 一時パラメータ: 大会ポイント再計算（ボーナス廃止版の実行用・実行後に削除）──
+    // recomputeAll=1: ポイント付与済みの全大会をまとめて再計算
+    if (req.query.recomputeAll === "1") {
+      const awarded = await admin.firestore().collection("tournaments")
+        .where("pointsAwarded", "==", true).get();
+      const results = [];
+      for (const doc of awarded.docs) {
+        const r = await recomputeTournamentPointsCore(doc.id);
+        results.push({
+          tournamentId: doc.id,
+          title: doc.data().title || doc.data().name || "",
+          ...r,
+        });
+      }
+      res.json({ ok: true, tournaments: results.length, results });
+      return;
+    }
+
     const recomputeTitle = req.query.recomputeTitle || null;
     const recomputeId = req.query.recomputeTournamentId || null;
     if (recomputeTitle || recomputeId) {
