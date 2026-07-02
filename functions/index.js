@@ -3590,377 +3590,126 @@ exports.onFollowingDeleted = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// サンプルデータ投入（App Store 審査用）
-// firebase functions:shell → seedReviewData()
+// 審査用サンプルデータの削除（旧 seedReviewData が投入したダミーデータ）
+//   - ダミーユーザー5人（dummy_user_001〜005）と、その名義の大会・募集・投稿
+//   - 実ユーザー側に残るダミーへのフォロー残骸
+//   - テストアカウントの架空ポイント履歴・戦績のリセット
+// 使い方:
+//   1回目（ドライラン）: /cleanupReviewData → 削除対象の件数を返すだけ
+//   実行: /cleanupReviewData?confirm=1 → 実際に削除
+// 削除完了を確認したらこの関数自体をコードから削除してよい。
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-exports.seedReviewData = functions.https.onRequest(async (req, res) => {
+exports.cleanupReviewData = functions.runWith({ timeoutSeconds: 300 }).https.onRequest(async (req, res) => {
   const db = admin.firestore();
-  const now = admin.firestore.Timestamp.now();
-  const TEST_UID = "nRE9MEEBq2YNGRNIqCiMe66x8ah1";
-
-  // ── ダミーユーザー（主催者・投稿者として使う）──
-  const dummyUsers = [
-    { uid: "dummy_user_001", nickname: "バレー太郎", area: "東京都", experience: "5〜10年", searchId: "volley_taro", bio: "ソフトバレー歴8年。週末は都内で活動中！" },
-    { uid: "dummy_user_002", nickname: "スパイク花子", area: "神奈川県", experience: "3〜5年", searchId: "spike_hanako", bio: "横浜でチーム運営してます。初心者歓迎！" },
-    { uid: "dummy_user_003", nickname: "レシーブ次郎", area: "大阪府", experience: "10年以上", searchId: "receive_jiro", bio: "関西のソフトバレー仲間を探しています。" },
-    { uid: "dummy_user_004", nickname: "トス美咲", area: "愛知県", experience: "1〜3年", searchId: "toss_misaki", bio: "名古屋で初心者チームを作りました！" },
-    { uid: "dummy_user_005", nickname: "サーブ健太", area: "福岡県", experience: "3〜5年", searchId: "serve_kenta", bio: "福岡でソフトバレーを楽しんでます。" },
+  const DUMMY_UIDS = [
+    "dummy_user_001", // バレー太郎
+    "dummy_user_002", // スパイク花子
+    "dummy_user_003", // レシーブ次郎
+    "dummy_user_004", // トス美咲
+    "dummy_user_005", // サーブ健太
   ];
+  const TEST_UID = "nRE9MEEBq2YNGRNIqCiMe66x8ah1"; // 審査用テストアカウント
+  const execute = req.query.confirm === "1";
 
-  for (const u of dummyUsers) {
-    await db.collection("users").doc(u.uid).set({
-      uid: u.uid,
-      nickname: u.nickname,
-      area: u.area,
-      experience: u.experience,
-      searchId: u.searchId,
-      bio: u.bio,
-      avatarUrl: "",
-      totalPoints: Math.floor(Math.random() * 500) + 100,
-      seasonPoints: Math.floor(Math.random() * 200) + 50,
-      followersCount: Math.floor(Math.random() * 30) + 5,
-      followingCount: Math.floor(Math.random() * 20) + 3,
-      profileCompleted: true,
-      stats: {
-        tournamentsPlayed: Math.floor(Math.random() * 15) + 3,
-        tournamentsHosted: Math.floor(Math.random() * 5),
-        wins: Math.floor(Math.random() * 20) + 5,
-        losses: Math.floor(Math.random() * 15) + 2,
-        championships: Math.floor(Math.random() * 3),
-        helperCount: Math.floor(Math.random() * 5),
-      },
-      createdAt: now,
-      updatedAt: now,
-    }, { merge: true });
-  }
+  const report = {
+    executed: execute,
+    tournaments: 0,
+    recruitments: 0,
+    posts: 0,
+    dummyUsers: 0,
+    staleFollowRefs: 0,
+    testPointHistory: 0,
+  };
 
-  // ── テストユーザーのプロフィールを充実 ──
-  await db.collection("users").doc(TEST_UID).update({
-    totalPoints: 320,
-    seasonPoints: 150,
-    followersCount: 8,
-    followingCount: 5,
-    stats: {
-      tournamentsPlayed: 6,
-      tournamentsHosted: 0,
-      wins: 12,
-      losses: 8,
-      championships: 1,
-      helperCount: 2,
-    },
-    updatedAt: now,
-  });
+  try {
+    // ① ダミー主催の大会（サブコレクション含む再帰削除）
+    const tournSnap = await db.collection("tournaments").where("organizerId", "in", DUMMY_UIDS).get();
+    report.tournaments = tournSnap.size;
+    if (execute) {
+      for (const doc of tournSnap.docs) await db.recursiveDelete(doc.ref);
+    }
 
-  // ── 大会データ（6件）──
-  const tournaments = [
-    {
-      title: "第12回 東京ソフトバレーボール交流大会",
-      date: "2026/04/20",
-      location: "東京体育館",
-      venueAddress: "東京都渋谷区千駄ヶ谷1-17-1",
-      area: "東京都",
-      type: "混合",
-      description: "初心者から経験者まで楽しめる交流大会です。試合後に懇親会も予定しています。お気軽にご参加ください！",
-      status: "募集中",
-      organizerId: "dummy_user_001",
-      organizerName: "バレー太郎",
-      icon: "emoji_events",
-      maxTeams: 16,
-      currentTeams: 10,
-      entryFee: 3000,
-      courts: 3,
-      openTime: "08:30",
-      receptionTime: "09:00",
-      matchStartTime: "09:30",
-      finalTime: "15:00",
-      closingTime: "16:00",
-    },
-    {
-      title: "横浜カップ 春季ソフトバレー大会",
-      date: "2026/04/27",
-      location: "横浜文化体育館",
-      venueAddress: "神奈川県横浜市中区不老町2-7",
-      area: "神奈川県",
-      type: "混合",
-      description: "横浜エリア最大級のソフトバレー大会！チーム戦で白熱の試合を楽しもう。",
-      status: "募集中",
-      organizerId: "dummy_user_002",
-      organizerName: "スパイク花子",
-      icon: "sports_volleyball",
-      maxTeams: 24,
-      currentTeams: 18,
-      entryFee: 4000,
-      courts: 4,
-      openTime: "08:00",
-      receptionTime: "08:30",
-      matchStartTime: "09:00",
-      finalTime: "16:00",
-      closingTime: "17:00",
-    },
-    {
-      title: "関西ソフトバレーフェスティバル",
-      date: "2026/05/05",
-      location: "大阪市中央体育館",
-      venueAddress: "大阪府大阪市港区田中3-1-40",
-      area: "大阪府",
-      type: "混合",
-      description: "GW特別企画！関西のソフトバレー愛好家が集まるお祭りイベント。初心者大歓迎！",
-      status: "募集中",
-      organizerId: "dummy_user_003",
-      organizerName: "レシーブ次郎",
-      icon: "celebration",
-      maxTeams: 20,
-      currentTeams: 12,
-      entryFee: 3500,
-      courts: 3,
-      openTime: "09:00",
-      receptionTime: "09:30",
-      matchStartTime: "10:00",
-      finalTime: "16:00",
-      closingTime: "17:00",
-    },
-    {
-      title: "名古屋初心者ソフトバレー体験会",
-      date: "2026/05/11",
-      location: "名古屋市スポーツセンター",
-      venueAddress: "愛知県名古屋市中区栄1-25-10",
-      area: "愛知県",
-      type: "混合",
-      description: "ソフトバレー未経験者・初心者向けの体験イベントです。道具は全て無料貸出！",
-      status: "募集中",
-      organizerId: "dummy_user_004",
-      organizerName: "トス美咲",
-      icon: "school",
-      maxTeams: 12,
-      currentTeams: 5,
-      entryFee: 1500,
-      courts: 2,
-      openTime: "10:00",
-      receptionTime: "10:15",
-      matchStartTime: "10:30",
-      finalTime: "14:00",
-      closingTime: "15:00",
-    },
-    {
-      title: "福岡ソフトバレーリーグ 第3節",
-      date: "2026/05/18",
-      location: "福岡市総合体育館",
-      venueAddress: "福岡県福岡市東区香椎照葉6-1-1",
-      area: "福岡県",
-      type: "混合",
-      description: "福岡リーグ戦の第3節です。リーグポイントを賭けた真剣勝負！",
-      status: "募集中",
-      organizerId: "dummy_user_005",
-      organizerName: "サーブ健太",
-      icon: "leaderboard",
-      maxTeams: 8,
-      currentTeams: 7,
-      entryFee: 2500,
-      courts: 2,
-      openTime: "09:00",
-      receptionTime: "09:15",
-      matchStartTime: "09:30",
-      finalTime: "15:00",
-      closingTime: "15:30",
-    },
-    {
-      title: "第5回 全日本シニアソフトバレー選手権",
-      date: "2026/04/13",
-      location: "代々木第二体育館",
-      venueAddress: "東京都渋谷区神南2-1-1",
-      area: "東京都",
-      type: "混合",
-      description: "全国から集まったシニアチームの大会です。熱い戦いが繰り広げられました！",
-      status: "終了",
-      organizerId: "dummy_user_001",
-      organizerName: "バレー太郎",
-      icon: "emoji_events",
-      maxTeams: 32,
-      currentTeams: 32,
-      entryFee: 5000,
-      courts: 6,
-      openTime: "08:00",
-      receptionTime: "08:30",
-      matchStartTime: "09:00",
-      finalTime: "16:00",
-      closingTime: "17:00",
-    },
-  ];
+    // ② ダミーのメンバー募集
+    const recSnap = await db.collection("recruitments").where("userId", "in", DUMMY_UIDS).get();
+    report.recruitments = recSnap.size;
+    if (execute) {
+      for (const doc of recSnap.docs) await db.recursiveDelete(doc.ref);
+    }
 
-  const tournamentIds = [];
-  for (const t of tournaments) {
-    const ref = await db.collection("tournaments").add({
-      ...t,
-      entryTeamIds: [],
-      rules: {},
-      createdAt: now,
-      updatedAt: now,
+    // ③ ダミーの投稿（いいね・コメントのサブコレクション含む）
+    const postSnap = await db.collection("posts").where("userId", "in", DUMMY_UIDS).get();
+    report.posts = postSnap.size;
+    if (execute) {
+      for (const doc of postSnap.docs) await db.recursiveDelete(doc.ref);
+    }
+
+    // ④ フォロー残骸の掃除 → ⑤ ダミーユーザー本体の削除
+    for (const dummyUid of DUMMY_UIDS) {
+      const userRef = db.collection("users").doc(dummyUid);
+
+      // ダミーをフォローしている実ユーザー側の following/{dummy} を削除
+      const followersSnap = await userRef.collection("followers").get();
+      for (const f of followersSnap.docs) {
+        report.staleFollowRefs++;
+        if (execute) {
+          await db.collection("users").doc(f.id).collection("following").doc(dummyUid).delete();
+        }
+      }
+      // （念のため）ダミーがフォローしている相手側の followers/{dummy} を削除
+      const followingSnap = await userRef.collection("following").get();
+      for (const f of followingSnap.docs) {
+        report.staleFollowRefs++;
+        if (execute) {
+          await db.collection("users").doc(f.id).collection("followers").doc(dummyUid).delete();
+        }
+      }
+
+      const userDoc = await userRef.get();
+      if (userDoc.exists) {
+        report.dummyUsers++;
+        if (execute) await db.recursiveDelete(userRef);
+      }
+    }
+
+    // ⑥ テストアカウントのリセット（架空のポイント履歴・戦績を初期化）
+    const testRef = db.collection("users").doc(TEST_UID);
+    const phSnap = await testRef.collection("pointHistory").get();
+    report.testPointHistory = phSnap.size;
+    if (execute) {
+      for (const doc of phSnap.docs) await doc.ref.delete();
+      // フォロー数はダミー掃除後の実際のサブコレクション数に合わせる
+      const [followingCnt, followersCnt] = await Promise.all([
+        testRef.collection("following").get().then((s) => s.size),
+        testRef.collection("followers").get().then((s) => s.size),
+      ]);
+      await testRef.update({
+        totalPoints: 0,
+        seasonPoints: 0,
+        followersCount: followersCnt,
+        followingCount: followingCnt,
+        stats: {
+          tournamentsPlayed: 0,
+          tournamentsHosted: 0,
+          wins: 0,
+          losses: 0,
+          championships: 0,
+          helperCount: 0,
+        },
+        updatedAt: admin.firestore.Timestamp.now(),
+      });
+    }
+
+    res.json({
+      success: true,
+      ...report,
+      message: execute
+        ? "審査用サンプルデータを削除しました"
+        : "ドライラン（削除対象の件数のみ。?confirm=1 を付けると実行）",
     });
-    tournamentIds.push({ id: ref.id, ...t });
+  } catch (e) {
+    functions.logger.error("cleanupReviewData error", e);
+    res.status(500).json({ success: false, error: String(e) });
   }
-
-  // ── メンバー募集（4件）──
-  const recruitments = [
-    {
-      tournamentId: tournamentIds[0].id,
-      tournamentName: tournamentIds[0].title,
-      tournamentDate: tournamentIds[0].date,
-      userId: "dummy_user_001",
-      nickname: "バレー太郎",
-      experience: "5〜10年",
-      recruitCount: 2,
-      comment: "東京交流大会に一緒に出ませんか？あと2人募集中です。初心者でもOK！楽しくやりましょう！",
-      status: "募集中",
-      needed: 2,
-      approvedCount: 0,
-      pendingCount: 1,
-    },
-    {
-      tournamentId: tournamentIds[1].id,
-      tournamentName: tournamentIds[1].title,
-      tournamentDate: tournamentIds[1].date,
-      userId: "dummy_user_002",
-      nickname: "スパイク花子",
-      experience: "3〜5年",
-      recruitCount: 1,
-      comment: "横浜カップに出場予定！セッターができる方を1名探しています。女性歓迎です！",
-      status: "募集中",
-      needed: 1,
-      approvedCount: 0,
-      pendingCount: 0,
-    },
-    {
-      tournamentId: tournamentIds[2].id,
-      tournamentName: tournamentIds[2].title,
-      tournamentDate: tournamentIds[2].date,
-      userId: "dummy_user_003",
-      nickname: "レシーブ次郎",
-      experience: "10年以上",
-      recruitCount: 3,
-      comment: "GWの関西フェスに参加します！チームメンバー3名募集。経験不問、楽しめる方大歓迎！",
-      status: "募集中",
-      needed: 3,
-      approvedCount: 1,
-      pendingCount: 0,
-    },
-    {
-      tournamentId: tournamentIds[3].id,
-      tournamentName: tournamentIds[3].title,
-      tournamentDate: tournamentIds[3].date,
-      userId: "dummy_user_004",
-      nickname: "トス美咲",
-      experience: "1〜3年",
-      recruitCount: 4,
-      comment: "名古屋の体験会、一緒に参加しませんか？初心者チームなので気軽に来てください！",
-      status: "募集中",
-      needed: 4,
-      approvedCount: 2,
-      pendingCount: 1,
-    },
-  ];
-
-  for (const r of recruitments) {
-    await db.collection("recruitments").add({
-      ...r,
-      avatarUrl: "",
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  // ── 投稿（5件）──
-  const posts = [
-    {
-      userId: "dummy_user_001",
-      userNickname: "バレー太郎",
-      userAvatarUrl: "",
-      text: "今日の練習、新しいフォーメーション試してみました！なかなか良い感じ。来週の大会が楽しみです💪",
-      images: [],
-      likesCount: 12,
-      commentsCount: 3,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_002",
-      userNickname: "スパイク花子",
-      userAvatarUrl: "",
-      text: "横浜カップの会場下見してきました。きれいな体育館で設備も充実！参加チーム募集中なのでお気軽にどうぞ。",
-      images: [],
-      likesCount: 8,
-      commentsCount: 2,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_003",
-      userNickname: "レシーブ次郎",
-      userAvatarUrl: "",
-      text: "GWの関西フェスティバル、続々エントリーいただいてます！残り枠わずかなのでお早めに〜",
-      images: [],
-      likesCount: 15,
-      commentsCount: 5,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_004",
-      userNickname: "トス美咲",
-      userAvatarUrl: "",
-      text: "初心者チームで練習始めて3ヶ月、みんな上達してきてうれしい！名古屋で仲間増やしたいです。",
-      images: [],
-      likesCount: 20,
-      commentsCount: 4,
-      autoGenerated: false,
-    },
-    {
-      userId: "dummy_user_005",
-      userNickname: "サーブ健太",
-      userAvatarUrl: "",
-      text: "福岡リーグ第2節、チームが2位に入りました！次は優勝目指して頑張ります。応援よろしく！",
-      images: [],
-      likesCount: 25,
-      commentsCount: 7,
-      autoGenerated: false,
-    },
-  ];
-
-  for (const p of posts) {
-    await db.collection("posts").add({
-      ...p,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  // ── テストユーザーのフォロー関係 ──
-  for (const u of dummyUsers.slice(0, 3)) {
-    await db.collection("users").doc(TEST_UID).collection("following").doc(u.uid).set({
-      uid: u.uid,
-      nickname: u.nickname,
-      createdAt: now,
-    });
-    await db.collection("users").doc(u.uid).collection("followers").doc(TEST_UID).set({
-      uid: TEST_UID,
-      createdAt: now,
-    });
-  }
-
-  // ── テストユーザーのポイント履歴 ──
-  const pointHistory = [
-    { type: "tournament_participation", points: 50, description: "大会参加ポイント", tournamentName: "第5回 全日本シニアソフトバレー選手権" },
-    { type: "tournament_participation", points: 50, description: "大会参加ポイント", tournamentName: "春季交流大会" },
-    { type: "tournament_win", points: 100, description: "優勝ポイント", tournamentName: "春季交流大会" },
-    { type: "daily_login", points: 10, description: "ログインボーナス" },
-    { type: "profile_complete", points: 30, description: "プロフィール完成ボーナス" },
-    { type: "first_follow", points: 20, description: "初フォローボーナス" },
-  ];
-
-  for (const ph of pointHistory) {
-    await db.collection("users").doc(TEST_UID).collection("pointHistory").add({
-      ...ph,
-      createdAt: now,
-    });
-  }
-
-  res.json({ success: true, message: "サンプルデータ投入完了", tournaments: tournamentIds.length, recruitments: recruitments.length, posts: posts.length });
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
