@@ -14,6 +14,7 @@ import '../tournament/tournament_detail_screen.dart';
 import 'follow_list_screen.dart';
 import 'my_page_screen.dart';
 import 'user_photos_screen.dart';
+import '../../utils/entry_membership.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -828,10 +829,8 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           .collection('tournaments')
           .doc(doc.id)
           .collection('entries')
-          .where('enteredBy', isEqualTo: uid)
-          .limit(1)
           .get();
-      if (entries.docs.isNotEmpty) {
+      if (entriesForUser(entries, uid).isNotEmpty) {
         data['id'] = doc.id;
         resultMap[doc.id] = data;
       }

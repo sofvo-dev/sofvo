@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
 import '../../utils/tournament_status.dart';
+import '../../utils/entry_membership.dart';
 import '../tournament/tournament_detail_screen.dart';
 
 /// 参加大会履歴画面
@@ -92,11 +93,9 @@ class TournamentHistoryScreen extends StatelessWidget {
           .collection('tournaments')
           .doc(doc.id)
           .collection('entries')
-          .where('enteredBy', isEqualTo: uid)
-          .limit(1)
           .get();
 
-      if (entries.docs.isNotEmpty) {
+      if (entriesForUser(entries, uid).isNotEmpty) {
         final data = doc.data();
         data['id'] = doc.id;
         data['name'] = data['title'] ?? data['name'] ?? '';
