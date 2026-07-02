@@ -3024,10 +3024,11 @@ exports.distributePoints = functions.https.onCall(async (data, context) => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 既に付与済みの大会ポイントを募集枠(maxTeams)基準で再計算して差分補正する
-// （付与基準を currentTeams → maxTeams に変更した際の過去分修正用）
+// 既に付与済みの大会ポイントを実参加チーム数基準で再計算して差分補正する
+// （付与基準を変更した際の過去分修正用。順位ごとの係数で再計算するため
+//   優勝チームだけでなく全参加者がそれぞれの順位の新ポイントに補正される）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 共通コア: 指定大会のポイントを maxTeams 基準で再計算して差分補正する。
+// 共通コア: 指定大会のポイントを実参加チーム数基準で再計算して差分補正する。
 // 履歴の現在値から目標値への差分を加算するため、複数回実行しても安全（2回目以降は差分0）。
 async function recomputeTournamentPointsCore(tournamentId) {
   const db = admin.firestore();
@@ -3036,12 +3037,6 @@ async function recomputeTournamentPointsCore(tournamentId) {
     return { ok: false, code: "not-found", message: "大会が見つかりません" };
   }
   const tournData = tournDoc.data();
-
-  // 新しい基準チーム数（募集枠）。未設定なら currentTeams にフォールバック。
-  const newTeamCount = tournData.maxTeams || tournData.currentTeams || 0;
-  if (newTeamCount === 0) {
-    return { ok: false, code: "failed-precondition", message: "maxTeams/currentTeams が0です" };
-  }
 
   const now = new Date();
   const currentSeason = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
@@ -3059,6 +3054,19 @@ async function recomputeTournamentPointsCore(tournamentId) {
     if (e.enteredBy) uidSet.add(e.enteredBy);
   }
   if (tournData.organizerId) uidSet.add(tournData.organizerId);
+
+  // 新しい基準チーム数: 実際に参加したチーム数（エントリー数）。
+  // エントリーが取れない場合のみ maxTeams / currentTeams にフォールバック。
+  const entryTeamIds = new Set();
+  for (const eDoc of entriesSnap.docs) {
+    entryTeamIds.add(eDoc.data().teamId || eDoc.id);
+  }
+  const newTeamCount = entryTeamIds.size > 0
+    ? entryTeamIds.size
+    : (tournData.maxTeams || tournData.currentTeams || 0);
+  if (newTeamCount === 0) {
+    return { ok: false, code: "failed-precondition", message: "参加チーム数が0です" };
+  }
 
   // 各 UID の pointHistory/{tournamentId} を取得
   const histRefs = [...uidSet].map((uid) =>
