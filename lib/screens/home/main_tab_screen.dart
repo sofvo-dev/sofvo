@@ -359,9 +359,10 @@ class _BottomNavState extends State<_BottomNav>
 
 /// 選択カプセル。色を付けない「透明なガラス」— 静止時はごく薄いニュートラルの
 /// ピル、タブ間を移動する間だけ「液体ガラス」になる（iOS 26 の挙動の近似）:
-/// 縁に白い光が現れ、下のガラスを軽くぼかしながら少し膨らんで滑り、着地すると戻る。
+/// RawMagnifier で下のコンテンツを本当に屈折拡大し、縁の白い光＋薄い虹色・
+/// 上面の照り・足元の影をまとって膨らみながら滑り、着地すると戻る。
 /// 選択の主張はカプセルの色ではなくアイコン（ネイビー）が担う。
-/// 本物の屈折歪みはシェーダーが必要（Web非対応）なため行わない。
+/// RawMagnifier は BackdropFilter の行列変換なのでシェーダー不要＝Webでも動く。
 class _LiquidCapsule extends StatelessWidget {
   const _LiquidCapsule({required this.glass});
 
@@ -396,16 +397,16 @@ class _LiquidCapsule extends StatelessWidget {
       decoration: BoxDecoration(
         // 高さの半分以上の角丸で常に完全なカプセル形
         borderRadius: BorderRadius.circular(26),
-        // 移動中だけ縁が白く光る（静止時は透明）
+        // 移動中だけ縁が白く光り、ごく薄い虹色（プリズム）が乗る（静止時は透明）
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
             Colors.white.withValues(alpha: 0.95 * glass),
-            Colors.white.withValues(alpha: 0.35 * glass),
+            const Color(0xFF81D4FA).withValues(alpha: 0.30 * glass),
             Colors.white.withValues(alpha: 0.15 * glass),
-            Colors.white.withValues(alpha: 0.40 * glass),
-            Colors.white.withValues(alpha: 0.75 * glass),
+            const Color(0xFFF8BBD0).withValues(alpha: 0.30 * glass),
+            Colors.white.withValues(alpha: 0.80 * glass),
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
@@ -421,17 +422,34 @@ class _LiquidCapsule extends StatelessWidget {
       child: Padding(
         // 縁の線の太さ（グラデーションが見える幅）
         padding: const EdgeInsets.all(1.4),
-        // 静止時は BackdropFilter を組み込まない（コスト削減＋濁り防止）
+        // 静止時はレンズ類を一切組み込まない（コスト削減＋濁り防止）
         child: glass < 0.01
             ? fill
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(25),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                      sigmaX: 8 * glass, sigmaY: 8 * glass),
-                  child: fill,
-                ),
-              ),
+            : LayoutBuilder(builder: (context, c) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 本物のレンズ: 泡の下のコンテンツを屈折拡大する
+                      // （RawMagnifier = BackdropFilter の行列変換。シェーダー不要）
+                      RawMagnifier(
+                        size: Size(c.maxWidth, c.maxHeight),
+                        magnificationScale: 1 + 0.25 * glass,
+                        decoration: const MagnifierDecoration(
+                          shape: StadiumBorder(),
+                        ),
+                      ),
+                      // 拡大した像を軽くぼかしてすりガラスに
+                      BackdropFilter(
+                        filter: ImageFilter.blur(
+                            sigmaX: 5 * glass, sigmaY: 5 * glass),
+                        child: fill,
+                      ),
+                    ],
+                  ),
+                );
+              }),
       ),
     );
   }
