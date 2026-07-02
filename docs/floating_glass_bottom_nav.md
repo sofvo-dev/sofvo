@@ -30,17 +30,19 @@ Sofvo で実装した「Instagram 風・浮島型すりガラス・スクロー�
 
 ### 選択カプセルの Liquid Glass 化（Sofvo 実体のみ・2026/07 追加）
 
-iOS 26 の Liquid Glass（時計アプリ等の水滴レンズ）の近似。本物の屈折歪み・色収差は
-フラグメントシェーダーが必要（Impeller 必須＝Web 非対応）なため使わず、全プラットフォームで動く近似で構成:
+iOS 26 の Liquid Glass の**本来の挙動**に合わせる: **静止時はただの薄いカプセル**で、
+**タブ間を移動している間だけ**水滴ガラスに変化する（常時レンズ表示は白バーでは濁った塊に見えて失敗だった）。
+本物の屈折歪みはフラグメントシェーダーが必要（Impeller 必須＝Web 非対応）なため使わず、全プラットフォームで動く近似で構成:
 
-- **バーの上下に 4px はみ出す**独立したカプセル（外側 `Stack(clipBehavior: Clip.none)` でバーのクリップの外に描く）
-- **縁のハイライト**: 左上が白く光る `LinearGradient` の枠（1.4px）に、ブランドネイビー（`AppTheme.primaryLight`/`primaryColor`）をわずかに混ぜてレンズの縁を演出
-- **内側に2枚目の `BackdropFilter`**: `blur(4)` ＋ 彩度1.35倍の `ColorFilter.matrix` を `ImageFilter.compose` で合成し、ネイビーティント（`primaryColor` alpha 0.14）を重ねる（レンズ越し感＋ブランド色）
-- **影もネイビー**（`primaryDark` alpha 0.18）にして「ブランド色に光る」水滴にする
-- **タブ切替時の液体アニメ**: `TweenAnimationBuilder`（`key: ValueKey(currentIndex)` で切替ごとに再生）で移動中に `scaleX +14% / scaleY -6%` の伸縮
+- **静止時**: バー内に収まる横長ピル（ブランドネイビー `primaryColor` alpha 0.10）。`BackdropFilter` なし（コスト削減＋濁り防止）
+- **移動中だけガラス化**: `TweenAnimationBuilder`（`key: ValueKey(currentIndex)` で切替ごとに 0→1 再生）の `s = sin(πt)` を強度にして、
+  - 縁の白いハイライト＋ネイビーのフリンジ（`LinearGradient` の alpha を `× s`）
+  - 内側の `BackdropFilter.blur(4 × s)`（下のガラスがぼける）
+  - `scaleX +16% / scaleY +10%` に膨らむ（外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
+  - 着地（t=1）で s=0 に戻り、元の薄いピルに戻る
 - **描画順**: バー背景 → カプセル → タブ（アイコン＋ラベル）。アイコンをカプセルの前面に置き、ぼかしで滲まないようにする
 
-実装は `lib/screens/home/main_tab_screen.dart` の `_LiquidCapsule` を参照。
+実装は `lib/screens/home/main_tab_screen.dart` の `_LiquidCapsule`（`glass` パラメータ）を参照。
 
 ---
 
@@ -376,8 +378,8 @@ GlassNavScaffold(
 | 縮みを強く | 縮小時の `height`(52) と左右 `64` |
 | 影を消す | `boxShadow` を削除（白背景なら枠線だけでも可） |
 | 常にラベル表示 | `_GlassNavTile` の `collapsed` 分岐を無効化 |
-| 水滴レンズのはみ出し量 | Sofvo実体: カプセルの `Positioned(top/bottom: -4)` |
-| 水滴レンズのぼかし/彩度 | Sofvo実体: `_LiquidCapsule` の `blur(4)` と `_saturationBoost`（1.35倍） |
-| 液体伸縮の強さ | Sofvo実体: `scaleX: 1 + 0.14 * s` / `scaleY: 1 - 0.06 * s` |
+| 静止時カプセルの濃さ | Sofvo実体: `_LiquidCapsule` の `primaryColor` alpha 0.10 |
+| 移動中ガラスのぼかし | Sofvo実体: `_LiquidCapsule` の `blur(4 × glass)` |
+| 移動中の膨らみの強さ | Sofvo実体: `scaleX: 1 + 0.16 * s` / `scaleY: 1 + 0.10 * s` |
 </content>
 </invoke>

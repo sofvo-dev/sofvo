@@ -165,7 +165,7 @@ class _BottomNav extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(
                   isCollapsed ? 64 : 16, 4, isCollapsed ? 64 : 16, 6),
                 child: Stack(
-                  // 選択カプセルをバーの上下にはみ出させる（水滴レンズ）
+                  // 移動中に膨らむ選択カプセルをクリップしない
                   clipBehavior: Clip.none,
                   children: [
                     // すりガラスのバー本体（背景のみ・タブは最前面のRowが描く）
@@ -202,12 +202,8 @@ class _BottomNav extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // 選択カプセル（Liquid Glass 風の水滴レンズ）
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: -4,
-                      bottom: -4,
+                    // 選択カプセル（バー内に収まる横長ピル・うっすらネイビーのガラス）
+                    Positioned.fill(
                       child: AnimatedAlign(
                         duration: const Duration(milliseconds: 260),
                         curve: Curves.easeOutCubic,
@@ -216,22 +212,23 @@ class _BottomNav extends StatelessWidget {
                           widthFactor: 1 / n,
                           heightFactor: 1,
                           child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 3),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: isCollapsed ? 6 : 8),
                             child: TweenAnimationBuilder<double>(
-                              // タブ切替のたびに0→1を再生し、中間で横に伸びて
-                              // 縦に潰れる（液体の伸縮）
+                              // タブ切替のたびに0→1を再生。移動中（中間）だけ
+                              // ガラス化して膨らみ、着地すると元の薄いピルに戻る
+                              // （iOS 26 Liquid Glass の挙動の近似）
                               key: ValueKey<int>(currentIndex),
                               tween: Tween(begin: 0.0, end: 1.0),
-                              duration: const Duration(milliseconds: 300),
+                              duration: const Duration(milliseconds: 320),
                               curve: Curves.easeOut,
-                              child: const _LiquidCapsule(),
-                              builder: (context, t, child) {
+                              builder: (context, t, _) {
                                 final s = math.sin(math.pi * t);
                                 return Transform.scale(
-                                  scaleX: 1 + 0.14 * s,
-                                  scaleY: 1 - 0.06 * s,
-                                  child: child,
+                                  scaleX: 1 + 0.16 * s,
+                                  scaleY: 1 + 0.10 * s,
+                                  child: _LiquidCapsule(glass: s),
                                 );
                               },
                             ),
@@ -266,68 +263,56 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-/// Liquid Glass 風の選択カプセル（iOS 26 の水滴レンズの近似・ブランドネイビーのティント）。
-/// 本物の屈折歪み・色収差はフラグメントシェーダーが必要（Web非対応）なため行わず、
-/// ①縁のハイライト（白＋うっすらネイビー）②内側の BackdropFilter（軽いぼかし＋彩度アップ＋ネイビーティント）
-/// ③ネイビーの影 の3点で「ブランド色に光る水滴レンズ」に見せる。
+/// 選択カプセル。静止時はうっすらネイビーの横長ピル、タブ間を移動する間だけ
+/// 「液体ガラス」になる（iOS 26 の挙動の近似）: 縁に白い光とネイビーのフリンジが
+/// 現れ、下のガラスを軽くぼかしながら少し膨らんで滑り、着地すると元に戻る。
+/// 本物の屈折歪みはシェーダーが必要（Web非対応）なため行わない。
 class _LiquidCapsule extends StatelessWidget {
-  const _LiquidCapsule();
+  const _LiquidCapsule({required this.glass});
 
-  // 彩度を1.35倍にする ColorFilter 行列（レンズ越しに色が少し乗って見える演出）
-  static const List<double> _saturationBoost = [
-    1.27559, -0.25032, -0.02527, 0, 0, //
-    -0.07441, 1.09968, -0.02527, 0, 0, //
-    -0.07441, -0.25032, 1.32473, 0, 0, //
-    0, 0, 0, 1, 0,
-  ];
+  /// 0 = 静止（薄いネイビーのピル）〜 1 = 移動中のピーク（ガラスの水滴）
+  final double glass;
 
   @override
   Widget build(BuildContext context) {
+    final fill = DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.10 + 0.05 * glass),
+        borderRadius: BorderRadius.circular(25),
+      ),
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
-        // 高さ以上の角丸で常に完全なカプセル形
-        borderRadius: BorderRadius.circular(40),
-        // 縁のハイライト。左上の白い光にブランドネイビーを混ぜてレンズの縁を演出
+        // 高さの半分以上の角丸で常に完全なカプセル形
+        borderRadius: BorderRadius.circular(26),
+        // 移動中だけ縁が白く光り、ネイビーのフリンジが乗る（静止時は透明）
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xE6FFFFFF),
-            AppTheme.primaryLight.withValues(alpha: 0.28),
-            const Color(0x1FFFFFFF),
-            AppTheme.primaryColor.withValues(alpha: 0.32),
-            const Color(0x99FFFFFF),
+            Colors.white.withValues(alpha: 0.90 * glass),
+            AppTheme.primaryLight.withValues(alpha: 0.30 * glass),
+            Colors.white.withValues(alpha: 0.12 * glass),
+            AppTheme.primaryColor.withValues(alpha: 0.32 * glass),
+            Colors.white.withValues(alpha: 0.60 * glass),
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
-        boxShadow: [
-          // ネイビーの影で「ブランド色に光る」水滴にする
-          BoxShadow(
-            color: AppTheme.primaryDark.withValues(alpha: 0.18),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Padding(
         // 縁の線の太さ（グラデーションが見える幅）
         padding: const EdgeInsets.all(1.4),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(39),
-          child: BackdropFilter(
-            filter: ImageFilter.compose(
-              outer: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              inner: const ColorFilter.matrix(_saturationBoost),
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                // レンズ内側のネイビーティント
-                color: AppTheme.primaryColor.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(39),
+        // 静止時は BackdropFilter を組み込まない（コスト削減＋濁り防止）
+        child: glass < 0.01
+            ? fill
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                      sigmaX: 4 * glass, sigmaY: 4 * glass),
+                  child: fill,
+                ),
               ),
-            ),
-          ),
-        ),
       ),
     );
   }
