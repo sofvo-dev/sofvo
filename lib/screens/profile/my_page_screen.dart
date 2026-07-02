@@ -18,6 +18,8 @@ import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
 import '../tournament/prize_search_screen.dart';
+import '../gadget/all_gadgets_screen.dart';
+import '../../utils/entry_membership.dart';
 import '../tournament/tournament_management_screen.dart';
 import '../notification/create_notice_screen.dart';
 import '../notification/notice_history_screen.dart';
@@ -628,6 +630,34 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
+                    // ── 公式アカウント専用メニュー ──
+                    if (isOfficial) ...[
+                      _buildCardSection(
+                        context: context,
+                        title: '公式メニュー',
+                        icon: Icons.verified_rounded,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _buildMenuCard(
+                                  icon: Icons.devices_other_outlined,
+                                  title: 'みんなのガジェット',
+                                  subtitle: '全ユーザーの登録ガジェット',
+                                  color: Colors.blueGrey,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllGadgetsScreen())),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(child: SizedBox()),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
                     // ── みんなのツール（カード型） ──
                     _buildCardSection(
                       context: context,
@@ -1225,10 +1255,8 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           .collection('tournaments')
           .doc(doc.id)
           .collection('entries')
-          .where('enteredBy', isEqualTo: uid)
-          .limit(1)
           .get();
-      if (entries.docs.isNotEmpty) {
+      if (entriesForUser(entries, uid).isNotEmpty) {
         data['id'] = doc.id;
         resultMap[doc.id] = data;
       }
