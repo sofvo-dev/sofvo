@@ -34,8 +34,9 @@ iOS 26 の Liquid Glass（時計アプリ等の水滴レンズ）の近似。本
 フラグメントシェーダーが必要（Impeller 必須＝Web 非対応）なため使わず、全プラットフォームで動く近似で構成:
 
 - **バーの上下に 4px はみ出す**独立したカプセル（外側 `Stack(clipBehavior: Clip.none)` でバーのクリップの外に描く）
-- **縁のハイライト**: 左上が白く光る `LinearGradient` の枠（1.4px）に、青/桃をわずかに混ぜて色収差風のフリンジ
-- **内側に2枚目の `BackdropFilter`**: `blur(4)` ＋ 彩度1.35倍の `ColorFilter.matrix` を `ImageFilter.compose` で合成（レンズ越し感）
+- **縁のハイライト**: 左上が白く光る `LinearGradient` の枠（1.4px）に、ブランドネイビー（`AppTheme.primaryLight`/`primaryColor`）をわずかに混ぜてレンズの縁を演出
+- **内側に2枚目の `BackdropFilter`**: `blur(4)` ＋ 彩度1.35倍の `ColorFilter.matrix` を `ImageFilter.compose` で合成し、ネイビーティント（`primaryColor` alpha 0.14）を重ねる（レンズ越し感＋ブランド色）
+- **影もネイビー**（`primaryDark` alpha 0.18）にして「ブランド色に光る」水滴にする
 - **タブ切替時の液体アニメ**: `TweenAnimationBuilder`（`key: ValueKey(currentIndex)` で切替ごとに再生）で移動中に `scaleX +14% / scaleY -6%` の伸縮
 - **描画順**: バー背景 → カプセル → タブ（アイコン＋ラベル）。アイコンをカプセルの前面に置き、ぼかしで滲まないようにする
 
