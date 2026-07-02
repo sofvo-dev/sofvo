@@ -315,8 +315,8 @@ class _BottomNavState extends State<_BottomNav>
                                     final glass =
                                         math.max(pulse, _glassCtrl.value);
                                     return Transform.scale(
-                                      scaleX: 1 + 0.30 * glass,
-                                      scaleY: 1 + 0.22 * glass,
+                                      scaleX: 1 + 0.50 * glass,
+                                      scaleY: 1 + 0.40 * glass,
                                       child: _LiquidCapsule(glass: glass),
                                     );
                                   },
