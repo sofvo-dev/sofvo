@@ -797,8 +797,7 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // ━━━ ランキング ※公式アカウントは非表示 ━━━
-                    if (!isOfficial)
+                    // ━━━ ランキング（公式アカウントも閲覧可能） ━━━
                     _buildCardSection(
                       context: context,
                       title: 'ランキング',

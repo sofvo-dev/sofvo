@@ -807,11 +807,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               title: '獲得ポイント',
               titleIcon: Icons.star_rounded,
               child: Builder(builder: (context) {
-                final pointTable = PointService.getPointTable(liveMaxTeams);
+                // 実参加チーム数（currentTeams）基準。未エントリー時は募集枠で仮表示
+                final pointTable = PointService.getPointTable(
+                    PointService.effectiveTeamCount(
+                        currentTeams: liveCurrentTeams, maxTeams: liveMaxTeams));
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('この大会で獲得できるポイント',
+                    Text('この大会で獲得できるポイント（参加チーム数に応じて変動）',
                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     const SizedBox(height: 10),
                     _buildPointTableRow(Icons.military_tech, '優勝', '${pointTable['優勝']}pt', Colors.amber),
@@ -8409,7 +8412,11 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
       if (!mounted) return;
       final data = snap.data() as Map<String, dynamic>? ?? {};
       setState(() {
-        _maxTeams = (data['maxTeams'] as num?)?.toInt() ?? 0;
+        // ポイント表示は実参加チーム数（currentTeams）基準。無ければ募集枠
+        _maxTeams = PointService.effectiveTeamCount(
+          currentTeams: (data['currentTeams'] as num?)?.toInt(),
+          maxTeams: (data['maxTeams'] as num?)?.toInt(),
+        );
       });
     });
   }

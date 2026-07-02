@@ -30,6 +30,16 @@ class PointService {
     };
   }
 
+  /// ポイント計算の基準チーム数。
+  /// 実際に参加しているチーム数（currentTeams / エントリー数）を優先し、
+  /// 未確定の場合のみ募集枠（maxTeams）にフォールバックする。
+  /// （募集枠基準だと、枠より多い/少ないチーム数で開催された場合に実態とずれるため）
+  static int effectiveTeamCount({int? currentTeams, int? maxTeams}) {
+    final current = currentTeams ?? 0;
+    if (current > 0) return current;
+    return maxTeams ?? 0;
+  }
+
   /// 大会終了時にポイントを付与する
   /// Cloud Functionsでも同様のロジックを持つが、クライアント側でも実行可能
   static Future<void> awardTournamentPoints({
@@ -44,16 +54,23 @@ class PointService {
     // 二重付与防止
     if (tournament['pointsAwarded'] == true) return;
 
-    // ポイントは募集枠(maxTeams)を基準に計算する（大会詳細の「獲得ポイント」表示と一致させる）。
-    // maxTeams 未設定の古い大会のみ currentTeams にフォールバック。
-    final teamCount = (tournament['maxTeams'] as num?)?.toInt()
-        ?? (tournament['currentTeams'] as num?)?.toInt() ?? 0;
-    if (teamCount == 0) return;
-
     final tournamentName = tournament['title'] as String? ?? tournament['name'] as String? ?? '';
 
     // エントリーデータ取得
     final entries = await tournamentRef.collection('entries').get();
+
+    // ポイントは実際に参加したチーム数（エントリー数）を基準に計算する。
+    // エントリーが取れない場合のみ maxTeams / currentTeams にフォールバック。
+    final entryTeamIds = <String>{};
+    for (final doc in entries.docs) {
+      final tid = (doc.data()['teamId'] as String?) ?? '';
+      entryTeamIds.add(tid.isNotEmpty ? tid : doc.id);
+    }
+    final teamCount = entryTeamIds.isNotEmpty
+        ? entryTeamIds.length
+        : ((tournament['maxTeams'] as num?)?.toInt()
+            ?? (tournament['currentTeams'] as num?)?.toInt() ?? 0);
+    if (teamCount == 0) return;
 
     // 全参加者のUID → チームID マッピング
     final userTeamMap = <String, String>{};
