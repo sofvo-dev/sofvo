@@ -36,9 +36,9 @@ iOS 26 の Liquid Glass の**本来の挙動**に合わせる: **静止時はた
 
 - **静止時**: バー内に収まる横長ピル。カプセルは**無色の透明ガラス**（黒 alpha 0.06 のみ）で、選択の主張は**アイコン＋ラベルのネイビー**（`AppTheme.primaryColor`）が担う。`BackdropFilter` なし（コスト削減＋濁り防止）
 - **移動中だけガラス化**: `TweenAnimationBuilder`（`key: ValueKey(currentIndex)` で切替ごとに 0→1 再生）の `s = sin(πt)` を強度にして、
-  - **`RawMagnifier` で下のコンテンツを本当に屈折拡大**（`magnificationScale: 1 + 0.25 × s`）。BackdropFilter の行列変換なのでシェーダー不要＝Web でも動く
-  - 縁の白いハイライト＋ごく薄い虹色（プリズム）＋上面の白い反射（照り）＋足元の影（いずれも alpha を `× s`）
-  - 拡大した像の上に `BackdropFilter.blur(5 × s)` を重ねてすりガラスに
+  - **`RawMagnifier` で下のコンテンツ（アイコン）を本当に屈折拡大**（`magnificationScale: 1 + 0.35 × s`）。BackdropFilter の行列変換なのでシェーダー不要＝Web でも動く
+  - 縁の白いハイライト＋上面の白い反射（照り・控えめ）＋足元の影（いずれも alpha を `× s`）。**色は付けない**（虹色・ネイビーは不採用）
+  - 曇りは `BackdropFilter.blur(1.5 × s)` のごくわずかだけ。**強いぼかしや濃い白みは拡大したアイコンを消して「霧の玉」になるので厳禁**（下のアイコンが透けて見えるのがレンズの命）
   - **移動中はほぼ真円の泡に膨らむ**: `scaleX +25% / scaleY +55%`（横長ピル→球体。外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
   - **着地後は減衰振動でぷるぷる**: `wobble = sin(6πt) × e^(-4t)` を縦横逆位相で加算（体積保存風のジェリー）。アニメ全体は620ms、前半55%が膨らみ・残りが振動
   - **位置は easeOutBack** で勢い余って少し行き過ぎて戻る（液体の慣性）
@@ -389,8 +389,8 @@ GlassNavScaffold(
 | 常にラベル表示 | `_GlassNavTile` の `collapsed` 分岐を無効化 |
 | 静止時カプセルの濃さ | Sofvo実体: `_LiquidCapsule` の黒 alpha 0.06（無色ガラス） |
 | 選択アイコンの色 | Sofvo実体: `_NavItem` の `AppTheme.primaryColor`（ネイビー） |
-| 移動中レンズの拡大率 | Sofvo実体: `_LiquidCapsule` の `magnificationScale: 1 + 0.25 * glass` |
-| 移動中ガラスのぼかし | Sofvo実体: `_LiquidCapsule` の `blur(5 × glass)` |
+| 移動中レンズの拡大率 | Sofvo実体: `_LiquidCapsule` の `magnificationScale: 1 + 0.35 * glass` |
+| 移動中ガラスの曇り | Sofvo実体: `_LiquidCapsule` の `blur(1.5 × glass)`（上げすぎ厳禁） |
 | 移動中の泡の丸さ・大きさ | Sofvo実体: `scaleX: 1 + 0.25 * glass` / `scaleY: 1 + 0.55 * glass`（縦横比≒1で真円） |
 | ぷるぷるの強さ・減衰 | Sofvo実体: `0.06 * wobble`（振幅）・`sin(6πt) × e^(-4t)`（周波数・減衰） |
 </content>
