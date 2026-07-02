@@ -1798,6 +1798,41 @@ function calcRankPoints(teamCount, rank) {
   return Math.round(teamCount * rankMultiplier(rank));
 }
 
+// ブラケットの決勝結果から全体順位（teamId → 順位）を作る。
+// 複数ブラケット（1部/2部/3部…のティア分け）の場合、各ブラケットの決勝勝者を
+// 一律 rank 1（優勝）にすると全ティアの勝者が優勝扱いになってしまうため、
+// ブラケットの rankRange（例 "5〜8位"）の先頭数字を起点に全体順位へ変換する。
+// （順位表ウィジェット _FinalRankingsWidget と同じ考え方）
+async function buildTeamRanksFromBrackets(db, tournamentId) {
+  const teamRanks = {};
+  const bracketsSnap = await db.collection("tournaments").doc(tournamentId).collection("brackets").get();
+  for (const bDoc of bracketsSnap.docs) {
+    const rankRange = (bDoc.data().rankRange || "").toString();
+    const m = rankRange.match(/(\d+)/);
+    const rankStart = m ? parseInt(m[1], 10) : 1; // "全チーム"・未設定は 1 位起点
+
+    const matchesSnap = await bDoc.ref.collection("matches")
+      .where("status", "==", "completed").get();
+    for (const mDoc of matchesSnap.docs) {
+      const mData = mDoc.data();
+      const result = mData.result || {};
+      if (!result.winner) continue;
+      const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
+
+      let localRank = null; // ブラケット内順位（勝者側）
+      if (mData.round === "final" || mData.round === "final_1st") localRank = 1;
+      else if (mData.round === "third_place" || mData.round === "final_3rd") localRank = 3;
+      else if (mData.round === "final_5th") localRank = 5;
+      else if (mData.round === "final_7th") localRank = 7;
+      if (localRank === null) continue;
+
+      teamRanks[result.winner] = rankStart + localRank - 1;
+      if (loserId) teamRanks[loserId] = rankStart + localRank;
+    }
+  }
+  return teamRanks;
+}
+
 function calcOrganizerBonus(teamCount) {
   return Math.round(teamCount * 0.3);
 }
@@ -1884,43 +1919,8 @@ exports.onTournamentStatusChange = functions.firestore
 
     const allUserIds = Object.keys(userTeamMap);
 
-    // ━━━ 順位取得（ブラケットから） ━━━
-    const teamRanks = {};
-    const bracketsSnap = await db.collection("tournaments").doc(tournamentId).collection("brackets").get();
-
-    for (const bDoc of bracketsSnap.docs) {
-      const matchesSnap = await bDoc.ref.collection("matches")
-        .where("status", "==", "completed").get();
-
-      for (const mDoc of matchesSnap.docs) {
-        const mData = mDoc.data();
-        const result = mData.result || {};
-
-        if ((mData.round === "final" || mData.round === "final_1st") && result.winner) {
-          teamRanks[result.winner] = 1;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 2;
-        }
-
-        if ((mData.round === "third_place" || mData.round === "final_3rd") && result.winner) {
-          teamRanks[result.winner] = 3;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 4;
-        }
-
-        if (mData.round === "final_5th" && result.winner) {
-          teamRanks[result.winner] = 5;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 6;
-        }
-
-        if (mData.round === "final_7th" && result.winner) {
-          teamRanks[result.winner] = 7;
-          const loserId = result.winner === mData.teamAId ? mData.teamBId : mData.teamAId;
-          if (loserId) teamRanks[loserId] = 8;
-        }
-      }
-    }
+    // ━━━ 順位取得（ブラケットから・全体順位） ━━━
+    const teamRanks = await buildTeamRanksFromBrackets(db, tournamentId);
 
     // ━━━ ポイント付与 ━━━
     const batch = db.batch();
@@ -3014,7 +3014,7 @@ exports.distributePoints = functions.https.onCall(async (data, context) => {
       tournamentName: tournamentName || "",
       rankPoints,
       totalEarned: rankPoints,
-      rank: rank <= 3 ? rank : null,
+      rank: rank <= 8 ? rank : null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
@@ -3044,14 +3044,16 @@ async function recomputeTournamentPointsCore(tournamentId) {
   // 付与対象 UID を収集（エントリー参加者＋主催者）。collectionGroup を使わず、
   // 各 users/{uid}/pointHistory/{tournamentId} を直接読むためインデックス不要。
   const uidSet = new Set();
+  const userTeamMap = {}; // uid → teamId（順位の再導出用）
   const entriesSnap = await db.collection("tournaments").doc(tournamentId).collection("entries").get();
   for (const eDoc of entriesSnap.docs) {
     const e = eDoc.data();
+    const entryTeamId = e.teamId || eDoc.id;
     if (Array.isArray(e.memberUids)) {
-      for (const uid of e.memberUids) { if (uid) uidSet.add(uid); }
+      for (const uid of e.memberUids) { if (uid) { uidSet.add(uid); userTeamMap[uid] = entryTeamId; } }
     }
-    if (e.leaderUid) uidSet.add(e.leaderUid);
-    if (e.enteredBy) uidSet.add(e.enteredBy);
+    if (e.leaderUid) { uidSet.add(e.leaderUid); userTeamMap[e.leaderUid] = entryTeamId; }
+    if (e.enteredBy) { uidSet.add(e.enteredBy); userTeamMap[e.enteredBy] = entryTeamId; }
   }
   if (tournData.organizerId) uidSet.add(tournData.organizerId);
 
@@ -3067,6 +3069,10 @@ async function recomputeTournamentPointsCore(tournamentId) {
   if (newTeamCount === 0) {
     return { ok: false, code: "failed-precondition", message: "参加チーム数が0です" };
   }
+
+  // 順位もブラケットから再導出する（保存済みの rank は
+  // 「全ブラケットの決勝勝者が優勝扱い」だった旧バグの値を含むため信用しない）
+  const teamRanks = await buildTeamRanksFromBrackets(db, tournamentId);
 
   // 各 UID の pointHistory/{tournamentId} を取得
   const histRefs = [...uidSet].map((uid) =>
@@ -3087,8 +3093,13 @@ async function recomputeTournamentPointsCore(tournamentId) {
     const d = hDoc.data();
 
     const oldTotal = d.totalEarned || 0;
-    const storedRank = d.rank || 99; // 1〜4 か null(=99: 参加)
-    const mult = rankMultiplier(storedRank);
+    const oldRank = d.rank || 99; // 1〜8 か null(=99: 参加)
+
+    // 順位はブラケットから再導出した値を使う
+    const uid = userRef.id;
+    const teamId = userTeamMap[uid];
+    const newRank = (teamId && teamRanks[teamId]) || 99;
+    const mult = rankMultiplier(newRank);
 
     // 元々ランクポイント(参加含む)があった人のみ再計算（主催者のみの人は0のまま）
     const hadRankPoints = (d.rankPoints || 0) > 0;
@@ -3101,37 +3112,51 @@ async function recomputeTournamentPointsCore(tournamentId) {
     const newTotal = newRankPoints + newOrgBonus + streakBonus;
     const diff = newTotal - oldTotal;
 
-    // 履歴を新しい値に更新
+    // 優勝数の補正（旧バグで複数チームが優勝扱いになっていた分を巻き戻す）
+    let champDiff = 0;
+    if (hadRankPoints) {
+      if (oldRank === 1 && newRank !== 1) champDiff = -1;
+      if (oldRank !== 1 && newRank === 1) champDiff = 1;
+    }
+
+    // 履歴を新しい値に更新（rank も再導出値で上書き）
     batch.update(hDoc.ref, {
       teamCount: newTeamCount,
       rankPoints: newRankPoints,
       organizerBonus: newOrgBonus,
       totalEarned: newTotal,
+      rank: hadRankPoints && newRank <= 8 ? newRank : null,
     });
 
-    if (diff !== 0) {
-      const userUpdate = {
-        totalPoints: admin.firestore.FieldValue.increment(diff),
-      };
-      // シーズンポイントは同一シーズンのときだけ補正（過去シーズン分は既にリセット済み）
-      if ((d.season || currentSeason) === currentSeason) {
-        userUpdate.seasonPoints = admin.firestore.FieldValue.increment(diff);
+    if (diff !== 0 || champDiff !== 0) {
+      const userUpdate = {};
+      if (diff !== 0) {
+        userUpdate.totalPoints = admin.firestore.FieldValue.increment(diff);
+        // シーズンポイントは同一シーズンのときだけ補正（過去シーズン分は既にリセット済み）
+        if ((d.season || currentSeason) === currentSeason) {
+          userUpdate.seasonPoints = admin.firestore.FieldValue.increment(diff);
+        }
+      }
+      if (champDiff !== 0) {
+        userUpdate["stats.championships"] = admin.firestore.FieldValue.increment(champDiff);
       }
       batch.update(userRef, userUpdate);
 
-      // 補正通知
-      const notifRef = userRef.collection("notifications").doc();
-      const sign = diff > 0 ? "+" : "";
-      batch.set(notifRef, {
-        type: "points_earned",
-        senderId: "system",
-        senderName: "ポイント補正",
-        message: `「${tournamentName}」のポイントを再計算しました（${sign}${diff}pt）。`,
-        tournamentId,
-        points: diff,
-        read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      if (diff !== 0) {
+        // 補正通知（ポイントが変わった人にのみ）
+        const notifRef = userRef.collection("notifications").doc();
+        const sign = diff > 0 ? "+" : "";
+        batch.set(notifRef, {
+          type: "points_earned",
+          senderId: "system",
+          senderName: "ポイント補正",
+          message: `「${tournamentName}」のポイントを再計算しました（${sign}${diff}pt）。`,
+          tournamentId,
+          points: diff,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
 
       adjustedUsers += 1;
       totalDiff += diff;
@@ -4741,6 +4766,29 @@ exports.syncStoreVersions = functions.pubsub
 // バージョンを直接指定できる（iTunes/Play の CDN キャッシュ遅延を回避）
 exports.syncStoreVersionsNow = functions.https.onRequest(async (req, res) => {
   try {
+    // ── 一時パラメータ: 大会ポイント再計算（順位再導出対応版の実行用・実行後に削除）──
+    const recomputeTitle = req.query.recomputeTitle || null;
+    const recomputeId = req.query.recomputeTournamentId || null;
+    if (recomputeTitle || recomputeId) {
+      let tournamentId = recomputeId;
+      if (!tournamentId) {
+        const q = await admin.firestore().collection("tournaments")
+          .where("title", "==", recomputeTitle).limit(2).get();
+        if (q.empty) {
+          res.status(404).json({ ok: false, message: `title「${recomputeTitle}」の大会が見つかりません` });
+          return;
+        }
+        if (q.size > 1) {
+          res.status(409).json({ ok: false, message: `title「${recomputeTitle}」が複数あります`, ids: q.docs.map((d) => d.id) });
+          return;
+        }
+        tournamentId = q.docs[0].id;
+      }
+      const result = await recomputeTournamentPointsCore(tournamentId);
+      res.status(result.ok ? 200 : 400).json(result);
+      return;
+    }
+
     const iosOverride = req.query.iosVersion || null;
     const androidOverride = req.query.androidVersion || null;
 
