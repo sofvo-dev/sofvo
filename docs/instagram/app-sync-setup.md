@@ -48,6 +48,14 @@ Instagram アプリ → 設定 → アカウントの種類とツール → プ�
 **方法B: 関数 `setInstagramConfig` を管理者アカウントで呼ぶ**
 `{ accessToken: "...", officialUid: "..." }`
 
+**方法C（短期トークンしか出ない場合・ブラウザで交換）:**
+短期トークンとアプリシークレットを渡すと、サーバー側で長期トークンに交換して保存する。
+```
+https://us-central1-sofvo-19d84.cloudfunctions.net/exchangeInstagramToken?token=【短期トークン】&secret=【アプリシークレット】
+```
+`{"ok":true,"expiresInDays":60}` が返れば成功（トークン本体は安全のため返さない）。
+※ `&officialUid=【UID】` を付けると投稿主も同時に設定できる。
+
 ### 4. 初回同期を実行（すぐ反映したいとき）
 ブラウザで以下を開く（`main` マージ後、デプロイ完了後）:
 ```
