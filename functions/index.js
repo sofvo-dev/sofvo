@@ -5112,3 +5112,229 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
     }),
   ]);
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Google Drive → タイムライン 定期自動投稿
+//   「1投稿=1フォルダ」を Drive に溜めておくと、設定したペース(既定: 月水金12時JST)で
+//   フォルダ名の古い順に1件ずつ、公式アカウント名義で posts に自動投稿し、
+//   投稿済みフォルダを「投稿済み/」へ移動する（＝二重投稿防止）。
+//   認証は Sheets 連携と同じ getAccessToken()（Functions既定サービスアカウント）を流用。
+//   → 投稿用フォルダをそのサービスアカウントに「編集者」で共有しておくこと。
+//
+//   設定は Firestore の config/driveInstagramSync ドキュメントで管理:
+//     enabled          (bool)   … false で停止（既定: true）
+//     folderId         (string) … 投稿用の親フォルダID（必須。未設定なら何もしない）
+//     officialUid      (string) … 投稿者にする公式アカウントのUID（既定: 下記定数）
+//     postedFolderName (string) … 投稿済みの移動先フォルダ名（既定: "投稿済み"）
+//     idleMinutes      (number) … 直近この分数以内に更新されたフォルダはアップロード中とみなし見送る（既定: 10）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const DRIVE_OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983"; // isOfficial:true の公式アカウント
+// admin.initializeApp() は storageBucket 未指定のため、明示的にバケット名を指定する
+// （既定推論だと *.appspot.com になり、実バケット *.firebasestorage.app と不一致になる）
+const DRIVE_STORAGE_BUCKET = "sofvo-19d84.firebasestorage.app";
+
+async function getDriveSyncConfig() {
+  const snap = await admin.firestore().collection("config").doc("driveInstagramSync").get();
+  const d = snap.exists ? snap.data() : {};
+  return {
+    enabled: d.enabled !== false,
+    folderId: (d.folderId || "").trim(),
+    officialUid: d.officialUid || DRIVE_OFFICIAL_UID,
+    postedFolderName: d.postedFolderName || "投稿済み",
+    idleMinutes: typeof d.idleMinutes === "number" ? d.idleMinutes : 10,
+  };
+}
+
+async function driveFetch(url, options = {}) {
+  const token = await getAccessToken();
+  const res = await fetch(url, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Drive API ${res.status}: ${body}`);
+  }
+  return res;
+}
+
+// 親フォルダ直下の子（フォルダ/ファイル）を名前順で取得。extraQuery で絞り込み可
+async function driveListChildren(parentId, extraQuery = "") {
+  const q = `'${parentId}' in parents and trashed=false${extraQuery}`;
+  const params = new URLSearchParams({
+    q,
+    fields: "files(id,name,mimeType,modifiedTime,size)",
+    orderBy: "name",
+    pageSize: "1000",
+    supportsAllDrives: "true",
+    includeItemsFromAllDrives: "true",
+  });
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`);
+  const data = await res.json();
+  return data.files || [];
+}
+
+async function driveDownload(fileId) {
+  const params = new URLSearchParams({ alt: "media", supportsAllDrives: "true" });
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?${params.toString()}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function driveFindOrCreateFolder(parentId, name) {
+  const escaped = name.replace(/'/g, "\\'");
+  const existing = await driveListChildren(
+    parentId,
+    ` and mimeType='application/vnd.google-apps.folder' and name='${escaped}'`,
+  );
+  if (existing.length > 0) return existing[0].id;
+  const res = await driveFetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
+  });
+  const data = await res.json();
+  return data.id;
+}
+
+async function driveMoveFolder(folderId, addParentId, removeParentId) {
+  const params = new URLSearchParams({
+    addParents: addParentId,
+    removeParents: removeParentId,
+    supportsAllDrives: "true",
+    fields: "id,parents",
+  });
+  await driveFetch(`https://www.googleapis.com/drive/v3/files/${folderId}?${params.toString()}`, { method: "PATCH" });
+}
+
+// バッファを Storage に保存し Firebase 形式のダウンロードURLを返す
+async function uploadBufferToStorage(buffer, storagePath, contentType) {
+  const bucket = admin.storage().bucket(DRIVE_STORAGE_BUCKET);
+  const downloadToken = crypto.randomUUID();
+  const file = bucket.file(storagePath);
+  await file.save(buffer, {
+    resumable: false,
+    metadata: {
+      contentType,
+      metadata: { firebaseStorageDownloadTokens: downloadToken },
+    },
+  });
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`;
+}
+
+// キュー先頭(投稿可能)のフォルダを1件だけ投稿する処理本体
+async function processOneDrivePost() {
+  const cfg = await getDriveSyncConfig();
+  if (!cfg.enabled) return { skipped: "disabled" };
+  if (!cfg.folderId) return { skipped: "no folderId configured (config/driveInstagramSync)" };
+
+  const db = admin.firestore();
+
+  const officialDoc = await db.collection("users").doc(cfg.officialUid).get();
+  if (!officialDoc.exists) return { error: `official user not found: ${cfg.officialUid}` };
+  const official = officialDoc.data();
+
+  // 親フォルダ直下のサブフォルダ（＝投稿候補）を名前順で取得（投稿済みフォルダは除外）
+  const subfolders = (
+    await driveListChildren(cfg.folderId, " and mimeType='application/vnd.google-apps.folder'")
+  ).filter((f) => f.name !== cfg.postedFolderName);
+
+  if (subfolders.length === 0) return { skipped: "no folders in queue" };
+
+  const idleCutoff = Date.now() - cfg.idleMinutes * 60 * 1000;
+  const IMAGE_RE = /^image\//;
+  const VIDEO_RE = /^video\//;
+
+  for (const folder of subfolders) {
+    // 移動失敗などで既に投稿済みのフォルダは念のためスキップ
+    const dup = await db.collection("posts").where("sourceFolderId", "==", folder.id).limit(1).get();
+    if (!dup.empty) continue;
+
+    const files = await driveListChildren(folder.id);
+    const mediaFiles = files.filter((f) => IMAGE_RE.test(f.mimeType) || VIDEO_RE.test(f.mimeType));
+    if (mediaFiles.length === 0) continue; // メディアなしフォルダはスキップ
+
+    // アップロード途中の可能性: 直近更新されたファイルがあれば今回は見送り、次の候補へ
+    const stillUploading = mediaFiles.some(
+      (f) => f.modifiedTime && new Date(f.modifiedTime).getTime() > idleCutoff,
+    );
+    if (stillUploading) continue;
+
+    // メディアを Storage へコピー（ファイル名の昇順＝表示順を保持）
+    const media = [];
+    const images = [];
+    const videos = [];
+    let idx = 0;
+    for (const f of mediaFiles) {
+      const buffer = await driveDownload(f.id);
+      const isVideo = VIDEO_RE.test(f.mimeType);
+      const safeName = (f.name || `file${idx}`).replace(/[^\w.\-]/g, "_");
+      const storagePath = `post_images/${cfg.officialUid}/${folder.id}_${String(idx).padStart(2, "0")}_${safeName}`;
+      const url = await uploadBufferToStorage(buffer, storagePath, f.mimeType);
+      media.push({ type: isVideo ? "video" : "image", url });
+      if (isVideo) videos.push(url);
+      else images.push(url);
+      idx++;
+    }
+
+    const postRef = await db.collection("posts").add({
+      userId: cfg.officialUid,
+      userNickname: official.nickname || "Sofvo公式",
+      userAvatarUrl: official.avatarUrl || "",
+      text: "",
+      images, // 画像URLのみ（旧アプリ・他リーダーとの後方互換）
+      videos, // 動画URLのみ
+      media, // 表示順を保持した [{type, url}]（新アプリはこれを優先描画）
+      likesCount: 0,
+      commentsCount: 0,
+      autoGenerated: false,
+      source: "driveInstagram",
+      sourceFolderId: folder.id,
+      sourceFolderName: folder.name,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // フォルダを「投稿済み」へ移動（キューから除外）
+    try {
+      const postedId = await driveFindOrCreateFolder(cfg.folderId, cfg.postedFolderName);
+      await driveMoveFolder(folder.id, postedId, cfg.folderId);
+    } catch (e) {
+      functions.logger.error(
+        `Drive move failed for folder ${folder.id} (post ${postRef.id} already created):`,
+        e,
+      );
+    }
+
+    return { posted: postRef.id, folder: folder.name, mediaCount: media.length };
+  }
+
+  return { skipped: "no ready folder (all uploading or without media)" };
+}
+
+// 定期実行: 既定は月・水・金 12:00 JST に1件ずつ放出
+exports.publishDriveScheduledPost = functions
+  .runWith({ timeoutSeconds: 540, memory: "2GB" })
+  .pubsub.schedule("0 12 * * 1,3,5")
+  .timeZone("Asia/Tokyo")
+  .onRun(async () => {
+    try {
+      const result = await processOneDrivePost();
+      functions.logger.info("publishDriveScheduledPost:", JSON.stringify(result));
+    } catch (e) {
+      functions.logger.error("publishDriveScheduledPost error:", e);
+    }
+    return null;
+  });
+
+// 手動実行/動作確認用（Drive権限・設定・投稿の確認に使う）。1回叩くと次の1件を即投稿。
+exports.runDrivePostNow = functions
+  .runWith({ timeoutSeconds: 540, memory: "2GB" })
+  .https.onRequest(async (req, res) => {
+    try {
+      const result = await processOneDrivePost();
+      res.status(200).json({ ok: true, result });
+    } catch (e) {
+      functions.logger.error("runDrivePostNow error:", e);
+      res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+    }
+  });
