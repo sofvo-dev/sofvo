@@ -37,8 +37,8 @@ Instagram API（Metaアプリ・ビジネスアカウント・60日で失効す�
 
 ## 放出順（cadence）
 
-- `cadence`（既定 `["A","A","B","B"]`）に従い、`A` スロットは `poolA`、`B` スロットは `poolB` のカテゴリから出す
-- 既定: **通常2件 → 実機/リール2件 → 繰り返し**
+- `cadence`（既定 `["A","A","B"]`）に従い、`A` スロットは `poolA`、`B` スロットは `poolB` のカテゴリから出す
+- 既定: **通常2件 → 実機/リール1件 → 繰り返し**
 - `poolB` は `["実機","リール"]` の順で、各カテゴリ内は名前順（実機を出し切ってからリール）
 - **その回のスロットのプールが空になったら投稿を止める**（`postIndex` も進めず、そのスロットで待機。新しいフォルダを足せば再開）
 - 状態は `config/driveInstagramSyncState.postIndex`（投稿成功ごとに +1）
@@ -65,7 +65,7 @@ Instagram API（Metaアプリ・ビジネスアカウント・60日で失効す�
    | `officialUid` | string | 投稿者の公式アカウントUID | `zlBy8aWUlCYjyy0NUU9HidrQu983` |
    | `poolA` | string[] | Aスロットのカテゴリ名 | `["通常"]` |
    | `poolB` | string[] | Bスロットのカテゴリ名 | `["実機","リール"]` |
-   | `cadence` | string[] | 放出パターン | `["A","A","B","B"]` |
+   | `cadence` | string[] | 放出パターン | `["A","A","B"]` |
    | `idleMinutes` | number | アップロード中とみなす分数 | `10` |
 
 4. **動作確認（投稿しない）**
