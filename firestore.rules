@@ -137,6 +137,14 @@ service cloud.firestore {
         allow write: if isAuthenticated();
       }
 
+      // エントリー承認待ち（ドラフト）。作成・承認・取消はすべて
+      // createEntryDraft / respondEntryInvite / cancelEntryDraft（admin権限）
+      // で行うため、クライアントは参照のみ可能。
+      match /entryDrafts/{draftId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+
       // 収支管理（経費・収入）— 主催者・編集者・管理者のみ
       match /expenses/{expenseId} {
         allow read, create, update, delete: if isAuthenticated() && canManageTournamentById(tournamentId);
