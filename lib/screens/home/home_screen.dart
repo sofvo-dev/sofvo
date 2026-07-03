@@ -14,7 +14,7 @@ import '../../config/app_theme.dart';
 import '../../services/follow_service.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/empty_state_view.dart';
-import '../../widgets/post_video_player.dart';
+import '../../widgets/post_media_carousel.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../tournament/post_event_action_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -471,46 +471,10 @@ class _HomeScreenState extends State<HomeScreen>
     ];
   }
 
-  /// media配列（画像・動画を表示順で保持）を描画。画像はタップで拡大、動画はインラインプレビュー＋タップで全画面再生
+  /// media配列（画像・動画を表示順で保持）を全幅スワイプで描画。
+  /// 比率そのまま（切り取らない）— フレームは先頭メディアの実比率に合わせる。
   Widget _buildMediaGallery(List<Map<String, dynamic>> media) {
-    // フルスクリーン画像ビューア用に、media内の画像URLだけを順番通りに抽出
-    final imageUrls = media
-        .where((m) => m['type'] != 'video')
-        .map((m) => (m['url'] ?? '').toString())
-        .where((u) => u.isNotEmpty)
-        .toList();
-
-    Widget itemFor(Map<String, dynamic> m, double w, double h) {
-      final url = (m['url'] ?? '').toString();
-      if (m['type'] == 'video') {
-        return PostVideoPlayer(url: url, width: w, height: h);
-      }
-      final imgIndex = imageUrls.indexOf(url);
-      return GestureDetector(
-        onTap: () => _showFullImage(
-          context,
-          imageUrls.map((u) => CachedNetworkImageProvider(u) as ImageProvider).toList(),
-          imgIndex < 0 ? 0 : imgIndex,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(w == double.infinity ? 12 : 10),
-          child: _buildFeedImage([url], const <ImageProvider>[], 0, width: w, height: h),
-        ),
-      );
-    }
-
-    if (media.length == 1) {
-      return itemFor(media.first, double.infinity, 220);
-    }
-    return SizedBox(
-      height: 200,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: media.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) => itemFor(media[i], 200, 200),
-      ),
-    );
+    return PostMediaCarousel(media: media);
   }
 
   Widget _buildBadgeCard(Map<String, dynamic> data) {

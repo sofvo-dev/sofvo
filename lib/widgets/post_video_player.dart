@@ -10,12 +10,15 @@ class PostVideoPlayer extends StatefulWidget {
   final String url;
   final double width;
   final double height;
+  /// 動画の初期化完了時に実際の縦横比(幅/高さ)を通知する（カルーセルの枠決定用）
+  final ValueChanged<double>? onAspectReady;
 
   const PostVideoPlayer({
     super.key,
     required this.url,
     required this.width,
     required this.height,
+    this.onAspectReady,
   });
 
   @override
@@ -43,6 +46,8 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
         controller.dispose();
         return;
       }
+      final ar = controller.value.aspectRatio;
+      if (ar > 0) widget.onAspectReady?.call(ar);
       setState(() => _initialized = true);
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -70,8 +75,9 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
 
     Widget preview;
     if (_initialized && _controller != null) {
+      // 比率そのまま（切り取らない）: contain でフレーム内に収める
       preview = FittedBox(
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         clipBehavior: Clip.hardEdge,
         child: SizedBox(
           width: _controller!.value.size.width,
