@@ -51,7 +51,10 @@ class _MainTabScreenState extends State<MainTabScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      // 起動直後はローカルキャッシュ（＝前回の未入力状態）が返り、保存済みでも
+      // 再表示される。必ずサーバー最新を読む（オフライン時は例外→今回はスキップ）。
+      final userDoc = await userRef.get(const GetOptions(source: Source.server));
       final data = userDoc.data();
       if (data == null) return;
       if (data['isOfficial'] == true || data['isDemo'] == true) return;
@@ -63,15 +66,26 @@ class _MainTabScreenState extends State<MainTabScreen> {
           : (rawArea is Map ? (rawArea['prefecture'] ?? '').toString() : '');
       if (rawArea is Map && area.isNotEmpty) {
         // おすすめ表示等のクエリが area 文字列前提のため移行しておく
-        userDoc.reference.update({'area': area}).catchError((_) {});
+        userRef.update({'area': area}).catchError((_) {});
       }
 
       final searchId = (data['searchId'] ?? '').toString();
 
-      final privateDoc = await userDoc.reference.collection('private').doc('info').get();
-      final p = privateDoc.data() ?? {};
-      final gender = (p['gender'] ?? '').toString();
-      final hasBirthDate = p['birthDate'] != null;
+      // 性別・生年月日は private/info が基本だが、旧ユーザーはメインドキュメント側に
+      // 入っていることがあるため両方を見る（my_page と同じフォールバック）。
+      String gender = (data['gender'] ?? '').toString();
+      bool hasBirthDate = data['birthDate'] != null;
+      try {
+        final privateDoc = await userRef
+            .collection('private')
+            .doc('info')
+            .get(const GetOptions(source: Source.server));
+        final p = privateDoc.data() ?? {};
+        if ((p['gender'] ?? '').toString().isNotEmpty) gender = p['gender'].toString();
+        if (p['birthDate'] != null) hasBirthDate = true;
+      } catch (_) {
+        // private が読めない時はメインドキュメント側の判定に委ねる
+      }
 
       final needsSearchId = searchId.isEmpty;
       final needsGender = gender.isEmpty;
