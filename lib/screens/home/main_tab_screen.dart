@@ -315,8 +315,9 @@ class _BottomNavState extends State<_BottomNav>
                           widthFactor: 1 / n,
                           heightFactor: 1,
                           child: Padding(
+                            // 横は目一杯近くまで広げて横長のピルにする
                             padding: EdgeInsets.symmetric(
-                                horizontal: 5,
+                                horizontal: 2,
                                 vertical: isCollapsed ? 6 : 8),
                             child: TweenAnimationBuilder<double>(
                               // タブ切替のたびに0→1を再生。前半は泡（ほぼ真円）に
