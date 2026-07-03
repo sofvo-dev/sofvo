@@ -5477,13 +5477,16 @@ const DRIVE_OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983"; // isOfficial:true �
 // admin.initializeApp() は storageBucket 未指定のため、明示的にバケット名を指定する
 // （既定推論だと *.appspot.com になり、実バケット *.firebasestorage.app と不一致になる）
 const DRIVE_STORAGE_BUCKET = "sofvo-19d84.firebasestorage.app";
+// 投稿用の親フォルダIDの既定値（Firestore config/driveInstagramSync.folderId があればそちらが優先）
+// → このフォルダを DRIVE_OFFICIAL_UID… ではなく上記サービスアカウントに「編集者」で共有しておくこと
+const DRIVE_SYNC_FOLDER_ID_FALLBACK = "1vIVinzikBTY-p6qEfbhqxjcpFqPkiSED";
 
 async function getDriveSyncConfig() {
   const snap = await admin.firestore().collection("config").doc("driveInstagramSync").get();
   const d = snap.exists ? snap.data() : {};
   return {
     enabled: d.enabled !== false,
-    folderId: (d.folderId || "").trim(),
+    folderId: (d.folderId || DRIVE_SYNC_FOLDER_ID_FALLBACK || "").trim(),
     officialUid: d.officialUid || DRIVE_OFFICIAL_UID,
     postedFolderName: d.postedFolderName || "投稿済み",
     idleMinutes: typeof d.idleMinutes === "number" ? d.idleMinutes : 10,
