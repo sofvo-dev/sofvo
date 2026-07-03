@@ -15,6 +15,7 @@ import '../tournament/tournament_search_screen.dart';
 import '../recruitment/recruitment_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../profile/my_page_screen.dart';
+import '../profile/profile_completion_screen.dart';
 
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
@@ -36,6 +37,62 @@ class _MainTabScreenState extends State<MainTabScreen> {
     const ChatListScreen(),
     const MyPageScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // 必須化以前に登録した既存ユーザーの未入力チェック（起動後に1回）
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkProfileCompletion());
+  }
+
+  /// ユーザーID・性別・生年月日・都道府県が未入力なら追加入力画面を表示する。
+  /// 公式・デモアカウントは対象外。旧マップ形式の area は文字列へ静かに移行する。
+  Future<void> _checkProfileCompletion() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final data = userDoc.data();
+      if (data == null) return;
+      if (data['isOfficial'] == true || data['isDemo'] == true) return;
+
+      // area は文字列（都道府県名）が基本。旧データはマップ {prefecture, city}
+      final rawArea = data['area'];
+      final area = rawArea is String
+          ? rawArea
+          : (rawArea is Map ? (rawArea['prefecture'] ?? '').toString() : '');
+      if (rawArea is Map && area.isNotEmpty) {
+        // おすすめ表示等のクエリが area 文字列前提のため移行しておく
+        userDoc.reference.update({'area': area}).catchError((_) {});
+      }
+
+      final searchId = (data['searchId'] ?? '').toString();
+
+      final privateDoc = await userDoc.reference.collection('private').doc('info').get();
+      final p = privateDoc.data() ?? {};
+      final gender = (p['gender'] ?? '').toString();
+      final hasBirthDate = p['birthDate'] != null;
+
+      final needsSearchId = searchId.isEmpty;
+      final needsGender = gender.isEmpty;
+      final needsBirthDate = !hasBirthDate;
+      final needsArea = area.isEmpty;
+      if (!(needsSearchId || needsGender || needsBirthDate || needsArea)) return;
+      if (!mounted) return;
+
+      Navigator.of(context).push(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ProfileCompletionScreen(
+          needsSearchId: needsSearchId,
+          needsGender: needsGender,
+          needsBirthDate: needsBirthDate,
+          needsArea: needsArea,
+        ),
+      ));
+    } catch (e) {
+      debugPrint('プロフィール未入力チェックに失敗: $e');
+    }
+  }
 
   @override
   void dispose() {
