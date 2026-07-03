@@ -6,7 +6,8 @@ const HERE = import.meta.dirname;
 const ROOT = path.resolve(HERE, '../..');
 const CSV = path.join(ROOT, 'docs/instagram/canva-bulk/carousels.csv');
 const FONTS = path.join(HERE, 'fonts');
-const OUT = path.join(HERE, 'output');
+// 出力構造: output/Sofvo投稿/postNNN/01.jpg ... 05.jpg（postNNN=3桁, スライド=2桁.jpg）
+const OUT = path.join(HERE, 'output', 'Sofvo投稿');
 fs.mkdirSync(OUT, { recursive: true });
 
 // only render these post indexes (0-based). Override via argv.
@@ -142,11 +143,14 @@ for (const idx of ONLY) {
   await page.setContent(pageHTML(d, idx), { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   const slides = await page.locator('.slide').all();
-  const pn = String(idx + 1).padStart(2, '0');
+  const pn = String(idx + 1).padStart(3, '0');
+  const dir = path.join(OUT, `post${pn}`);
+  fs.mkdirSync(dir, { recursive: true });
   for (let s = 0; s < slides.length; s++) {
-    await slides[s].screenshot({ path: path.join(OUT, `post${pn}_${s + 1}.png`) });
+    const sn = String(s + 1).padStart(2, '0');
+    await slides[s].screenshot({ path: path.join(dir, `${sn}.jpg`), type: 'jpeg', quality: 92 });
   }
-  console.log('rendered post', pn, '-', slides.length, 'slides');
+  console.log('rendered post', pn, '-', slides.length, 'slides ->', path.join('Sofvo投稿', `post${pn}`));
 }
 await browser.close();
 console.log('done ->', OUT);
