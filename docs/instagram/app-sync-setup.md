@@ -48,7 +48,19 @@ Instagram アプリ → 設定 → アカウントの種類とツール → プ�
 **方法B: 関数 `setInstagramConfig` を管理者アカウントで呼ぶ**
 `{ accessToken: "...", officialUid: "..." }`
 
-**方法C（短期トークンしか出ない場合・ブラウザで交換）:**
+**方法D（Facebookトークン＝ `EAA…` で始まる場合・推奨）:**
+Meta の「Instagram API with Facebook login」やGraph API Explorerで取れるトークンは `EAA…`（Facebook）。
+その場合は次のURLで、長期化＋連携IGアカウントID＋ページトークンの取得・保存まで自動で行う。
+```
+https://us-central1-sofvo-19d84.cloudfunctions.net/setupInstagramFacebook?token=【EAAトークン】&appId=【アプリID】&secret=【アプリシークレット】
+```
+`{"ok":true,"provider":"facebook","igUsername":"sofvo.official","page":"..."}` が返れば成功。
+- 前提: @sofvo.official が **Facebookページに連携**されていること（Instagram側で「ページをリンク」）。
+- 得られる**ページトークンは実質無期限**なので、以後トークン更新は不要。
+- `&officialUid=【UID】` で投稿主も同時指定可。
+- 「Instagramビジネスアカウントが連携されたページがOKされていません」と出たら、認可時に該当ページのチェックを入れ直す／Instagramをページにリンクする。
+
+**方法C（Instagramトークン `IGQ…` の短期→長期交換）:**
 短期トークンとアプリシークレットを渡すと、サーバー側で長期トークンに交換して保存する。
 ```
 https://us-central1-sofvo-19d84.cloudfunctions.net/exchangeInstagramToken?token=【短期トークン】&secret=【アプリシークレット】

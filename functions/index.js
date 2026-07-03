@@ -2456,9 +2456,10 @@ exports.backfillSearchNorm = functions.https.onRequest(async (req, res) => {
 // （graph.instagram.com）の長期アクセストークンを取得して setInstagramConfig で登録。
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const IG_API = "https://graph.instagram.com";
+const FB_API = "https://graph.facebook.com/v21.0";
 
-async function igGet(path, params) {
-  const url = new URL(`${IG_API}/${path}`);
+async function graphGet(base, path, params) {
+  const url = new URL(`${base}/${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = await fetch(url.toString());
   const json = await res.json();
@@ -2467,6 +2468,11 @@ async function igGet(path, params) {
   }
   return json;
 }
+
+// Instagramログイン方式（graph.instagram.com）
+const igGet = (path, params) => graphGet(IG_API, path, params);
+// Facebookログイン方式（graph.facebook.com）
+const fbGet = (path, params) => graphGet(FB_API, path, params);
 
 async function resolveOfficialAuthor(db, preferredUid) {
   if (preferredUid) {
@@ -2507,7 +2513,12 @@ async function syncInstagramCore() {
   const author = await resolveOfficialAuthor(db, cfg.officialUid);
   if (!author) return { skipped: true, reason: "公式アカウント（isOfficial）が見つかりません" };
 
-  const media = await igGet("me/media", {
+  // 取得方式: facebook（graph.facebook.com/{igUserId}/media）か instagram（/me/media）
+  const useFacebook = cfg.provider === "facebook" && cfg.igUserId;
+  const get = useFacebook ? fbGet : igGet;
+  const mediaPath = useFacebook ? `${cfg.igUserId}/media` : "me/media";
+
+  const media = await get(mediaPath, {
     fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp",
     limit: "25",
     access_token: token,
@@ -2521,7 +2532,7 @@ async function syncInstagramCore() {
     const imageUrls = [];
     try {
       if (item.media_type === "CAROUSEL_ALBUM") {
-        const children = await igGet(`${item.id}/children`, {
+        const children = await get(`${item.id}/children`, {
           fields: "id,media_type,media_url,thumbnail_url",
           access_token: token,
         });
@@ -2629,6 +2640,75 @@ exports.exchangeInstagramToken = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// Facebookログイン方式のセットアップ（ブラウザで開ける）
+// 短期Facebookトークン → 長期化 → 連携済みIGビジネスアカウントIDとページトークンを
+// 自動取得して secrets/instagram に保存。EAA… で始まるトークンはこちらを使う。
+// 例: /setupInstagramFacebook?token=EAA...&appId=xxx&secret=yyy&officialUid=UID(任意)
+exports.setupInstagramFacebook = functions
+  .runWith({ timeoutSeconds: 120 })
+  .https.onRequest(async (req, res) => {
+    try {
+      const shortToken = String(req.query.token || "").trim();
+      const appId = String(req.query.appId || req.query.client_id || "").trim();
+      const secret = String(req.query.secret || req.query.client_secret || "").trim();
+      const officialUid = String(req.query.officialUid || "").trim();
+      if (!shortToken || !appId || !secret) {
+        res.status(400).json({ error: "token（Facebookトークン）, appId（アプリID）, secret（アプリシークレット）が必要です" });
+        return;
+      }
+
+      // 1) 短期 → 長期のユーザートークン
+      const exchanged = await fbGet("oauth/access_token", {
+        grant_type: "fb_exchange_token",
+        client_id: appId,
+        client_secret: secret,
+        fb_exchange_token: shortToken,
+      });
+      const longUserToken = exchanged.access_token;
+      if (!longUserToken) {
+        res.status(500).json({ error: "長期トークンへの交換に失敗", detail: exchanged });
+        return;
+      }
+
+      // 2) 連携ページから IGビジネスアカウントID と ページトークン（長期・実質無期限）を取得
+      const pages = await fbGet("me/accounts", {
+        fields: "name,access_token,instagram_business_account{id,username}",
+        access_token: longUserToken,
+      });
+      const list = Array.isArray(pages.data) ? pages.data : [];
+      const page = list.find((p) => p.instagram_business_account && p.instagram_business_account.id);
+      if (!page) {
+        res.status(400).json({
+          error: "Instagramビジネスアカウントが連携されたFacebookページがOKされていません。@sofvo.official をFacebookページに連携し、認可時に該当ページを選んでください。",
+          pagesFound: list.map((p) => p.name),
+        });
+        return;
+      }
+
+      const update = {
+        provider: "facebook",
+        accessToken: page.access_token, // ページトークン（長期・実質無期限）
+        igUserId: page.instagram_business_account.id,
+        igUsername: page.instagram_business_account.username || "",
+        pageName: page.name || "",
+        tokenType: "page_token",
+        tokenObtainedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      if (officialUid) update.officialUid = officialUid;
+      await admin.firestore().collection("secrets").doc("instagram").set(update, { merge: true });
+
+      res.json({
+        ok: true,
+        provider: "facebook",
+        igUsername: update.igUsername,
+        page: update.pageName,
+      });
+    } catch (e) {
+      res.status(500).json({ error: String(e.message || e) });
+    }
+  });
+
 // 手動同期（ブラウザで開ける。トークンはサーバー側 secrets から読むだけで
 // 冪等なので、既存の管理エンドポイントと同様に onRequest とする）
 exports.syncInstagramNow = functions
@@ -2667,8 +2747,11 @@ exports.refreshInstagramToken = functions.pubsub
   .onRun(async () => {
     const db = admin.firestore();
     const snap = await db.collection("secrets").doc("instagram").get();
-    const token = snap.exists ? (snap.data() || {}).accessToken : null;
+    const cfg = snap.exists ? (snap.data() || {}) : {};
+    const token = cfg.accessToken;
     if (!token) return null;
+    // Facebookページトークンは実質無期限のため更新不要
+    if (cfg.provider === "facebook") return null;
     try {
       const res = await igGet("refresh_access_token", { grant_type: "ig_refresh_token", access_token: token });
       if (res.access_token) {
