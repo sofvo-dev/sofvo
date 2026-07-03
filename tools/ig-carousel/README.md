@@ -20,10 +20,15 @@ curl -sSL -o tools/ig-carousel/fonts/NotoSansJP.ttf \
 # 2) Playwright（Chromium）が必要
 npm i -D playwright   # または環境の playwright を利用
 
-# 3) 生成（引数なし=投稿1のみ / カンマ区切りで複数 / all相当は 0..11）
+# 3) 生成（引数なし=投稿1のみ / カンマ区切りで複数 / index は0始まり）
 node tools/ig-carousel/render.mjs 0,1,2,3,4,5,6,7,8,9,10,11
-# 出力先: tools/ig-carousel/output/postNN_S.png
+# 出力先（投稿ごとにフォルダ分け・jpg）:
+#   tools/ig-carousel/output/Sofvo投稿/postNNN/01.jpg 〜 05.jpg
+#   （postNNN=投稿番号3桁ゼロ埋め / 01〜05=スライド番号2桁）
 ```
+
+> リモート環境では Chromium 本体を明示指定する:
+> `PW_CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node tools/ig-carousel/render.mjs <indexes>`
 
 ## 新しい投稿を作るとき
 
