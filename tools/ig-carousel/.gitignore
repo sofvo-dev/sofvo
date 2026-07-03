@@ -8,5 +8,6 @@ package-lock.json
 # IG reel
 reel-out/
 
-# 配布用zip（生成画像のまとめ・チャット配布のためリポジトリには含めない）
+# 配布用ファイル（生成画像zip・キャプション書き出し等・チャット配布のためリポジトリには含めない）
 *.zip
+captions-*.txt
