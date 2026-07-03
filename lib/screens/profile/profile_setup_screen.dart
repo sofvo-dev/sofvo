@@ -658,7 +658,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  '友達やチームから招待された方は入力してください（任意）',
+                  '友達やチームから招待された方は入力してください（任意・あとからマイページでも入力できます）',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 8),
