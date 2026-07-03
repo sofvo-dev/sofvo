@@ -6,6 +6,7 @@ import '../../config/app_theme.dart';
 import '../../main.dart' show pendingReferrerUserId, pendingInviteCode;
 import '../../services/notification_service.dart';
 import '../../services/invite_service.dart';
+import '../../utils/search_normalize.dart';
 import '../onboarding/onboarding_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -169,11 +170,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await userRef.set({
         'uid': user.uid,
         'nickname': nickname,
+        'nicknameNorm': normalizeForSearch(nickname),
         'bio': bio,
         'avatarUrl': '',
         'area': _selectedPrefecture,
         'experience': _selectedExperience,
         'searchId': searchId,
+        'searchIdNorm': normalizeForSearch(searchId),
         'totalPoints': 0,
         'seasonPoints': 0,
         'title': 'ビギナー',

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/app_theme.dart';
+import '../../utils/search_normalize.dart';
 import '../../widgets/official_badge.dart';
 import '../../services/follow_service.dart';
 import '../../services/notification_service.dart';
@@ -64,49 +65,79 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   }
 
   // ── ID・ニックネーム検索 ──
+  // ①完全一致（searchId／正規化ID） → ②正規化フィールドの前置一致クエリ
+  // → ③あいまい一致（部分一致＋編集距離1のタイポ救済）の3段構え。
+  // 正規化（カナ→かな・全角→半角・空白除去・小文字化）は保存側の
+  // nicknameNorm / searchIdNorm（syncUserSearchNorm が自動維持）と同一仕様。
   Future<void> _searchById() async {
     final query = _idController.text.trim().replaceAll('@', '');
     if (query.isEmpty) return;
+    final qNorm = normalizeForSearch(query);
     setState(() => _idSearching = true);
 
     try {
-      // まず searchId の完全一致を試す
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('searchId', isEqualTo: query)
-          .limit(5)
-          .get();
-
+      final users = FirebaseFirestore.instance.collection('users');
       List<Map<String, dynamic>> results = [];
       final addedUids = <String>{};
-      for (final doc in snap.docs) {
-        if (doc.id == _currentUser?.uid) continue;
-        final data = doc.data();
-        data['uid'] = doc.id;
-        results.add(data);
-        addedUids.add(doc.id);
+
+      void addDocs(Iterable<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+        for (final doc in docs) {
+          if (doc.id == _currentUser?.uid) continue;
+          if (addedUids.contains(doc.id)) continue;
+          final data = doc.data();
+          data['uid'] = doc.id;
+          results.add(data);
+          addedUids.add(doc.id);
+        }
       }
 
-      // 完全一致がない場合、ID・ニックネームで部分一致検索
-      if (results.isEmpty) {
-        final allSnap = await FirebaseFirestore.instance
-            .collection('users')
-            .limit(500)
-            .get();
+      // ① 完全一致（従来の searchId ＋ 正規化ID）
+      final exactSnaps = await Future.wait([
+        users.where('searchId', isEqualTo: query).limit(5).get(),
+        if (qNorm.isNotEmpty) users.where('searchIdNorm', isEqualTo: qNorm).limit(5).get(),
+      ]);
+      for (final s in exactSnaps) {
+        addDocs(s.docs);
+      }
+
+      // ② 正規化フィールドの前置一致（インデックスで引くのでユーザー数が増えてもOK）
+      if (qNorm.isNotEmpty) {
+        final prefixEnd = '$qNorm\uf8ff';
+        final prefixSnaps = await Future.wait([
+          users
+              .where('nicknameNorm', isGreaterThanOrEqualTo: qNorm)
+              .where('nicknameNorm', isLessThan: prefixEnd)
+              .limit(20)
+              .get(),
+          users
+              .where('searchIdNorm', isGreaterThanOrEqualTo: qNorm)
+              .where('searchIdNorm', isLessThan: prefixEnd)
+              .limit(20)
+              .get(),
+        ]);
+        for (final s in prefixSnaps) {
+          addDocs(s.docs);
+        }
+      }
+
+      // ③ ヒットが少なければ、あいまい一致（部分一致＋編集距離1）にフォールバック。
+      //    正規化フィールド未設定の旧データもここで拾える。
+      if (qNorm.isNotEmpty && results.length < 5) {
+        final allSnap = await users.limit(500).get();
         // 公式アカウントは limit で漏れないよう必ず検索対象に含める
-        final officialSnap = await FirebaseFirestore.instance
-            .collection('users')
-            .where('isOfficial', isEqualTo: true)
-            .get();
-        final lowerQuery = query.toLowerCase();
+        final officialSnap = await users.where('isOfficial', isEqualTo: true).get();
         for (final doc in [...allSnap.docs, ...officialSnap.docs]) {
           if (doc.id == _currentUser?.uid) continue;
           if (addedUids.contains(doc.id)) continue;
           final data = doc.data();
-          final sid = (data['searchId'] ?? '').toString().toLowerCase();
-          final nick = (data['nickname'] ?? '').toString().toLowerCase();
-          if (sid.contains(lowerQuery) ||
-              nick.contains(lowerQuery)) {
+          final sid = normalizeForSearch((data['searchId'] ?? '').toString());
+          final nick = normalizeForSearch((data['nickname'] ?? '').toString());
+          final hit = sid.contains(qNorm) ||
+              nick.contains(qNorm) ||
+              isEditDistanceLe1(sid, qNorm) ||
+              isEditDistanceLe1(nick, qNorm) ||
+              (nick.length > qNorm.length && isEditDistanceLe1(nick.substring(0, qNorm.length), qNorm));
+          if (hit) {
             data['uid'] = doc.id;
             results.add(data);
             addedUids.add(doc.id);
