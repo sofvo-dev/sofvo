@@ -5471,7 +5471,7 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
 //     ・カテゴリ内にメディアが直置きの場合（例 リール/）… 各ファイル = 1投稿
 //   放出順（cadence）:
 //     ・"A" スロットは poolA のカテゴリ、"B" スロットは poolB のカテゴリから出す
-//     ・既定 cadence = [A,A,B,B] → 通常2件 → 実機/リール2件 → 繰り返し
+//     ・既定 cadence = [A,A,B] → 通常2件 → 実機/リール1件 → 繰り返し
 //     ・その回のスロットのプールが空になったら「投稿を止める」（index も進めない）
 //   重複防止: 投稿ドキュメントの driveSourceId（サブフォルダ or ファイルのID）で照合。
 //     ※ フォルダの移動はしない（ドライブ側の構成をそのまま保つ）。
@@ -5483,7 +5483,7 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
 //     officialUid (string)   … 投稿者にする公式アカウントのUID（既定: 下記定数）
 //     poolA       (string[]) … "A" スロットのカテゴリ名（既定: ["通常"]）
 //     poolB       (string[]) … "B" スロットのカテゴリ名（既定: ["実機","リール"]）
-//     cadence     (string[]) … 放出パターン（既定: ["A","A","B","B"]）
+//     cadence     (string[]) … 放出パターン（既定: ["A","A","B"]）
 //     idleMinutes (number)   … 直近この分数以内に更新されたメディアはアップロード中とみなし見送る（既定: 10）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const DRIVE_OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983"; // isOfficial:true の公式アカウント
@@ -5507,7 +5507,7 @@ async function getDriveSyncConfig() {
     officialUid: d.officialUid || DRIVE_OFFICIAL_UID,
     poolA: Array.isArray(d.poolA) && d.poolA.length ? d.poolA : ["通常"],
     poolB: Array.isArray(d.poolB) && d.poolB.length ? d.poolB : ["実機", "リール"],
-    cadence: Array.isArray(d.cadence) && d.cadence.length ? d.cadence : ["A", "A", "B", "B"],
+    cadence: Array.isArray(d.cadence) && d.cadence.length ? d.cadence : ["A", "A", "B"],
     idleMinutes: typeof d.idleMinutes === "number" ? d.idleMinutes : 10,
   };
 }
