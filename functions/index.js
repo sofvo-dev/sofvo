@@ -2393,6 +2393,60 @@ exports.onPostCommentDeleted = functions.firestore
   });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ユーザー検索用の正規化フィールド（nicknameNorm / searchIdNorm）
+// lib/utils/search_normalize.dart と同一仕様。変更時は必ず両方を揃えること。
+// 変換順: 全角英数記号→半角 → カタカナ→ひらがな → 空白除去 → 小文字化
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function normalizeForSearch(s) {
+  if (!s) return "";
+  let out = String(s)
+    .replace(/[！-～]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+    .replace(/[\s　]/g, "");
+  return out.toLowerCase();
+}
+
+// users/{uid} が書かれるたびに正規化フィールドを自動維持する。
+// どの画面・経路から nickname / searchId を更新しても漏れない。
+// （値が変わらなければ再書き込みしないので無限ループしない）
+exports.syncUserSearchNorm = functions.firestore
+  .document("users/{uid}")
+  .onWrite(async (change) => {
+    if (!change.after.exists) return null;
+    const data = change.after.data() || {};
+    const nicknameNorm = normalizeForSearch(data.nickname || "");
+    const searchIdNorm = normalizeForSearch(data.searchId || "");
+    if (data.nicknameNorm === nicknameNorm && data.searchIdNorm === searchIdNorm) return null;
+    return change.after.ref.update({ nicknameNorm, searchIdNorm });
+  });
+
+// 既存ユーザーへの一括バックフィル（デプロイ後に1回叩く。何度でも安全）
+exports.backfillSearchNorm = functions.https.onRequest(async (req, res) => {
+  const db = admin.firestore();
+  const snap = await db.collection("users").get();
+  let updated = 0;
+  let batch = db.batch();
+  let n = 0;
+  for (const doc of snap.docs) {
+    const d = doc.data() || {};
+    const nicknameNorm = normalizeForSearch(d.nickname || "");
+    const searchIdNorm = normalizeForSearch(d.searchId || "");
+    if (d.nicknameNorm !== nicknameNorm || d.searchIdNorm !== searchIdNorm) {
+      batch.update(doc.ref, { nicknameNorm, searchIdNorm });
+      updated++;
+      n++;
+      if (n >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        n = 0;
+      }
+    }
+  }
+  if (n > 0) await batch.commit();
+  res.json({ message: `Backfilled ${updated} users`, total: snap.size });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会タイムラインいいね数の自動更新
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.onTimelineLikeCreated = functions.firestore

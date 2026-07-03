@@ -15,6 +15,7 @@ import '../../config/app_theme.dart';
 import '../../utils/tournament_status.dart';
 import '../../services/follow_service.dart';
 import '../../services/invite_service.dart';
+import '../../utils/search_normalize.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
@@ -2671,6 +2672,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       if (uid != null) {
         final updateData = <String, dynamic>{
           'nickname': _nicknameCtrl.text.trim(),
+          'nicknameNorm': normalizeForSearch(_nicknameCtrl.text.trim()),
           'bio': _bioCtrl.text.trim(),
           'experience': _selectedExperience,
           'area': _selectedArea,
@@ -2688,6 +2690,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         // ユーザーIDは初回のみ設定可
         if (!_isIdLocked) {
           updateData['searchId'] = newId;
+          updateData['searchIdNorm'] = normalizeForSearch(newId);
         }
 
         final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
