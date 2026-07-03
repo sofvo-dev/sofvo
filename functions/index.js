@@ -5686,3 +5686,66 @@ exports.runDrivePostNow = functions
       res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
     }
   });
+
+// 確認専用（投稿しない）: サービスアカウントから見たドライブの構造を返す。
+// フォルダ共有・Drive API・格納ルールの切り分けに使う。
+exports.driveSyncStatus = functions
+  .runWith({ timeoutSeconds: 120, memory: "512MB" })
+  .https.onRequest(async (req, res) => {
+    try {
+      const cfg = await getDriveSyncConfig();
+      if (!cfg.folderId) {
+        res.status(200).json({ ok: false, reason: "no folderId configured", config: cfg });
+        return;
+      }
+
+      const idleCutoff = Date.now() - cfg.idleMinutes * 60 * 1000;
+      const IMAGE_RE = /^image\//;
+      const VIDEO_RE = /^video\//;
+
+      const subfolders = (
+        await driveListChildren(cfg.folderId, " and mimeType='application/vnd.google-apps.folder'")
+      ).filter((f) => f.name !== cfg.postedFolderName);
+
+      const db = admin.firestore();
+      const folders = [];
+      for (const folder of subfolders) {
+        const files = await driveListChildren(folder.id);
+        const media = files.filter((f) => IMAGE_RE.test(f.mimeType) || VIDEO_RE.test(f.mimeType));
+        const other = files.filter((f) => !IMAGE_RE.test(f.mimeType) && !VIDEO_RE.test(f.mimeType));
+        const uploading = media.some(
+          (f) => f.modifiedTime && new Date(f.modifiedTime).getTime() > idleCutoff,
+        );
+        const dup = await db.collection("posts").where("sourceFolderId", "==", folder.id).limit(1).get();
+        folders.push({
+          name: folder.name,
+          images: media.filter((f) => IMAGE_RE.test(f.mimeType)).length,
+          videos: media.filter((f) => VIDEO_RE.test(f.mimeType)).length,
+          files: media.map((f) => f.name),
+          ignoredFiles: other.map((f) => f.name),
+          ready: media.length > 0 && !uploading && dup.empty,
+          note: dup.empty
+            ? uploading
+              ? "アップロード中とみなし今回は見送り"
+              : media.length === 0
+                ? "メディアなし（スキップ）"
+                : "投稿可能"
+            : "投稿済み（重複防止でスキップ）",
+        });
+      }
+
+      // 名前順（＝放出順）で並べる
+      folders.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+
+      res.status(200).json({
+        ok: true,
+        folderId: cfg.folderId,
+        queueCount: folders.length,
+        nextToPost: folders.find((f) => f.ready)?.name || null,
+        folders,
+      });
+    } catch (e) {
+      functions.logger.error("driveSyncStatus error:", e);
+      res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+    }
+  });
