@@ -279,7 +279,17 @@
     .ds-num.k{color:#6aa9e6;}
     .ds-num.a{color:#ff7b7b;}
     .ds-dash{color:#5b6677;font-weight:700;font-size:18px;flex:0 0 auto;}
-    .ds-slide{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid rgba(255,255,255,.16);border-radius:999px;padding:11px;font-size:12.5px;font-weight:700;color:#aeb9c8;}
+    /* 「スライドしてセット確認」: 実機と同じく指でスライドできるスライダー */
+    .ds-slide{position:relative;margin-top:14px;height:46px;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,.16);border-radius:999px;font-size:12.5px;font-weight:700;color:#aeb9c8;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab;transition:border-color .4s ease,color .4s ease;}
+    .ds-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(53,208,160,.15);pointer-events:none;}
+    .ds-knob{position:absolute;left:3px;top:50%;margin-top:-19px;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#dcc584,var(--accent));color:var(--primary);font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.4);will-change:transform;}
+    .ds-slide.snap .ds-knob{transition:transform .4s cubic-bezier(.16,1,.3,1);}
+    .ds-slide.snap .ds-fill{transition:width .4s cubic-bezier(.16,1,.3,1);}
+    .ds-slide.confirmed{border-color:rgba(53,208,160,.55);color:#35d0a0;cursor:default;}
+    .ds-slide.confirmed .ds-knob{background:#35d0a0;color:#06281d;}
+    /* スコアが入り終わったら、ノブが小さく動いて“スライドできる”ことを知らせる */
+    @keyframes dsNudge{0%,100%{transform:translateX(0);}50%{transform:translateX(10px);}}
+    .demo-phone.ready .ds-slide:not(.confirmed):not(.drag) .ds-knob{animation:dsNudge 1.5s ease-in-out .5s infinite;}
     .demo-phone.done .ds-card{border-color:#35d0a0;box-shadow:0 0 0 1px rgba(53,208,160,.4) inset;}
     .demo-phone.done .ds-confirm{opacity:1;}
     .demo-hint{text-align:center;font-size:12px;color:var(--text-sec);margin-top:16px;}
@@ -303,7 +313,43 @@
     .demo-how-list b{font-size:14px;color:var(--primary);font-weight:800;}
     .demo-how-list p{font-size:12.5px;color:var(--text-sec);line-height:1.6;margin:0;}
     .demo-how-note{text-align:center;font-size:11px;color:var(--text-sec);margin-top:10px;}
-    @media(prefers-reduced-motion:reduce){.hero-duo figure{animation:none!important;}.demo-phone{transform:none!important;}}
+    /* ===== 対戦表デモ: ボタンを押すと対戦表が自動生成される実機 =====
+       実機の対戦表画面（app-bracket.jpg）に合わせたライト配色（背景白・ネイビーのヘッダー） */
+    .demo-screen.bd-screen{background:#F6F7F9;color:var(--text);padding:0 0 14px;}
+    .bd-head{display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;font-size:12.5px;font-weight:700;padding:12px 14px;}
+    .bd-head .bd-back,.bd-head .bd-flag{opacity:.85;font-size:15px;flex:0 0 auto;}
+    .bd-head .bd-title{flex:1;text-align:center;}
+    .bd-tabs{display:flex;background:#fff;border-bottom:1.5px solid #ECECEC;padding:0 8px;margin-bottom:12px;}
+    .bd-tab{flex:1;text-align:center;font-size:10.5px;font-weight:700;color:#9aa3ad;padding:9px 0 7px;border-bottom:2px solid transparent;}
+    .bd-tab.on{color:var(--primary);border-bottom-color:var(--primary);}
+    .bd-body{padding:0 12px;}
+    .bd-sub{font-size:10.5px;font-weight:700;color:#8a94a0;margin-bottom:6px;}
+    .bd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+    .bd-chip{font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff;border:1px solid #DDE3EA;color:var(--primary);}
+    .bd-stage{position:relative;min-height:252px;}
+    .bd-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;border:1.5px dashed #CBD3DD;border-radius:16px;padding:18px 12px;text-align:center;transition:opacity .3s ease,transform .3s ease;}
+    .bd-empty p{font-size:11.5px;color:#8a94a0;line-height:1.7;}
+    .bd-empty.hide{opacity:0;transform:scale(.97);pointer-events:none;}
+    .bd-gen{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#dcc584,var(--accent));color:var(--primary);font-weight:800;font-size:13.5px;padding:12px 22px;border-radius:999px;box-shadow:0 8px 22px rgba(196,169,98,.35);animation:bdPulse 2.2s ease-in-out infinite;transition:transform .15s ease;}
+    .bd-gen:active{transform:scale(.95);}
+    .bd-gen[disabled]{animation:none;opacity:.75;cursor:default;}
+    @keyframes bdPulse{0%,100%{box-shadow:0 8px 22px rgba(196,169,98,.35);transform:none;}50%{box-shadow:0 10px 30px rgba(196,169,98,.6);transform:translateY(-2px);}}
+    .bd-list{display:grid;gap:7px;}
+    .bd-round{font-size:10.5px;font-weight:800;color:var(--primary);letter-spacing:.04em;margin-top:3px;}
+    .bd-match{display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid #E7EAEF;border-radius:12px;padding:9px 10px;box-shadow:0 2px 8px rgba(27,58,92,.05);}
+    .js .bd-list>*{opacity:0;transform:translateY(16px) scale(.97);}
+    .js .bd-list>.in{opacity:1;transform:none;transition:opacity .45s ease,transform .55s cubic-bezier(.16,1,.3,1);}
+    .bd-court{flex:0 0 auto;font-size:9.5px;font-weight:800;color:var(--primary);background:var(--accent);border-radius:6px;padding:2px 7px;}
+    .bd-teams{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:11.5px;font-weight:700;min-width:0;}
+    .bd-teams .t1{color:#22344A;}
+    .bd-teams .t2{color:#D64545;}
+    .bd-teams .vs{color:#9aa3ad;font-size:9px;font-weight:700;background:#F0F2F5;border-radius:5px;padding:2px 5px;}
+    .bd-done{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;opacity:0;transition:opacity .5s ease;}
+    .bd-done.in{opacity:1;}
+    .bd-done .ok{font-size:11.5px;font-weight:800;color:#1FA57C;white-space:nowrap;}
+    .bd-redo{appearance:none;-webkit-appearance:none;border:1.5px solid #D5DBE3;background:#fff;color:#55606d;font-family:inherit;font-weight:700;font-size:11px;padding:6px 13px;border-radius:999px;cursor:pointer;transition:transform .15s ease;white-space:nowrap;flex:0 0 auto;}
+    .bd-redo:active{transform:scale(.95);}
+    @media(prefers-reduced-motion:reduce){.hero-duo figure{animation:none!important;}.demo-phone{transform:none!important;}.bd-gen{animation:none!important;}.ds-knob{animation:none!important;}.js .bd-list>*{opacity:1!important;transform:none!important;transition:none!important;}}
   </style>
   <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -339,12 +385,45 @@
     </div>
   </section>
 
-  <!-- ライブデモ: スクロール（スワイプ）でスコアが自動入力される実機 -->
+  <!-- ライブデモ: ボタンを押すと対戦表が自動生成される実機 -->
+  <section class="livedemo">
+    <div class="wrap reveal">
+      <div class="accent-line"></div>
+      <h2 class="sec-title">対戦表は、ボタンひとつ</h2>
+      <p class="sec-sub"><span class="nb">タップしてみてください。</span><span class="nb">組み合わせも試合順も、自動で。</span></p>
+      <div class="demo-stage">
+        <div class="phone demo-phone">
+          <div class="demo-screen bd-screen">
+            <div class="bd-head"><span class="bd-back">‹</span><span class="bd-title">予選リーグ</span><span class="bd-flag">⚑</span></div>
+            <div class="bd-tabs"><span class="bd-tab">概要</span><span class="bd-tab on">対戦表</span><span class="bd-tab">順位表</span><span class="bd-tab">チーム</span></div>
+            <div class="bd-body">
+              <div class="bd-sub">参加チーム（4）</div>
+              <div class="bd-chips"><span class="bd-chip">チームA</span><span class="bd-chip">チームB</span><span class="bd-chip">チームC</span><span class="bd-chip">チームD</span></div>
+              <div class="bd-stage">
+                <div class="bd-empty" id="bdEmpty">
+                  <p><span class="nb">まだ対戦表がありません。</span><br><span class="nb">ボタンひとつで自動作成できます。</span></p>
+                  <button class="bd-gen" id="bdGen" type="button">⚡ 対戦表を自動生成</button>
+                </div>
+                <div class="bd-list" id="bdList" aria-live="polite"></div>
+              </div>
+              <div class="bd-done" id="bdDone">
+                <span class="ok">✓ 6試合を自動生成</span>
+                <button class="bd-redo" id="bdRedo" type="button">↻ もう一度</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="demo-hint"><span class="nb">実際のアプリも、この速さで完成。</span><span class="nb">リーグ戦・トーナメントに対応しています</span></p>
+    </div>
+  </section>
+
+  <!-- ライブデモ: 画面に入るとスコアが自動入力される実機 -->
   <section class="livedemo">
     <div class="wrap reveal">
       <div class="accent-line"></div>
       <h2 class="sec-title">スコアは、入れるだけ</h2>
-      <p class="sec-sub">スクロールしてみてください。点数も順位も、自動で。</p>
+      <p class="sec-sub"><span class="nb">見ていてください。</span><span class="nb">点数も順位も、自動で。</span></p>
       <div class="demo-stage">
         <div class="phone demo-phone" id="demoPhone">
           <div class="demo-screen">
@@ -358,11 +437,15 @@
                 <div class="ds-box"><span class="ds-bteam ta">サンプルチームA</span><span class="ds-num a" data-final="10">0</span></div>
               </div>
             </div>
-            <div class="ds-slide">✓ スライドしてセット確認 ›</div>
+            <div class="ds-slide" id="dsSlide">
+              <span class="ds-fill"></span>
+              <span class="ds-slide-txt">スライドしてセット確認</span>
+              <span class="ds-knob">›</span>
+            </div>
           </div>
         </div>
       </div>
-      <p class="demo-hint">指でスワイプすると、その場で集計されます</p>
+      <p class="demo-hint"><span class="nb">点数が入ったら、実際のアプリと同じように</span><span class="nb">ノブをスライドしてセット確認してみてください</span></p>
 
       <div class="demo-how">
         <h3 class="demo-how-title">デモの使い方（ログイン不要・3ステップ）</h3>
@@ -555,34 +638,141 @@
         });
       },500);});
 
-      // ライブデモ: スクロール位置に連動してスコアが自動入力される（指のスワイプで数字がせり上がる）
+      // ライブデモ: 画面に半分入ったら自動でスコアがカウントアップ再生される
+      //（以前はスクロール量に連動させていたため「スワイプし続けないと動かない・遅い」→ 時間ベースの自動再生に変更）
       var demo=document.getElementById('demoPhone');
       if(demo){
         var nums=[].slice.call(demo.querySelectorAll('[data-final]'));
-        var bar=demo.querySelector('.ds-prog i');
         var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
-        function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;} // easeInOutQuad
-        var ticking=false;
-        function paint(){
-          ticking=false;
-          var r=demo.getBoundingClientRect();
-          var vh=window.innerHeight||document.documentElement.clientHeight;
-          var center=r.top+r.height/2;
-          // 画面下92%に入った時点を0、38%（ほぼ中央）で1になるよう進捗を算出
-          var p=(0.92*vh-center)/((0.92-0.38)*vh);
-          p=Math.max(0,Math.min(1,p));
+        function ease(t){return 1-Math.pow(1-t,3);} // easeOutCubic: すぐ動き出して気持ちよく減速
+        function setP(p){
           var e=ease(p);
-          nums.forEach(function(el){
-            el.textContent=Math.round((+el.getAttribute('data-final'))*e);
-          });
-          if(bar)bar.style.width=(e*100)+'%';
-          if(!reduce)demo.style.transform='rotateX('+((0.5-p)*7).toFixed(2)+'deg)';
-          demo.classList.toggle('done',p>=0.999);
+          nums.forEach(function(el){el.textContent=Math.round((+el.getAttribute('data-final'))*e);});
+          if(!reduce)demo.style.transform='rotateX('+((1-e)*6).toFixed(2)+'deg)';
         }
-        function onScroll(){if(!ticking){ticking=true;requestAnimationFrame(paint);}}
-        window.addEventListener('scroll',onScroll,{passive:true});
-        window.addEventListener('resize',onScroll);
-        paint();
+
+        // 「スライドしてセット確認」: 実機と同じくノブをスライドして確定する
+        var slide=document.getElementById('dsSlide');
+        var knob=slide.querySelector('.ds-knob');
+        var fillEl=slide.querySelector('.ds-fill');
+        var slideTxt=slide.querySelector('.ds-slide-txt');
+        var sConfirmed=false,sDragging=false,sStart=0,sPos=0,sMax=0;
+        function slideMax(){return slide.clientWidth-knob.offsetWidth-6;}
+        function setX(x){
+          knob.style.transform='translateX('+x+'px)';
+          fillEl.style.width=x>0?(x+knob.offsetWidth+3)+'px':'0px';
+        }
+        function sConfirm(){
+          sConfirmed=true;sPos=slideMax();
+          slide.classList.add('snap','confirmed');slide.classList.remove('drag');
+          setX(sPos);
+          knob.textContent='✓';slideTxt.textContent='セット確認済み';
+          demo.classList.add('done');demo.classList.remove('ready');
+        }
+        function sReset(){
+          sConfirmed=false;sDragging=false;sPos=0;
+          slide.classList.remove('confirmed','drag');slide.classList.add('snap');
+          knob.textContent='›';slideTxt.textContent='スライドしてセット確認';
+          setX(0);
+        }
+        knob.addEventListener('pointerdown',function(ev){
+          if(sConfirmed)return;
+          sDragging=true;sStart=ev.clientX-sPos;sMax=slideMax();
+          slide.classList.remove('snap');slide.classList.add('drag');
+          if(knob.setPointerCapture)knob.setPointerCapture(ev.pointerId);
+        });
+        knob.addEventListener('pointermove',function(ev){
+          if(!sDragging)return;
+          sPos=Math.max(0,Math.min(sMax,ev.clientX-sStart));
+          setX(sPos);
+        });
+        function endDrag(){
+          if(!sDragging)return;
+          sDragging=false;
+          if(sPos>=sMax*0.8){sConfirm();}
+          else{sPos=0;slide.classList.add('snap');slide.classList.remove('drag');setX(0);}
+        }
+        knob.addEventListener('pointerup',endDrag);
+        knob.addEventListener('pointercancel',endDrag);
+
+        if(reduce){
+          setP(1);sConfirm(); // アニメ抑制時は完成形をそのまま表示
+        }else{
+          var playing=false,played=false,raf=0,timer=0;
+          function play(){
+            if(playing||played)return;
+            playing=true;played=true;
+            var t0=performance.now(),dur=1300;
+            function frame(now){
+              var p=Math.min(1,(now-t0)/dur);
+              setP(p);
+              if(p<1){raf=requestAnimationFrame(frame);}
+              else{playing=false;if(!sConfirmed)demo.classList.add('ready');} // ノブを動かして“スライドできる”を知らせる
+            }
+            raf=requestAnimationFrame(frame);
+          }
+          setP(0);
+          var demoIO=new IntersectionObserver(function(es){
+            es.forEach(function(en){
+              if(en.intersectionRatio>=0.5){
+                clearTimeout(timer);timer=setTimeout(play,200);
+              }else if(!en.isIntersecting){
+                // 完全に画面外へ出たらリセット → 再入場でもう一度再生
+                clearTimeout(timer);cancelAnimationFrame(raf);
+                playing=false;played=false;setP(0);
+                demo.classList.remove('ready','done');
+                sReset();
+              }
+            });
+          },{threshold:[0,0.5]});
+          demoIO.observe(demo);
+        }
+      }
+
+      // 対戦表デモ: 「対戦表を自動生成」を押すと組み合わせがカスケード表示される
+      var bEmpty=document.getElementById('bdEmpty');
+      if(bEmpty){
+        var bList=document.getElementById('bdList');
+        var bDone=document.getElementById('bdDone');
+        var bGen=document.getElementById('bdGen');
+        var bRedo=document.getElementById('bdRedo');
+        var bBusy=false;
+        function buildRows(){
+          var t=['チームA','チームB','チームC','チームD'];
+          for(var i=t.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=t[i];t[i]=t[j];t[j]=tmp;}
+          // 4チーム総当たり: 3試合 × 2コート（毎回シャッフルして組み合わせが変わる）
+          var rounds=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]];
+          var frag=document.createDocumentFragment();
+          rounds.forEach(function(rd,ri){
+            var h=document.createElement('div');h.className='bd-round';h.textContent='第'+(ri+1)+'試合';frag.appendChild(h);
+            rd.forEach(function(pair,ci){
+              var m=document.createElement('div');m.className='bd-match';
+              m.innerHTML='<span class="bd-court">'+(ci?'B':'A')+'コート</span><span class="bd-teams"><span class="t1">'+t[pair[0]]+'</span><span class="vs">vs</span><span class="t2">'+t[pair[1]]+'</span></span>';
+              frag.appendChild(m);
+            });
+          });
+          bList.innerHTML='';
+          bList.appendChild(frag);
+        }
+        function generate(){
+          if(bBusy)return;bBusy=true;
+          bDone.classList.remove('in');
+          bGen.disabled=true;bGen.textContent='生成中…';
+          bEmpty.classList.add('hide');
+          buildRows();
+          var rows=[].slice.call(bList.children);
+          setTimeout(function(){
+            rows.forEach(function(el,i){setTimeout(function(){el.classList.add('in');},i*95);});
+            setTimeout(function(){bDone.classList.add('in');bBusy=false;},rows.length*95+350);
+          },420);
+        }
+        bGen.addEventListener('click',generate);
+        bRedo.addEventListener('click',function(){
+          if(bBusy)return;
+          bDone.classList.remove('in');
+          bList.innerHTML='';
+          generate();
+        });
       }
     })();
   </script>

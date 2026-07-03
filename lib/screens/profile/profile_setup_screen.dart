@@ -6,6 +6,8 @@ import '../../config/app_theme.dart';
 import '../../main.dart' show pendingReferrerUserId, pendingInviteCode;
 import '../../services/notification_service.dart';
 import '../../services/invite_service.dart';
+import '../../services/follow_service.dart';
+import '../../utils/search_normalize.dart';
 import '../onboarding/onboarding_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -169,11 +171,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await userRef.set({
         'uid': user.uid,
         'nickname': nickname,
+        'nicknameNorm': normalizeForSearch(nickname),
         'bio': bio,
         'avatarUrl': '',
         'area': _selectedPrefecture,
         'experience': _selectedExperience,
         'searchId': searchId,
+        'searchIdNorm': normalizeForSearch(searchId),
         'totalPoints': 0,
         'seasonPoints': 0,
         'title': 'ビギナー',
@@ -205,6 +209,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'birthDate': Timestamp.fromDate(_birthDate!),
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // 公式アカウントを自動フォロー（登録直後からホームに公式投稿が並ぶように）
+      await FollowService.instance.ensureOfficialFollow(myUid: user.uid, myNickname: nickname);
 
       // 友達紹介リンクからの登録 → 自動相互フォロー
       if (pendingReferrerUserId != null && pendingReferrerUserId != user.uid) {
@@ -658,7 +665,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  '友達やチームから招待された方は入力してください（任意）',
+                  '友達やチームから招待された方は入力してください（任意・あとからマイページでも入力できます）',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 8),

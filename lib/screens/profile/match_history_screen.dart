@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../utils/entry_membership.dart';
 
 /// 対戦ヒストリー画面
 class MatchHistoryScreen extends StatelessWidget {
@@ -75,14 +76,17 @@ class MatchHistoryScreen extends StatelessWidget {
           .collection('tournaments')
           .doc(tDoc.id)
           .collection('entries')
-          .where('enteredBy', isEqualTo: uid)
           .get();
+      final myEntries = entriesForUser(entries, uid);
 
-      if (entries.docs.isEmpty && tData['organizerId'] != uid) continue;
+      if (myEntries.isEmpty && tData['organizerId'] != uid) continue;
 
-      // ユーザーのチームIDを取得
-      final myTeamIds = entries.docs
-          .map((e) => (e.data()['teamId'] ?? '') as String)
+      // ユーザーのチームIDを取得（teamId が無い古いエントリーは doc.id を使う）
+      final myTeamIds = myEntries
+          .map((e) {
+            final tid = (e.data()['teamId'] ?? '') as String;
+            return tid.isNotEmpty ? tid : e.id;
+          })
           .where((id) => id.isNotEmpty)
           .toSet();
 
