@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../config/app_theme.dart';
+import 'find_friends_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -73,11 +74,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _finish() {
-    // pushAndRemoveUntilではなくpopUntilを使用する。
-    // AuthGateがウィジェットツリーに残っている必要があるため、
-    // ルートまで戻る。AuthGateのStreamBuilderがprofileCompleted==trueを
-    // 検知してMainTabScreenを表示する。
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    // 説明の最後に「仲間を見つけよう」画面へ。
+    // pushReplacement で本画面を差し替え、FindFriendsScreen 側の popUntil で
+    // ルート（AuthGate）まで戻る。AuthGateがウィジェットツリーに残っている
+    // 必要があるため pushAndRemoveUntil は使わない。
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const FindFriendsScreen()),
+    );
   }
 
   void _onPageChanged(int index) {

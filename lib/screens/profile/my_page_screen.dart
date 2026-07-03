@@ -14,6 +14,7 @@ import '../../widgets/official_badge.dart';
 import '../../config/app_theme.dart';
 import '../../utils/tournament_status.dart';
 import '../../services/follow_service.dart';
+import '../../services/invite_service.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
@@ -792,6 +793,22 @@ class MyPageScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 8),
+                            // 招待コードの後入力（登録時に入れ忘れた・追加でもらった場合の受け皿）
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showInviteCodeInputDialog(context),
+                                icon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                                label: const Text('招待コードを入力', style: TextStyle(fontSize: 14)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.4)),
+                                  minimumSize: const Size(double.infinity, 40),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
@@ -898,6 +915,95 @@ class MyPageScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // ── 招待コードの後入力（登録時の入れ忘れ・追加引き換え用） ──
+  Future<void> _showInviteCodeInputDialog(BuildContext context) async {
+    final codeCtrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('招待コードを入力', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('友達・チーム・大会の招待コードを引き換えられます。',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                hintText: '例: A2K7PQ',
+                filled: true,
+                fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, codeCtrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('引き換える', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (code == null || code.isEmpty) return;
+
+    try {
+      final result = await InviteService.redeemInvite(code);
+      if (!context.mounted) return;
+
+      final referrerName = (result['referrerName'] ?? '') as String? ?? '';
+      final teamName = (result['teamName'] ?? '') as String? ?? '';
+      final tournamentId = (result['tournamentId'] ?? '') as String? ?? '';
+      final requestedTeam = result['requestedTeam'] == true;
+      final joinedTeam = result['joinedTeam'] == true;
+
+      final messages = <String>[];
+      if (referrerName.isNotEmpty) messages.add('$referrerNameさんと友達になりました');
+      if (teamName.isNotEmpty) {
+        if (requestedTeam) {
+          messages.add('チーム「$teamName」に参加リクエストを送りました（承認待ち）');
+        } else if (joinedTeam) {
+          messages.add('チーム「$teamName」に参加しました');
+        }
+      }
+      if (messages.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${messages.join(' / ')}！'), backgroundColor: AppTheme.success),
+        );
+      }
+
+      // 大会招待なら大会詳細へ
+      if (tournamentId.isNotEmpty) {
+        final doc = await FirebaseFirestore.instance.collection('tournaments').doc(tournamentId).get();
+        if (doc.exists && context.mounted) {
+          final data = doc.data()!;
+          data['id'] = doc.id;
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data)));
+        }
+      }
+    } catch (e) {
+      debugPrint('招待コードの引き換えに失敗: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('招待コードが無効か、期限切れの可能性があります'), backgroundColor: AppTheme.warning),
+        );
+      }
+    }
   }
 
   // ── メニューカード（カード型メニュー項目） ──
