@@ -6,6 +6,7 @@ import '../../config/app_theme.dart';
 import '../../main.dart' show pendingReferrerUserId, pendingInviteCode;
 import '../../services/notification_service.dart';
 import '../../services/invite_service.dart';
+import '../../services/follow_service.dart';
 import '../../utils/search_normalize.dart';
 import '../onboarding/onboarding_screen.dart';
 
@@ -208,6 +209,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         'birthDate': Timestamp.fromDate(_birthDate!),
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // 公式アカウントを自動フォロー（登録直後からホームに公式投稿が並ぶように）
+      await FollowService.instance.ensureOfficialFollow(myUid: user.uid, myNickname: nickname);
 
       // 友達紹介リンクからの登録 → 自動相互フォロー
       if (pendingReferrerUserId != null && pendingReferrerUserId != user.uid) {

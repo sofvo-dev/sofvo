@@ -82,6 +82,46 @@ class FollowService extends ChangeNotifier {
     // snapshots() リスナーが自動で _followingIds を更新 → notifyListeners()
   }
 
+  /// 公式アカウント（isOfficial==true）を自動フォローする。
+  /// 登録時・起動時に呼ぶ。`officialAutoFollowed` フラグで「一度だけ」に限定し、
+  /// ユーザーが後から公式を自分でフォロー解除した場合に再フォローしないようにする。
+  /// 相手（公式）を一方向にフォローするだけ（公式が全員をフォローし返すことはない）。
+  Future<void> ensureOfficialFollow({required String myUid, String? myNickname}) async {
+    if (myUid.isEmpty) return;
+    try {
+      final meRef = _firestore.collection('users').doc(myUid);
+      final meDoc = await meRef.get();
+      if (meDoc.data()?['officialAutoFollowed'] == true) return; // 実行済み
+
+      final officials =
+          await _firestore.collection('users').where('isOfficial', isEqualTo: true).get();
+      for (final doc in officials.docs) {
+        final officialUid = doc.id;
+        if (officialUid == myUid) continue;
+        final already = await meRef.collection('following').doc(officialUid).get();
+        if (already.exists) continue;
+        final officialName = (doc.data()['nickname'] ?? '').toString();
+        await meRef.collection('following').doc(officialUid).set({
+          'nickname': officialName,
+          'avatarUrl': (doc.data()['avatarUrl'] ?? '').toString(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        await _firestore
+            .collection('users')
+            .doc(officialUid)
+            .collection('followers')
+            .doc(myUid)
+            .set({
+          'nickname': myNickname ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+        }).catchError((_) {});
+      }
+      await meRef.update({'officialAutoFollowed': true}).catchError((_) {});
+    } catch (e) {
+      debugPrint('公式アカウントの自動フォローに失敗: $e');
+    }
+  }
+
   /// 特定ユーザーのフォロー/フォロワー数をリアルタイムで取得するストリーム
   Stream<int> followingCountStream(String uid) {
     return _firestore

@@ -684,6 +684,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           BookmarkNotificationService.checkAndNotify(_currentUser!.uid);
           PushNotificationService.initialize();
+          // 既存ユーザーも公式アカウントを一度だけ自動フォロー（ホームを空にしない）
+          FollowService.instance.ensureOfficialFollow(myUid: _currentUser!.uid);
         });
 
         // アプリ更新チェック
