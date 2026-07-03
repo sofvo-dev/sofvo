@@ -5614,27 +5614,8 @@ async function driveSelectNextUnit(cfg, db) {
   return { slot, postIndex, category: null, unit: null };
 }
 
-// 1回分: cadence に従って次の1件を投稿する処理本体
-async function processOneDrivePost() {
-  const cfg = await getDriveSyncConfig();
-  if (!cfg.enabled) return { skipped: "disabled" };
-  if (!cfg.folderId) return { skipped: "no folderId configured (config/driveInstagramSync)" };
-
-  const db = admin.firestore();
-
-  const officialDoc = await db.collection("users").doc(cfg.officialUid).get();
-  if (!officialDoc.exists) return { error: `official user not found: ${cfg.officialUid}` };
-  const official = officialDoc.data();
-
-  const sel = await driveSelectNextUnit(cfg, db);
-  if (!sel.unit) {
-    // このスロットのプールが空 → 投稿を止める（index も進めない）
-    return { skipped: `pool for slot ${sel.slot} is empty → stop`, slot: sel.slot, postIndex: sel.postIndex };
-  }
-
-  const { unit, category, slot, postIndex } = sel;
-
-  // メディアを Storage へコピー（ファイル名の昇順＝表示順を保持）
+// 投稿単位を Storage へコピーして posts ドキュメントを作成する（postIndex は触らない）
+async function drivePublishUnit(cfg, official, db, unit, category) {
   const media = [];
   const images = [];
   const videos = [];
@@ -5670,18 +5651,77 @@ async function processOneDrivePost() {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
+  return { postId: postRef.id, mediaCount: media.length };
+}
+
+// 指定カテゴリから「未投稿かつアップロード完了済み」の最初の単位を返す（cadence 無視）
+async function driveNextUnitInCategory(cfg, db, categoryName) {
+  const idleCutoff = Date.now() - cfg.idleMinutes * 60 * 1000;
+  const rootCats = await driveListChildren(cfg.folderId, ` and mimeType='${DRIVE_FOLDER_MIME}'`);
+  const cat = rootCats.find((c) => c.name === categoryName);
+  if (!cat) return null;
+  const stubs = await getCategoryUnitStubs(cat.id);
+  for (const stub of stubs) {
+    const dup = await db.collection("posts").where("driveSourceId", "==", stub.id).limit(1).get();
+    if (!dup.empty) continue;
+    const mediaFiles = await resolveUnitMedia(stub);
+    if (mediaFiles.length === 0) continue;
+    const uploading = mediaFiles.some(
+      (f) => f.modifiedTime && new Date(f.modifiedTime).getTime() > idleCutoff,
+    );
+    if (uploading) continue;
+    return { id: stub.id, name: stub.name, mediaFiles };
+  }
+  return null;
+}
+
+// 1回分: cadence に従って次の1件を投稿する処理本体
+async function processOneDrivePost() {
+  const cfg = await getDriveSyncConfig();
+  if (!cfg.enabled) return { skipped: "disabled" };
+  if (!cfg.folderId) return { skipped: "no folderId configured (config/driveInstagramSync)" };
+
+  const db = admin.firestore();
+  const officialDoc = await db.collection("users").doc(cfg.officialUid).get();
+  if (!officialDoc.exists) return { error: `official user not found: ${cfg.officialUid}` };
+  const official = officialDoc.data();
+
+  const sel = await driveSelectNextUnit(cfg, db);
+  if (!sel.unit) {
+    // このスロットのプールが空 → 投稿を止める（index も進めない）
+    return { skipped: `pool for slot ${sel.slot} is empty → stop`, slot: sel.slot, postIndex: sel.postIndex };
+  }
+
+  const pub = await drivePublishUnit(cfg, official, db, sel.unit, sel.category);
+
   await db.collection("config").doc("driveInstagramSyncState").set(
     {
-      postIndex: postIndex + 1,
-      lastSlot: slot,
-      lastCategory: category,
-      lastUnit: unit.name,
+      postIndex: sel.postIndex + 1,
+      lastSlot: sel.slot,
+      lastCategory: sel.category,
+      lastUnit: sel.unit.name,
       lastPostedAt: admin.firestore.FieldValue.serverTimestamp(),
     },
     { merge: true },
   );
 
-  return { posted: postRef.id, slot, category, unit: unit.name, mediaCount: media.length, postIndex: postIndex + 1 };
+  return { posted: pub.postId, slot: sel.slot, category: sel.category, unit: sel.unit.name, mediaCount: pub.mediaCount, postIndex: sel.postIndex + 1 };
+}
+
+// テスト用: 指定カテゴリから1件だけ強制投稿する（cadence/postIndex には影響しない）
+async function forceOneDrivePost(categoryName) {
+  const cfg = await getDriveSyncConfig();
+  if (!cfg.folderId) return { skipped: "no folderId configured" };
+  const db = admin.firestore();
+  const officialDoc = await db.collection("users").doc(cfg.officialUid).get();
+  if (!officialDoc.exists) return { error: `official user not found: ${cfg.officialUid}` };
+  const official = officialDoc.data();
+
+  const unit = await driveNextUnitInCategory(cfg, db, categoryName);
+  if (!unit) return { skipped: `no ready unposted unit in category '${categoryName}'` };
+
+  const pub = await drivePublishUnit(cfg, official, db, unit, categoryName);
+  return { posted: pub.postId, category: categoryName, unit: unit.name, mediaCount: pub.mediaCount, forced: true };
 }
 
 // 定期実行: 既定は月・水・金 12:00 JST に1件ずつ放出
@@ -5699,12 +5739,14 @@ exports.publishDriveScheduledPost = functions
     return null;
   });
 
-// 手動実行/動作確認用（Drive権限・設定・投稿の確認に使う）。1回叩くと次の1件を即投稿。
+// 手動実行/動作確認用。1回叩くと次の1件を即投稿（cadence どおり）。
+// ?category=リール のように指定すると、そのカテゴリから1件だけ強制投稿（テスト用・cadenceを乱さない）。
 exports.runDrivePostNow = functions
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
   .https.onRequest(async (req, res) => {
     try {
-      const result = await processOneDrivePost();
+      const category = (req.query.category || "").toString().trim();
+      const result = category ? await forceOneDrivePost(category) : await processOneDrivePost();
       res.status(200).json({ ok: true, result });
     } catch (e) {
       functions.logger.error("runDrivePostNow error:", e);
