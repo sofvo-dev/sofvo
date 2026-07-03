@@ -390,9 +390,10 @@ class _LiquidCapsule extends StatelessWidget {
   Widget build(BuildContext context) {
     final fill = DecoratedBox(
       decoration: BoxDecoration(
-        // 無色のガラス。輪郭が分かる程度のごく薄いグレーのみ。
-        // 移動中も濃くしない（下のアイコンが透けて見えるのがレンズの命）
-        color: Colors.black.withValues(alpha: 0.06),
+        // 静止時: 輪郭が分かる程度のごく薄いグレー。
+        // 移動中はフェードアウトして完全に無色のガラスにする
+        // （グレーを残すと泡全体が灰色がかって見える）
+        color: Colors.black.withValues(alpha: 0.06 * (1 - glass)),
         borderRadius: BorderRadius.circular(25),
       ),
       // 上面の白い反射（ガラスの照り）— ごく控えめ。強くすると霧の玉になる
@@ -428,14 +429,8 @@ class _LiquidCapsule extends StatelessWidget {
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
-        boxShadow: [
-          // 移動中だけ足元に影が出て「浮いた水滴」になる
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16 * glass),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        // 影は付けない: 半透明の泡は影が中身から透けて全体が
+        // 灰色がかって見えるため（輪郭は縁の白いハイライトが担う）
       ),
       child: Padding(
         // 縁の線の太さ（グラデーションが見える幅）
