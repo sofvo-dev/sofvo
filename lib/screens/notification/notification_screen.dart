@@ -175,13 +175,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
       final callable = FirebaseFunctions.instance.httpsCallable('respondEntryInvite');
       final res = await callable.call({'tournamentId': tournamentId, 'draftId': draftId, 'approve': approve});
       final finalized = (res.data as Map)['finalized'] == true;
+      final memberAdd = (res.data as Map)['memberAdd'] == true;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(!approve
             ? '招待を辞退しました'
-            : finalized
-                ? 'エントリーが成立しました！'
-                : '承認しました。他のメンバーの承認を待っています'),
+            : memberAdd
+                ? 'チームに参加しました！'
+                : finalized
+                    ? 'エントリーが成立しました！'
+                    : '承認しました。他のメンバーの承認を待っています'),
         backgroundColor: approve ? AppTheme.success : AppTheme.textSecondary,
       ));
     } catch (e) {
