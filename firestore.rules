@@ -353,6 +353,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // ━━━ シークレット（Instagram アクセストークン等） ━━━
+    // 機密情報。読み書きは Cloud Functions（admin 権限）のみ。クライアント不可。
+    match /secrets/{docId} {
+      allow read, write: if false;
+    }
+
     // ━━━ 景品カテゴリ ━━━
     match /prizeCategories/{categoryId} {
       allow read: if isAuthenticated();
