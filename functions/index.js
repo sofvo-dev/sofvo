@@ -5459,27 +5459,44 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Google Drive → タイムライン 定期自動投稿
-//   「1投稿=1フォルダ」を Drive に溜めておくと、設定したペース(既定: 月水金12時JST)で
-//   フォルダ名の古い順に1件ずつ、公式アカウント名義で posts に自動投稿し、
-//   投稿済みフォルダを「投稿済み/」へ移動する（＝二重投稿防止）。
+// Google Drive → タイムライン 定期自動投稿（カテゴリ×交互ローテーション）
+//   Drive を「親フォルダ → カテゴリ → 投稿」の3階層で構成し、設定したペース
+//   (既定: 月水金12時JST) で1件ずつ、公式アカウント名義で posts に自動投稿する。
 //   認証は Sheets 連携と同じ getAccessToken()（Functions既定サービスアカウント）を流用。
-//   → 投稿用フォルダをそのサービスアカウントに「編集者」で共有しておくこと。
+//   → 親フォルダをそのサービスアカウントに「閲覧者」以上で共有しておくこと。
 //
-//   設定は Firestore の config/driveInstagramSync ドキュメントで管理:
-//     enabled          (bool)   … false で停止（既定: true）
-//     folderId         (string) … 投稿用の親フォルダID（必須。未設定なら何もしない）
-//     officialUid      (string) … 投稿者にする公式アカウントのUID（既定: 下記定数）
-//     postedFolderName (string) … 投稿済みの移動先フォルダ名（既定: "投稿済み"）
-//     idleMinutes      (number) … 直近この分数以内に更新されたフォルダはアップロード中とみなし見送る（既定: 10）
+//   投稿の単位:
+//     ・カテゴリ内にサブフォルダがある場合（例 通常/・実機/）… 各サブフォルダ = 1投稿
+//       （フォルダ内の複数メディアはファイル名昇順でスワイプ表示）
+//     ・カテゴリ内にメディアが直置きの場合（例 リール/）… 各ファイル = 1投稿
+//   放出順（cadence）:
+//     ・"A" スロットは poolA のカテゴリ、"B" スロットは poolB のカテゴリから出す
+//     ・既定 cadence = [A,A,B,B] → 通常2件 → 実機/リール2件 → 繰り返し
+//     ・その回のスロットのプールが空になったら「投稿を止める」（index も進めない）
+//   重複防止: 投稿ドキュメントの driveSourceId（サブフォルダ or ファイルのID）で照合。
+//     ※ フォルダの移動はしない（ドライブ側の構成をそのまま保つ）。
+//   状態: config/driveInstagramSyncState.postIndex（投稿成功ごとに +1、cadence の位置決定に使用）。
+//
+//   設定は Firestore の config/driveInstagramSync ドキュメントで上書き可:
+//     enabled     (bool)     … false で停止（既定: true）
+//     folderId    (string)   … 親フォルダID（既定: 下記定数）
+//     officialUid (string)   … 投稿者にする公式アカウントのUID（既定: 下記定数）
+//     poolA       (string[]) … "A" スロットのカテゴリ名（既定: ["通常"]）
+//     poolB       (string[]) … "B" スロットのカテゴリ名（既定: ["実機","リール"]）
+//     cadence     (string[]) … 放出パターン（既定: ["A","A","B","B"]）
+//     idleMinutes (number)   … 直近この分数以内に更新されたメディアはアップロード中とみなし見送る（既定: 10）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const DRIVE_OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983"; // isOfficial:true の公式アカウント
 // admin.initializeApp() は storageBucket 未指定のため、明示的にバケット名を指定する
 // （既定推論だと *.appspot.com になり、実バケット *.firebasestorage.app と不一致になる）
 const DRIVE_STORAGE_BUCKET = "sofvo-19d84.firebasestorage.app";
-// 投稿用の親フォルダIDの既定値（Firestore config/driveInstagramSync.folderId があればそちらが優先）
-// → このフォルダを DRIVE_OFFICIAL_UID… ではなく上記サービスアカウントに「編集者」で共有しておくこと
+// 親フォルダIDの既定値（Firestore config/driveInstagramSync.folderId があればそちらが優先）
 const DRIVE_SYNC_FOLDER_ID_FALLBACK = "1vIVinzikBTY-p6qEfbhqxjcpFqPkiSED";
+const DRIVE_FOLDER_MIME = "application/vnd.google-apps.folder";
+const isFolderMime = (m) => m === DRIVE_FOLDER_MIME;
+const isVideoMime = (m) => /^video\//.test(m || "");
+const isImageMime = (m) => /^image\//.test(m || "");
+const isMediaMime = (m) => isImageMime(m) || isVideoMime(m);
 
 async function getDriveSyncConfig() {
   const snap = await admin.firestore().collection("config").doc("driveInstagramSync").get();
@@ -5488,7 +5505,9 @@ async function getDriveSyncConfig() {
     enabled: d.enabled !== false,
     folderId: (d.folderId || DRIVE_SYNC_FOLDER_ID_FALLBACK || "").trim(),
     officialUid: d.officialUid || DRIVE_OFFICIAL_UID,
-    postedFolderName: d.postedFolderName || "投稿済み",
+    poolA: Array.isArray(d.poolA) && d.poolA.length ? d.poolA : ["通常"],
+    poolB: Array.isArray(d.poolB) && d.poolB.length ? d.poolB : ["実機", "リール"],
+    cadence: Array.isArray(d.cadence) && d.cadence.length ? d.cadence : ["A", "A", "B", "B"],
     idleMinutes: typeof d.idleMinutes === "number" ? d.idleMinutes : 10,
   };
 }
@@ -5528,32 +5547,6 @@ async function driveDownload(fileId) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-async function driveFindOrCreateFolder(parentId, name) {
-  const escaped = name.replace(/'/g, "\\'");
-  const existing = await driveListChildren(
-    parentId,
-    ` and mimeType='application/vnd.google-apps.folder' and name='${escaped}'`,
-  );
-  if (existing.length > 0) return existing[0].id;
-  const res = await driveFetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
-  });
-  const data = await res.json();
-  return data.id;
-}
-
-async function driveMoveFolder(folderId, addParentId, removeParentId) {
-  const params = new URLSearchParams({
-    addParents: addParentId,
-    removeParents: removeParentId,
-    supportsAllDrives: "true",
-    fields: "id,parents",
-  });
-  await driveFetch(`https://www.googleapis.com/drive/v3/files/${folderId}?${params.toString()}`, { method: "PATCH" });
-}
-
 // バッファを Storage に保存し Firebase 形式のダウンロードURLを返す
 async function uploadBufferToStorage(buffer, storagePath, contentType) {
   const bucket = admin.storage().bucket(DRIVE_STORAGE_BUCKET);
@@ -5569,7 +5562,59 @@ async function uploadBufferToStorage(buffer, storagePath, contentType) {
   return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`;
 }
 
-// キュー先頭(投稿可能)のフォルダを1件だけ投稿する処理本体
+// カテゴリ内の「投稿単位」の見出し一覧を名前順で返す（メディア本体はまだ取らない）
+//   サブフォルダがある → 各サブフォルダが1投稿(kind:folder)
+//   直下にメディアがある → 各ファイルが1投稿(kind:file)
+async function getCategoryUnitStubs(categoryId) {
+  const children = await driveListChildren(categoryId);
+  const subfolders = children.filter((f) => isFolderMime(f.mimeType));
+  if (subfolders.length > 0) {
+    return subfolders.map((f) => ({ id: f.id, name: f.name, kind: "folder" }));
+  }
+  return children
+    .filter((f) => isMediaMime(f.mimeType))
+    .map((f) => ({ id: f.id, name: f.name, kind: "file", file: f }));
+}
+
+// 投稿単位のメディアファイル一覧（ファイル名昇順）を解決する
+async function resolveUnitMedia(stub) {
+  if (stub.kind === "file") return [stub.file];
+  const files = await driveListChildren(stub.id);
+  return files.filter((f) => isMediaMime(f.mimeType));
+}
+
+// 次に投稿すべき単位を選ぶ（投稿はしない）。cadence の現在スロットのプールから、
+// 名前順で「未投稿かつアップロード完了済み」の最初の単位を返す。無ければ unit:null。
+async function driveSelectNextUnit(cfg, db) {
+  const idleCutoff = Date.now() - cfg.idleMinutes * 60 * 1000;
+  const stateSnap = await db.collection("config").doc("driveInstagramSyncState").get();
+  const postIndex = stateSnap.exists ? stateSnap.data().postIndex || 0 : 0;
+  const slot = cfg.cadence[postIndex % cfg.cadence.length];
+  const categoryNames = slot === "A" ? cfg.poolA : cfg.poolB;
+
+  const rootCats = (
+    await driveListChildren(cfg.folderId, ` and mimeType='${DRIVE_FOLDER_MIME}'`)
+  );
+  for (const catName of categoryNames) {
+    const cat = rootCats.find((c) => c.name === catName);
+    if (!cat) continue;
+    const stubs = await getCategoryUnitStubs(cat.id);
+    for (const stub of stubs) {
+      const dup = await db.collection("posts").where("driveSourceId", "==", stub.id).limit(1).get();
+      if (!dup.empty) continue;
+      const mediaFiles = await resolveUnitMedia(stub);
+      if (mediaFiles.length === 0) continue;
+      const uploading = mediaFiles.some(
+        (f) => f.modifiedTime && new Date(f.modifiedTime).getTime() > idleCutoff,
+      );
+      if (uploading) continue;
+      return { slot, postIndex, category: catName, unit: { id: stub.id, name: stub.name, mediaFiles } };
+    }
+  }
+  return { slot, postIndex, category: null, unit: null };
+}
+
+// 1回分: cadence に従って次の1件を投稿する処理本体
 async function processOneDrivePost() {
   const cfg = await getDriveSyncConfig();
   if (!cfg.enabled) return { skipped: "disabled" };
@@ -5581,82 +5626,62 @@ async function processOneDrivePost() {
   if (!officialDoc.exists) return { error: `official user not found: ${cfg.officialUid}` };
   const official = officialDoc.data();
 
-  // 親フォルダ直下のサブフォルダ（＝投稿候補）を名前順で取得（投稿済みフォルダは除外）
-  const subfolders = (
-    await driveListChildren(cfg.folderId, " and mimeType='application/vnd.google-apps.folder'")
-  ).filter((f) => f.name !== cfg.postedFolderName);
-
-  if (subfolders.length === 0) return { skipped: "no folders in queue" };
-
-  const idleCutoff = Date.now() - cfg.idleMinutes * 60 * 1000;
-  const IMAGE_RE = /^image\//;
-  const VIDEO_RE = /^video\//;
-
-  for (const folder of subfolders) {
-    // 移動失敗などで既に投稿済みのフォルダは念のためスキップ
-    const dup = await db.collection("posts").where("sourceFolderId", "==", folder.id).limit(1).get();
-    if (!dup.empty) continue;
-
-    const files = await driveListChildren(folder.id);
-    const mediaFiles = files.filter((f) => IMAGE_RE.test(f.mimeType) || VIDEO_RE.test(f.mimeType));
-    if (mediaFiles.length === 0) continue; // メディアなしフォルダはスキップ
-
-    // アップロード途中の可能性: 直近更新されたファイルがあれば今回は見送り、次の候補へ
-    const stillUploading = mediaFiles.some(
-      (f) => f.modifiedTime && new Date(f.modifiedTime).getTime() > idleCutoff,
-    );
-    if (stillUploading) continue;
-
-    // メディアを Storage へコピー（ファイル名の昇順＝表示順を保持）
-    const media = [];
-    const images = [];
-    const videos = [];
-    let idx = 0;
-    for (const f of mediaFiles) {
-      const buffer = await driveDownload(f.id);
-      const isVideo = VIDEO_RE.test(f.mimeType);
-      const safeName = (f.name || `file${idx}`).replace(/[^\w.\-]/g, "_");
-      const storagePath = `post_images/${cfg.officialUid}/${folder.id}_${String(idx).padStart(2, "0")}_${safeName}`;
-      const url = await uploadBufferToStorage(buffer, storagePath, f.mimeType);
-      media.push({ type: isVideo ? "video" : "image", url });
-      if (isVideo) videos.push(url);
-      else images.push(url);
-      idx++;
-    }
-
-    const postRef = await db.collection("posts").add({
-      userId: cfg.officialUid,
-      userNickname: official.nickname || "Sofvo公式",
-      userAvatarUrl: official.avatarUrl || "",
-      text: "",
-      images, // 画像URLのみ（旧アプリ・他リーダーとの後方互換）
-      videos, // 動画URLのみ
-      media, // 表示順を保持した [{type, url}]（新アプリはこれを優先描画）
-      likesCount: 0,
-      commentsCount: 0,
-      autoGenerated: false,
-      source: "driveInstagram",
-      sourceFolderId: folder.id,
-      sourceFolderName: folder.name,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // フォルダを「投稿済み」へ移動（キューから除外）
-    try {
-      const postedId = await driveFindOrCreateFolder(cfg.folderId, cfg.postedFolderName);
-      await driveMoveFolder(folder.id, postedId, cfg.folderId);
-    } catch (e) {
-      functions.logger.error(
-        `Drive move failed for folder ${folder.id} (post ${postRef.id} already created):`,
-        e,
-      );
-    }
-
-    return { posted: postRef.id, folder: folder.name, mediaCount: media.length };
+  const sel = await driveSelectNextUnit(cfg, db);
+  if (!sel.unit) {
+    // このスロットのプールが空 → 投稿を止める（index も進めない）
+    return { skipped: `pool for slot ${sel.slot} is empty → stop`, slot: sel.slot, postIndex: sel.postIndex };
   }
 
-  return { skipped: "no ready folder (all uploading or without media)" };
+  const { unit, category, slot, postIndex } = sel;
+
+  // メディアを Storage へコピー（ファイル名の昇順＝表示順を保持）
+  const media = [];
+  const images = [];
+  const videos = [];
+  let idx = 0;
+  for (const f of unit.mediaFiles) {
+    const buffer = await driveDownload(f.id);
+    const isVideo = isVideoMime(f.mimeType);
+    const safeName = (f.name || `file${idx}`).replace(/[^\w.\-]/g, "_");
+    const storagePath = `post_images/${cfg.officialUid}/${unit.id}_${String(idx).padStart(2, "0")}_${safeName}`;
+    const url = await uploadBufferToStorage(buffer, storagePath, f.mimeType);
+    media.push({ type: isVideo ? "video" : "image", url });
+    if (isVideo) videos.push(url);
+    else images.push(url);
+    idx++;
+  }
+
+  const postRef = await db.collection("posts").add({
+    userId: cfg.officialUid,
+    userNickname: official.nickname || "Sofvo公式",
+    userAvatarUrl: official.avatarUrl || "",
+    text: "",
+    images, // 画像URLのみ（旧アプリ・他リーダーとの後方互換）
+    videos, // 動画URLのみ
+    media, // 表示順を保持した [{type, url}]（新アプリはこれを優先描画）
+    likesCount: 0,
+    commentsCount: 0,
+    autoGenerated: false,
+    source: "driveInstagram",
+    driveCategory: category,
+    driveSourceId: unit.id, // サブフォルダ or ファイルのID（重複防止の照合キー）
+    sourceName: unit.name,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  await db.collection("config").doc("driveInstagramSyncState").set(
+    {
+      postIndex: postIndex + 1,
+      lastSlot: slot,
+      lastCategory: category,
+      lastUnit: unit.name,
+      lastPostedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return { posted: postRef.id, slot, category, unit: unit.name, mediaCount: media.length, postIndex: postIndex + 1 };
 }
 
 // 定期実行: 既定は月・水・金 12:00 JST に1件ずつ放出
@@ -5687,8 +5712,8 @@ exports.runDrivePostNow = functions
     }
   });
 
-// 確認専用（投稿しない）: サービスアカウントから見たドライブの構造を返す。
-// フォルダ共有・Drive API・格納ルールの切り分けに使う。
+// 確認専用（投稿しない）: サービスアカウントから見たドライブの構造・カテゴリ別の
+// 投稿済み/残り件数・cadence の現在位置・次に投稿される単位を返す。
 exports.driveSyncStatus = functions
   .runWith({ timeoutSeconds: 120, memory: "512MB" })
   .https.onRequest(async (req, res) => {
@@ -5699,50 +5724,55 @@ exports.driveSyncStatus = functions
         return;
       }
 
-      const idleCutoff = Date.now() - cfg.idleMinutes * 60 * 1000;
-      const IMAGE_RE = /^image\//;
-      const VIDEO_RE = /^video\//;
-
-      const subfolders = (
-        await driveListChildren(cfg.folderId, " and mimeType='application/vnd.google-apps.folder'")
-      ).filter((f) => f.name !== cfg.postedFolderName);
-
       const db = admin.firestore();
-      const folders = [];
-      for (const folder of subfolders) {
-        const files = await driveListChildren(folder.id);
-        const media = files.filter((f) => IMAGE_RE.test(f.mimeType) || VIDEO_RE.test(f.mimeType));
-        const other = files.filter((f) => !IMAGE_RE.test(f.mimeType) && !VIDEO_RE.test(f.mimeType));
-        const uploading = media.some(
-          (f) => f.modifiedTime && new Date(f.modifiedTime).getTime() > idleCutoff,
-        );
-        const dup = await db.collection("posts").where("sourceFolderId", "==", folder.id).limit(1).get();
-        folders.push({
-          name: folder.name,
-          images: media.filter((f) => IMAGE_RE.test(f.mimeType)).length,
-          videos: media.filter((f) => VIDEO_RE.test(f.mimeType)).length,
-          files: media.map((f) => f.name),
-          ignoredFiles: other.map((f) => f.name),
-          ready: media.length > 0 && !uploading && dup.empty,
-          note: dup.empty
-            ? uploading
-              ? "アップロード中とみなし今回は見送り"
-              : media.length === 0
-                ? "メディアなし（スキップ）"
-                : "投稿可能"
-            : "投稿済み（重複防止でスキップ）",
+      const rootCats = await driveListChildren(cfg.folderId, ` and mimeType='${DRIVE_FOLDER_MIME}'`);
+      const allCategoryNames = [...cfg.poolA, ...cfg.poolB];
+
+      const categories = [];
+      for (const catName of allCategoryNames) {
+        const pool = cfg.poolA.includes(catName) ? "A" : "B";
+        const cat = rootCats.find((c) => c.name === catName);
+        if (!cat) {
+          categories.push({ name: catName, pool, exists: false });
+          continue;
+        }
+        const stubs = await getCategoryUnitStubs(cat.id);
+        let posted = 0;
+        const pendingNames = [];
+        for (const s of stubs) {
+          const dup = await db.collection("posts").where("driveSourceId", "==", s.id).limit(1).get();
+          if (dup.empty) pendingNames.push(s.name);
+          else posted++;
+        }
+        categories.push({
+          name: catName,
+          pool,
+          unit: stubs.length ? (stubs[0].kind === "file" ? "ファイル=1投稿" : "フォルダ=1投稿") : "空",
+          total: stubs.length,
+          posted,
+          pending: pendingNames.length,
+          pendingNames: pendingNames.slice(0, 60),
         });
       }
 
-      // 名前順（＝放出順）で並べる
-      folders.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      const sel = await driveSelectNextUnit(cfg, db);
+      const next = sel.unit
+        ? { slot: sel.slot, category: sel.category, unit: sel.unit.name, mediaCount: sel.unit.mediaFiles.length }
+        : { slot: sel.slot, category: null, note: "このスロットのプールは空 → 停止" };
+
+      const stateSnap = await db.collection("config").doc("driveInstagramSyncState").get();
+      const postIndex = stateSnap.exists ? stateSnap.data().postIndex || 0 : 0;
 
       res.status(200).json({
         ok: true,
         folderId: cfg.folderId,
-        queueCount: folders.length,
-        nextToPost: folders.find((f) => f.ready)?.name || null,
-        folders,
+        cadence: cfg.cadence,
+        poolA: cfg.poolA,
+        poolB: cfg.poolB,
+        postIndex,
+        currentSlot: cfg.cadence[postIndex % cfg.cadence.length],
+        next,
+        categories,
       });
     } catch (e) {
       functions.logger.error("driveSyncStatus error:", e);
