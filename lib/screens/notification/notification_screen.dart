@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../config/app_theme.dart';
 import '../../services/notification_service.dart';
 import '../../services/push_notification_service.dart';
@@ -116,6 +117,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final type = data['type'] ?? '';
     final senderId = data['senderId'] as String?;
 
+    // 大会エントリーの招待 → 承認 / 辞退ダイアログ
+    if (type == 'entry_invite') {
+      await _showEntryInviteDialog(data);
+      return;
+    }
+
     // フォロー通知 → ユーザープロフィールへ遷移
     if (type == 'follow' && senderId != null && senderId.isNotEmpty) {
       Navigator.push(
@@ -125,6 +132,65 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
       );
       return;
+    }
+  }
+
+  Future<void> _showEntryInviteDialog(Map<String, dynamic> data) async {
+    final tournamentId = (data['tournamentId'] ?? '').toString();
+    final draftId = (data['draftId'] ?? '').toString();
+    final teamName = (data['teamName'] ?? '').toString();
+    final tournamentName = (data['tournamentName'] ?? '').toString();
+    final senderName = (data['senderName'] ?? '').toString();
+    if (tournamentId.isEmpty || draftId.isEmpty) return;
+
+    final approve = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('大会エントリーへの招待', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$senderName さんから、大会「$tournamentName」のチーム「$teamName」に招待されています。'),
+            const SizedBox(height: 10),
+            const Text('参加を承認しますか？ 全員の承認でエントリーが成立します。',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('辞退する', style: TextStyle(color: AppTheme.error))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('承認する', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (approve == null) return;
+
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('respondEntryInvite');
+      final res = await callable.call({'tournamentId': tournamentId, 'draftId': draftId, 'approve': approve});
+      final finalized = (res.data as Map)['finalized'] == true;
+      final memberAdd = (res.data as Map)['memberAdd'] == true;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(!approve
+            ? '招待を辞退しました'
+            : memberAdd
+                ? 'チームに参加しました！'
+                : finalized
+                    ? 'エントリーが成立しました！'
+                    : '承認しました。他のメンバーの承認を待っています'),
+        backgroundColor: approve ? AppTheme.success : AppTheme.textSecondary,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('処理に失敗しました。招待が取り消された可能性があります'), backgroundColor: AppTheme.error));
     }
   }
 
@@ -152,6 +218,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'follow':
         icon = Icons.person_add;
         iconColor = AppTheme.accentColor;
+        break;
+      case 'entry_invite':
+        icon = Icons.how_to_reg;
+        iconColor = AppTheme.primaryColor;
+        break;
+      case 'entry_confirmed':
+        icon = Icons.check_circle;
+        iconColor = AppTheme.success;
+        break;
+      case 'entry_declined':
+      case 'team_join_request':
+        icon = Icons.group_add;
+        iconColor = AppTheme.accentColor;
+        break;
+      case 'team_join_approved':
+        icon = Icons.verified;
+        iconColor = AppTheme.success;
         break;
       default:
         icon = Icons.notifications;

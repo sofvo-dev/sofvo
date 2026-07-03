@@ -91,8 +91,10 @@ service cloud.firestore {
       }
 
       // ポイント履歴
+      // read: プロフィールの大会結果に順位（優勝・準優勝・3位）を表示するため、
+      //       ログインユーザーなら他人の履歴も読める（ポイント・順位は元々公開情報）
       match /pointHistory/{historyId} {
-        allow read: if isOwner(userId);
+        allow read: if isAuthenticated();
         allow write: if isAuthenticated();
       }
 
@@ -135,6 +137,14 @@ service cloud.firestore {
       match /entries/{entryId} {
         allow read: if isAuthenticated();
         allow write: if isAuthenticated();
+      }
+
+      // エントリー承認待ち（ドラフト）。作成・承認・取消はすべて
+      // createEntryDraft / respondEntryInvite / cancelEntryDraft（admin権限）
+      // で行うため、クライアントは参照のみ可能。
+      match /entryDrafts/{draftId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
       }
 
       // 収支管理（経費・収入）— 主催者・編集者・管理者のみ
@@ -220,6 +230,14 @@ service cloud.firestore {
     // ※ 個別の作成・削除は /tournaments/{id}/photos/{photoId} 側のルールで制御する。
     match /{path=**}/photos/{photoId} {
       allow read: if isAuthenticated();
+    }
+
+    // ━━━ ガジェット（コレクショングループ：公式/管理者の全ユーザーガジェット閲覧用） ━━━
+    // 公式アカウント・管理者が全ユーザーのガジェットを横断的に閲覧できるようにする。
+    // ※ 通常の読み書きは /users/{userId}/gadgets 側のルールで制御する。
+    match /{path=**}/gadgets/{gadgetId} {
+      allow read: if isOfficialUser()
+        || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
     }
 
     // ━━━ チーム ━━━
@@ -333,6 +351,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ━━━ シークレット（Instagram アクセストークン等） ━━━
+    // 機密情報。読み書きは Cloud Functions（admin 権限）のみ。クライアント不可。
+    match /secrets/{docId} {
+      allow read, write: if false;
     }
 
     // ━━━ 景品カテゴリ ━━━

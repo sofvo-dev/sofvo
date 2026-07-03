@@ -14,10 +14,15 @@ import '../../widgets/official_badge.dart';
 import '../../config/app_theme.dart';
 import '../../utils/tournament_status.dart';
 import '../../services/follow_service.dart';
+import '../../services/invite_service.dart';
+import '../../utils/search_normalize.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../follow/follow_search_screen.dart';
 import '../tournament/venue_search_screen.dart';
 import '../tournament/prize_search_screen.dart';
+import '../gadget/all_gadgets_screen.dart';
+import '../../utils/entry_membership.dart';
+import '../../widgets/rank_badge.dart';
 import '../tournament/tournament_management_screen.dart';
 import '../notification/create_notice_screen.dart';
 import '../notification/notice_history_screen.dart';
@@ -628,6 +633,34 @@ class MyPageScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
+                    // ── 公式アカウント専用メニュー ──
+                    if (isOfficial) ...[
+                      _buildCardSection(
+                        context: context,
+                        title: '公式メニュー',
+                        icon: Icons.verified_rounded,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _buildMenuCard(
+                                  icon: Icons.devices_other_outlined,
+                                  title: 'みんなのガジェット',
+                                  subtitle: '全ユーザーの登録ガジェット',
+                                  color: Colors.blueGrey,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllGadgetsScreen())),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(child: SizedBox()),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
                     // ── みんなのツール（カード型） ──
                     _buildCardSection(
                       context: context,
@@ -761,14 +794,29 @@ class MyPageScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 8),
+                            // 招待コードの後入力（登録時に入れ忘れた・追加でもらった場合の受け皿）
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showInviteCodeInputDialog(context),
+                                icon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                                label: const Text('招待コードを入力', style: TextStyle(fontSize: 14)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.4)),
+                                  minimumSize: const Size(double.infinity, 40),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // ━━━ ランキング ※公式アカウントは非表示 ━━━
-                    if (!isOfficial)
+                    // ━━━ ランキング（公式アカウントも閲覧可能） ━━━
                     _buildCardSection(
                       context: context,
                       title: 'ランキング',
@@ -868,6 +916,95 @@ class MyPageScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // ── 招待コードの後入力（登録時の入れ忘れ・追加引き換え用） ──
+  Future<void> _showInviteCodeInputDialog(BuildContext context) async {
+    final codeCtrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('招待コードを入力', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('友達・チーム・大会の招待コードを引き換えられます。',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                hintText: '例: A2K7PQ',
+                filled: true,
+                fillColor: AppTheme.backgroundColor,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, codeCtrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('引き換える', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (code == null || code.isEmpty) return;
+
+    try {
+      final result = await InviteService.redeemInvite(code);
+      if (!context.mounted) return;
+
+      final referrerName = (result['referrerName'] ?? '') as String? ?? '';
+      final teamName = (result['teamName'] ?? '') as String? ?? '';
+      final tournamentId = (result['tournamentId'] ?? '') as String? ?? '';
+      final requestedTeam = result['requestedTeam'] == true;
+      final joinedTeam = result['joinedTeam'] == true;
+
+      final messages = <String>[];
+      if (referrerName.isNotEmpty) messages.add('$referrerNameさんと友達になりました');
+      if (teamName.isNotEmpty) {
+        if (requestedTeam) {
+          messages.add('チーム「$teamName」に参加リクエストを送りました（承認待ち）');
+        } else if (joinedTeam) {
+          messages.add('チーム「$teamName」に参加しました');
+        }
+      }
+      if (messages.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${messages.join(' / ')}！'), backgroundColor: AppTheme.success),
+        );
+      }
+
+      // 大会招待なら大会詳細へ
+      if (tournamentId.isNotEmpty) {
+        final doc = await FirebaseFirestore.instance.collection('tournaments').doc(tournamentId).get();
+        if (doc.exists && context.mounted) {
+          final data = doc.data()!;
+          data['id'] = doc.id;
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => TournamentDetailScreen(tournament: data)));
+        }
+      }
+    } catch (e) {
+      debugPrint('招待コードの引き換えに失敗: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('招待コードが無効か、期限切れの可能性があります'), backgroundColor: AppTheme.warning),
+        );
+      }
+    }
   }
 
   // ── メニューカード（カード型メニュー項目） ──
@@ -1225,10 +1362,8 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
           .collection('tournaments')
           .doc(doc.id)
           .collection('entries')
-          .where('enteredBy', isEqualTo: uid)
-          .limit(1)
           .get();
-      if (entries.docs.isNotEmpty) {
+      if (entriesForUser(entries, uid).isNotEmpty) {
         data['id'] = doc.id;
         resultMap[doc.id] = data;
       }
@@ -1237,6 +1372,21 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
     final result = resultMap.values.toList()
       ..sort((a, b) => ((b['date'] ?? '') as String).compareTo((a['date'] ?? '') as String));
     if (result.length > 10) result.removeRange(10, result.length);
+
+    // 順位（pointHistory の rank: 1〜3位）を紐付け。取れなくても一覧自体は表示する
+    try {
+      final ph = await firestore
+          .collection('users').doc(uid).collection('pointHistory').get();
+      final rankMap = <String, int>{};
+      for (final doc in ph.docs) {
+        final r = doc.data()['rank'];
+        if (r is num) rankMap[doc.id] = r.toInt();
+      }
+      for (final t in result) {
+        final r = rankMap[t['id']];
+        if (r != null) t['myRank'] = r;
+      }
+    } catch (_) {}
     return result;
   }
 
@@ -1279,7 +1429,6 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
               final title = (d['title'] ?? d['name'] ?? '大会') as String;
               final date = (d['date'] ?? '') as String;
               final location = (d['location'] ?? d['venue'] ?? '') as String;
-              final status = normalizeTournamentStatus(d['status'] ?? '', emptyAsPreparing: false);
               final type = (d['type'] ?? '') as String;
               final docId = d['id'] as String;
 
@@ -1299,20 +1448,12 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: status == '終了'
-                                  ? AppTheme.textSecondary.withValues(alpha: 0.1)
-                                  : AppTheme.primaryColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(status.isEmpty ? '終了' : status,
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                                    color: status == '終了' ? AppTheme.textSecondary : AppTheme.primaryColor)),
-                          ),
-                          if (type.isNotEmpty) ...[
+                          // 順位を先頭で目立たせる（終了チップは冗長のため廃止）
+                          if (d['myRank'] != null) ...[
+                            RankBadge(rank: d['myRank'] as int?),
                             const SizedBox(width: 4),
+                          ],
+                          if (type.isNotEmpty)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -1321,7 +1462,6 @@ class _TournamentCardsRowState extends State<_TournamentCardsRow> {
                               ),
                               child: Text(type, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.accentColor)),
                             ),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -2339,7 +2479,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ),
             const SizedBox(height: 16),
 
-            _buildSectionLabel('エリア（都道府県）'),
+            _buildSectionLabel('エリア（都道府県） *'),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -2352,7 +2492,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 value: _selectedArea.isEmpty ? null : _selectedArea,
                 isExpanded: true,
                 underline: const SizedBox(),
-                hint: const Text('未選択', style: TextStyle(color: AppTheme.textHint)),
+                hint: const Text('都道府県を選択', style: TextStyle(color: AppTheme.textHint)),
                 items: _areas
                     .map((a) =>
                         DropdownMenuItem(value: a, child: Text(a)))
@@ -2497,6 +2637,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           const SnackBar(content: Text('生年月日を選択してください'), backgroundColor: AppTheme.warning));
         return;
       }
+      if (_selectedArea.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('エリア（都道府県）を選択してください'), backgroundColor: AppTheme.warning));
+        return;
+      }
     }
 
     // ユーザーID重複チェック（新規設定時のみ）
@@ -2527,6 +2672,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       if (uid != null) {
         final updateData = <String, dynamic>{
           'nickname': _nicknameCtrl.text.trim(),
+          'nicknameNorm': normalizeForSearch(_nicknameCtrl.text.trim()),
           'bio': _bioCtrl.text.trim(),
           'experience': _selectedExperience,
           'area': _selectedArea,
@@ -2544,6 +2690,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         // ユーザーIDは初回のみ設定可
         if (!_isIdLocked) {
           updateData['searchId'] = newId;
+          updateData['searchIdNorm'] = normalizeForSearch(newId);
         }
 
         final userRef = FirebaseFirestore.instance.collection('users').doc(uid);

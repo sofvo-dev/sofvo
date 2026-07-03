@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/app_theme.dart';
@@ -30,6 +31,7 @@ import '../../services/match_generator.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/certified_badge.dart';
 import '../../widgets/invite_share_sheet.dart';
+import '../../widgets/follower_member_picker.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
 import 'package:printing/printing.dart';
@@ -514,6 +516,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       body: Column(
         children: [
           _buildHeader(t, status, statusColor),
+          _buildEntryDraftBanner(),
           if (!_isFollowing) _buildFollowBanner(),
           _buildTabBar(),
           Expanded(
@@ -805,11 +808,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               title: '獲得ポイント',
               titleIcon: Icons.star_rounded,
               child: Builder(builder: (context) {
-                final pointTable = PointService.getPointTable(liveMaxTeams);
+                // 実参加チーム数（currentTeams）基準。未エントリー時は募集枠で仮表示
+                final pointTable = PointService.getPointTable(
+                    PointService.effectiveTeamCount(
+                        currentTeams: liveCurrentTeams, maxTeams: liveMaxTeams));
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('この大会で獲得できるポイント',
+                    Text('この大会で獲得できるポイント（参加チーム数に応じて変動）',
                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     const SizedBox(height: 10),
                     _buildPointTableRow(Icons.military_tech, '優勝', '${pointTable['優勝']}pt', Colors.amber),
@@ -5820,75 +5826,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     // メンバー選択（フォロワーから）
                     const Text('メンバーを選択（フォロワーから）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _firestore.collection('users').doc(uid)
-                          .collection('following').snapshots(),
-                      builder: (context, followSnap) {
-                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                        final followings = followSnap.data!.docs;
-                        if (followings.isEmpty) {
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                            child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                          );
-                        }
-                        return FutureBuilder<List<DocumentSnapshot>>(
-                          future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
-                          builder: (context, userSnaps) {
-                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppTheme.primaryColor)));
-                            final activeIndexes = <int>[];
-                            for (int i = 0; i < followings.length; i++) {
-                              if (userSnaps.data![i].exists) activeIndexes.add(i);
-                            }
-                            if (activeIndexes.isEmpty) {
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                                child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                              );
-                            }
-                        return Container(
-                          constraints: const BoxConstraints(maxHeight: 250),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[200]!),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: activeIndexes.length,
-                            itemBuilder: (context, index) {
-                              final fDoc = followings[activeIndexes[index]];
-                              final userData = userSnaps.data![activeIndexes[index]].data() as Map<String, dynamic>? ?? {};
-                              final fUid = fDoc.id;
-                              final fName = userData['nickname'] ?? '名前なし';
-                              final fAvatar = userData['avatarUrl'] ?? '';
-                              final isSelected = selectedMembers.containsKey(fUid);
-
-                              return ListTile(
-                                leading: fAvatar.toString().isNotEmpty
-                                    ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
-                                    : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
-                                        child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?', style: TextStyle(color: AppTheme.primaryColor))),
-                                title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
-                                trailing: isSelected
-                                    ? const Icon(Icons.check_circle, color: AppTheme.primaryColor)
-                                    : Icon(Icons.circle_outlined, color: Colors.grey[400]),
-                                onTap: () {
-                                  setSheetState(() {
-                                    if (isSelected) {
-                                      selectedMembers.remove(fUid);
-                                    } else {
-                                      selectedMembers[fUid] = fName.toString();
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ),
-                        );
-                          },
-                        );
+                    FollowerMemberPicker(
+                      uid: uid,
+                      selectedMembers: selectedMembers,
+                      onToggle: (fUid, fName) {
+                        setSheetState(() {
+                          if (selectedMembers.containsKey(fUid)) {
+                            selectedMembers.remove(fUid);
+                          } else {
+                            selectedMembers[fUid] = fName;
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 8),
@@ -5921,46 +5869,39 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             return;
                           }
 
-                          // 同じ大会に同じ人がいないかチェック
-                          final newMemberUids = [uid, ...selectedMembers.keys];
-                          final allEntries = await _firestore
-                              .collection('tournaments').doc(_tournamentId)
-                              .collection('entries').get();
-                          final duplicates = <String>[];
-                          for (final doc in allEntries.docs) {
-                            if (doc.id == entryDocId) continue; // 自分のエントリーはスキップ
-                            final otherUids = List<String>.from((doc.data()['memberUids'] as List<dynamic>?) ?? []);
-                            for (final mUid in newMemberUids) {
-                              if (otherUids.contains(mUid)) {
-                                final name = selectedMembers[mUid] ?? (mUid == uid ? leaderName : mUid);
-                                final otherTeam = doc.data()['teamName'] ?? '';
-                                duplicates.add('$nameは「$otherTeam」に所属しています');
-                              }
+                          // 承認制：重複チェック・削除・追加メンバーへの招待は
+                          // サーバー側（updateEntryMembers）で行う。追加メンバーは
+                          // 本人が承認するまで本物のエントリーには入らない。
+                          try {
+                            final callable = FirebaseFunctions.instance.httpsCallable('updateEntryMembers');
+                            final res = await callable.call({
+                              'tournamentId': _tournamentId,
+                              'entryId': entryDocId,
+                              'teamName': teamName,
+                              'memberUids': selectedMembers.keys.toList(),
+                            });
+                            final added = ((res.data as Map)['added'] ?? 0) as int;
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(added > 0
+                                      ? 'エントリーを更新しました。追加した$added人には招待を送信し、承認するとメンバーに加わります'
+                                      : 'エントリーを更新しました'),
+                                  backgroundColor: AppTheme.success,
+                                ),
+                              );
                             }
-                          }
-                          if (duplicates.isNotEmpty) {
+                          } on FirebaseFunctionsException catch (e) {
                             if (!ctx.mounted) return;
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text(duplicates.first), backgroundColor: AppTheme.error),
+                              SnackBar(content: Text(e.message ?? '更新に失敗しました'), backgroundColor: AppTheme.error),
                             );
-                            return;
-                          }
-
-                          // エントリー更新
-                          final userDoc = await _firestore.collection('users').doc(uid).get();
-                          final updatedLeaderName = userDoc.data()?['nickname'] ?? leaderName;
-                          await _firestore.collection('tournaments').doc(_tournamentId)
-                              .collection('entries').doc(entryDocId).update({
-                            'teamName': teamName,
-                            'memberUids': newMemberUids,
-                            'memberNames': {uid: updatedLeaderName, ...selectedMembers},
-                            'leaderName': updatedLeaderName,
-                          });
-
-                          Navigator.pop(ctx);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('エントリーを更新しました'), backgroundColor: AppTheme.success),
+                          } catch (_) {
+                            if (!ctx.mounted) return;
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('更新に失敗しました'), backgroundColor: AppTheme.error),
                             );
                           }
                         },
@@ -6056,75 +5997,17 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     // メンバー選択（フォロワーから）
                     const Text('メンバーを選択（フォロワーから）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _firestore.collection('users').doc(uid)
-                          .collection('following').snapshots(),
-                      builder: (context, followSnap) {
-                        if (!followSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                        final followings = followSnap.data!.docs;
-                        if (followings.isEmpty) {
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                            child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                          );
-                        }
-                        return FutureBuilder<List<DocumentSnapshot>>(
-                          future: Future.wait(followings.map((f) => _firestore.collection('users').doc(f.id).get())),
-                          builder: (context, userSnaps) {
-                            if (!userSnaps.hasData) return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppTheme.primaryColor)));
-                            final activeIndexes = <int>[];
-                            for (int i = 0; i < followings.length; i++) {
-                              if (userSnaps.data![i].exists) activeIndexes.add(i);
-                            }
-                            if (activeIndexes.isEmpty) {
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                                child: const Center(child: Text('フォロー中のユーザーがいません', style: TextStyle(color: AppTheme.textHint))),
-                              );
-                            }
-                        return Container(
-                          constraints: const BoxConstraints(maxHeight: 250),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[200]!),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: activeIndexes.length,
-                            itemBuilder: (context, index) {
-                              final fDoc = followings[activeIndexes[index]];
-                              final userData = userSnaps.data![activeIndexes[index]].data() as Map<String, dynamic>? ?? {};
-                              final fUid = fDoc.id;
-                              final fName = userData['nickname'] ?? '名前なし';
-                              final fAvatar = userData['avatarUrl'] ?? '';
-                              final isSelected = selectedMembers.containsKey(fUid);
-
-                              return ListTile(
-                                leading: fAvatar.toString().isNotEmpty
-                                    ? CircleAvatar(backgroundImage: NetworkImage(fAvatar.toString()), radius: 18)
-                                    : CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.1),
-                                        child: Text(fName.toString().isNotEmpty ? fName.toString()[0] : '?', style: TextStyle(color: AppTheme.primaryColor))),
-                                title: Text(fName.toString(), style: const TextStyle(fontSize: 14)),
-                                trailing: isSelected
-                                    ? const Icon(Icons.check_circle, color: AppTheme.primaryColor)
-                                    : Icon(Icons.circle_outlined, color: Colors.grey[400]),
-                                onTap: () {
-                                  setSheetState(() {
-                                    if (isSelected) {
-                                      selectedMembers.remove(fUid);
-                                    } else {
-                                      selectedMembers[fUid] = fName.toString();
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ),
-                        );
-                          },
-                        );
+                    FollowerMemberPicker(
+                      uid: uid,
+                      selectedMembers: selectedMembers,
+                      onToggle: (fUid, fName) {
+                        setSheetState(() {
+                          if (selectedMembers.containsKey(fUid)) {
+                            selectedMembers.remove(fUid);
+                          } else {
+                            selectedMembers[fUid] = fName;
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 8),
@@ -6203,6 +6086,153 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     ));
   }
 
+  // ━━━ 承認待ちエントリー（ドラフト）バナー ━━━
+  // 自分がキャプテン → 承認状況＋取り消し。自分が招待メンバー → 承認/辞退。
+  Widget _buildEntryDraftBanner() {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('tournaments').doc(_tournamentId)
+          .collection('entryDrafts')
+          .where('invitedUids', arrayContains: uid)
+          .snapshots(),
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox.shrink();
+        return Column(
+          children: docs.map((d) {
+            final data = d.data() as Map<String, dynamic>;
+            final teamName = (data['teamName'] ?? '').toString();
+            final leaderUid = (data['leaderUid'] ?? '').toString();
+            final isMemberAdd = data['type'] == 'memberAdd';
+            final invited = List<String>.from((data['invitedUids'] as List<dynamic>?) ?? []);
+            final approvals = Map<String, dynamic>.from(data['approvals'] as Map? ?? {});
+            final memberNames = Map<String, dynamic>.from(data['memberNames'] as Map? ?? {});
+            final approvedCount = invited.where((u) => approvals[u] == 'approved').length;
+            final isLeader = leaderUid == uid;
+            final myState = (approvals[uid] ?? 'pending').toString();
+
+            return Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.how_to_reg, size: 18, color: AppTheme.primaryColor),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(isMemberAdd ? '追加メンバーの承認待ち「$teamName」' : '承認待ちエントリー「$teamName」',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                    ),
+                    Text('承認 $approvedCount/${invited.length}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                  ]),
+                  const SizedBox(height: 8),
+                  if (isLeader) ...[
+                    // キャプテン視点：未承認メンバーの一覧＋取り消し
+                    ...invited.where((u) => u != uid).map((u) {
+                      final st = (approvals[u] ?? 'pending').toString();
+                      final nm = (memberNames[u] ?? '?').toString();
+                      final label = st == 'approved' ? '承認済み' : st == 'declined' ? '辞退' : '承認待ち';
+                      final c = st == 'approved' ? AppTheme.success : st == 'declined' ? AppTheme.error : AppTheme.textSecondary;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Row(children: [
+                          Expanded(child: Text(nm, style: const TextStyle(fontSize: 13))),
+                          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)),
+                        ]),
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => _cancelEntryDraft(d.id),
+                        icon: const Icon(Icons.close, size: 16, color: AppTheme.error),
+                        label: const Text('招待を取り消す', style: TextStyle(fontSize: 13, color: AppTheme.error, fontWeight: FontWeight.bold)),
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 32)),
+                      ),
+                    ),
+                  ] else if (myState == 'pending') ...[
+                    // 招待メンバー視点：承認 / 辞退
+                    Text('${(data['leaderName'] ?? '').toString()} さんから招待されています', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _respondEntryInvite(d.id, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 38), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                          child: const Text('承認する', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton(
+                        onPressed: () => _respondEntryInvite(d.id, false),
+                        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error, side: const BorderSide(color: AppTheme.error),
+                            minimumSize: const Size(0, 38), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                        child: const Text('辞退', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                    ]),
+                  ] else ...[
+                    Text(myState == 'approved' ? '承認済み・他のメンバーの承認を待っています' : '辞退済み',
+                        style: TextStyle(fontSize: 13, color: myState == 'approved' ? AppTheme.success : AppTheme.error, fontWeight: FontWeight.w600)),
+                  ],
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _respondEntryInvite(String draftId, bool approve) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('respondEntryInvite');
+      final res = await callable.call({'tournamentId': _tournamentId, 'draftId': draftId, 'approve': approve});
+      final finalized = (res.data as Map)['finalized'] == true;
+      final memberAdd = (res.data as Map)['memberAdd'] == true;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(!approve
+            ? '招待を辞退しました'
+            : memberAdd
+                ? 'チームに参加しました！'
+                : finalized
+                    ? 'エントリーが成立しました！'
+                    : '承認しました。他のメンバーの承認を待っています'),
+        backgroundColor: approve ? AppTheme.success : AppTheme.textSecondary,
+      ));
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? '処理に失敗しました'), backgroundColor: AppTheme.error));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('処理に失敗しました'), backgroundColor: AppTheme.error));
+    }
+  }
+
+  Future<void> _cancelEntryDraft(String draftId) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('cancelEntryDraft');
+      await callable.call({'tournamentId': _tournamentId, 'draftId': draftId});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('招待を取り消しました'), backgroundColor: AppTheme.textSecondary),
+        );
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('取り消しに失敗しました'), backgroundColor: AppTheme.error));
+    }
+  }
+
   Future<void> _confirmNewEntry(BuildContext sheetContext, String teamName, Map<String, String> members) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -6227,6 +6257,15 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               const SizedBox(height: 12),
               Text('メンバー: ${members.values.join(", ")}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+              child: const Text(
+                '選んだメンバーに招待を送ります。全員が承認するとエントリーが成立します。',
+                style: TextStyle(fontSize: 12.5, color: AppTheme.primaryColor, height: 1.5),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -6235,7 +6274,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            child: const Text('エントリーする', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('招待を送る', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -6243,68 +6282,37 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
     if (confirmed != true) return;
 
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-
-    // エントリー重複チェック（全メンバーが他チームに所属していないか）
-    final newMemberUids = [uid, ...members.keys];
-    final allEntries = await _firestore
-        .collection('tournaments').doc(_tournamentId)
-        .collection('entries').get();
-    for (final doc in allEntries.docs) {
-      final otherData = doc.data();
-      final otherUids = List<String>.from((otherData['memberUids'] as List<dynamic>?) ?? []);
-      final otherTeam = otherData['teamName'] ?? '';
-      for (final mUid in newMemberUids) {
-        if (otherUids.contains(mUid)) {
-          final name = members[mUid] ?? (mUid == uid ? 'あなた' : mUid);
-          Navigator.pop(sheetContext);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$nameは既に「$otherTeam」に所属しています'), backgroundColor: AppTheme.error),
-            );
-          }
-          return;
-        }
+    // 承認制：本物のエントリーは作らず、招待（entryDraft）を作成する。
+    // 重複チェック・名前収集・通知はサーバー側（createEntryDraft）で行う。
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('createEntryDraft');
+      await callable.call({
+        'tournamentId': _tournamentId,
+        'teamName': teamName,
+        'memberUids': members.keys.toList(),
+      });
+      if (mounted) Navigator.pop(sheetContext);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('招待を送信しました。メンバー全員が承認するとエントリーが成立します。'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+        setState(() {});
       }
-    }
-
-    // ユーザー名取得
-    final userDoc = await _firestore.collection('users').doc(uid).get();
-    final leaderName = userDoc.data()?['nickname'] ?? '名前なし';
-
-    // エントリー保存
-    final entryId = _firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc().id;
-    await _firestore.collection('tournaments').doc(_tournamentId).collection('entries').doc(entryId).set({
-      'teamId': entryId,
-      'teamName': teamName,
-      'leaderUid': uid,
-      'leaderName': leaderName,
-      'memberUids': [uid, ...members.keys],
-      'memberNames': {uid: leaderName, ...members},
-      'enteredBy': uid,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    // currentTeamsはCloud Function (onEntryCreated) で自動更新
-
-    // 掲示板に自動投稿
-    await _firestore.collection('tournaments').doc(_tournamentId).collection('timeline').add({
-      'authorId': 'system',
-      'authorName': 'システム',
-      'authorAvatar': '',
-      'text': '$teamNameがエントリーしました！',
-      'isOrganizer': false,
-      'pinned': false,
-      'likesCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    Navigator.pop(sheetContext);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('エントリーが完了しました！'), backgroundColor: AppTheme.success),
-      );
-      setState(() {});
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'エントリーに失敗しました'), backgroundColor: AppTheme.error),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('エントリーに失敗しました'), backgroundColor: AppTheme.error),
+        );
+      }
     }
   }
   // ━━━ 下部ボタン ━━━
@@ -8286,7 +8294,11 @@ class _FinalRankingsWidgetState extends State<_FinalRankingsWidget> {
       if (!mounted) return;
       final data = snap.data() as Map<String, dynamic>? ?? {};
       setState(() {
-        _maxTeams = (data['maxTeams'] as num?)?.toInt() ?? 0;
+        // ポイント表示は実参加チーム数（currentTeams）基準。無ければ募集枠
+        _maxTeams = PointService.effectiveTeamCount(
+          currentTeams: (data['currentTeams'] as num?)?.toInt(),
+          maxTeams: (data['maxTeams'] as num?)?.toInt(),
+        );
       });
     });
   }

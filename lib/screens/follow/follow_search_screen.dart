@@ -1,12 +1,16 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/app_theme.dart';
+import '../../utils/search_normalize.dart';
 import '../../widgets/official_badge.dart';
 import '../../services/follow_service.dart';
+import '../../services/invite_service.dart';
 import '../../services/notification_service.dart';
 import '../profile/user_profile_screen.dart';
 
@@ -30,12 +34,75 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   final Set<String> _togglingIds = {};
   String _mySearchId = '';
 
+  // 招待コード（もらう：入力／渡す：自分のコード表示）
+  final _redeemController = TextEditingController();
+  bool _redeeming = false;
+  String? _myInviteCode;
+  bool _generatingCode = false;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // QRタブ（渡す側）を初めて開いたときに自分の招待コードを発行する
+    _tabController.addListener(() {
+      if (_tabController.index == 1 && _myInviteCode == null && !_generatingCode) {
+        _generateMyCode();
+      }
+    });
     _loadMySearchId();
     FollowService.instance.addListener(_onFollowChanged);
+  }
+
+  Future<void> _generateMyCode() async {
+    setState(() => _generatingCode = true);
+    try {
+      final code = await InviteService.createInvite();
+      if (mounted) setState(() => _myInviteCode = code);
+    } catch (_) {
+      // 失敗時は QR とリンクがあるので致命的ではない
+    } finally {
+      if (mounted) setState(() => _generatingCode = false);
+    }
+  }
+
+  // ── 招待コードを引き換える（友達・チーム・大会共通） ──
+  Future<void> _redeemInviteCode() async {
+    final code = _redeemController.text.trim();
+    if (code.isEmpty || _redeeming) return;
+    setState(() => _redeeming = true);
+    try {
+      final result = await InviteService.redeemInvite(code);
+      if (!mounted) return;
+      _redeemController.clear();
+      FocusScope.of(context).unfocus();
+
+      final referrerName = (result['referrerName'] ?? '') as String? ?? '';
+      final teamName = (result['teamName'] ?? '') as String? ?? '';
+      final requestedTeam = result['requestedTeam'] == true;
+      final joinedTeam = result['joinedTeam'] == true;
+
+      final messages = <String>[];
+      if (referrerName.isNotEmpty) messages.add('$referrerNameさんと友達になりました');
+      if (teamName.isNotEmpty) {
+        if (requestedTeam) {
+          messages.add('チーム「$teamName」に参加リクエストを送りました（承認待ち）');
+        } else if (joinedTeam) {
+          messages.add('チーム「$teamName」に参加しました');
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(messages.isEmpty ? '招待コードを引き換えました！' : '${messages.join(' / ')}！'),
+        backgroundColor: AppTheme.success,
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('招待コードが無効か、期限切れの可能性があります'), backgroundColor: AppTheme.warning));
+      }
+    } finally {
+      if (mounted) setState(() => _redeeming = false);
+    }
   }
 
   void _onFollowChanged() {
@@ -60,50 +127,87 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
     FollowService.instance.removeListener(_onFollowChanged);
     _tabController.dispose();
     _idController.dispose();
+    _redeemController.dispose();
     super.dispose();
   }
 
   // ── ID・ニックネーム検索 ──
+  // ①完全一致（searchId／正規化ID） → ②正規化フィールドの前置一致クエリ
+  // → ③あいまい一致（部分一致＋編集距離1のタイポ救済）の3段構え。
+  // 正規化（カナ→かな・全角→半角・空白除去・小文字化）は保存側の
+  // nicknameNorm / searchIdNorm（syncUserSearchNorm が自動維持）と同一仕様。
   Future<void> _searchById() async {
     final query = _idController.text.trim().replaceAll('@', '');
     if (query.isEmpty) return;
+    final qNorm = normalizeForSearch(query);
     setState(() => _idSearching = true);
 
     try {
-      // まず searchId の完全一致を試す
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('searchId', isEqualTo: query)
-          .limit(5)
-          .get();
-
+      final users = FirebaseFirestore.instance.collection('users');
       List<Map<String, dynamic>> results = [];
       final addedUids = <String>{};
-      for (final doc in snap.docs) {
-        if (doc.id == _currentUser?.uid) continue;
-        final data = doc.data();
-        data['uid'] = doc.id;
-        results.add(data);
-        addedUids.add(doc.id);
-      }
 
-      // 完全一致がない場合、ID・ニックネーム・エリアで部分一致検索
-      if (results.isEmpty) {
-        final allSnap = await FirebaseFirestore.instance
-            .collection('users')
-            .limit(100)
-            .get();
-        final lowerQuery = query.toLowerCase();
-        for (final doc in allSnap.docs) {
+      void addDocs(Iterable<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+        for (final doc in docs) {
           if (doc.id == _currentUser?.uid) continue;
           if (addedUids.contains(doc.id)) continue;
           final data = doc.data();
-          final sid = (data['searchId'] ?? '').toString().toLowerCase();
-          final nick = (data['nickname'] ?? '').toString().toLowerCase();
-          if (sid.contains(lowerQuery) ||
-              nick.contains(lowerQuery)) {
+          data['uid'] = doc.id;
+          results.add(data);
+          addedUids.add(doc.id);
+        }
+      }
+
+      // ① 完全一致（従来の searchId ＋ 正規化ID）
+      final exactSnaps = await Future.wait([
+        users.where('searchId', isEqualTo: query).limit(5).get(),
+        if (qNorm.isNotEmpty) users.where('searchIdNorm', isEqualTo: qNorm).limit(5).get(),
+      ]);
+      for (final s in exactSnaps) {
+        addDocs(s.docs);
+      }
+
+      // ② 正規化フィールドの前置一致（インデックスで引くのでユーザー数が増えてもOK）
+      if (qNorm.isNotEmpty) {
+        final prefixEnd = '$qNorm\uf8ff';
+        final prefixSnaps = await Future.wait([
+          users
+              .where('nicknameNorm', isGreaterThanOrEqualTo: qNorm)
+              .where('nicknameNorm', isLessThan: prefixEnd)
+              .limit(20)
+              .get(),
+          users
+              .where('searchIdNorm', isGreaterThanOrEqualTo: qNorm)
+              .where('searchIdNorm', isLessThan: prefixEnd)
+              .limit(20)
+              .get(),
+        ]);
+        for (final s in prefixSnaps) {
+          addDocs(s.docs);
+        }
+      }
+
+      // ③ ヒットが少なければ、あいまい一致（部分一致＋編集距離1）にフォールバック。
+      //    正規化フィールド未設定の旧データもここで拾える。
+      if (qNorm.isNotEmpty && results.length < 5) {
+        final allSnap = await users.limit(500).get();
+        // 公式アカウントは limit で漏れないよう必ず検索対象に含める
+        final officialSnap = await users.where('isOfficial', isEqualTo: true).get();
+        for (final doc in [...allSnap.docs, ...officialSnap.docs]) {
+          if (doc.id == _currentUser?.uid) continue;
+          if (addedUids.contains(doc.id)) continue;
+          final data = doc.data();
+          final sid = normalizeForSearch((data['searchId'] ?? '').toString());
+          final nick = normalizeForSearch((data['nickname'] ?? '').toString());
+          final hit = sid.contains(qNorm) ||
+              nick.contains(qNorm) ||
+              isEditDistanceLe1(sid, qNorm) ||
+              isEditDistanceLe1(nick, qNorm) ||
+              (nick.length > qNorm.length && isEditDistanceLe1(nick.substring(0, qNorm.length), qNorm));
+          if (hit) {
             data['uid'] = doc.id;
             results.add(data);
+            addedUids.add(doc.id);
           }
         }
       }
@@ -214,6 +318,58 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 20),
+          // ── 招待コードを入力（もらった側の入口） ──
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.accentColor.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(children: [
+                  Icon(Icons.confirmation_number_outlined, size: 18, color: AppTheme.accentColor),
+                  SizedBox(width: 6),
+                  Text('招待コードをもらった方',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _redeemController,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        hintText: '例: A2K7PQ',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _redeeming ? null : _redeemInviteCode,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentColor,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 46),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: _redeeming
+                        ? const SizedBox(width: 18, height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('引き換え', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -373,6 +529,88 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                       ],
                     ),
                   ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // ── 自分の招待コード（QRを読めない相手にはコード/リンクで） ──
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              children: [
+                const Text('わたしの招待コード',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 4),
+                const Text('コードを伝えると、相手は登録画面や「招待コードをもらった方」で入力するだけで友達になれます',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.5)),
+                const SizedBox(height: 16),
+                if (_myInviteCode == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: CircularProgressIndicator(color: AppTheme.primaryColor),
+                  )
+                else ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _myInviteCode!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 6, color: AppTheme.primaryColor),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: InviteService.shareText(code: _myInviteCode!)));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('招待メッセージをコピーしました'), backgroundColor: AppTheme.success));
+                        },
+                        icon: const Icon(Icons.copy, size: 18),
+                        label: const Text('コピー', style: TextStyle(fontSize: 14)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: AppTheme.primaryColor),
+                          minimumSize: const Size(0, 44),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          final text = Uri.encodeComponent(InviteService.shareText(code: _myInviteCode!));
+                          launchUrl(Uri.parse('https://line.me/R/share?text=$text'),
+                              mode: LaunchMode.externalApplication);
+                        },
+                        icon: const Icon(Icons.chat_bubble, size: 18),
+                        label: const Text('LINE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF06C755),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 44),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ],
               ],
             ),
           ),
