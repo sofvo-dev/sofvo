@@ -39,7 +39,7 @@ iOS 26 の Liquid Glass の**本来の挙動**に合わせる: **静止時はた
   - **`RawMagnifier` で下のコンテンツ（アイコン）を本当に屈折拡大**（`magnificationScale: 1 + 0.35 × s`）。BackdropFilter の行列変換なのでシェーダー不要＝Web でも動く
   - 縁の白いハイライト＋上面の白い反射（照り・控えめ）（alpha を `× s`）。**色は付けない**（虹色・ネイビーは不採用）。**影も付けない**（半透明の泡は影が中身から透けて全体が灰色がかるため）。静止時のグレー下地（黒6%）も移動中は `× (1 - s)` でフェードアウトし、泡は完全に無色
   - 曇りは `BackdropFilter.blur(1.5 × s)` のごくわずかだけ。**強いぼかしや濃い白みは拡大したアイコンを消して「霧の玉」になるので厳禁**（下のアイコンが透けて見えるのがレンズの命）
-  - **移動中はほぼ真円の泡に膨らむ**: `scaleX +25% / scaleY +55%`（横長ピル→球体。外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
+  - **移動中はほぼ真円の泡に膨らむ**: `scaleX +55% / scaleY +90%`（横長ピル→直径約95pxの球体。バーの上下に大きく飛び出す。外側 `Stack(clipBehavior: Clip.none)` でクリップしない）
   - **着地後は減衰振動でぷるぷる**: `wobble = sin(6πt) × e^(-4t)` を縦横逆位相で加算（体積保存風のジェリー）。アニメ全体は620ms、前半55%が膨らみ・残りが振動
   - **位置は easeOutBack** で勢い余って少し行き過ぎて戻る（液体の慣性）
   - 着地して振動が収まると元の薄いピルに戻る
@@ -391,7 +391,7 @@ GlassNavScaffold(
 | 選択アイコンの色 | Sofvo実体: `_NavItem` の `AppTheme.primaryColor`（ネイビー） |
 | 移動中レンズの拡大率 | Sofvo実体: `_LiquidCapsule` の `magnificationScale: 1 + 0.35 * glass` |
 | 移動中ガラスの曇り | Sofvo実体: `_LiquidCapsule` の `blur(1.5 × glass)`（上げすぎ厳禁） |
-| 移動中の泡の丸さ・大きさ | Sofvo実体: `scaleX: 1 + 0.25 * glass` / `scaleY: 1 + 0.55 * glass`（縦横比≒1で真円） |
+| 移動中の泡の丸さ・大きさ | Sofvo実体: `scaleX: 1 + 0.55 * glass` / `scaleY: 1 + 0.90 * glass`（縦横比≒1で真円） |
 | ぷるぷるの強さ・減衰 | Sofvo実体: `0.06 * wobble`（振幅）・`sin(6πt) × e^(-4t)`（周波数・減衰） |
 </content>
 </invoke>

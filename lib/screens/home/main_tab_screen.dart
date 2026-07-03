@@ -345,10 +345,10 @@ class _BottomNavState extends State<_BottomNav>
                                     // 保存されたような「ぷるぷる」
                                     return Transform.scale(
                                       scaleX: 1 +
-                                          0.25 * glass +
+                                          0.55 * glass +
                                           0.06 * wobble,
                                       scaleY: 1 +
-                                          0.55 * glass -
+                                          0.90 * glass -
                                           0.06 * wobble,
                                       child: _LiquidCapsule(glass: glass),
                                     );
