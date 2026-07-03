@@ -2592,6 +2592,43 @@ exports.setInstagramConfig = functions.https.onCall(async (data, context) => {
   return { ok: true };
 });
 
+// 短期トークン＋アプリシークレット → 長期トークンに交換して保存（ブラウザで開ける）
+// 例: /exchangeInstagramToken?token=SHORT&secret=APP_SECRET&officialUid=UID(任意)
+// トークン・シークレットはレスポンスに返さない（保存のみ）。
+exports.exchangeInstagramToken = functions.https.onRequest(async (req, res) => {
+  try {
+    const shortToken = String(req.query.token || req.query.shortToken || "").trim();
+    const secret = String(req.query.secret || req.query.client_secret || "").trim();
+    const officialUid = String(req.query.officialUid || "").trim();
+    if (!shortToken || !secret) {
+      res.status(400).json({ error: "token（短期トークン）と secret（アプリシークレット）が必要です" });
+      return;
+    }
+    // 短期 → 長期（約60日）に交換
+    const exchanged = await igGet("access_token", {
+      grant_type: "ig_exchange_token",
+      client_secret: secret,
+      access_token: shortToken,
+    });
+    if (!exchanged.access_token) {
+      res.status(500).json({ error: "交換に失敗しました", detail: exchanged });
+      return;
+    }
+    const update = {
+      accessToken: exchanged.access_token,
+      tokenType: "long_lived",
+      tokenObtainedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (officialUid) update.officialUid = officialUid;
+    await admin.firestore().collection("secrets").doc("instagram").set(update, { merge: true });
+    // 期限の目安だけ返す（トークン本体は返さない）
+    res.json({ ok: true, expiresInDays: Math.round((exchanged.expires_in || 0) / 86400) });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
 // 手動同期（ブラウザで開ける。トークンはサーバー側 secrets から読むだけで
 // 冪等なので、既存の管理エンドポイントと同様に onRequest とする）
 exports.syncInstagramNow = functions
