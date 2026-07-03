@@ -40,6 +40,8 @@ dependencies:
   cloud_functions: ^6.0.6
   package_info_plus: ^8.3.0
   app_links: ^6.4.0
+  video_player: ^2.9.2
+  chewie: ^1.8.5
 
 dev_dependencies:
   flutter_test:
