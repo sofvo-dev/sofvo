@@ -2792,6 +2792,36 @@ exports.respondEntryInvite = functions.https.onCall(async (data, context) => {
     const invited = Array.isArray(draft.invitedUids) ? draft.invitedUids : [];
     if (!invited.includes(uid)) throw new functions.https.HttpsError("permission-denied", "この招待の対象ではありません");
 
+    // ── 成立済みエントリーへのメンバー追加（updateEntryMembers 発）──
+    // チームは既に成立しているので「全員承認」は不要。追加される本人が
+    // 承認した時点でその人だけを本物のエントリーに追加する。
+    if (draft.type === "memberAdd") {
+      const entryRef = tRef.collection("entries").doc(draft.entryId);
+      const entrySnap = await tx.get(entryRef);
+      if (!entrySnap.exists) {
+        // エントリー自体が削除されていたらドラフトも掃除して終了
+        tx.delete(draftRef);
+        throw new functions.https.HttpsError("not-found", "エントリーが見つかりません（削除された可能性があります）");
+      }
+      const approvals = Object.assign({}, draft.approvals || {});
+      approvals[uid] = approve ? "approved" : "declined";
+      if (approve) {
+        const update = {
+          memberUids: admin.firestore.FieldValue.arrayUnion(uid),
+        };
+        update[`memberNames.${uid}`] = (draft.memberNames || {})[uid] || "名前なし";
+        update[`memberAvatars.${uid}`] = (draft.memberAvatars || {})[uid] || "";
+        tx.update(entryRef, update);
+      }
+      const anyPending = invited.some((u) => (approvals[u] || "pending") === "pending");
+      if (anyPending) {
+        tx.update(draftRef, { approvals });
+      } else {
+        tx.delete(draftRef);
+      }
+      return { memberAdd: true, finalized: approve, declined: !approve, teamName: draft.teamName, draft };
+    }
+
     const approvals = Object.assign({}, draft.approvals || {});
     approvals[uid] = approve ? "approved" : "declined";
     const allApproved = invited.every((u) => approvals[u] === "approved");
@@ -2817,7 +2847,22 @@ exports.respondEntryInvite = functions.https.onCall(async (data, context) => {
   });
 
   // トランザクション外で通知・タイムライン（成立時のみ本エントリー onEntryCreated が発火）
-  if (result.finalized) {
+  if (result.memberAdd) {
+    // メンバー追加：承認/辞退をキャプテンに知らせる
+    try {
+      const meSnap = await db.collection("users").doc(uid).get();
+      const myName = (meSnap.exists && meSnap.data().nickname) || "メンバー";
+      await db.collection("users").doc(result.draft.leaderUid).collection("notifications").add({
+        type: result.finalized ? "entry_confirmed" : "entry_declined",
+        tournamentId, teamName: result.teamName,
+        senderId: uid, senderName: myName, senderAvatar: "",
+        message: result.finalized
+          ? `がチーム「${result.teamName}」への追加を承認しました`
+          : `がチーム「${result.teamName}」への追加を辞退しました`,
+        read: false, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) { /* noop */ }
+  } else if (result.finalized) {
     const invited = result.draft.invitedUids || [];
     const tName = ((await tRef.get()).data() || {}).name || "";
     try {
@@ -2853,7 +2898,138 @@ exports.respondEntryInvite = functions.https.onCall(async (data, context) => {
     } catch (e) { /* noop */ }
   }
 
-  return { finalized: result.finalized, declined: !!result.declined };
+  return { finalized: result.finalized, declined: !!result.declined, memberAdd: !!result.memberAdd };
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 成立済みエントリーの編集（チーム名・メンバー入替）— キャプテンのみ
+// 削除・チーム名変更は即時反映。追加メンバーは entryDrafts
+// （type: memberAdd）に隔離し、本人が respondEntryInvite で承認した
+// 時点で本物のエントリーに追加する。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exports.updateEntryMembers = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
+  const uid = context.auth.uid;
+  const tournamentId = data && data.tournamentId ? String(data.tournamentId) : "";
+  const entryId = data && data.entryId ? String(data.entryId) : "";
+  const teamName = data && data.teamName ? String(data.teamName).trim() : "";
+  const memberUids = Array.isArray(data && data.memberUids)
+    ? [...new Set(data.memberUids.map(String).filter((u) => u && u !== uid))]
+    : [];
+  if (!tournamentId || !entryId || !teamName) {
+    throw new functions.https.HttpsError("invalid-argument", "パラメータが不足しています");
+  }
+
+  const db = admin.firestore();
+  const tRef = db.collection("tournaments").doc(tournamentId);
+  const entryRef = tRef.collection("entries").doc(entryId);
+  const entrySnap = await entryRef.get();
+  if (!entrySnap.exists) throw new functions.https.HttpsError("not-found", "エントリーが見つかりません");
+  const entry = entrySnap.data() || {};
+  if (entry.leaderUid !== uid) {
+    throw new functions.https.HttpsError("permission-denied", "編集できるのはエントリーしたキャプテンのみです");
+  }
+
+  const desired = [uid, ...memberUids];
+  if (desired.length < 4) {
+    throw new functions.https.HttpsError("failed-precondition", "メンバーは自分を含めて4人以上必要です");
+  }
+
+  const currentUids = Array.isArray(entry.memberUids) ? entry.memberUids : [];
+  const removed = currentUids.filter((u) => u !== uid && !desired.includes(u));
+  const added = memberUids.filter((u) => !currentUids.includes(u));
+
+  // 追加メンバーの重複チェック（他の成立エントリー＋承認待ちドラフト）
+  if (added.length > 0) {
+    const [entriesSnap, draftsSnap] = await Promise.all([
+      tRef.collection("entries").get(),
+      tRef.collection("entryDrafts").get(),
+    ]);
+    const taken = {};
+    entriesSnap.forEach((d) => {
+      if (d.id === entryId) return;
+      const uids = Array.isArray(d.data().memberUids) ? d.data().memberUids : [];
+      uids.forEach((u) => { taken[u] = d.data().teamName || "既存のチーム"; });
+    });
+    draftsSnap.forEach((d) => {
+      const dd = d.data() || {};
+      const inv = Array.isArray(dd.invitedUids) ? dd.invitedUids : [];
+      inv.forEach((u) => {
+        if (!dd.approvals || dd.approvals[u] !== "declined") taken[u] = dd.teamName || "招待中のチーム";
+      });
+    });
+    for (const u of added) {
+      if (taken[u]) {
+        throw new functions.https.HttpsError("failed-precondition", `選択したメンバーは既に「${taken[u]}」に含まれています`);
+      }
+    }
+  }
+
+  // キャプテンの最新ニックネーム
+  const meSnap = await db.collection("users").doc(uid).get();
+  const leaderName = (meSnap.exists && meSnap.data().nickname) || entry.leaderName || "名前なし";
+
+  // ── 即時反映：チーム名・リーダー名・削除 ──
+  const update = { teamName, leaderName };
+  if (removed.length > 0) {
+    update.memberUids = admin.firestore.FieldValue.arrayRemove(...removed);
+    removed.forEach((u) => {
+      update[`memberNames.${u}`] = admin.firestore.FieldValue.delete();
+      update[`memberAvatars.${u}`] = admin.firestore.FieldValue.delete();
+    });
+  }
+  await entryRef.update(update);
+
+  // ── 追加メンバー：承認待ちドラフトを作成して招待通知 ──
+  if (added.length > 0) {
+    const memberNames = {};
+    const memberAvatars = {};
+    const approvals = { [uid]: "approved" };
+    await Promise.all(added.map(async (u) => {
+      const s = await db.collection("users").doc(u).get();
+      memberNames[u] = (s.exists && s.data().nickname) || "名前なし";
+      memberAvatars[u] = (s.exists && s.data().avatarUrl) || "";
+      approvals[u] = "pending";
+    }));
+    memberNames[uid] = leaderName;
+    memberAvatars[uid] = (meSnap.exists && meSnap.data().avatarUrl) || "";
+
+    const tName = ((await tRef.get()).data() || {}).name || "";
+    const draftRef = tRef.collection("entryDrafts").doc();
+    await draftRef.set({
+      type: "memberAdd",
+      entryId,
+      teamName,
+      leaderUid: uid,
+      leaderName,
+      invitedUids: [uid, ...added],
+      memberNames,
+      memberAvatars,
+      approvals,
+      status: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await Promise.all(added.map(async (u) => {
+      try {
+        await db.collection("users").doc(u).collection("notifications").add({
+          type: "entry_invite",
+          tournamentId,
+          tournamentName: tName,
+          draftId: draftRef.id,
+          teamName,
+          senderId: uid,
+          senderName: leaderName,
+          senderAvatar: memberAvatars[uid],
+          message: `が大会「${tName}」のチーム「${teamName}」に招待しました`,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) { console.error("[updateEntryMembers] notify failed:", e); }
+    }));
+  }
+
+  return { added: added.length, removed: removed.length };
 });
 
 // 承認待ちエントリー（ドラフト）の取り消し（キャプテン本人 or 主催者）

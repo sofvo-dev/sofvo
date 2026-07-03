@@ -5869,46 +5869,39 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                             return;
                           }
 
-                          // 同じ大会に同じ人がいないかチェック
-                          final newMemberUids = [uid, ...selectedMembers.keys];
-                          final allEntries = await _firestore
-                              .collection('tournaments').doc(_tournamentId)
-                              .collection('entries').get();
-                          final duplicates = <String>[];
-                          for (final doc in allEntries.docs) {
-                            if (doc.id == entryDocId) continue; // 自分のエントリーはスキップ
-                            final otherUids = List<String>.from((doc.data()['memberUids'] as List<dynamic>?) ?? []);
-                            for (final mUid in newMemberUids) {
-                              if (otherUids.contains(mUid)) {
-                                final name = selectedMembers[mUid] ?? (mUid == uid ? leaderName : mUid);
-                                final otherTeam = doc.data()['teamName'] ?? '';
-                                duplicates.add('$nameは「$otherTeam」に所属しています');
-                              }
+                          // 承認制：重複チェック・削除・追加メンバーへの招待は
+                          // サーバー側（updateEntryMembers）で行う。追加メンバーは
+                          // 本人が承認するまで本物のエントリーには入らない。
+                          try {
+                            final callable = FirebaseFunctions.instance.httpsCallable('updateEntryMembers');
+                            final res = await callable.call({
+                              'tournamentId': _tournamentId,
+                              'entryId': entryDocId,
+                              'teamName': teamName,
+                              'memberUids': selectedMembers.keys.toList(),
+                            });
+                            final added = ((res.data as Map)['added'] ?? 0) as int;
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(added > 0
+                                      ? 'エントリーを更新しました。追加した$added人には招待を送信し、承認するとメンバーに加わります'
+                                      : 'エントリーを更新しました'),
+                                  backgroundColor: AppTheme.success,
+                                ),
+                              );
                             }
-                          }
-                          if (duplicates.isNotEmpty) {
+                          } on FirebaseFunctionsException catch (e) {
                             if (!ctx.mounted) return;
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text(duplicates.first), backgroundColor: AppTheme.error),
+                              SnackBar(content: Text(e.message ?? '更新に失敗しました'), backgroundColor: AppTheme.error),
                             );
-                            return;
-                          }
-
-                          // エントリー更新
-                          final userDoc = await _firestore.collection('users').doc(uid).get();
-                          final updatedLeaderName = userDoc.data()?['nickname'] ?? leaderName;
-                          await _firestore.collection('tournaments').doc(_tournamentId)
-                              .collection('entries').doc(entryDocId).update({
-                            'teamName': teamName,
-                            'memberUids': newMemberUids,
-                            'memberNames': {uid: updatedLeaderName, ...selectedMembers},
-                            'leaderName': updatedLeaderName,
-                          });
-
-                          Navigator.pop(ctx);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('エントリーを更新しました'), backgroundColor: AppTheme.success),
+                          } catch (_) {
+                            if (!ctx.mounted) return;
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('更新に失敗しました'), backgroundColor: AppTheme.error),
                             );
                           }
                         },
@@ -6112,6 +6105,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
             final data = d.data() as Map<String, dynamic>;
             final teamName = (data['teamName'] ?? '').toString();
             final leaderUid = (data['leaderUid'] ?? '').toString();
+            final isMemberAdd = data['type'] == 'memberAdd';
             final invited = List<String>.from((data['invitedUids'] as List<dynamic>?) ?? []);
             final approvals = Map<String, dynamic>.from(data['approvals'] as Map? ?? {});
             final memberNames = Map<String, dynamic>.from(data['memberNames'] as Map? ?? {});
@@ -6135,7 +6129,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     const Icon(Icons.how_to_reg, size: 18, color: AppTheme.primaryColor),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text('承認待ちエントリー「$teamName」',
+                      child: Text(isMemberAdd ? '追加メンバーの承認待ち「$teamName」' : '承認待ちエントリー「$teamName」',
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                     ),
                     Text('承認 $approvedCount/${invited.length}',
@@ -6206,13 +6200,16 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
       final callable = FirebaseFunctions.instance.httpsCallable('respondEntryInvite');
       final res = await callable.call({'tournamentId': _tournamentId, 'draftId': draftId, 'approve': approve});
       final finalized = (res.data as Map)['finalized'] == true;
+      final memberAdd = (res.data as Map)['memberAdd'] == true;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(!approve
             ? '招待を辞退しました'
-            : finalized
-                ? 'エントリーが成立しました！'
-                : '承認しました。他のメンバーの承認を待っています'),
+            : memberAdd
+                ? 'チームに参加しました！'
+                : finalized
+                    ? 'エントリーが成立しました！'
+                    : '承認しました。他のメンバーの承認を待っています'),
         backgroundColor: approve ? AppTheme.success : AppTheme.textSecondary,
       ));
     } on FirebaseFunctionsException catch (e) {
