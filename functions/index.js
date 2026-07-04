@@ -5725,24 +5725,30 @@ async function forceOneDrivePost(categoryName) {
   return { posted: pub.postId, category: categoryName, unit: unit.name, mediaCount: pub.mediaCount, forced: true };
 }
 
-// 一度きりの追加投稿日（JST・YYYY-MM-DD）。曜日に関係なくこの日も1回投稿する。
+// 一度きりの追加投稿日（JST・YYYY-MM-DD）。この日は 12:00 JST に1回だけ投稿する。
 // 過ぎた日付は今後一致しないため自動的に無効（あとで消さなくてよい）。
 const DRIVE_ONE_TIME_POST_DATES = ["2026-07-04"];
+const DRIVE_ONE_TIME_POST_HOUR = 12; // 一度きり指定日の投稿時刻（JST）
+const DRIVE_REGULAR_POST_HOUR = 20; // 通常(postDays)の投稿時刻（JST）
 
-// 定期実行: 毎日20:00 JST に起動し、投稿曜日(既定 月・木)＋一度きりの指定日 のみ1件放出
+// 定期実行: 毎日12時・20時(JST)に起動。
+//   ・指定日(DRIVE_ONE_TIME_POST_DATES)は12時に1回だけ投稿
+//   ・通常の投稿曜日(cfg.postDays 既定 月・木)は20時に投稿
 exports.publishDriveScheduledPost = functions
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
-  .pubsub.schedule("0 20 * * *")
+  .pubsub.schedule("0 12,20 * * *")
   .timeZone("Asia/Tokyo")
   .onRun(async () => {
     try {
       const cfg = await getDriveSyncConfig();
       const nowJst = new Date(Date.now() + 9 * 3600 * 1000);
       const weekday = nowJst.getUTCDay() === 0 ? 7 : nowJst.getUTCDay(); // 1=月..7=日
+      const hour = nowJst.getUTCHours(); // JST の時（+9h シフト済み）
       const dateStr = nowJst.toISOString().slice(0, 10); // JST の YYYY-MM-DD
-      const isPostDay = cfg.postDays.includes(weekday) || DRIVE_ONE_TIME_POST_DATES.includes(dateStr);
-      if (!isPostDay) {
-        functions.logger.info(`publishDriveScheduledPost: skip (JST ${dateStr} weekday ${weekday} is not a post day)`);
+      const oneTime = hour === DRIVE_ONE_TIME_POST_HOUR && DRIVE_ONE_TIME_POST_DATES.includes(dateStr);
+      const regular = hour === DRIVE_REGULAR_POST_HOUR && cfg.postDays.includes(weekday);
+      if (!oneTime && !regular) {
+        functions.logger.info(`publishDriveScheduledPost: skip (JST ${dateStr} ${hour}h weekday ${weekday})`);
         return null;
       }
       const result = await processOneDrivePost();
