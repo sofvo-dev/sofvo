@@ -5482,7 +5482,7 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
 //     folderId    (string)   … 親フォルダID（既定: 下記定数）
 //     officialUid (string)   … 投稿者にする公式アカウントのUID（既定: 下記定数）
 //     poolA       (string[]) … "A" スロットのカテゴリ名（既定: ["通常"]）
-//     poolB       (string[]) … "B" スロットのカテゴリ名（既定: ["実機","リール"]）
+//     poolB       (string[]) … "B" スロットのカテゴリ名（既定: ["実機"]。※動画は投稿しない=画像のみ）
 //     cadence     (string[]) … 放出パターン（既定: ["A","A","B"]）
 //     idleMinutes (number)   … 直近この分数以内に更新されたメディアはアップロード中とみなし見送る（既定: 10）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -5506,7 +5506,7 @@ async function getDriveSyncConfig() {
     folderId: (d.folderId || DRIVE_SYNC_FOLDER_ID_FALLBACK || "").trim(),
     officialUid: d.officialUid || DRIVE_OFFICIAL_UID,
     poolA: Array.isArray(d.poolA) && d.poolA.length ? d.poolA : ["通常"],
-    poolB: Array.isArray(d.poolB) && d.poolB.length ? d.poolB : ["実機", "リール"],
+    poolB: Array.isArray(d.poolB) && d.poolB.length ? d.poolB : ["実機"],
     cadence: Array.isArray(d.cadence) && d.cadence.length ? d.cadence : ["A", "A", "B"],
     idleMinutes: typeof d.idleMinutes === "number" ? d.idleMinutes : 10,
   };
@@ -5572,7 +5572,7 @@ async function getCategoryUnitStubs(categoryId) {
     return subfolders.map((f) => ({ id: f.id, name: f.name, kind: "folder" }));
   }
   return children
-    .filter((f) => isMediaMime(f.mimeType))
+    .filter((f) => isImageMime(f.mimeType))
     .map((f) => ({ id: f.id, name: f.name, kind: "file", file: f }));
 }
 
@@ -5580,7 +5580,7 @@ async function getCategoryUnitStubs(categoryId) {
 async function resolveUnitMedia(stub) {
   if (stub.kind === "file") return [stub.file];
   const files = await driveListChildren(stub.id);
-  return files.filter((f) => isMediaMime(f.mimeType));
+  return files.filter((f) => isImageMime(f.mimeType));
 }
 
 // 次に投稿すべき単位を選ぶ（投稿はしない）。cadence の現在スロットのプールから、
@@ -5724,10 +5724,10 @@ async function forceOneDrivePost(categoryName) {
   return { posted: pub.postId, category: categoryName, unit: unit.name, mediaCount: pub.mediaCount, forced: true };
 }
 
-// 定期実行: 既定は月・水・金 12:00 JST に1件ずつ放出
+// 定期実行: 週2回（月・木）12:00 JST に1件ずつ放出
 exports.publishDriveScheduledPost = functions
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
-  .pubsub.schedule("0 12 * * 1,3,5")
+  .pubsub.schedule("0 12 * * 1,4")
   .timeZone("Asia/Tokyo")
   .onRun(async () => {
     try {
@@ -5879,6 +5879,34 @@ exports.driveVideoDebug = functions
       });
     } catch (e) {
       functions.logger.error("driveVideoDebug error:", e);
+      res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+    }
+  });
+
+// リセット: これまで自動投稿した driveInstagram 投稿を全削除し、放出位置(postIndex)を0に戻す。
+//   → Drive のフォルダは消さないので、次回からまた最初(post001)から出し直せる。
+exports.resetDrivePosts = functions
+  .runWith({ timeoutSeconds: 300, memory: "512MB" })
+  .https.onRequest(async (req, res) => {
+    try {
+      const db = admin.firestore();
+      const snap = await db.collection("posts").where("source", "==", "driveInstagram").get();
+      const docs = snap.docs;
+      let deleted = 0;
+      for (let i = 0; i < docs.length; i += 400) {
+        const batch = db.batch();
+        for (const d of docs.slice(i, i + 400)) batch.delete(d.ref);
+        await batch.commit();
+        deleted += docs.slice(i, i + 400).length;
+      }
+      // 放出位置(cadence)をリセット
+      await db.collection("config").doc("driveInstagramSyncState").set(
+        { postIndex: 0, lastResetAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      res.status(200).json({ ok: true, deleted, postIndexReset: 0 });
+    } catch (e) {
+      functions.logger.error("resetDrivePosts error:", e);
       res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
     }
   });
