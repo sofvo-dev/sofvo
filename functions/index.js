@@ -5821,3 +5821,64 @@ exports.driveSyncStatus = functions
       res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
     }
   });
+
+// Web での動画再生対策＆診断:
+//   ① Storage バケットに CORS を設定（Web の video 要素が読めるように）
+//   ② 直近の動画投稿のURLヘッダ（content-type / CORS 等）を返して原因切り分け
+exports.driveVideoDebug = functions
+  .runWith({ timeoutSeconds: 120, memory: "512MB" })
+  .https.onRequest(async (req, res) => {
+    try {
+      const db = admin.firestore();
+
+      // ① バケット CORS 設定（Web 再生のため）
+      let cors = "set";
+      try {
+        await admin.storage().bucket(DRIVE_STORAGE_BUCKET).setCorsConfiguration([
+          {
+            origin: ["*"],
+            method: ["GET", "HEAD"],
+            responseHeader: ["Content-Type", "Range", "Content-Range", "Accept-Ranges", "Content-Length"],
+            maxAgeSeconds: 3600,
+          },
+        ]);
+      } catch (e) {
+        cors = "error: " + (e && e.message ? e.message : e);
+      }
+
+      // ② 最新の動画付き driveInstagram 投稿を探す
+      const snap = await db.collection("posts").where("source", "==", "driveInstagram").limit(50).get();
+      let latest = null;
+      snap.forEach((d) => {
+        const data = d.data();
+        const vids = Array.isArray(data.videos) ? data.videos : [];
+        if (vids.length > 0) {
+          const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
+          if (!latest || t > latest.t) latest = { url: vids[0], t, sourceName: data.sourceName };
+        }
+      });
+
+      if (!latest) {
+        res.status(200).json({ ok: true, cors, note: "no driveInstagram post with videos found" });
+        return;
+      }
+
+      const head = await fetch(latest.url, { headers: { Range: "bytes=0-1", Origin: "https://sofvo.com" } });
+      res.status(200).json({
+        ok: true,
+        cors,
+        video: {
+          sourceName: latest.sourceName,
+          status: head.status,
+          contentType: head.headers.get("content-type"),
+          contentLength: head.headers.get("content-length"),
+          contentRange: head.headers.get("content-range"),
+          acceptRanges: head.headers.get("accept-ranges"),
+          accessControlAllowOrigin: head.headers.get("access-control-allow-origin"),
+        },
+      });
+    } catch (e) {
+      functions.logger.error("driveVideoDebug error:", e);
+      res.status(500).json({ ok: false, error: String(e && e.message ? e.message : e) });
+    }
+  });
