@@ -78,7 +78,7 @@ class _PostMediaCarouselState extends State<PostMediaCarousel> {
     final aspect = _aspect ?? (_firstIsVideo ? (9 / 16) : 0.8);
 
     return ClipRRect(
-      borderRadius: BorderRadius.zero, // 全幅・角なし（Instagram風）
+      borderRadius: BorderRadius.circular(12),
       child: AspectRatio(
         aspectRatio: aspect,
         child: Stack(
