@@ -55,19 +55,19 @@ class _PostMediaCarouselState extends State<PostMediaCarousel> {
     super.dispose();
   }
 
-  void _openFullImage(String url) {
+  // この投稿の画像URL一覧（表示順）
+  List<String> get _imageUrls => widget.media
+      .where((m) => m['type'] != 'video')
+      .map((m) => (m['url'] ?? '').toString())
+      .where((u) => u.isNotEmpty)
+      .toList();
+
+  void _openGallery(String url) {
+    final urls = _imageUrls;
+    final idx = urls.indexOf(url);
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, elevation: 0),
-        body: Center(
-          child: InteractiveViewer(
-            minScale: 1,
-            maxScale: 4,
-            child: CachedNetworkImage(imageUrl: url, fit: BoxFit.contain),
-          ),
-        ),
-      ),
+      fullscreenDialog: true,
+      builder: (_) => _FullscreenGallery(urls: urls, initialIndex: idx < 0 ? 0 : idx),
     ));
   }
 
@@ -100,7 +100,7 @@ class _PostMediaCarouselState extends State<PostMediaCarousel> {
                   );
                 }
                 return GestureDetector(
-                  onTap: () => _openFullImage(url),
+                  onTap: () => _openGallery(url),
                   child: Container(
                     color: Colors.white,
                     child: CachedNetworkImage(
@@ -108,6 +108,9 @@ class _PostMediaCarouselState extends State<PostMediaCarousel> {
                       fit: BoxFit.contain, // 比率そのまま（切り取らない）
                       width: double.infinity,
                       height: double.infinity,
+                      fadeInDuration: Duration.zero, // パッと即表示（フェードなし）
+                      fadeOutDuration: Duration.zero,
+                      placeholderFadeInDuration: Duration.zero,
                       placeholder: (_, __) => Container(color: Colors.grey[100]),
                       errorWidget: (_, __, ___) =>
                           Container(color: Colors.grey[100], child: const Icon(Icons.broken_image_outlined, color: Colors.grey)),
@@ -155,6 +158,113 @@ class _PostMediaCarouselState extends State<PostMediaCarousel> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 全画面の画像ビューア。横スワイプで次の画像へ。閉じる方法は「×ボタン」「画像タップ」「下スワイプ」。
+class _FullscreenGallery extends StatefulWidget {
+  final List<String> urls;
+  final int initialIndex;
+  const _FullscreenGallery({required this.urls, required this.initialIndex});
+
+  @override
+  State<_FullscreenGallery> createState() => _FullscreenGalleryState();
+}
+
+class _FullscreenGalleryState extends State<_FullscreenGallery> {
+  late final PageController _pc = PageController(initialPage: widget.initialIndex);
+  late int _index = widget.initialIndex;
+  double _dragDy = 0;
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    super.dispose();
+  }
+
+  void _close() => Navigator.of(context).maybePop();
+
+  @override
+  Widget build(BuildContext context) {
+    // 下スワイプ量に応じて背景を薄く（閉じる操作のフィードバック）
+    final double opacity = (1 - (_dragDy.abs() / 400)).clamp(0.3, 1.0);
+    return Scaffold(
+      backgroundColor: Colors.black.withValues(alpha: opacity),
+      body: Stack(
+        children: [
+          GestureDetector(
+            onVerticalDragUpdate: (d) => setState(() => _dragDy += d.delta.dy),
+            onVerticalDragEnd: (d) {
+              if (_dragDy > 110 || (d.primaryVelocity ?? 0) > 700) {
+                _close();
+              } else {
+                setState(() => _dragDy = 0);
+              }
+            },
+            child: Transform.translate(
+              offset: Offset(0, _dragDy.clamp(-40.0, 400.0)),
+              child: PageView.builder(
+                controller: _pc,
+                itemCount: widget.urls.length,
+                onPageChanged: (i) => setState(() => _index = i),
+                itemBuilder: (_, i) => GestureDetector(
+                  onTap: _close, // 画像タップでも閉じる
+                  child: InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 4,
+                    child: Center(
+                      child: CachedNetworkImage(
+                        imageUrl: widget.urls[i],
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        fadeInDuration: Duration.zero,
+                        placeholderFadeInDuration: Duration.zero,
+                        placeholder: (_, __) => const Center(
+                          child: SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54)),
+                        ),
+                        errorWidget: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: Colors.white38, size: 40),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 上部バー: 閉じる× ＋ 枚数カウンタ
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: _close,
+                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      tooltip: '閉じる',
+                    ),
+                    const Spacer(),
+                    if (widget.urls.length > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text('${_index + 1} / ${widget.urls.length}',
+                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                      ),
+                    const SizedBox(width: 10),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
