@@ -1,6 +1,6 @@
 # Googleドライブ → タイムライン 定期自動投稿
 
-Googleドライブを「**親フォルダ → カテゴリ → 投稿**」の3階層で構成しておくと、設定したペース（既定: **月・水・金 12:00 JST**）で、**カテゴリを交互に回しながら1件ずつ**、Sofvo公式アカウント名義でアプリのタイムライン（`posts`）へ自動投稿する仕組み。
+Googleドライブを「**親フォルダ → カテゴリ → 投稿**」の3階層で構成しておくと、設定したペース（既定: **月・木 20:00 JST**・画像のみ）で、**カテゴリを交互に回しながら1件ずつ**、Sofvo公式アカウント名義でアプリのタイムライン（`posts`）へ自動投稿する仕組み。
 
 Instagram API（Metaアプリ・ビジネスアカウント・60日で失効するトークン）は使わず、**Firebase Functions の既定サービスアカウントで Google Drive を読む**方式。追加npmパッケージ不要（Sheets連携と同じ `getAccessToken()` を流用）。
 
@@ -86,7 +86,7 @@ Instagram API（Metaアプリ・ビジネスアカウント・60日で失効す�
 `functions/index.js` の `publishDriveScheduledPost` の cron を変更（`.timeZone("Asia/Tokyo")` 指定なので JST で記述可）。変更後 `main` にマージすれば CI で自動デプロイ。
 
 ```js
-.schedule("0 12 * * 1,3,5")   // 月・水・金 12:00（既定）
+.schedule("0 20 * * *")   // 毎日20:00起動→ config.postDays(既定 月・木=[1,4]) の日だけ投稿
 ```
 
 ---

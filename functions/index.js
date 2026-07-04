@@ -5508,6 +5508,7 @@ async function getDriveSyncConfig() {
     poolA: Array.isArray(d.poolA) && d.poolA.length ? d.poolA : ["通常"],
     poolB: Array.isArray(d.poolB) && d.poolB.length ? d.poolB : ["実機"],
     cadence: Array.isArray(d.cadence) && d.cadence.length ? d.cadence : ["A", "A", "B"],
+    postDays: Array.isArray(d.postDays) && d.postDays.length ? d.postDays : [1, 4], // 投稿する曜日(1=月..7=日) 既定: 月・木
     idleMinutes: typeof d.idleMinutes === "number" ? d.idleMinutes : 10,
   };
 }
@@ -5724,13 +5725,26 @@ async function forceOneDrivePost(categoryName) {
   return { posted: pub.postId, category: categoryName, unit: unit.name, mediaCount: pub.mediaCount, forced: true };
 }
 
-// 定期実行: 週2回（月・木）12:00 JST に1件ずつ放出
+// 一度きりの追加投稿日（JST・YYYY-MM-DD）。曜日に関係なくこの日も1回投稿する。
+// 過ぎた日付は今後一致しないため自動的に無効（あとで消さなくてよい）。
+const DRIVE_ONE_TIME_POST_DATES = ["2026-07-04"];
+
+// 定期実行: 毎日20:00 JST に起動し、投稿曜日(既定 月・木)＋一度きりの指定日 のみ1件放出
 exports.publishDriveScheduledPost = functions
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
-  .pubsub.schedule("0 12 * * 1,4")
+  .pubsub.schedule("0 20 * * *")
   .timeZone("Asia/Tokyo")
   .onRun(async () => {
     try {
+      const cfg = await getDriveSyncConfig();
+      const nowJst = new Date(Date.now() + 9 * 3600 * 1000);
+      const weekday = nowJst.getUTCDay() === 0 ? 7 : nowJst.getUTCDay(); // 1=月..7=日
+      const dateStr = nowJst.toISOString().slice(0, 10); // JST の YYYY-MM-DD
+      const isPostDay = cfg.postDays.includes(weekday) || DRIVE_ONE_TIME_POST_DATES.includes(dateStr);
+      if (!isPostDay) {
+        functions.logger.info(`publishDriveScheduledPost: skip (JST ${dateStr} weekday ${weekday} is not a post day)`);
+        return null;
+      }
       const result = await processOneDrivePost();
       functions.logger.info("publishDriveScheduledPost:", JSON.stringify(result));
     } catch (e) {
