@@ -5471,7 +5471,7 @@ async function handleOfficialChatbot(db, chatId, senderId, userMessage, senderNa
 //     ・カテゴリ内にメディアが直置きの場合（例 リール/）… 各ファイル = 1投稿
 //   放出順（cadence）:
 //     ・"A" スロットは poolA のカテゴリ、"B" スロットは poolB のカテゴリから出す
-//     ・既定 cadence = [A,A,B] → 通常2件 → 実機/リール1件 → 繰り返し
+//     ・既定 cadence = [A,A,A,A,B] → 通常4件 → 実機1件 → 繰り返し
 //     ・その回のスロットのプールが空になったら「投稿を止める」（index も進めない）
 //   重複防止: 投稿ドキュメントの driveSourceId（サブフォルダ or ファイルのID）で照合。
 //     ※ フォルダの移動はしない（ドライブ側の構成をそのまま保つ）。
@@ -5507,7 +5507,7 @@ async function getDriveSyncConfig() {
     officialUid: d.officialUid || DRIVE_OFFICIAL_UID,
     poolA: Array.isArray(d.poolA) && d.poolA.length ? d.poolA : ["通常"],
     poolB: Array.isArray(d.poolB) && d.poolB.length ? d.poolB : ["実機"],
-    cadence: Array.isArray(d.cadence) && d.cadence.length ? d.cadence : ["A", "A", "B"],
+    cadence: Array.isArray(d.cadence) && d.cadence.length ? d.cadence : ["A", "A", "A", "A", "B"], // 通常4→実機1
     postDays: Array.isArray(d.postDays) && d.postDays.length ? d.postDays : [1, 4], // 投稿する曜日(1=月..7=日) 既定: 月・木
     idleMinutes: typeof d.idleMinutes === "number" ? d.idleMinutes : 10,
   };
