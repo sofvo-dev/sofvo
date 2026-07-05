@@ -262,8 +262,12 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
         ]),
       ),
       floatingActionButton: Padding(
-        // 浮島ナビと重ならないよう持ち上げる
-        padding: const EdgeInsets.only(bottom: 76),
+        // 浮島ナビと重ならないよう持ち上げる。
+        // ナビはセーフエリア分（padding.bottom * 0.75）だけ上に浮くため、
+        // 固定値だけだとホームインジケータのある端末で隙間が消える。
+        // 同じ量を足してナビの浮きに追従させる。
+        padding: EdgeInsets.only(
+            bottom: 76 + MediaQuery.of(context).padding.bottom * 0.75),
         child: FloatingActionButton(
           heroTag: 'search_saved_toggle',
           onPressed: () => setState(() => _isSavedMode = !_isSavedMode),

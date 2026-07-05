@@ -73,7 +73,10 @@ iOS 26 の Liquid Glass の**本来の挙動**に合わせる: **静止時はた
    例: `padding: EdgeInsets.only(bottom: 92 + MediaQuery.of(context).padding.bottom)`
 
 4. **FAB は持ち上げる**
-   画面に `FloatingActionButton` がある場合、浮島バーと重なる。`Padding(padding: EdgeInsets.only(bottom: 76), child: FAB)` などで上げる。
+   画面に `FloatingActionButton` がある場合、浮島バーと重なる。`Padding(child: FAB)` で上げる。
+   ただしバー自体が**セーフエリア分（`padding.bottom * 0.75`）だけ上に浮く**ため、固定値 `76` だけだと
+   ホームインジケータのある端末（iPhone 等）で隙間が消えて接触する。同じ量を足して追従させること:
+   `Padding(padding: EdgeInsets.only(bottom: 76 + MediaQuery.of(context).padding.bottom * 0.75), child: FAB)`
 
 5. **ページ背景は白（バー後ろに「帯」を作らない）**
    ページ背景がグレーだと、半透明バー越しにグレーが見える。白背景＋白系ガラスにすると馴染む。
@@ -351,7 +354,7 @@ GlassNavScaffold(
 // 各ページ側で：
 // 1) body: SafeArea(bottom: false, child: ...)
 // 2) ListView( padding: EdgeInsets.only(bottom: 92 + MediaQuery.of(context).padding.bottom) )
-// 3) FAB は Padding(padding: EdgeInsets.only(bottom: 76), child: FloatingActionButton(...))
+// 3) FAB は Padding(padding: EdgeInsets.only(bottom: 76 + MediaQuery.of(context).padding.bottom * 0.75), child: FloatingActionButton(...))
 // 4) ページ背景は白（Scaffold(backgroundColor: Colors.white)）
 ```
 
@@ -369,7 +372,7 @@ GlassNavScaffold(
 >    - 親 `Scaffold(extendBody: true)`
 >    - 各タブ画面の `body` は `SafeArea(bottom: false, ...)`（コンテンツをバー後ろまで伸ばす）
 >    - 各スクロールの下パディングを `92 + MediaQuery.padding.bottom` 程度にして最下部の項目やボタンがバーに隠れないようにする
->    - `FloatingActionButton` は下に約76px 持ち上げてバーと重ならないようにする
+>    - `FloatingActionButton` は下に `76 + MediaQuery.padding.bottom * 0.75` 持ち上げてバーと重ならないようにする（固定76だけだとホームインジケータのある端末で接触する）
 >    - ページ背景は白にして、半透明バー越しにグレーの帯が出ないようにする
 > 6. プラットフォームは Android / iOS / Web で同じ見た目にすること（Web は CanvasKit で `BackdropFilter` を有効化）。
 >
