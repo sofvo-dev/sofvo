@@ -261,21 +261,28 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
           Expanded(child: _buildContent()),
         ]),
       ),
-      floatingActionButton: Padding(
-        // 浮島ナビと重ならないよう持ち上げる。
-        // ナビはセーフエリア分（padding.bottom * 0.75）だけ上に浮くため、
-        // 固定値だけだとホームインジケータのある端末で隙間が消える。
-        // 同じ量を足してナビの浮きに追従させる。
-        padding: EdgeInsets.only(
-            bottom: 76 + MediaQuery.of(context).padding.bottom * 0.75),
-        child: FloatingActionButton(
-          heroTag: 'search_saved_toggle',
-          onPressed: () => setState(() => _isSavedMode = !_isSavedMode),
-          backgroundColor: _isSavedMode ? AppTheme.primaryColor : AppTheme.accentColor,
-          child: Icon(
-            _isSavedMode ? Icons.search : Icons.bookmark,
-            color: Colors.white,
-          ),
+      // 保存済み切替はヘッダー（トグルの左）に移動したため FAB は廃止
+    );
+  }
+
+  // 保存済み表示の切替ボタン（しおり型ブックマーク）。
+  // 通常時は輪郭、保存済み表示中はネイビー塗りで状態を示す。
+  Widget _buildSaveToggleButton() {
+    return GestureDetector(
+      onTap: () => setState(() => _isSavedMode = !_isSavedMode),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: _isSavedMode
+              ? AppTheme.primaryColor
+              : AppTheme.primaryColor.withValues(alpha: 0.08),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          _isSavedMode ? Icons.bookmark : Icons.bookmark_border,
+          color: _isSavedMode ? Colors.white : AppTheme.primaryColor,
+          size: 22,
         ),
       ),
     );
@@ -302,6 +309,9 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                 ),
               ),
               const Spacer(),
+              // 保存済み切替（旧・下部FAB）。フォロー中/みんな トグルの左に配置
+              _buildSaveToggleButton(),
+              if (!_isSavedMode) const SizedBox(width: 8),
               if (!_isSavedMode) _buildCompactToggle(),
             ],
           ),

@@ -213,6 +213,20 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   const Spacer(),
+                  // 投稿作成（旧・下部FAB）。通知ベルの左に配置してナビとの重なりを解消
+                  GestureDetector(
+                    onTap: _openCreatePost,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 22),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   StreamBuilder<int>(
                     stream: NotificationService.unreadCountStream(
                         FirebaseAuth.instance.currentUser?.uid ?? ''),
@@ -274,22 +288,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ]),
       ),
-      floatingActionButton: _tabController.index == 0
-          ? Padding(
-              // 浮かせた浮島ナビと重ならないよう持ち上げる。
-              // ナビはセーフエリア分（padding.bottom * 0.75）だけ上に浮くため、
-              // 固定値だけだとホームインジケータのある端末で隙間が消える。
-              // 同じ量を足してナビの浮きに追従させる。
-              padding: EdgeInsets.only(
-                  bottom: 76 + MediaQuery.of(context).padding.bottom * 0.75),
-              child: FloatingActionButton(
-                heroTag: 'home_create_post',
-                onPressed: _openCreatePost,
-                backgroundColor: AppTheme.primaryColor,
-                child: const Icon(Icons.edit, color: Colors.white),
-              ),
-            )
-          : null,
+      // 投稿ボタンはヘッダー（通知ベルの左）に移動したため FAB は廃止
     );
   }
 
