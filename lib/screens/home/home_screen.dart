@@ -15,6 +15,7 @@ import '../../services/follow_service.dart';
 import '../../widgets/official_badge.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/post_media_carousel.dart';
+import '../../widgets/likes_list_sheet.dart';
 import '../tournament/tournament_detail_screen.dart';
 import '../tournament/post_event_action_screen.dart';
 import '../follow/follow_search_screen.dart';
@@ -953,36 +954,48 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (context, likeSnapshot) {
         final isLiked = likeSnapshot.data?.exists ?? false;
 
-        return GestureDetector(
-          onTap: () => _toggleLike(postId),
-          child: Row(
-            children: [
-              Icon(
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ハート＝いいねON/OFF（従来どおり）
+            GestureDetector(
+              onTap: () => _toggleLike(postId),
+              child: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border,
                 size: 22,
                 color: isLiked ? Colors.red : AppTheme.textSecondary,
               ),
-              if (fallbackCount > 0 || isLiked) ...[
-                const SizedBox(width: 4),
-                StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('posts')
-                      .doc(postId)
-                      .snapshots(),
-                  builder: (context, postSnap) {
-                    final count = postSnap.data?.get('likesCount') ?? fallbackCount;
-                    return Text(
-                      '$count',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isLiked ? Colors.red : AppTheme.textSecondary,
+            ),
+            if (fallbackCount > 0 || isLiked) ...[
+              const SizedBox(width: 4),
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('posts')
+                    .doc(postId)
+                    .snapshots(),
+                builder: (context, postSnap) {
+                  final count = postSnap.data?.get('likesCount') ?? fallbackCount;
+                  // 数字タップ＝いいねした人の一覧を表示
+                  return GestureDetector(
+                    onTap: () => showLikesSheet(context,
+                        postId: postId,
+                        likesCount: count is int ? count : fallbackCount),
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                      child: Text(
+                        '$count',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isLiked ? Colors.red : AppTheme.textSecondary,
+                        ),
                       ),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                  );
+                },
+              ),
             ],
-          ),
+          ],
         );
       },
     );
