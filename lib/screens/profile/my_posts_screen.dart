@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../config/app_theme.dart';
+import '../../widgets/likes_list_sheet.dart';
 
 /// 自分の投稿一覧画面
 class MyPostsScreen extends StatelessWidget {
@@ -116,9 +117,19 @@ class MyPostsScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Icon(Icons.favorite_outline, size: 16, color: AppTheme.textSecondary),
-                        const SizedBox(width: 4),
-                        Text('$likesCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                        // いいね数タップで、いいねした人の一覧を表示
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showLikesSheet(context,
+                              postId: posts[index].id, likesCount: likesCount),
+                          child: Row(
+                            children: [
+                              Icon(Icons.favorite_outline, size: 16, color: AppTheme.textSecondary),
+                              const SizedBox(width: 4),
+                              Text('$likesCount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                            ],
+                          ),
+                        ),
                         const SizedBox(width: 16),
                         Icon(Icons.chat_bubble_outline, size: 16, color: AppTheme.textSecondary),
                         const SizedBox(width: 4),
