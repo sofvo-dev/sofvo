@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/app_theme.dart';
@@ -374,6 +375,13 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
             color: AppTheme.primaryColor,
             onTap: () => _startDm(nickname),
           ),
+          const Divider(height: 1),
+          _buildActionTile(
+            icon: Icons.delete_forever_rounded,
+            label: 'アカウントを削除',
+            color: AppTheme.error,
+            onTap: () => _confirmDeleteUser(data),
+          ),
         ],
       ),
     );
@@ -515,6 +523,112 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     if (mounted) {
       setState(() => _loadingAction = false);
+    }
+  }
+
+  void _confirmDeleteUser(Map<String, dynamic> data) {
+    final nickname = (data['nickname'] ?? '名前なし').toString();
+    final searchId = (data['searchId'] ?? '').toString();
+    final isOfficial = data['isOfficial'] == true;
+    final isAdmin = data['isAdmin'] == true;
+    final isSelf = widget.userId == _currentUid;
+
+    // 自分自身は削除不可
+    if (isSelf) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('自分自身のアカウントは削除できません'),
+          backgroundColor: AppTheme.error,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('アカウントを削除',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$nickname${searchId.isNotEmpty ? '（@$searchId）' : ''} さんのアカウントを削除しますか？',
+                style: const TextStyle(fontSize: 14, height: 1.5),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'この操作は取り消せません。プロフィール・フォロー・通知などのデータと、ログイン情報（認証アカウント）がすべて削除されます。',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+              ),
+              if (isOfficial || isAdmin) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isAdmin
+                        ? '⚠️ このアカウントは「管理者」です。本当に削除してよいか確認してください。'
+                        : '⚠️ このアカウントは「公式アカウント」です。本当に削除してよいか確認してください。',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.error, fontWeight: FontWeight.w600, height: 1.4),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('キャンセル',
+                  style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteUser(nickname);
+              },
+              child: const Text('削除する',
+                  style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteUser(String nickname) async {
+    setState(() => _loadingAction = true);
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('adminDeleteUser');
+      await callable.call({'uid': widget.userId});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$nickname さんのアカウントを削除しました'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+        // 削除済みのユーザーを開いたままにできないので一覧へ戻る
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is FirebaseFunctionsException && (e.message ?? '').isNotEmpty
+            ? e.message!
+            : '削除に失敗しました: $e';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: AppTheme.error),
+        );
+        setState(() => _loadingAction = false);
+      }
     }
   }
 

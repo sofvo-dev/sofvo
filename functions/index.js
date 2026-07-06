@@ -4049,6 +4049,52 @@ exports.testWelcomeEmail = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// ── 管理者によるユーザー削除（Firestore 再帰削除 + Auth 削除・管理者のみ） ──
+// テストアカウント等を管理者画面から安全に削除するための callable。
+// クライアントからは相手ユーザーの Auth を消せない/サブコレクションを再帰削除できないため、
+// admin 権限を持つ Cloud Function で確定する。
+exports.adminDeleteUser = functions.https.onCall(async (data, context) => {
+  const db = admin.firestore();
+  await assertAdmin(context, db);
+
+  const uid = data && typeof data.uid === "string" ? data.uid.trim() : "";
+  if (!uid) {
+    throw new functions.https.HttpsError("invalid-argument", "削除対象のUIDが必要です");
+  }
+  if (uid === context.auth.uid) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "自分自身のアカウントは削除できません",
+    );
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const snap = await userRef.get();
+  const nickname = snap.exists ? snap.data().nickname || "" : "";
+
+  // Auth を先に削除しておくと、users ドキュメント削除時に走る
+  // sendAccountDeletedEmail（onDelete）が getUser 失敗でスキップされ、
+  // 管理者削除で不要な「削除完了メール」が本人へ飛ばない。
+  let authDeleted = false;
+  try {
+    await admin.auth().deleteUser(uid);
+    authDeleted = true;
+  } catch (e) {
+    // Auth に存在しない（Firestore ドキュメントだけ残っている）場合等は無視
+    functions.logger.warn(
+      `adminDeleteUser: auth delete skipped for ${uid}: ${e.message}`,
+    );
+  }
+
+  // Firestore ユーザードキュメントをサブコレクションごと再帰削除
+  await db.recursiveDelete(userRef);
+
+  functions.logger.info(
+    `adminDeleteUser: ${context.auth.uid} deleted ${uid} (${nickname}) authDeleted=${authDeleted}`,
+  );
+  return { ok: true, uid, nickname, authDeleted };
+});
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // フォロー数の自動更新（Firestoreトリガー）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
