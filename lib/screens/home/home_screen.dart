@@ -214,20 +214,29 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   const Spacer(),
-                  // 投稿作成（旧・下部FAB）。通知ベルの左に配置してナビとの重なりを解消
-                  GestureDetector(
-                    onTap: _openCreatePost,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 22),
-                    ),
+                  // 投稿作成（旧・下部FAB）。通知ベルの左に配置してナビとの重なりを解消。
+                  // 旧FABと同じくタイムラインタブ（index 0）でのみ表示する。
+                  AnimatedBuilder(
+                    animation: _tabController,
+                    builder: (context, _) {
+                      if (_tabController.index != 0) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: GestureDetector(
+                          onTap: _openCreatePost,
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add, color: Colors.white, size: 22),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 12),
                   StreamBuilder<int>(
                     stream: NotificationService.unreadCountStream(
                         FirebaseAuth.instance.currentUser?.uid ?? ''),

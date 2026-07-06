@@ -308,11 +308,24 @@ class _TournamentSearchScreenState extends State<TournamentSearchScreen>
                     color: AppTheme.textPrimary,
                 ),
               ),
-              const Spacer(),
-              // 保存済み切替（旧・下部FAB）。フォロー中/みんな トグルの左に配置
-              _buildSaveToggleButton(),
-              if (!_isSavedMode) const SizedBox(width: 8),
-              if (!_isSavedMode) _buildCompactToggle(),
+              // 右側クラスタ（保存ボタン＋トグル）を1つの FittedBox にまとめ、
+              // 余白は Expanded が吸収。狭い端末（iPhone SE 等）で溢れる時だけ
+              // クラスタ全体を縮小して逃がす（通常端末では等倍のまま右寄せ）。
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 保存済み切替（旧・下部FAB）。フォロー中/みんな トグルの左に配置
+                      _buildSaveToggleButton(),
+                      if (!_isSavedMode) const SizedBox(width: 8),
+                      if (!_isSavedMode) _buildCompactToggle(),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
