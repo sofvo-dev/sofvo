@@ -19,7 +19,11 @@ import '../../widgets/rank_badge.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
-  const UserProfileScreen({super.key, required this.userId});
+  /// マイページから「他の人にどう見えるか」を確認するプレビュー表示。
+  /// true のときは自分のプロフィールでも他人が見たビュー（フォロー/メッセージ等）を表示するが、
+  /// 実際のフォロー・DM・ブロック等の操作は行わない。
+  final bool preview;
+  const UserProfileScreen({super.key, required this.userId, this.preview = false});
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
@@ -34,6 +38,56 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   String get _currentUid => FirebaseAuth.instance.currentUser?.uid ?? '';
   bool get _isMyProfile => widget.userId == _currentUid;
+  /// 他人が見たビュー（フォロー/メッセージ/通報など）を表示するか。
+  /// 他人のプロフィール、またはプレビュー中の自分のプロフィールで true。
+  bool get _showOtherView => !_isMyProfile || widget.preview;
+
+  /// プレビュー中に操作を試みたときの案内。
+  void _showPreviewNotice() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('プレビュー中はこの操作はできません'),
+        backgroundColor: AppTheme.textSecondary,
+      ),
+    );
+  }
+
+  /// プレビュー中に画面下部へ表示する案内バー。
+  Widget _buildPreviewBar() {
+    return Material(
+      color: AppTheme.primaryDark,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+          child: Row(
+            children: [
+              const Icon(Icons.visibility_outlined, size: 18, color: Colors.white),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'プレビュー中：他の人にはこう表示されます',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  minimumSize: const Size(0, 34),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('終了', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -98,6 +152,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _startDmWith(String otherUid, String otherName) async {
+    if (widget.preview) {
+      _showPreviewNotice();
+      return;
+    }
     final myUid = _currentUid;
     if (myUid.isEmpty) return;
 
@@ -148,6 +206,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _showBlockReportSheet() {
+    if (widget.preview) {
+      _showPreviewNotice();
+      return;
+    }
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -293,6 +355,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _toggleFollow() async {
+    if (widget.preview) {
+      _showPreviewNotice();
+      return;
+    }
     if (_isMyProfile || _isFollowToggling) return;
 
     final wasFollowing = _isFollowing;
@@ -438,6 +504,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      bottomNavigationBar: widget.preview ? _buildPreviewBar() : null,
       body: CustomScrollView(
         slivers: [
           // ━━━ グラデーションヘッダー ━━━
@@ -466,7 +533,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             icon: const Icon(Icons.arrow_back, size: 22, color: Colors.white),
                           ),
                           const Spacer(),
-                          if (!_isMyProfile)
+                          if (_showOtherView)
                             IconButton(
                               constraints: const BoxConstraints(),
                               padding: const EdgeInsets.all(8),
@@ -555,7 +622,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       if (!isOfficial)
                         _FollowCounts(userId: widget.userId),
                       // ── フォロー / メッセージ ボタン ──
-                      if (!_isMyProfile) ...[
+                      if (_showOtherView) ...[
                         const SizedBox(height: 12),
                         Row(
                           children: [

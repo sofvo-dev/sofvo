@@ -152,6 +152,12 @@ class MyPageScreen extends StatelessWidget {
                               const Spacer(),
                               if (!isAdminViewing) ...[
                                 GestureDetector(
+                                  onTap: () => Navigator.push(context,
+                                      MaterialPageRoute(builder: (_) => UserProfileScreen(userId: viewingUid, preview: true))),
+                                  child: const Icon(Icons.visibility_outlined, size: 24, color: Colors.white),
+                                ),
+                                const SizedBox(width: 12),
+                                GestureDetector(
                                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FollowSearchScreen())),
                                   child: const Icon(Icons.person_add_outlined, size: 24, color: Colors.white),
                                 ),
