@@ -3180,6 +3180,21 @@ exports.respondEntryInvite = functions.https.onCall(async (data, context) => {
       const approvals = Object.assign({}, draft.approvals || {});
       approvals[uid] = approve ? "approved" : "declined";
       if (approve) {
+        // 重複再チェック（トランザクション内）：承認待ちの間に本人が
+        // 別チームで成立していないか、成立済みエントリー全体を読み直して確認する。
+        // このクエリ読み取りが読み取りセットに入るため、他の成立処理と競合した場合は
+        // トランザクションが自動リトライされ、二重所属を確実に防げる。
+        const entriesSnap = await tx.get(tRef.collection("entries"));
+        let takenTeam = null;
+        entriesSnap.forEach((d) => {
+          if (d.id === draft.entryId) return;
+          const uids = Array.isArray(d.data().memberUids) ? d.data().memberUids : [];
+          if (uids.includes(uid)) takenTeam = d.data().teamName || "別のチーム";
+        });
+        if (takenTeam) {
+          throw new functions.https.HttpsError("failed-precondition",
+            `既に「${takenTeam}」でエントリー成立済みのため、このチームには追加できません`);
+        }
         const update = {
           memberUids: admin.firestore.FieldValue.arrayUnion(uid),
         };
@@ -3201,6 +3216,23 @@ exports.respondEntryInvite = functions.https.onCall(async (data, context) => {
     const allApproved = invited.every((u) => approvals[u] === "approved");
 
     if (approve && allApproved && invited.length >= 4) {
+      // 成立直前の重複再チェック（トランザクション内）。承認が揃うまでの間に
+      // 招待メンバーの誰かが別チームで成立していないか、成立済みエントリー全体を
+      // 読み直して確認する。2つの下書きがほぼ同時に成立しようとした場合も、
+      // このクエリ読み取りが読み取りセットに入るため一方が自動リトライされ、
+      // 重複メンバーでの二重成立を防げる。
+      const entriesSnap = await tx.get(tRef.collection("entries"));
+      let conflictInfo = null;
+      entriesSnap.forEach((d) => {
+        const uids = Array.isArray(d.data().memberUids) ? d.data().memberUids : [];
+        for (const u of invited) {
+          if (uids.includes(u)) { conflictInfo = d.data().teamName || "別のチーム"; break; }
+        }
+      });
+      if (conflictInfo) {
+        throw new functions.https.HttpsError("failed-precondition",
+          `メンバーの誰かが既に「${conflictInfo}」でエントリー成立済みのため、このチームは成立できません。キャプテンがメンバーを見直してください`);
+      }
       const entryRef = tRef.collection("entries").doc();
       tx.set(entryRef, {
         teamId: entryRef.id,
