@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'tournament_summary_data.dart';
 
 class PdfGenerator {
   final _firestore = FirebaseFirestore.instance;
@@ -12,8 +13,6 @@ class PdfGenerator {
   // ━━━ カラーパレット ━━━
   static const _navy = PdfColor.fromInt(0xFF1B3A5C);
   static const _navyLight = PdfColor.fromInt(0xFFE8EDF3);
-  static const _accent = PdfColor.fromInt(0xFF2196F3);
-  static const _accentLight = PdfColor.fromInt(0xFFE3F2FD);
   static const _gold = PdfColor.fromInt(0xFFF9A825);
   static const _goldLight = PdfColor.fromInt(0xFFFFF8E1);
   static const _green = PdfColor.fromInt(0xFF43A047);
@@ -24,208 +23,92 @@ class PdfGenerator {
   static const _white = PdfColors.white;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 大会要項PDF（1枚に収める）
+  // 大会要項PDF（◆見出し＋箇条書きの正式な要項フォーマット）
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Future<Uint8List> generateTournamentSummary(String tournamentId) async {
-    final tournDoc = await _firestore.collection('tournaments').doc(tournamentId).get();
-    final t = tournDoc.data() ?? {};
-    final rules = t['rules'] as Map<String, dynamic>? ?? {};
-    final preliminary = rules['preliminary'] as Map<String, dynamic>? ?? {};
-    final scoring = rules['scoring'] as Map<String, dynamic>? ?? {};
-    final finalRules = rules['final'] as Map<String, dynamic>? ?? {};
+    final data = await TournamentSummaryData.build(tournamentId);
+    return generateTournamentSummaryFromData(data);
+  }
 
+  /// 既に取得済みの [TournamentSummaryData] からPDFを生成する
+  /// （画像プレビューと同じデータを使い回して二重取得を避けるための版）。
+  Future<Uint8List> generateTournamentSummaryFromData(TournamentSummaryData data) async {
     final font = await PdfGoogleFonts.notoSansJPRegular();
     final fontBold = await PdfGoogleFonts.notoSansJPBold();
 
     final pdf = pw.Document();
-    pdf.addPage(pw.Page(
+    pdf.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.fromLTRB(32, 28, 32, 24),
+      margin: const pw.EdgeInsets.fromLTRB(40, 40, 40, 32),
       theme: pw.ThemeData.withFont(base: font, bold: fontBold),
-      build: (context) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-        // ── タイトルバナー ──
-        pw.Container(
-          width: double.infinity,
-          padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          decoration: pw.BoxDecoration(color: _navy, borderRadius: pw.BorderRadius.circular(6)),
-          child: pw.Column(children: [
-            pw.Text(t['name'] ?? t['title'] ?? '大会要項',
-                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: _white)),
-            pw.SizedBox(height: 2),
-            pw.Text('ソフトバレーボール大会要項',
-                style: pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFFB0BEC5), letterSpacing: 1.5)),
-          ]),
-        ),
-        pw.SizedBox(height: 14),
+      header: (context) => context.pageNumber == 1
+          ? pw.SizedBox(height: 0, width: 0)
+          : _pageHeader(data.title),
+      footer: (context) => _pageFooter(context),
+      build: (context) => [
+        pw.Center(child: pw.Text(data.title,
+            style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: _textDark))),
+        pw.SizedBox(height: 4),
+        pw.Center(child: pw.Text('大会要項',
+            style: pw.TextStyle(fontSize: 9, color: _textMedium, letterSpacing: 2))),
+        pw.SizedBox(height: 22),
 
-        // ── 上段: 基本情報（左） + スケジュール（右） ──
-        pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Expanded(flex: 5, child: _sectionCardCompact('基本情報', _navy, [
-            _compactRow('開催日', t['date'] ?? ''),
-            _compactRow('会場', t['location'] ?? ''),
-            if ((t['venueAddress'] ?? '').toString().isNotEmpty)
-              _compactRow('住所', t['venueAddress'] ?? ''),
-            _compactRow('コート数', '${t['courts'] ?? 0}コート'),
-            _compactRow('種別', t['type'] ?? '混合'),
-            _compactRow('参加費', (() { final f = t['entryFee']; return f is int ? '¥$f' : (f ?? '').toString(); })()),
-            _compactRow('定員', '${t['maxTeams'] ?? 0}チーム'),
-          ])),
-          pw.SizedBox(width: 12),
-          pw.Expanded(flex: 4, child: _sectionCardCompact('当日スケジュール', _accent, [
-            _scheduleRow(t['openTime'] ?? '8:00', '会場'),
-            _scheduleRow(t['receptionTime'] ?? '8:30', '受付'),
-            _scheduleRow(t['captainMeetingTime'] ?? '8:45', 'キャプテン会議'),
-            _scheduleRow(t['openingTime'] ?? '9:00', '開会式'),
-            _scheduleRow(t['matchStartTime'] ?? '9:15', '試合開始'),
-            _scheduleRow(t['finalTime'] ?? '15:00', '終了'),
-            _scheduleRow(t['closingTime'] ?? '15:30', '完全撤退'),
-          ])),
+        _reqSection('日程', [pw.Text(data.date, style: _bodyStyle())]),
+        _reqSection('会場', [
+          pw.Text(data.venueName, style: _bodyStyle()),
+          if (data.venueAddress.isNotEmpty || data.venuePhone.isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 2),
+              child: pw.Text([
+                if (data.venueAddress.isNotEmpty) '住所: ${data.venueAddress}',
+                if (data.venuePhone.isNotEmpty) 'TEL: ${data.venuePhone}',
+              ].join('　'), style: _bodyStyle(size: 9, color: _textMedium)),
+            ),
+          if (data.parking > 0)
+            pw.Text('駐車場: ${data.parking}台', style: _bodyStyle(size: 9, color: _textMedium)),
         ]),
-        pw.SizedBox(height: 12),
-
-        // ── 中段: ルール（左） + 勝ち点（右、あれば） ──
-        pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Expanded(flex: 5, child: _sectionCardCompact('大会ルール', _green, [
-            _compactRow('試合形式', '15点先取'),
-            _compactRow('予選', '${preliminary['sets'] ?? 2}セットマッチ'),
-            _compactRow('ジュース',
-                (preliminary['deuce'] ?? false)
-                    ? 'あり（${preliminary['deuceCap'] ?? 17}点キャップ）'
-                    : 'なし'),
-            if ((finalRules['enabled'] ?? false) == true)
-              _compactRow('決勝', '${finalRules['sets'] ?? 3}セットマッチ'),
-          ])),
-          if (scoring['enabled'] == true) ...[
-            pw.SizedBox(width: 12),
-            pw.Expanded(flex: 4, child: _sectionCardCompact('勝ち点制', _gold,
-              _pdfScoringRows(preliminary['sets'] ?? 2, scoring),
-            )),
-          ],
-        ]),
-        pw.Spacer(),
-
-        // ── フッター ──
-        pw.Container(
-          padding: const pw.EdgeInsets.only(top: 6),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(top: pw.BorderSide(color: _divider, width: 0.5)),
-          ),
-          child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-            pw.Text('Powered by Sofvo', style: pw.TextStyle(fontSize: 7, color: _textMedium)),
-            pw.Text('※内容は変更になる場合があります',
-                style: pw.TextStyle(fontSize: 7, color: _textMedium)),
+        _reqSection('時間', data.schedule.map((s) => pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+          child: pw.Text('${s.$1}　・・・・　${s.$2}', style: _bodyStyle()),
+        )).toList()),
+        _reqSection('大会概要', [
+          pw.Wrap(spacing: 22, runSpacing: 4, children: [
+            pw.Text('参加チーム数　${data.teamCountText}', style: _bodyStyle()),
+            pw.Text('参加費　${data.feeText}', style: _bodyStyle()),
+            pw.Text('コート数　${data.courtText}', style: _bodyStyle()),
+            pw.Text('種別　${data.typeText}', style: _bodyStyle()),
           ]),
-        ),
-      ]),
+        ]),
+        _reqSection('対戦方法', data.matchFormatLines.map((l) => pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+          child: pw.Text(l, style: _bodyStyle()),
+        )).toList()),
+        if (data.noticeLines.isNotEmpty)
+          _reqSection('連絡事項', data.noticeLines.map((l) => pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+            child: pw.Text('・$l', style: _bodyStyle()),
+          )).toList()),
+      ],
     ));
     return pdf.save();
   }
 
-  // ── 要項用コンパクトヘルパー ──
+  // ── 要項フォーマット用ヘルパー ──
 
-  pw.Widget _sectionCardCompact(String title, PdfColor accentColor, List<pw.Widget> children) {
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: _divider, width: 0.5),
-        borderRadius: pw.BorderRadius.circular(6),
-      ),
-      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-        pw.Container(
-          width: double.infinity,
-          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-          decoration: pw.BoxDecoration(
-            color: accentColor,
-            borderRadius: const pw.BorderRadius.only(
-              topLeft: pw.Radius.circular(6),
-              topRight: pw.Radius.circular(6),
-            ),
-          ),
-          child: pw.Text(title, style: pw.TextStyle(
-            fontSize: 10, fontWeight: pw.FontWeight.bold, color: _white,
-          )),
-        ),
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-          child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: children),
-        ),
-      ]),
-    );
-  }
-
-  pw.Widget _compactRow(String label, String value) {
+  /// ◆見出し + インデントされた本文（サンプル要項と同じ構成）
+  pw.Widget _reqSection(String label, List<pw.Widget> children) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
-      child: pw.Row(children: [
-        pw.SizedBox(width: 70, child: pw.Text(label,
-            style: pw.TextStyle(fontSize: 8, color: _textMedium))),
-        pw.Expanded(child: pw.Text(value,
-            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _textDark))),
+      padding: const pw.EdgeInsets.only(bottom: 16),
+      child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.SizedBox(width: 92, child: pw.Text('◆$label',
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _navy))),
+        pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: children)),
       ]),
     );
   }
 
-  pw.Widget _scheduleRow(String time, String label) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
-      child: pw.Row(children: [
-        pw.Container(
-          width: 50,
-          padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-          decoration: pw.BoxDecoration(
-            color: _accentLight,
-            borderRadius: pw.BorderRadius.circular(3),
-          ),
-          child: pw.Text(time, style: pw.TextStyle(
-              fontSize: 8, fontWeight: pw.FontWeight.bold, color: _accent),
-              textAlign: pw.TextAlign.center),
-        ),
-        pw.SizedBox(width: 8),
-        pw.Text(label, style: pw.TextStyle(fontSize: 9, color: _textDark)),
-      ]),
-    );
-  }
-
-  List<pw.Widget> _pdfScoringRows(int sets, Map<String, dynamic> scoring) {
-    switch (sets) {
-      case 1:
-        return [
-          _scoringRow('勝利', '${scoring['win'] ?? 3}点'),
-          _scoringRow('敗北', '${scoring['lose'] ?? 0}点'),
-        ];
-      case 3:
-        return [
-          _scoringRow('2-0 勝ち', '${scoring['win20'] ?? 10}点'),
-          _scoringRow('2-1 勝ち', '${scoring['win21'] ?? 7}点'),
-          _scoringRow('1-2 負け', '${scoring['lose12'] ?? 2}点'),
-          _scoringRow('0-2 負け', '${scoring['lose02'] ?? 0}点'),
-        ];
-      default:
-        return [
-          _scoringRow('2-0 勝ち', '${scoring['win20'] ?? 10}点'),
-          _scoringRow('1-1 得失差勝ち', '${scoring['win11'] ?? 7}点'),
-          _scoringRow('1-1 引き分け', '${scoring['draw'] ?? 4}点'),
-          _scoringRow('1-1 得失差負け', '${scoring['lose11'] ?? 2}点'),
-          _scoringRow('0-2 負け', '${scoring['lose02'] ?? 0}点'),
-        ];
-    }
-  }
-
-  pw.Widget _scoringRow(String label, String pts) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2),
-      child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-        pw.Text(label, style: pw.TextStyle(fontSize: 8, color: _textDark)),
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 1, horizontal: 8),
-          decoration: pw.BoxDecoration(
-            color: _goldLight,
-            borderRadius: pw.BorderRadius.circular(8),
-          ),
-          child: pw.Text(pts, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _gold)),
-        ),
-      ]),
-    );
-  }
+  pw.TextStyle _bodyStyle({double size = 10, PdfColor color = _textDark}) =>
+      pw.TextStyle(fontSize: size, color: color);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 対戦表PDF（縦向き A4）

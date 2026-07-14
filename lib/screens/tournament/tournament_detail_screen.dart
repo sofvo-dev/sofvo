@@ -34,6 +34,7 @@ import '../../widgets/invite_share_sheet.dart';
 import '../../widgets/follower_member_picker.dart';
 import '../profile/user_profile_screen.dart';
 import '../../services/pdf_generator.dart';
+import 'tournament_summary_download_screen.dart';
 import 'package:printing/printing.dart';
 import '../chat/chat_screen.dart';
 import '../../services/notification_service.dart';
@@ -751,6 +752,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                   const Divider(height: 1),
                   _buildDetailInfoRow(Icons.event_busy, 'エントリー締切', liveDeadline, valueColor: AppTheme.warning),
                 ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openSummaryDownload(),
+                    icon: const Icon(Icons.download_outlined, size: 18),
+                    label: const Text('大会要項をダウンロード', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      side: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
               ]),
             ),
             const SizedBox(height: 16),
@@ -7281,6 +7297,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
+  void _openSummaryDownload() {
+    final tournamentName = (widget.tournament['name'] ?? widget.tournament['title'] ?? '大会').toString();
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => TournamentSummaryDownloadScreen(tournamentId: _tournamentId, tournamentName: tournamentName),
+    ));
+  }
+
   void _showPdfSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -7299,11 +7322,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               leading: const Icon(Icons.description, color: AppTheme.primaryColor),
               title: const Text('\u5927\u4f1a\u8981\u9805PDF'),
               subtitle: const Text('\u57fa\u672c\u60c5\u5831\u30fb\u30eb\u30fc\u30eb\u30fb\u30b9\u30b1\u30b8\u30e5\u30fc\u30eb'),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...'), backgroundColor: AppTheme.primaryColor));
-                final bytes = await PdfGenerator().generateTournamentSummary(_tournamentId);
-                await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u8981\u9805');
+                _openSummaryDownload();
               },
             ),
             ListTile(
