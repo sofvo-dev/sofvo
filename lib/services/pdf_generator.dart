@@ -155,12 +155,10 @@ class PdfGenerator {
           ...sortedCourts.map((court) {
             final courtNum = court.value.first['courtNumber'] ?? 0;
             final courtLabel = String.fromCharCode(64 + (courtNum as int));
-            return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              pw.SizedBox(height: 10),
-              _courtBadge('${courtLabel}コート'),
-              pw.SizedBox(height: 6),
-              _matchTablePortrait(court.value),
-            ]);
+            return pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 14),
+              child: _courtCard('${courtLabel}コート', _matchTablePortrait(court.value)),
+            );
           }),
         ],
       ));
@@ -176,12 +174,10 @@ class PdfGenerator {
               .orderBy('matchPoints', descending: true).get();
           if (teamsSnap.docs.isEmpty) continue;
           final courtLabel = String.fromCharCode(64 + (courtNum as int));
-          standingsWidgets.addAll([
-            pw.SizedBox(height: 12),
-            _courtBadge('${courtLabel}コート 順位表'),
-            pw.SizedBox(height: 6),
-            _standingsTable(teamsSnap.docs),
-          ]);
+          standingsWidgets.add(pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 14),
+            child: _courtCard('${courtLabel}コート 順位表', _standingsTable(teamsSnap.docs)),
+          ));
         }
         pdf.addPage(pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -200,14 +196,37 @@ class PdfGenerator {
     return pdf.save();
   }
 
+  /// コートごとの試合一覧／順位表を1枚のカードにまとめる
+  /// （紺色の見出しバーを表に直結させ、要項PDFと同じ「カード」の視覚言語で統一する）
+  pw.Widget _courtCard(String label, pw.Widget table) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: _divider, width: 0.6),
+        borderRadius: pw.BorderRadius.circular(8),
+      ),
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.symmetric(vertical: 7, horizontal: 12),
+          decoration: pw.BoxDecoration(
+            color: _navy,
+            borderRadius: pw.BorderRadius.only(topLeft: pw.Radius.circular(7), topRight: pw.Radius.circular(7)),
+          ),
+          child: pw.Text(label, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _white)),
+        ),
+        pw.Padding(padding: const pw.EdgeInsets.all(8), child: table),
+      ]),
+    );
+  }
+
   /// 対戦表（縦向き用）
   pw.Widget _matchTablePortrait(List<Map<String, dynamic>> matches) {
     return pw.Table(
       border: pw.TableBorder.all(color: _divider, width: 0.5),
       columnWidths: {
-        0: const pw.FixedColumnWidth(24),
+        0: const pw.FixedColumnWidth(26),
         1: const pw.FlexColumnWidth(3),
-        2: const pw.FixedColumnWidth(40),
+        2: const pw.FixedColumnWidth(44),
         3: const pw.FlexColumnWidth(3),
         4: const pw.FlexColumnWidth(2),
       },
@@ -217,8 +236,8 @@ class PdfGenerator {
           decoration: pw.BoxDecoration(color: _navyLight),
           children: ['#', 'チームA', 'スコア', 'チームB', '審判'].map((h) =>
             pw.Container(
-              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-              child: pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _navy),
+              padding: const pw.EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+              child: pw.Text(h, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _navy),
                   textAlign: pw.TextAlign.center),
             ),
           ).toList(),
@@ -229,18 +248,24 @@ class PdfGenerator {
           final m = e.value;
           final result = m['result'] as Map<String, dynamic>? ?? {};
           final status = m['status'] ?? 'pending';
-          final score = status == 'completed'
+          final isCompleted = status == 'completed';
+          final winnerId = result['winner'] ?? '';
+          final teamAId = (m['teamAId'] ?? '') as String;
+          final teamBId = (m['teamBId'] ?? '') as String;
+          final aWon = isCompleted && winnerId == teamAId && teamAId.isNotEmpty;
+          final bWon = isCompleted && winnerId == teamBId && teamBId.isNotEmpty;
+          final score = isCompleted
               ? '${result['setsA'] ?? 0}-${result['setsB'] ?? 0}'
               : 'vs';
-          final bg = i.isOdd ? PdfColor.fromInt(0xFFFAFAFA) : _white;
+          final bg = isCompleted ? _greenLight : (i.isOdd ? PdfColor.fromInt(0xFFFAFAFA) : _white);
           return pw.TableRow(
             decoration: pw.BoxDecoration(color: bg),
             children: [
-              _tableCell('${m['matchOrder'] ?? ""}', fontSize: 8),
-              _tableCell((m['teamAName'] ?? '') as String, fontSize: 8, bold: true),
-              _tableCell(score, fontSize: 8, color: status == 'completed' ? _navy : _textMedium),
-              _tableCell((m['teamBName'] ?? '') as String, fontSize: 8, bold: true),
-              _tableCell((m['refereeTeamName'] ?? '') as String, fontSize: 7),
+              _tableCell('${m['matchOrder'] ?? ""}', fontSize: 9, color: _textMedium),
+              _tableCell((m['teamAName'] ?? '') as String, fontSize: 9, bold: true, color: aWon ? _green : _textDark),
+              _tableCell(score, fontSize: 9, bold: isCompleted, color: isCompleted ? _navy : _textMedium),
+              _tableCell((m['teamBName'] ?? '') as String, fontSize: 9, bold: true, color: bWon ? _green : _textDark),
+              _tableCell((m['refereeTeamName'] ?? '') as String, fontSize: 8, color: _textMedium),
             ],
           );
         }),
@@ -253,7 +278,7 @@ class PdfGenerator {
     return pw.Table(
       border: pw.TableBorder.all(color: _divider, width: 0.5),
       columnWidths: {
-        0: const pw.FixedColumnWidth(28),
+        0: const pw.FixedColumnWidth(30),
         1: const pw.FlexColumnWidth(4),
         2: const pw.FixedColumnWidth(36),
         3: const pw.FixedColumnWidth(28),
@@ -266,8 +291,8 @@ class PdfGenerator {
           decoration: pw.BoxDecoration(color: _goldLight),
           children: ['順位', 'チーム', '勝点', '勝', '負', '得失', '総得点'].map((h) =>
             pw.Container(
-              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-              child: pw.Text(h, style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: _navy),
+              padding: const pw.EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+              child: pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _navy),
                   textAlign: pw.TextAlign.center),
             ),
           ).toList(),
@@ -275,22 +300,55 @@ class PdfGenerator {
         ...docs.asMap().entries.map((e) {
           final i = e.key;
           final s = e.value.data() as Map<String, dynamic>;
-          final isFirst = i == 0;
-          final bg = isFirst ? PdfColor.fromInt(0xFFFFF8E1) : (i.isOdd ? PdfColor.fromInt(0xFFFAFAFA) : _white);
+          final rank = i + 1;
+          final bg = i == 0
+              ? PdfColor.fromInt(0xFFFFF8E1)
+              : i == 1
+                  ? PdfColor.fromInt(0xFFF5F5F5)
+                  : i == 2
+                      ? PdfColor.fromInt(0xFFFBEEE6)
+                      : (i.isOdd ? PdfColor.fromInt(0xFFFAFAFA) : _white);
           return pw.TableRow(
             decoration: pw.BoxDecoration(color: bg),
             children: [
-              _tableCell('${i + 1}', fontSize: 8, bold: isFirst, color: isFirst ? _gold : _textDark),
-              _tableCell((s['teamName'] ?? '') as String, fontSize: 8, bold: isFirst),
-              _tableCell('${s['matchPoints'] ?? 0}', fontSize: 8, bold: true),
-              _tableCell('${s['wins'] ?? 0}', fontSize: 8),
-              _tableCell('${s['losses'] ?? 0}', fontSize: 8),
-              _tableCell('${s['pointDiff'] ?? 0}', fontSize: 8),
-              _tableCell('${s['totalPoints'] ?? 0}', fontSize: 8),
+              pw.Container(
+                alignment: pw.Alignment.center,
+                padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                child: _rankBadge(rank),
+              ),
+              _tableCell((s['teamName'] ?? '') as String, fontSize: 9, bold: rank <= 3),
+              _tableCell('${s['matchPoints'] ?? 0}', fontSize: 9, bold: true),
+              _tableCell('${s['wins'] ?? 0}', fontSize: 9),
+              _tableCell('${s['losses'] ?? 0}', fontSize: 9),
+              _tableCell('${s['pointDiff'] ?? 0}', fontSize: 9),
+              _tableCell('${s['totalPoints'] ?? 0}', fontSize: 9),
             ],
           );
         }),
       ],
+    );
+  }
+
+  /// 順位バッジ（1-3位はメダル色の丸、4位以降は枠線のみの丸）
+  pw.Widget _rankBadge(int rank) {
+    const medalColors = {
+      1: PdfColor.fromInt(0xFFD4A017),
+      2: PdfColor.fromInt(0xFFA3ACB4),
+      3: PdfColor.fromInt(0xFFBF8A57),
+    };
+    final medal = medalColors[rank];
+    return pw.Container(
+      width: 18, height: 18,
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        shape: pw.BoxShape.circle,
+        color: medal ?? _white,
+        border: medal == null ? pw.Border.all(color: _divider, width: 0.8) : null,
+      ),
+      child: pw.Text('$rank', style: pw.TextStyle(
+        fontSize: 8.5, fontWeight: pw.FontWeight.bold,
+        color: medal != null ? _white : _textMedium,
+      )),
     );
   }
 
@@ -362,131 +420,97 @@ class PdfGenerator {
     final final5th = matches.where((m) => m['round'] == 'final_5th').firstOrNull;
     final final7th = matches.where((m) => m['round'] == 'final_7th').firstOrNull;
 
-    pdf.addPage(pw.Page(
+    pdf.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(20),
+      margin: const pw.EdgeInsets.all(24),
       theme: pw.ThemeData.withFont(base: font, bold: fontBold),
-      build: (context) {
-        return pw.Column(children: [
-          _buildTitleBanner('$bracketNameトーナメント'),
-          pw.SizedBox(height: 8),
+      header: (context) => context.pageNumber == 1
+          ? pw.SizedBox(height: 0, width: 0)
+          : _pageHeader('$tournamentName - $bracketNameトーナメント'),
+      footer: (context) => _pageFooter(context),
+      build: (context) => [
+        _buildTitleBanner('$bracketNameトーナメント'),
+        pw.SizedBox(height: 10),
 
-          // ━━━ 準々決勝 ━━━
-          _sectionHeader('準々決勝'),
-          pw.SizedBox(height: 4),
-          pw.Row(children: [
-            pw.Expanded(child: qfMatches.isNotEmpty
-                ? _matchBox(qfMatches[0], label: '①', compact: true)
-                : pw.SizedBox()),
-            pw.SizedBox(width: 4),
-            pw.Expanded(child: qfMatches.length > 1
-                ? _matchBox(qfMatches[1], label: '②', compact: true)
-                : pw.SizedBox()),
-            pw.SizedBox(width: 4),
-            pw.Expanded(child: qfMatches.length > 2
-                ? _matchBox(qfMatches[2], label: '③', compact: true)
-                : pw.SizedBox()),
-            pw.SizedBox(width: 4),
-            pw.Expanded(child: qfMatches.length > 3
-                ? _matchBox(qfMatches[3], label: '④', compact: true)
-                : pw.SizedBox()),
-          ]),
-          pw.SizedBox(height: 4),
-          _connectorDown4(),
-          pw.SizedBox(height: 6),
+        // ━━━ 準々決勝 ━━━
+        _sectionHeader('準々決勝'),
+        pw.SizedBox(height: 5),
+        pw.Row(children: [
+          pw.Expanded(child: qfMatches.isNotEmpty
+              ? _matchBox(qfMatches[0], label: '①', compact: true)
+              : pw.SizedBox()),
+          pw.SizedBox(width: 5),
+          pw.Expanded(child: qfMatches.length > 1
+              ? _matchBox(qfMatches[1], label: '②', compact: true)
+              : pw.SizedBox()),
+          pw.SizedBox(width: 5),
+          pw.Expanded(child: qfMatches.length > 2
+              ? _matchBox(qfMatches[2], label: '③', compact: true)
+              : pw.SizedBox()),
+          pw.SizedBox(width: 5),
+          pw.Expanded(child: qfMatches.length > 3
+              ? _matchBox(qfMatches[3], label: '④', compact: true)
+              : pw.SizedBox()),
+        ]),
+        pw.SizedBox(height: 5),
+        _connectorDown4(),
+        pw.SizedBox(height: 8),
 
-          // ━━━ 準決勝 ━━━
-          pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            // 勝者準決勝
-            pw.Expanded(flex: 1, child: pw.Column(children: [
-              _sectionHeader('準決勝（勝者）'),
-              pw.SizedBox(height: 4),
-              pw.Row(children: [
-                pw.Expanded(child: sfWinner.isNotEmpty
-                    ? _matchBox(sfWinner[0], label: '①勝 vs ②勝', compact: true) : pw.SizedBox()),
-                pw.SizedBox(width: 4),
-                pw.Expanded(child: sfWinner.length > 1
-                    ? _matchBox(sfWinner[1], label: '③勝 vs ④勝', compact: true) : pw.SizedBox()),
-              ]),
-            ])),
-            pw.SizedBox(width: 12),
-            // 敗者準決勝
-            pw.Expanded(flex: 1, child: pw.Column(children: [
-              _sectionHeader('準決勝（敗者）'),
-              pw.SizedBox(height: 4),
-              pw.Row(children: [
-                pw.Expanded(child: sfLoser.isNotEmpty
-                    ? _matchBox(sfLoser[0], label: '①負 vs ②負', compact: true) : pw.SizedBox()),
-                pw.SizedBox(width: 4),
-                pw.Expanded(child: sfLoser.length > 1
-                    ? _matchBox(sfLoser[1], label: '③負 vs ④負', compact: true) : pw.SizedBox()),
-              ]),
-            ])),
-          ]),
-          pw.SizedBox(height: 6),
-          _connectorDown4(),
-          pw.SizedBox(height: 6),
-
-          // ━━━ 順位決定戦 ━━━
-          _sectionHeader('順位決定戦'),
-          pw.SizedBox(height: 4),
-          pw.Row(children: [
-            pw.Expanded(child: final7th != null
-                ? _matchBox(final7th, label: '7位決定戦', compact: true)
-                : pw.SizedBox()),
-            pw.SizedBox(width: 4),
-            pw.Expanded(child: final5th != null
-                ? _matchBox(final5th, label: '5位決定戦', compact: true)
-                : pw.SizedBox()),
-            pw.SizedBox(width: 4),
-            pw.Expanded(child: final3rd != null
-                ? _matchBox(final3rd, label: '3位決定戦', compact: true)
-                : pw.SizedBox()),
-            pw.SizedBox(width: 4),
-            pw.Expanded(child: final1st != null
-                ? _matchBox(final1st, label: '決勝（1-2位）', highlight: true, compact: true)
-                : pw.SizedBox()),
-          ]),
-          pw.SizedBox(height: 12),
-
-          // ━━━ 対戦フロー図 ━━━
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColor.fromInt(0xFFF5F5F5),
-              borderRadius: pw.BorderRadius.circular(6),
-              border: pw.Border.all(color: _divider),
-            ),
-            child: pw.Column(children: [
-              pw.Text('対戦フロー', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _navy)),
-              pw.SizedBox(height: 6),
-              pw.Row(children: [
-                pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                  _flowLine('QF① 勝者 ┐'),
-                  _flowLine('            ├→ 準決勝（勝者①）→ 勝→ 決勝（1-2位）'),
-                  _flowLine('QF② 勝者 ┘                  └ 負→ 3位決定戦'),
-                  pw.SizedBox(height: 3),
-                  _flowLine('QF③ 勝者 ┐'),
-                  _flowLine('            ├→ 準決勝（勝者②）→ 勝→ 決勝（1-2位）'),
-                  _flowLine('QF④ 勝者 ┘                  └ 負→ 3位決定戦'),
-                  pw.SizedBox(height: 6),
-                  _flowLine('QF① 敗者 ┐'),
-                  _flowLine('            ├→ 準決勝（敗者①）→ 勝→ 5位決定戦'),
-                  _flowLine('QF② 敗者 ┘                  └ 負→ 7位決定戦'),
-                  pw.SizedBox(height: 3),
-                  _flowLine('QF③ 敗者 ┐'),
-                  _flowLine('            ├→ 準決勝（敗者②）→ 勝→ 5位決定戦'),
-                  _flowLine('QF④ 敗者 ┘                  └ 負→ 7位決定戦'),
-                ])),
-              ]),
+        // ━━━ 準決勝 ━━━
+        pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          // 勝者準決勝
+          pw.Expanded(flex: 1, child: pw.Column(children: [
+            _sectionHeader('準決勝（勝者）'),
+            pw.SizedBox(height: 5),
+            pw.Row(children: [
+              pw.Expanded(child: sfWinner.isNotEmpty
+                  ? _matchBox(sfWinner[0], label: '①勝 vs ②勝', compact: true) : pw.SizedBox()),
+              pw.SizedBox(width: 5),
+              pw.Expanded(child: sfWinner.length > 1
+                  ? _matchBox(sfWinner[1], label: '③勝 vs ④勝', compact: true) : pw.SizedBox()),
             ]),
-          ),
+          ])),
+          pw.SizedBox(width: 12),
+          // 敗者準決勝
+          pw.Expanded(flex: 1, child: pw.Column(children: [
+            _sectionHeader('準決勝（敗者）'),
+            pw.SizedBox(height: 5),
+            pw.Row(children: [
+              pw.Expanded(child: sfLoser.isNotEmpty
+                  ? _matchBox(sfLoser[0], label: '①負 vs ②負', compact: true) : pw.SizedBox()),
+              pw.SizedBox(width: 5),
+              pw.Expanded(child: sfLoser.length > 1
+                  ? _matchBox(sfLoser[1], label: '③負 vs ④負', compact: true) : pw.SizedBox()),
+            ]),
+          ])),
+        ]),
+        pw.SizedBox(height: 8),
+        _connectorDown4(),
+        pw.SizedBox(height: 8),
 
-          pw.Spacer(),
-          _footerLine(),
-        ]);
-      },
+        // ━━━ 順位決定戦 ━━━
+        _sectionHeader('順位決定戦'),
+        pw.SizedBox(height: 5),
+        pw.Row(children: [
+          pw.Expanded(child: final7th != null
+              ? _matchBox(final7th, label: '7位決定戦', compact: true)
+              : pw.SizedBox()),
+          pw.SizedBox(width: 5),
+          pw.Expanded(child: final5th != null
+              ? _matchBox(final5th, label: '5位決定戦', compact: true)
+              : pw.SizedBox()),
+          pw.SizedBox(width: 5),
+          pw.Expanded(child: final3rd != null
+              ? _matchBox(final3rd, label: '3位決定戦', compact: true)
+              : pw.SizedBox()),
+          pw.SizedBox(width: 5),
+          pw.Expanded(child: final1st != null
+              ? _matchBox(final1st, label: '決勝（1-2位）', highlight: true, compact: true)
+              : pw.SizedBox()),
+        ]),
+        pw.SizedBox(height: 10),
+        _legendLine(),
+      ],
     ));
   }
 
@@ -500,69 +524,47 @@ class PdfGenerator {
     final final1st = matches.where((m) => m['round'] == 'final_1st' || m['round'] == 'final').firstOrNull;
     final final3rd = matches.where((m) => m['round'] == 'final_3rd').firstOrNull;
 
-    pdf.addPage(pw.Page(
+    pdf.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(24),
+      margin: const pw.EdgeInsets.all(28),
       theme: pw.ThemeData.withFont(base: font, bold: fontBold),
-      build: (context) {
-        return pw.Column(children: [
-          _buildTitleBanner('$bracketNameトーナメント'),
-          pw.SizedBox(height: 16),
+      header: (context) => context.pageNumber == 1
+          ? pw.SizedBox(height: 0, width: 0)
+          : _pageHeader('$tournamentName - $bracketNameトーナメント'),
+      footer: (context) => _pageFooter(context),
+      build: (context) => [
+        _buildTitleBanner('$bracketNameトーナメント'),
+        pw.SizedBox(height: 16),
 
-          // ━━━ 準決勝 ━━━
-          _sectionHeader('準決勝'),
-          pw.SizedBox(height: 6),
-          pw.Row(children: [
-            pw.Expanded(child: semiMatches.isNotEmpty
-                ? _matchBox(semiMatches[0], label: '準決勝①') : pw.SizedBox()),
-            pw.SizedBox(width: 20),
-            pw.Expanded(child: semiMatches.length > 1
-                ? _matchBox(semiMatches[1], label: '準決勝②') : pw.SizedBox()),
-          ]),
-          pw.SizedBox(height: 6),
-          _connectorDown2(),
-          pw.SizedBox(height: 10),
+        // ━━━ 準決勝 ━━━
+        _sectionHeader('準決勝'),
+        pw.SizedBox(height: 6),
+        pw.Row(children: [
+          pw.Expanded(child: semiMatches.isNotEmpty
+              ? _matchBox(semiMatches[0], label: '準決勝①') : pw.SizedBox()),
+          pw.SizedBox(width: 20),
+          pw.Expanded(child: semiMatches.length > 1
+              ? _matchBox(semiMatches[1], label: '準決勝②') : pw.SizedBox()),
+        ]),
+        pw.SizedBox(height: 6),
+        _connectorDown2(),
+        pw.SizedBox(height: 10),
 
-          // ━━━ 順位決定戦 ━━━
-          _sectionHeader('順位決定戦'),
-          pw.SizedBox(height: 6),
-          pw.Row(children: [
-            pw.Expanded(child: final3rd != null
-                ? _matchBox(final3rd, label: '3位決定戦')
-                : pw.SizedBox()),
-            pw.SizedBox(width: 20),
-            pw.Expanded(child: final1st != null
-                ? _matchBox(final1st, label: '決勝（1-2位）', highlight: true)
-                : pw.SizedBox()),
-          ]),
-          pw.SizedBox(height: 16),
-
-          // フロー図
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColor.fromInt(0xFFF5F5F5),
-              borderRadius: pw.BorderRadius.circular(6),
-              border: pw.Border.all(color: _divider),
-            ),
-            child: pw.Column(children: [
-              pw.Text('対戦フロー', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _navy)),
-              pw.SizedBox(height: 4),
-              _flowLine('準決勝①の勝者 ┐'),
-              _flowLine('                    ├→ 決勝（1-2位）'),
-              _flowLine('準決勝②の勝者 ┘'),
-              pw.SizedBox(height: 3),
-              _flowLine('準決勝①の敗者 ┐'),
-              _flowLine('                    ├→ 3位決定戦'),
-              _flowLine('準決勝②の敗者 ┘'),
-            ]),
-          ),
-
-          pw.Spacer(),
-          _footerLine(),
-        ]);
-      },
+        // ━━━ 順位決定戦 ━━━
+        _sectionHeader('順位決定戦'),
+        pw.SizedBox(height: 6),
+        pw.Row(children: [
+          pw.Expanded(child: final3rd != null
+              ? _matchBox(final3rd, label: '3位決定戦')
+              : pw.SizedBox()),
+          pw.SizedBox(width: 20),
+          pw.Expanded(child: final1st != null
+              ? _matchBox(final1st, label: '決勝（1-2位）', highlight: true)
+              : pw.SizedBox()),
+        ]),
+        pw.SizedBox(height: 14),
+        _legendLine(),
+      ],
     ));
   }
 
@@ -575,7 +577,9 @@ class PdfGenerator {
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(28),
       theme: pw.ThemeData.withFont(base: font, bold: fontBold),
-      header: (context) => _pageHeader(tournamentName),
+      header: (context) => context.pageNumber == 1
+          ? pw.SizedBox(height: 0, width: 0)
+          : _pageHeader('$tournamentName - $bracketNameトーナメント'),
       footer: (context) => _pageFooter(context),
       build: (context) => [
         _buildTitleBanner('$bracketNameトーナメント'),
@@ -620,9 +624,9 @@ class PdfGenerator {
         : (status == 'waiting' ? '待機中' : 'vs');
 
     final borderColor = highlight ? _gold : (isCompleted ? _green : _divider);
-    final vPad = compact ? 6.0 : 8.0;
-    final fontSize = compact ? 7.0 : 9.0;
-    final labelSize = compact ? 6.0 : 7.0;
+    final vPad = compact ? 6.5 : 8.0;
+    final fontSize = compact ? 7.5 : 9.0;
+    final labelSize = compact ? 6.5 : 7.0;
 
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -685,21 +689,6 @@ class PdfGenerator {
     );
   }
 
-  /// 王冠アイコン
-  pw.Widget _crownIcon() {
-    return pw.Center(
-      child: pw.Container(
-        width: 36, height: 36,
-        decoration: pw.BoxDecoration(
-          color: _goldLight,
-          shape: pw.BoxShape.circle,
-          border: pw.Border.all(color: _gold, width: 1.5),
-        ),
-        child: pw.Center(child: pw.Text('👑', style: pw.TextStyle(fontSize: 16))),
-      ),
-    );
-  }
-
   /// セクションヘッダー
   pw.Widget _sectionHeader(String title) {
     return pw.Container(
@@ -713,9 +702,10 @@ class PdfGenerator {
     );
   }
 
-  /// フロー説明テキスト
-  pw.Widget _flowLine(String text) {
-    return pw.Text(text, style: pw.TextStyle(fontSize: 7, color: _textMedium));
+  /// 対戦ボックスの凡例（◎マーク・数字の意味を1行で補足）
+  pw.Widget _legendLine() {
+    return pw.Text('◎ = 勝利チーム　枠内の数字 = 獲得セット数',
+        style: pw.TextStyle(fontSize: 8, color: _textMedium));
   }
 
   /// 下方向コネクタ（4分岐 → 2分岐）
@@ -779,33 +769,6 @@ class PdfGenerator {
         title,
         style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: _white),
       )),
-    );
-  }
-
-  /// コートバッジ
-  pw.Widget _courtBadge(String label) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 12),
-      decoration: pw.BoxDecoration(
-        color: _navy,
-        borderRadius: pw.BorderRadius.circular(6),
-      ),
-      child: pw.Text(label, style: pw.TextStyle(
-        fontSize: 10, fontWeight: pw.FontWeight.bold, color: _white,
-      )),
-    );
-  }
-
-  /// フッターライン
-  pw.Widget _footerLine() {
-    return pw.Container(
-      padding: const pw.EdgeInsets.only(top: 6),
-      decoration: const pw.BoxDecoration(
-        border: pw.Border(top: pw.BorderSide(color: _divider, width: 0.5)),
-      ),
-      child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-        pw.Text('Powered by Sofvo', style: pw.TextStyle(fontSize: 7, color: _textMedium)),
-      ]),
     );
   }
 
