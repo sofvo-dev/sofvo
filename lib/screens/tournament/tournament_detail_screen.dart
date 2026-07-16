@@ -33,9 +33,7 @@ import '../../widgets/certified_badge.dart';
 import '../../widgets/invite_share_sheet.dart';
 import '../../widgets/follower_member_picker.dart';
 import '../profile/user_profile_screen.dart';
-import '../../services/pdf_generator.dart';
 import 'tournament_summary_download_screen.dart';
-import 'package:printing/printing.dart';
 import '../chat/chat_screen.dart';
 import '../../services/notification_service.dart';
 import '../../services/point_service.dart';
@@ -511,7 +509,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         centerTitle: true,
         actions: [
           IconButton(icon: const Icon(Icons.share), onPressed: () => _showShareOptions(context)),
-          IconButton(icon: const Icon(Icons.picture_as_pdf), onPressed: () => _showPdfSheet(context)),
+          IconButton(icon: const Icon(Icons.picture_as_pdf), onPressed: _openSummaryDownload),
         ],
       ),
       body: Column(
@@ -7302,57 +7300,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     Navigator.push(context, MaterialPageRoute(
       builder: (_) => TournamentSummaryDownloadScreen(tournamentId: _tournamentId, tournamentName: tournamentName),
     ));
-  }
-
-  void _showPdfSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 16),
-            const Text('PDF\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.description, color: AppTheme.primaryColor),
-              title: const Text('\u5927\u4f1a\u8981\u9805PDF'),
-              subtitle: const Text('\u57fa\u672c\u60c5\u5831\u30fb\u30eb\u30fc\u30eb\u30fb\u30b9\u30b1\u30b8\u30e5\u30fc\u30eb'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _openSummaryDownload();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.grid_on, color: AppTheme.success),
-              title: const Text('\u5bfe\u6226\u8868PDF'),
-              subtitle: const Text('\u30b3\u30fc\u30c8\u5225\u8a66\u5408\u4e00\u89a7\u30fb\u9806\u4f4d\u8868'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...'), backgroundColor: AppTheme.primaryColor));
-                final bytes = await PdfGenerator().generateMatchTable(_tournamentId);
-                await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u5bfe\u6226\u8868');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.emoji_events, color: Colors.amber),
-              title: const Text('\u30c8\u30fc\u30ca\u30e1\u30f3\u30c8\u8868PDF'),
-              subtitle: const Text('\u6c7a\u52dd\u30d6\u30e9\u30b1\u30c3\u30c8\u30fb\u7d50\u679c'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF\u3092\u751f\u6210\u4e2d...'), backgroundColor: AppTheme.primaryColor));
-                final bytes = await PdfGenerator().generateBracketPdf(_tournamentId);
-                await PdfGenerator.sharePdf(bytes, '${widget.tournament['name']}_\u30c8\u30fc\u30ca\u30e1\u30f3\u30c8');
-              },
-            ),
-          ]),
-        ),
-      ),
-    );
   }
 
   Widget _buildShareOption({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
