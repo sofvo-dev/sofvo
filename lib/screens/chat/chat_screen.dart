@@ -54,8 +54,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// 公式アカウント（チャットボット）のUID
   static const String _officialUid = 'zlBy8aWUlCYjyy0NUU9HidrQu983';
-  bool _isAdmin = false; // 管理者のみボット自動返信のオンオフを操作できる
+  bool _isAdmin = false; // 管理者（isAdmin）はボット自動返信のオンオフを操作できる
   bool _chatbotEnabled = true; // このDMでボット自動返信が有効か（未設定＝有効）
+
+  /// ボット自動返信のオンオフを操作できるか。
+  /// 公式アカウント本人（ボット運用者）か、管理者(isAdmin)なら操作可能。
+  bool get _canToggleBot =>
+      _isBotDm && (_isAdmin || _currentUser?.uid == _officialUid);
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -868,7 +873,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
         actions: [
           // ボット自動返信のオンオフ（公式DM × 管理者のみ表示）
-          if (_isAdmin && _isBotDm)
+          if (_canToggleBot)
             IconButton(
               tooltip: _chatbotEnabled ? 'ボット自動返信: オン' : 'ボット自動返信: オフ',
               icon: Icon(
