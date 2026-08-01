@@ -47,10 +47,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _groupIconUrl = '';
   int _previousMessageCount = 0;
   String _resolvedTitle = '';
-  final Map<String, bool> _officialCache = {};
+  final _officialCache = <String, bool>{};
   String _otherUserAvatarUrl = '';
   Timestamp? _myLastReadBefore; // 画面を開いた時点のlastRead（未読境界用）
   bool _initialScrollDone = false;
+
+  /// 公式アカウント（チャットボット）のUID
+  static const String _officialUid = 'zlBy8aWUlCYjyy0NUU9HidrQu983';
+  bool _isAdmin = false; // 管理者のみボット自動返信のオンオフを操作できる
+  bool _chatbotEnabled = true; // このDMでボット自動返信が有効か（未設定＝有効）
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -66,6 +71,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (widget.chatType == 'dm' && widget.otherUserId == 'zlBy8aWUlCYjyy0NUU9HidrQu983') {
       _checkShowQuickReplies();
     }
+    // ボット自動返信のオンオフは管理者のみ操作できるため、権限を読み込む
+    if (_isBotDm) _loadAdminStatus();
 
     // メッセージストリームを一度だけ生成（再生成による無限ローディングを防止）
     _messagesStream = FirebaseFirestore.instance
@@ -92,6 +99,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ) ?? {},
           );
           _groupIconUrl = (chatData['iconUrl'] as String?) ?? _groupIconUrl;
+          // 未設定は「有効」（既存DMの後方互換）。false のときだけ自動返信オフ
+          _chatbotEnabled = chatData['chatbotEnabled'] != false;
         });
         // DMの場合、相手の名前とアバターを解決
         if (widget.chatType == 'dm') {
@@ -128,6 +137,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
         'memberNames.$otherUid': nickname,
       });
+    }
+  }
+
+  /// このチャットが公式アカウント（チャットボット）とのDMか。
+  /// ユーザー側から見た場合（相手が公式）も、公式アカウント運用者側から見た場合
+  /// （自分が公式）も対象にする。
+  bool get _isBotDm =>
+      widget.chatType == 'dm' &&
+      (widget.otherUserId == _officialUid || _currentUser?.uid == _officialUid);
+
+  /// 現在ユーザーが管理者かどうかを読み込む（ボット自動返信オンオフ表示の判定用）
+  Future<void> _loadAdminStatus() async {
+    if (_currentUser == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
+      if (mounted && doc.data()?['isAdmin'] == true) {
+        setState(() => _isAdmin = true);
+      }
+    } catch (_) {/* 権限読み込み失敗時はトグル非表示のまま */}
+  }
+
+  /// このDMのボット自動返信をオン/オフする（管理者のみ）。
+  /// chats/{chatId}.chatbotEnabled を書き換え、サーバー側トリガーが参照する。
+  Future<void> _toggleChatbot() async {
+    final next = !_chatbotEnabled;
+    setState(() => _chatbotEnabled = next); // 楽観的更新（リスナーで確定）
+    try {
+      await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
+        'chatbotEnabled': next,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next ? 'ボットの自動返信をオンにしました' : 'ボットの自動返信をオフにしました（運営が手動で対応）'),
+            backgroundColor: next ? AppTheme.success : AppTheme.textSecondary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _chatbotEnabled = !next); // 失敗したら戻す
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('切り替えに失敗しました'), backgroundColor: AppTheme.error),
+        );
+      }
     }
   }
 
@@ -813,6 +867,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         ),
         actions: [
+          // ボット自動返信のオンオフ（公式DM × 管理者のみ表示）
+          if (_isAdmin && _isBotDm)
+            IconButton(
+              tooltip: _chatbotEnabled ? 'ボット自動返信: オン' : 'ボット自動返信: オフ',
+              icon: Icon(
+                _chatbotEnabled ? Icons.smart_toy : Icons.smart_toy_outlined,
+                color: _chatbotEnabled ? AppTheme.primaryColor : AppTheme.textHint,
+              ),
+              onPressed: _toggleChatbot,
+            ),
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: _showChatMenu,
