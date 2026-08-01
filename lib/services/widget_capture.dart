@@ -67,3 +67,57 @@ Future<Uint8List> captureWidgetToPng(
     entry.remove();
   }
 }
+
+/// [captureWidgetToPng] と同じ仕組みだが、高さを固定せず中身に合わせて
+/// 自動で伸びる（要項PDFのような可変長ドキュメントを1枚の画像にする用途）。
+/// [width] は論理ピクセル幅。実際の解像度は [pixelRatio] を掛けたもの。
+Future<Uint8List> captureWidgetToPngAutoHeight(
+  BuildContext context, {
+  required Widget child,
+  double width = 1240,
+  double pixelRatio = 1.0,
+}) async {
+  final overlay = Overlay.of(context, rootOverlay: true);
+  final repaintKey = GlobalKey();
+
+  final entry = OverlayEntry(
+    builder: (_) => Positioned(
+      left: -(width) - 100,
+      top: 0,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Material(
+          color: Colors.transparent,
+          child: RepaintBoundary(
+            key: repaintKey,
+            child: SizedBox(width: width, child: child),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  overlay.insert(entry);
+  try {
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+
+    final boundary =
+        repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) {
+      throw StateError('画像の描画に失敗しました');
+    }
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (bytes == null) {
+        throw StateError('画像の書き出しに失敗しました');
+      }
+      return bytes.buffer.asUint8List();
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    entry.remove();
+  }
+}
