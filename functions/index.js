@@ -4376,8 +4376,11 @@ exports.onChatMessageCreated = functions.firestore
     });
 
     // ━━━ 公式アカウント チャットボット自動返信 ━━━
+    // chatData.chatbotEnabled === false の会話は、運営が手動対応するため自動返信しない。
+    // 未設定（既存DM）は従来どおり自動返信する。
     const OFFICIAL_UID = "zlBy8aWUlCYjyy0NUU9HidrQu983";
-    if (chatType === "dm" && senderId !== OFFICIAL_UID && members.includes(OFFICIAL_UID)) {
+    if (chatType === "dm" && senderId !== OFFICIAL_UID && members.includes(OFFICIAL_UID) &&
+        chatData.chatbotEnabled !== false) {
       try {
         await handleOfficialChatbot(db, chatId, senderId, message.text || "", senderName);
       } catch (e) {
