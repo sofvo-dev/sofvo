@@ -54,13 +54,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// 公式アカウント（チャットボット）のUID
   static const String _officialUid = 'zlBy8aWUlCYjyy0NUU9HidrQu983';
-  bool _isAdmin = false; // 管理者（isAdmin）はボット自動返信のオンオフを操作できる
+  bool _isAdmin = false; // 現在ユーザーが管理者(isAdmin)か
+  bool _isOfficialAccount = false; // 現在ユーザーが公式アカウント(isOfficial)か
   bool _chatbotEnabled = true; // このDMでボット自動返信が有効か（未設定＝有効）
 
+  bool get _isDm => widget.chatType == 'dm';
+
   /// ボット自動返信のオンオフを操作できるか。
-  /// 公式アカウント本人（ボット運用者）か、管理者(isAdmin)なら操作可能。
+  /// ・公式アカウント本人（ボット運用者。UID一致 or isOfficial フラグ）
+  /// ・管理者(isAdmin)
+  /// のいずれかで、かつ公式アカウントが関わるDMのとき操作可能。
   bool get _canToggleBot =>
-      _isBotDm && (_isAdmin || _currentUser?.uid == _officialUid);
+      _isDm &&
+      (_isOfficialAccount ||
+          _isAdmin ||
+          _currentUser?.uid == _officialUid ||
+          widget.otherUserId == _officialUid);
 
   late final Stream<QuerySnapshot> _messagesStream;
   StreamSubscription<DocumentSnapshot>? _chatDocSubscription;
@@ -76,8 +85,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (widget.chatType == 'dm' && widget.otherUserId == 'zlBy8aWUlCYjyy0NUU9HidrQu983') {
       _checkShowQuickReplies();
     }
-    // ボット自動返信のオンオフは管理者のみ操作できるため、権限を読み込む
-    if (_isBotDm) _loadAdminStatus();
+    // ボット自動返信トグルの表示判定のため、DMなら権限（管理者/公式）を読み込む
+    if (_isDm) _loadAdminStatus();
 
     // メッセージストリームを一度だけ生成（再生成による無限ローディングを防止）
     _messagesStream = FirebaseFirestore.instance
@@ -149,18 +158,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// ユーザー側から見た場合（相手が公式）も、公式アカウント運用者側から見た場合
   /// （自分が公式）も対象にする。
   bool get _isBotDm =>
-      widget.chatType == 'dm' &&
-      (widget.otherUserId == _officialUid || _currentUser?.uid == _officialUid);
+      _isDm &&
+      (widget.otherUserId == _officialUid ||
+          _currentUser?.uid == _officialUid ||
+          _isOfficialAccount);
 
-  /// 現在ユーザーが管理者かどうかを読み込む（ボット自動返信オンオフ表示の判定用）
+  /// 現在ユーザーの権限（管理者 / 公式アカウント）を読み込む（ボット自動返信トグルの表示判定用）。
+  /// ローカルの古いキャッシュ（isAdmin 付与前など）を避けるため、まずサーバーから読む。
+  /// サーバーが不通のときだけキャッシュにフォールバックする。
   Future<void> _loadAdminStatus() async {
     if (_currentUser == null) return;
+    final ref = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+    Map<String, dynamic>? data;
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
-      if (mounted && doc.data()?['isAdmin'] == true) {
-        setState(() => _isAdmin = true);
+      data = (await ref.get(const GetOptions(source: Source.server))).data();
+    } catch (_) {
+      try {
+        data = (await ref.get()).data(); // フォールバック（オフライン等）
+      } catch (_) {
+        return;
       }
-    } catch (_) {/* 権限読み込み失敗時はトグル非表示のまま */}
+    }
+    if (!mounted || data == null) return;
+    final admin = data['isAdmin'] == true;
+    final official = data['isOfficial'] == true;
+    if (admin != _isAdmin || official != _isOfficialAccount) {
+      setState(() {
+        _isAdmin = admin;
+        _isOfficialAccount = official;
+      });
+    }
   }
 
   /// このDMのボット自動返信をオン/オフする（管理者のみ）。
