@@ -899,13 +899,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         ),
         actions: [
-          // ボット自動返信のオンオフ（公式DM × 管理者のみ表示）
+          // ボット自動返信のオンオフ（公式DM × 管理者/公式アカウントのみ表示）
+          // ヘッダーは濃紺のため、アイコンは白系にして視認できるようにする。
+          // オン＝白（点灯）、オフ＝半透明の白（消灯）で状態を区別。
           if (_canToggleBot)
             IconButton(
               tooltip: _chatbotEnabled ? 'ボット自動返信: オン' : 'ボット自動返信: オフ',
               icon: Icon(
                 _chatbotEnabled ? Icons.smart_toy : Icons.smart_toy_outlined,
-                color: _chatbotEnabled ? AppTheme.primaryColor : AppTheme.textHint,
+                color: _chatbotEnabled ? Colors.white : Colors.white.withValues(alpha: 0.45),
               ),
               onPressed: _toggleChatbot,
             ),
