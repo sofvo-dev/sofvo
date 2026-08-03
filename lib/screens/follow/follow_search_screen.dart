@@ -34,6 +34,32 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
   final Set<String> _togglingIds = {};
   String _mySearchId = '';
 
+  // uid → 所属チーム名の取得Future（同名ユーザーの見分け用）。
+  // Future自体をキャッシュして、再ビルドでも同じ結果を使い回し、重複クエリを防ぐ。
+  final Map<String, Future<String?>> _teamNameFutures = {};
+
+  /// ユーザーの所属チーム名を1件取得（検索結果の見分け用）。
+  Future<String?> _resolveTeamName(String uid) {
+    if (uid.isEmpty) return Future.value(null);
+    return _teamNameFutures.putIfAbsent(uid, () async {
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('teams')
+            .where('memberIds', arrayContains: uid)
+            .limit(1)
+            .get();
+        if (snap.docs.isNotEmpty) {
+          final d = snap.docs.first.data();
+          final n = (d['name'] ?? d['teamName'] ?? '').toString();
+          if (n.isNotEmpty) return n;
+        }
+        return null;
+      } catch (_) {
+        return null;
+      }
+    });
+  }
+
   // 招待コード（もらう：入力／渡す：自分のコード表示）
   final _redeemController = TextEditingController();
   bool _redeeming = false;
@@ -781,6 +807,24 @@ class _FollowSearchScreenState extends State<FollowSearchScreen>
                         style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                         overflow: TextOverflow.ellipsis)),
                   ]),
+                // 所属チーム名（同名の人を見分けやすくする）
+                FutureBuilder<String?>(
+                  future: _resolveTeamName(uid),
+                  builder: (context, snap) {
+                    final team = snap.data;
+                    if (team == null || team.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(children: [
+                        const Icon(Icons.groups, size: 12, color: AppTheme.textSecondary),
+                        const SizedBox(width: 3),
+                        Flexible(child: Text(team,
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                            overflow: TextOverflow.ellipsis)),
+                      ]),
+                    );
+                  },
+                ),
                 if (bio.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
