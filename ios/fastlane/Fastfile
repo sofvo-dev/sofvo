@@ -31,6 +31,73 @@ platform :ios do
     )
   end
 
+  # ───────────────────────────────────────────────
+  # CI（GitHub Actions）用レーン
+  # ローカル用の release / beta と違い、git pull や flutter clean は行わない
+  # （CI は常にクリーンなチェックアウトから始まるため）。
+  # 認証は Apple ID ではなく App Store Connect API キーを使う（2要素認証を回避）。
+  # 署名はワークフロー側で証明書・プロファイルを取り込んだうえで手動署名。
+  # ───────────────────────────────────────────────
+
+  def ci_api_key
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8_BASE64"),
+      is_key_content_base64: true,
+      in_house: false,
+    )
+  end
+
+  def ci_build_ipa
+    profile = ENV.fetch("IOS_PROFILE_NAME")
+    team = ENV.fetch("APPLE_TEAM_ID")
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        signingStyle: "manual",
+        teamID: team,
+        provisioningProfiles: { "com.sofvo.app" => profile },
+      },
+      xcargs: "CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='#{profile}' DEVELOPMENT_TEAM='#{team}'",
+      output_directory: "../build/ios/ipa",
+      clean: false,
+    )
+  end
+
+  desc "CI: App Store Connect にアップロードして審査提出"
+  lane :ci_release do
+    api_key = ci_api_key
+    ipa_path = ci_build_ipa
+    upload_to_app_store(
+      api_key: api_key,
+      ipa: ipa_path,
+      force: true,
+      skip_metadata: false,
+      skip_screenshots: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: true,
+      automatic_release: true,
+      release_notes: {
+        "ja" => ENV.fetch("RELEASE_NOTES_JA", "・細かな不具合の修正と安定性の向上"),
+      },
+    )
+  end
+
+  desc "CI: TestFlight にアップロード（審査提出しない）"
+  lane :ci_beta do
+    api_key = ci_api_key
+    ipa_path = ci_build_ipa
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa_path,
+      skip_waiting_for_build_processing: true,
+    )
+  end
+
   desc "TestFlight にアップロード（ベータテスト用、ローカル最新化含む）"
   lane :beta do
     # 未追跡（ios/Podfile.lock 等）があると手動の git pull が失敗するため -u で退避
