@@ -95,6 +95,9 @@ class FollowService extends ChangeNotifier {
 
       final officials =
           await _firestore.collection('users').where('isOfficial', isEqualTo: true).get();
+      // 公式アカウントが1件も取れなかった場合はフラグを立てない。
+      // 立ててしまうと二度と再試行せず、そのユーザーは永久に未フォローになる。
+      if (officials.docs.isEmpty) return;
       for (final doc in officials.docs) {
         final officialUid = doc.id;
         if (officialUid == myUid) continue;

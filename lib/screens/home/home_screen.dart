@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import '../profile/user_profile_screen.dart';
 import '../notification/notification_screen.dart';
@@ -39,6 +40,16 @@ class _HomeScreenState extends State<HomeScreen>
   bool _initialLoaded = false;
   bool _viewerIsOfficial = false;
   final Map<String, bool> _officialCache = {};
+
+  // タイムライン用: 公式アカウントのuid（フォロー数に関係なく必ず表示する）
+  final Set<String> _officialUids = {};
+  // whereIn は最大30件までなので、対象uidを30件ずつに分割して購読しマージする
+  String _timelineKey = '';
+  Stream<List<QueryDocumentSnapshot>>? _timelineStreamCache;
+  StreamController<List<QueryDocumentSnapshot>>? _timelineController;
+  final List<StreamSubscription<QuerySnapshot>> _timelineSubs = [];
+  final Map<int, List<QueryDocumentSnapshot>> _timelineChunks = {};
+  List<QueryDocumentSnapshot>? _timelineLast;
 
   Future<void> _checkOfficial(String userId) async {
     if (_officialCache.containsKey(userId)) return;
@@ -90,14 +101,18 @@ class _HomeScreenState extends State<HomeScreen>
           .collection('users').doc(uid).collection('hiddenPosts').get(),
       FirebaseFirestore.instance
           .collection('users').doc(uid).get(),
+      FirebaseFirestore.instance
+          .collection('users').where('isOfficial', isEqualTo: true).get(),
     ]);
     if (!mounted) return;
     final hiddenSnap = results[0] as QuerySnapshot;
     final userDoc = results[1] as DocumentSnapshot;
+    final officialSnap = results[2] as QuerySnapshot;
     final userData = userDoc.data() as Map<String, dynamic>?;
     setState(() {
       _hiddenPostIds.addAll(hiddenSnap.docs.map((d) => d.id));
       _viewerIsOfficial = userData?['isOfficial'] == true;
+      _officialUids.addAll(officialSnap.docs.map((d) => d.id));
       _initialLoaded = true;
     });
   }
@@ -106,6 +121,7 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     FollowService.instance.removeListener(_onFollowChanged);
+    _disposeTimelineStream();
     _tabController.dispose();
     _noticeSubTabController.dispose();
     super.dispose();
@@ -302,6 +318,110 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  /// タイムラインの投稿ストリーム。
+  ///
+  /// Firestore の whereIn は最大30件までのため、以前は「自分＋フォロー中」の
+  /// 先頭30件だけを渡していた。followingIds は順序を持たない Set なので、
+  /// 30人以上フォローしているユーザーでは対象が不定になり、公式アカウントを
+  /// 含む一部のフォロー相手の投稿がタイムラインに出ないことがあった。
+  /// ここでは対象uidを30件ずつに分割して全て購読し、結果をマージする。
+  /// 公式アカウントは必ず先頭に入れる。
+  Stream<List<QueryDocumentSnapshot>> _buildTimelineStream(String uid) {
+    final posts = FirebaseFirestore.instance.collection('posts');
+
+    if (_viewerIsOfficial) {
+      if (_timelineKey != 'official') {
+        _disposeTimelineStream();
+        _timelineKey = 'official';
+        _timelineStreamCache = posts
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .snapshots()
+            .map((s) => s.docs.cast<QueryDocumentSnapshot>());
+      }
+      return _timelineStreamCache!;
+    }
+
+    // 自分 → 公式 → フォロー中の順（重複は除く）
+    final ids = <String>{uid, ..._officialUids, ...FollowService.instance.followingIds}.toList();
+    final key = ids.join(',');
+    if (key == _timelineKey && _timelineStreamCache != null) {
+      return _timelineStreamCache!;
+    }
+
+    _disposeTimelineStream();
+    _timelineKey = key;
+
+    late final StreamController<List<QueryDocumentSnapshot>> controller;
+    controller = StreamController<List<QueryDocumentSnapshot>>.broadcast(onListen: () {
+      // broadcast は直前の値を再送しないため、購読開始時に最後の結果を流す
+      final last = _timelineLast;
+      if (last != null) {
+        Future.microtask(() {
+          if (!controller.isClosed) controller.add(last);
+        });
+      }
+    });
+    _timelineController = controller;
+
+    void emitMerged() {
+      final merged = <String, QueryDocumentSnapshot>{};
+      for (final docs in _timelineChunks.values) {
+        for (final d in docs) {
+          merged[d.id] = d;
+        }
+      }
+      final list = merged.values.toList()
+        ..sort((a, b) {
+          final ta = (a.data() as Map<String, dynamic>?)?['createdAt'];
+          final tb = (b.data() as Map<String, dynamic>?)?['createdAt'];
+          if (ta is! Timestamp && tb is! Timestamp) return 0;
+          if (ta is! Timestamp) return 1; // serverTimestamp 反映前は先頭に置かない
+          if (tb is! Timestamp) return -1;
+          return tb.compareTo(ta);
+        });
+      final result = list.take(50).toList();
+      _timelineLast = result;
+      if (!controller.isClosed) {
+        controller.add(result);
+      }
+    }
+
+    for (var i = 0; i < ids.length; i += 30) {
+      final chunkIndex = i ~/ 30;
+      final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
+      final sub = posts
+          .where('userId', whereIn: chunk)
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .snapshots()
+          .listen((snap) {
+        _timelineChunks[chunkIndex] = snap.docs.cast<QueryDocumentSnapshot>();
+        emitMerged();
+      }, onError: (Object e) {
+        debugPrint('TIMELINE CHUNK ERROR: $e');
+        if (!controller.isClosed) controller.addError(e);
+      });
+      _timelineSubs.add(sub);
+    }
+
+    _timelineStreamCache = controller.stream;
+    return _timelineStreamCache!;
+  }
+
+  void _disposeTimelineStream() {
+    for (final s in _timelineSubs) {
+      s.cancel();
+    }
+    _timelineSubs.clear();
+    _timelineChunks.clear();
+    _timelineLast = null;
+    _timelineController?.close();
+    _timelineController = null;
+    _timelineStreamCache = null;
+    _timelineKey = '';
+  }
+
   Widget _buildTimelineTab() {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
@@ -313,18 +433,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     final uid = currentUser.uid;
-    final postsQuery = _viewerIsOfficial
-        ? FirebaseFirestore.instance
-            .collection('posts')
-            .orderBy('createdAt', descending: true)
-            .limit(50)
-        : FirebaseFirestore.instance.collection('posts').where(
-            'userId',
-            whereIn: [uid, ...FollowService.instance.followingIds].take(30).toList(),
-          ).orderBy('createdAt', descending: true).limit(50);
 
-    return StreamBuilder<QuerySnapshot>(
-        stream: postsQuery.snapshots(),
+    return StreamBuilder<List<QueryDocumentSnapshot>>(
+        stream: _buildTimelineStream(uid),
         builder: (context, postSnapshot) {
         if (postSnapshot.hasError) {
           debugPrint("TIMELINE ERROR: ${postSnapshot.error}");
@@ -377,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen>
           ]);
         }
 
-        final allPosts = postSnapshot.data?.docs ?? [];
+        final allPosts = postSnapshot.data ?? <QueryDocumentSnapshot>[];
         final posts = allPosts.where((doc) => !_hiddenPostIds.contains(doc.id)).toList();
         if (posts.isEmpty) {
           return EmptyStateView(
