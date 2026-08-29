@@ -779,6 +779,7 @@ exports.syncGadgetsToSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const count = await doSyncGadgetsToSheet();
@@ -863,6 +864,7 @@ exports.syncVenuesToSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const count = await doSyncVenuesToSheet();
@@ -882,6 +884,7 @@ exports.clearVenues = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   // Firebase Auth トークン検証（破壊的操作のため認証必須）
   const authHeader = req.headers.authorization;
@@ -927,6 +930,7 @@ exports.seedVenues = functions.runWith({ timeoutSeconds: 540 }).https.onRequest(
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const db = admin.firestore();
@@ -1151,6 +1155,7 @@ exports.seedNotices = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const db = admin.firestore();
@@ -1533,6 +1538,7 @@ exports.importVenuesFromSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const result = await doImportVenues();
@@ -1548,6 +1554,7 @@ exports.importGadgetsFromSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const result = await doImportGadgets();
@@ -1649,6 +1656,7 @@ exports.syncPrizesToSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const count = await doSyncPrizesToSheet();
@@ -1752,6 +1760,7 @@ exports.importPrizesFromSheet = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const result = await doImportPrizes();
@@ -1998,6 +2007,7 @@ exports.recalcFollowCounts = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
     const db = admin.firestore();
@@ -2331,6 +2341,7 @@ exports.onEntryDeleted = functions.firestore
 // 全大会の currentTeams を entries 数から再計算して修復
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.repairCurrentTeams = functions.https.onRequest(async (req, res) => {
+  if (!(await assertAdminRequest(req, res))) return;
   const db = admin.firestore();
   const tournamentsSnap = await db.collection("tournaments").get();
   let fixed = 0;
@@ -2422,6 +2433,7 @@ exports.syncUserSearchNorm = functions.firestore
 
 // 既存ユーザーへの一括バックフィル（デプロイ後に1回叩く。何度でも安全）
 exports.backfillSearchNorm = functions.https.onRequest(async (req, res) => {
+  if (!(await assertAdminRequest(req, res))) return;
   const db = admin.firestore();
   const snap = await db.collection("users").get();
   let updated = 0;
@@ -2737,6 +2749,7 @@ exports.setupInstagramFacebook = functions
 exports.syncInstagramNow = functions
   .runWith({ timeoutSeconds: 300, memory: "512MB" })
   .https.onRequest(async (req, res) => {
+    if (!(await assertAdminRequest(req, res))) return;
     try {
       const result = await syncInstagramCore();
       res.json(result);
@@ -4088,6 +4101,7 @@ exports.getPublicProfile = functions.https.onRequest(async (req, res) => {
 });
 
 exports.testWelcomeEmail = functions.https.onRequest(async (req, res) => {
+  if (!(await assertAdminRequest(req, res))) return;
   try {
     const email = req.body.email || req.query.email;
     const nickname = req.body.nickname || req.query.nickname || "テストユーザー";
@@ -4771,6 +4785,7 @@ exports.getAnalytics = functions.runWith({ timeoutSeconds: 120, memory: "512MB" 
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
   // 認証チェック
@@ -5050,6 +5065,7 @@ exports.getUserSegments = functions.runWith({ timeoutSeconds: 120, memory: "512M
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (!(await assertAdminRequest(req, res))) return;
 
   try {
   const authHeader = req.headers.authorization;
@@ -5897,6 +5913,7 @@ exports.publishDriveScheduledPost = functions
 exports.runDrivePostNow = functions
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
   .https.onRequest(async (req, res) => {
+    if (!(await assertAdminRequest(req, res))) return;
     try {
       const category = (req.query.category || "").toString().trim();
       const result = category ? await forceOneDrivePost(category) : await processOneDrivePost();
@@ -5981,6 +5998,7 @@ exports.driveSyncStatus = functions
 exports.driveVideoDebug = functions
   .runWith({ timeoutSeconds: 120, memory: "512MB" })
   .https.onRequest(async (req, res) => {
+    if (!(await assertAdminRequest(req, res))) return;
     try {
       const db = admin.firestore();
 
@@ -6041,6 +6059,7 @@ exports.driveVideoDebug = functions
 exports.resetDrivePosts = functions
   .runWith({ timeoutSeconds: 300, memory: "512MB" })
   .https.onRequest(async (req, res) => {
+    if (!(await assertAdminRequest(req, res))) return;
     try {
       const db = admin.firestore();
       const snap = await db.collection("posts").where("source", "==", "driveInstagram").get();
