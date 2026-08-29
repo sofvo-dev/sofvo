@@ -116,6 +116,17 @@ cd ~/Desktop/sofvo
 - 確認方法: `curl -s -o /dev/null -w "%{http_code}" -X POST https://us-central1-sofvo-19d84.cloudfunctions.net/<関数名> -H "Content-Type: application/json" -d '{"data":{}}'` → **401 なら正常**（認証チェックまで到達）、**403 なら権限なし**、404 は未デプロイ
 - 2026-08-29 に修復済みの関数: createEntryDraft / redeemInvite / respondTeamJoinRequest / distributePoints / broadcastChatMessage / sendOfficialNotification / getPublicProfile / recomputeTournamentPointsNow / recomputeTournamentPointsV2
 
+### 管理エンドポイントは管理者トークン必須（2026-08-29〜）
+- `onRequest` の管理用エンドポイントは `assertAdminRequest(req, res)` で **Firebase ID トークン＋`users/{uid}.isAdmin`** を必須にしてある。ブラウザでURLを開くだけでは実行できない
+- 対象: updateUserAuth / updateAppConfig / clearVenues / seedVenues / seedNotices / repairCurrentTeams / backfillSearchNorm / recalcFollowCounts / resetDrivePosts / import*FromSheet / sync*ToSheet / getAnalytics / getUserSegments / testWelcomeEmail / runDrivePostNow / syncInstagramNow / driveVideoDebug
+- **新しい管理用エンドポイントを追加するときも必ず `assertAdminRequest` を入れること**（入れ忘れると誰でも叩ける）
+- 認証なしのままにしてよいのは、アプリ/Webから未ログインでも呼ぶ必要があるものだけ（getPublicProfile / amazonSearch / amazonProduct / syncStoreVersionsNow など）
+
+### 公式アカウント自動投稿の状況（2026-08-29）
+- 作業中の事故で `resetDrivePosts` が実行され、Googleドライブ連携の自動投稿 **17件が削除**、`config/driveInstagramSyncState.postIndex` が **0にリセット**された
+- 元画像はドライブに残っているため、**通常スケジュール（月・木 20:00 JST に1件ずつ）で最初から再投稿される**（全17件戻るまで約2ヶ月）
+- 削除された投稿への いいね／コメントは戻らない
+
 ### クロスプラットフォーム統一ルール
 - **修正・実装は必ず Android / iPhone / iPad / Web の全プラットフォームで同じ動作になるようにすること**
 - プラットフォーム分岐は「Web vs ネイティブ」の2分岐に留める。Android / iOS / iPad で別々のコードパスを作らない
