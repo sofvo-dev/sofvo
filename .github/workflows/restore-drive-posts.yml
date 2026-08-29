@@ -1,0 +1,43 @@
+name: Restore Drive auto posts
+
+# 公式アカウントの Google ドライブ自動投稿を、通常スケジュールを待たずに
+# まとめて再投稿する。runDrivePostNow は管理者トークン必須のため、
+# サービスアカウントから管理者の ID トークンを発行して呼び出す。
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '再投稿する件数'
+        required: true
+        default: '17'
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install firebase-admin
+        run: cd functions && npm ci
+
+      - name: Setup credentials
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/gcloud-sa.json
+
+      - name: Restore posts
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcloud-sa.json
+          NODE_PATH: functions/node_modules
+          COUNT: ${{ inputs.count }}
+        run: node scripts/restore-drive-posts.js
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f /tmp/gcloud-sa.json
