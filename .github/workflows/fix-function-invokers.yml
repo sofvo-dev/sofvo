@@ -58,6 +58,23 @@ jobs:
           fi
           echo "すべての関数に公開権限を付与しました。"
 
+      - name: Audit all HTTPS functions
+        if: always()
+        run: |
+          set -uo pipefail
+          echo "リージョン内の全 HTTPS 関数の公開状態（変更はしない）"
+          ALL=$(gcloud functions list --project=sofvo-19d84 --regions=us-central1 \
+            --filter="httpsTrigger.url:*" --format="value(name)" | sed 's#.*/##')
+          for f in $ALL; do
+            if gcloud functions get-iam-policy "$f" \
+              --project=sofvo-19d84 --region=us-central1 --format=json 2>/dev/null \
+              | grep -q '"allUsers"'; then
+              echo "  公開   $f"
+            else
+              echo "  非公開 $f"
+            fi
+          done
+
       - name: Cleanup credentials
         if: always()
         run: rm -f /tmp/gcloud-sa.json
