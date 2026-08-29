@@ -106,12 +106,15 @@ cd ~/Desktop/sofvo
 - 細かい修正はまとめて1回で提出するのが効率的（審査は数時間〜数日かかるため）
 
 ### Cloud Functions を新規追加したときの必須作業（UNAUTHENTICATED 対策）
-- **新しい関数を `functions/index.js` に追加してデプロイしたら、必ず `./scripts/fix-function-invokers.sh --fix` を実行すること**
-- 理由: Cloud Functions は**新規作成時はデフォルト非公開**。CI のサービスアカウントに IAM 設定権限がないため、`firebase deploy` は警告だけ出して権限付与に失敗する（デプロイ自体は成功扱い）
+- **アプリ／Webから呼ぶ関数を新規追加したら、GitHub Actions の「Fix Cloud Functions invoker permissions」を実行し、ワークフロー内の関数リストに新しい関数名を追加すること**
+  - Actions タブ → 「Fix Cloud Functions invoker permissions」→ Run workflow
+  - ローカルで gcloud を使う場合は `./scripts/fix-function-invokers.sh --fix` でも同じことができる
+- 理由: Cloud Functions は**新規作成時はデフォルト非公開**で、`firebase deploy` の権限付与が失敗しても警告だけでデプロイは成功扱いになる（CI のサービスアカウント自体には IAM 設定権限がある。2026-08-29 に上記ワークフローで付与できることを実測確認済み）
 - 症状: 関数は存在するのに Google の入口で **403** → アプリ側は赤いスナックバーに **`UNAUTHENTICATED`** と表示される（関数の中の「ログインが必要です」は出ない＝関数に到達していない）
 - 既存の関数は一度公開されると更新時に権限が引き継がれるため、**新機能だけが壊れる**という出方をする
-- 恒久対策: CI のサービスアカウントに `roles/cloudfunctions.admin` を付与すれば、以後は自動で公開設定される
+- **管理用エンドポイントは公開リストに入れないこと**（誰でも叩けるようになる）
 - 確認方法: `curl -s -o /dev/null -w "%{http_code}" -X POST https://us-central1-sofvo-19d84.cloudfunctions.net/<関数名> -H "Content-Type: application/json" -d '{"data":{}}'` → **401 なら正常**（認証チェックまで到達）、**403 なら権限なし**、404 は未デプロイ
+- 2026-08-29 に修復済みの関数: createEntryDraft / redeemInvite / respondTeamJoinRequest / distributePoints / broadcastChatMessage / sendOfficialNotification / getPublicProfile / recomputeTournamentPointsNow / recomputeTournamentPointsV2
 
 ### クロスプラットフォーム統一ルール
 - **修正・実装は必ず Android / iPhone / iPad / Web の全プラットフォームで同じ動作になるようにすること**
