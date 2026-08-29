@@ -1,0 +1,63 @@
+name: Fix Cloud Functions invoker permissions
+
+# 新規作成された Cloud Functions はデフォルト非公開。firebase deploy による
+# 権限付与が失敗すると、関数は存在するのに Google の入口で 403 になり、
+# アプリには「UNAUTHENTICATED」と表示される。
+# このワークフローは、公開されている必要がある関数に allUsers の
+# Cloud Functions 起動元ロールを付与する（何度実行しても安全）。
+#
+# 対象はアプリ／Webから呼ばれる関数のみ。管理用エンドポイントは
+# 意図せず公開しないよう、ここには入れないこと。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-invokers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/gcloud-sa.json
+          gcloud auth activate-service-account --key-file=/tmp/gcloud-sa.json
+          gcloud config set project sofvo-19d84
+
+      - name: Grant allUsers invoker
+        run: |
+          set -uo pipefail
+          FUNCS="
+            createEntryDraft
+            redeemInvite
+            respondTeamJoinRequest
+            distributePoints
+            broadcastChatMessage
+            sendOfficialNotification
+            getPublicProfile
+            recomputeTournamentPointsNow
+            recomputeTournamentPointsV2
+          "
+          failed=0
+          for f in $FUNCS; do
+            echo "--- $f"
+            if gcloud functions add-iam-policy-binding "$f" \
+              --project=sofvo-19d84 --region=us-central1 \
+              --member=allUsers --role=roles/cloudfunctions.invoker; then
+              echo "OK: $f"
+            else
+              echo "FAILED: $f"
+              failed=$((failed + 1))
+            fi
+          done
+          echo "===================="
+          if [ "$failed" -gt 0 ]; then
+            echo "$failed 個の関数で権限付与に失敗しました。"
+            echo "サービスアカウントに roles/cloudfunctions.admin が必要です。"
+            exit 1
+          fi
+          echo "すべての関数に公開権限を付与しました。"
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f /tmp/gcloud-sa.json
