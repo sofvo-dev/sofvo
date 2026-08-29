@@ -2580,6 +2580,29 @@ async function syncInstagramCore() {
   return { fetched: items.length, created };
 }
 
+// onRequest 用の管理者チェック。Authorization: Bearer <Firebase ID トークン> を
+// 検証し、users/{uid}.isAdmin === true のときだけ true を返す。
+// false のときはレスポンス送信済みなので、呼び出し側は即 return すること。
+async function assertAdminRequest(req, res) {
+  const authHeader = req.headers.authorization || "";
+  if (!authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return false;
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+    const u = await admin.firestore().collection("users").doc(decoded.uid).get();
+    if (!(u.exists && u.data().isAdmin === true)) {
+      res.status(403).json({ error: "管理者のみ実行できます" });
+      return false;
+    }
+    return true;
+  } catch (e) {
+    res.status(403).json({ error: "Invalid or expired token" });
+    return false;
+  }
+}
+
 async function assertAdmin(context, db) {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "ログインが必要です");
   const u = await db.collection("users").doc(context.auth.uid).get();
@@ -5146,6 +5169,7 @@ exports.getUserSegments = functions.runWith({ timeoutSeconds: 120, memory: "512M
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.updateUserAuth = functions.https.onRequest(async (req, res) => {
   try {
+    if (!(await assertAdminRequest(req, res))) return;
     const { uid, email, password } = req.body;
     if (!uid) return res.status(400).json({ error: "uid is required" });
 
@@ -5172,6 +5196,7 @@ exports.updateUserAuth = functions.https.onRequest(async (req, res) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 exports.updateAppConfig = functions.https.onRequest(async (req, res) => {
   try {
+    if (!(await assertAdminRequest(req, res))) return;
     const { latestVersion, minVersion, updateMessage } = req.body;
     if (!latestVersion && !minVersion) return res.status(400).json({ error: "latestVersion or minVersion is required" });
 
