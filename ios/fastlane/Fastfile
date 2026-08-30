@@ -49,20 +49,22 @@ platform :ios do
     )
   end
 
-  def ci_build_ipa
-    profile = ENV.fetch("IOS_PROFILE_NAME")
-    team = ENV.fetch("APPLE_TEAM_ID")
+  # 署名はローカルと同じ「自動署名」を使う。
+  # -allowProvisioningUpdates と App Store Connect API キーを渡すことで、
+  # プロビジョニングプロファイルを Xcode が CI 上で自動生成・取得する。
+  # （手作業でプロファイルを作って Secrets に入れる必要がない）
+  def ci_build_ipa(api_key)
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
       configuration: "Release",
       export_method: "app-store",
+      api_key: api_key,
+      xcargs: "-allowProvisioningUpdates",
       export_options: {
-        signingStyle: "manual",
-        teamID: team,
-        provisioningProfiles: { "com.sofvo.app" => profile },
+        signingStyle: "automatic",
+        teamID: ENV.fetch("APPLE_TEAM_ID", "TLVKKC442B"),
       },
-      xcargs: "CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='#{profile}' DEVELOPMENT_TEAM='#{team}'",
       output_directory: "../build/ios/ipa",
       clean: false,
     )
@@ -71,7 +73,7 @@ platform :ios do
   desc "CI: App Store Connect にアップロードして審査提出"
   lane :ci_release do
     api_key = ci_api_key
-    ipa_path = ci_build_ipa
+    ipa_path = ci_build_ipa(api_key)
     upload_to_app_store(
       api_key: api_key,
       ipa: ipa_path,
@@ -90,7 +92,7 @@ platform :ios do
   desc "CI: TestFlight にアップロード（審査提出しない）"
   lane :ci_beta do
     api_key = ci_api_key
-    ipa_path = ci_build_ipa
+    ipa_path = ci_build_ipa(api_key)
     upload_to_testflight(
       api_key: api_key,
       ipa: ipa_path,
