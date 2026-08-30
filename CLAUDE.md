@@ -27,8 +27,14 @@
   2. **`ios/fastlane/metadata/ja/`** の説明文・キーワード等も必要に応じて更新（fastlane が自動反映する）
   3. コミット＆プッシュ（mainにマージ）
   4. **CLAUDE.md のバージョン履歴表**に新しい行を追加
-- そのうえで、ユーザーには **GitHub Actions からの提出手順**（下記「iOS 審査提出（GitHub Actions・推奨）」）を案内する。**Mac は不要**
-- リリースノートは Fastfile ではなく **ワークフロー実行時の入力欄**に書く（`ci_release` の "このバージョンの最新情報"）。文面はこちらで用意して提示すること
+- そのうえで、**アシスタント自身がワークフローを実行して提出まで完了させる**（ユーザーに操作を任せる必要はない）:
+  - main にマージされたことを確認 → GitHub MCP の `actions_run_trigger`（`run_workflow`）で
+    `ios-release.yml` を `ref: main`、`inputs: {lane: "ci_release", release_notes: "..."}` で実行
+  - 完了まで見届ける（約40分）。失敗したら Actions のログと成果物 `gym-log` を読んで直し、再実行する
+  - ユーザー自身でやりたい場合は下記「iOS 審査提出（GitHub Actions・推奨）」の3クリック手順を案内する
+- **審査提出は取り消しが面倒な外向きの操作。ユーザーの明示的な依頼があってから実行すること**（勝手に出さない）
+- リリースノートは Fastfile ではなく **ワークフロー実行時の入力（`release_notes`）** に渡す。文面はアシスタントが用意し、実行前にユーザーへ提示して確認を取る
+- **ビルド番号（`+` 以降）は一度使うと二度と使えない**（TestFlight に上げただけでも消費される）。提出前に必ず現状より大きい番号にする
 
 ### 審査通過時の対応ルール
 - ユーザーが「審査通過」「審査通った」等のメッセージを送ったら、以下を即座に実行すること：
@@ -75,6 +81,14 @@
 - 仕組みの詳細・Secrets の一覧: `docs/ios_ci_release.md`
 - 失敗時は Actions のログと、成果物 `gym-log`（xcodebuild の生ログ）を見る
 - **Apple は iOS 26 SDK（Xcode 26 以降）でビルドしたバイナリしか受け付けない。** ワークフローはランナー上の最新 Xcode を自動選択するので対応済み
+- ランナーは `macos-26`。public リポジトリなので **macOS ランナーは無料**
+- 必要な Secrets（登録済み・GitHub に保存されているので再設定不要）:
+  `ASC_KEY_ID` / `ASC_ISSUER_ID` / `ASC_KEY_P8_BASE64` / `IOS_DIST_CERT_P12_BASE64` / `IOS_DIST_CERT_PASSWORD`
+- **配布用証明書は1年で失効する（今回作成分は 2027-08 頃まで）。** 失効すると CI が署名で失敗するので、
+  Xcode → Settings → Accounts → Manage Certificates で作り直し、`.p12` を書き出して
+  `IOS_DIST_CERT_P12_BASE64` を更新する（手順は `docs/ios_ci_release.md`）
+- 署名の構成: アーカイブは自動署名（`-allowProvisioningUpdates` ＋ APIキー）、
+  書き出しのみ `sigh` が取得したプロファイルを明示した手動署名。**この組み合わせでないと通らない**（経緯は `docs/ios_ci_release.md` の表を参照）
 
 ### iOS（fastlane）審査提出・ローカル手順（Mac・非推奨）
 GitHub Actions が使えないときの予備手段。**Mac の Xcode が 26 未満だと Apple に拒否される**ので注意。
