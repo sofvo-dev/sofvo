@@ -32,10 +32,22 @@ on:
 
 jobs:
   ios:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        # Apple は iOS 26 SDK（Xcode 26 以降）でビルドしたバイナリしか受け付けない。
+        # ランナー上で最も新しい Xcode を選ぶ。
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app
+          XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "選択: $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
