@@ -36,7 +36,7 @@ platform :ios do
   # ローカル用の release / beta と違い、git pull や flutter clean は行わない
   # （CI は常にクリーンなチェックアウトから始まるため）。
   # 認証は Apple ID ではなく App Store Connect API キーを使う（2要素認証を回避）。
-  # 署名はワークフロー側で証明書・プロファイルを取り込んだうえで手動署名。
+  # 署名は証明書を取り込み、プロファイルは sigh が API キーで取得する。
   # ───────────────────────────────────────────────
 
   def ci_api_key
@@ -49,29 +49,37 @@ platform :ios do
     )
   end
 
-  # 署名はローカルと同じ「自動署名」を使う。
-  # -allowProvisioningUpdates と App Store Connect API キーを渡すことで、
-  # プロビジョニングプロファイルを Xcode が CI 上で自動生成・取得する。
-  # （手作業でプロファイルを作って Secrets に入れる必要がない）
-  # build_app（gym）は api_key オプションを持たないため、認証キーは xcodebuild へ
-  # 直接渡す。キーファイルはワークフロー側で ASC_KEY_PATH に書き出してある。
-  def ci_build_ipa
-    auth = "-authenticationKeyPath #{ENV.fetch('ASC_KEY_PATH')} " \
-           "-authenticationKeyID #{ENV.fetch('ASC_KEY_ID')} " \
-           "-authenticationKeyIssuerID #{ENV.fetch('ASC_ISSUER_ID')}"
+  # 自動署名だとアーカイブは通るが IPA 書き出しでプロファイルを解決できず失敗する
+  # （"no provisioning profile mapping was provided"）。CI では sigh で App Store 用
+  # プロファイルを取得し、その名前を明示して手動署名で書き出す。
+  def ci_build_ipa(api_key)
+    app_id = "com.sofvo.app"
+    team = ENV.fetch("APPLE_TEAM_ID", "TLVKKC442B")
+
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: app_id,
+      team_id: team,
+      readonly: false,
+    )
+    profile_name = lane_context[SharedValues::SIGH_NAME] ||
+                   ENV["sigh_#{app_id}_appstore_profile-name"]
+    UI.user_error!("プロビジョニングプロファイル名を取得できませんでした") if profile_name.nil?
+    UI.message("使用するプロファイル: #{profile_name}")
+
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
       configuration: "Release",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates #{auth}",
-      # 書き出し時に認証キーの引数まで渡すと xcodebuild が引数エラー(exit 64)になる。
-      # アーカイブ時にプロファイルは取得済みなので、ここは許可フラグだけでよい。
-      export_xcargs: "-allowProvisioningUpdates",
       export_options: {
-        signingStyle: "automatic",
-        teamID: ENV.fetch("APPLE_TEAM_ID", "TLVKKC442B"),
+        signingStyle: "manual",
+        teamID: team,
+        provisioningProfiles: { app_id => profile_name },
       },
+      xcargs: "CODE_SIGN_STYLE=Manual " \
+              "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}' " \
+              "DEVELOPMENT_TEAM='#{team}'",
       output_directory: "../build/ios/ipa",
       clean: false,
     )
@@ -80,7 +88,7 @@ platform :ios do
   desc "CI: App Store Connect にアップロードして審査提出"
   lane :ci_release do
     api_key = ci_api_key
-    ipa_path = ci_build_ipa
+    ipa_path = ci_build_ipa(api_key)
     upload_to_app_store(
       api_key: api_key,
       ipa: ipa_path,
@@ -99,7 +107,7 @@ platform :ios do
   desc "CI: TestFlight にアップロード（審査提出しない）"
   lane :ci_beta do
     api_key = ci_api_key
-    ipa_path = ci_build_ipa
+    ipa_path = ci_build_ipa(api_key)
     upload_to_testflight(
       api_key: api_key,
       ipa: ipa_path,
