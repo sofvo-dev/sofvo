@@ -397,6 +397,43 @@ rm -rf ~/Library/Developer/Xcode/DerivedData
 - **DerivedData 全削除**（対話確認付き）: `./scripts/clean-xcode-disk.sh --derived`
 - **古いシミュレータ**: `./scripts/clean-xcode-disk.sh --simulators` または `xcrun simctl delete unavailable`
 - **手動（任意）**: Xcode → **Window → Organizer** で Archive 削除、`iOS DeviceSupport` の古いバージョン削除、SwiftPM / CocoaPods キャッシュ
+- **Mac 全体の掃除**: `./scripts/mac-disk-cleanup.sh`（下記「Mac のディスク掃除」参照）。Xcode だけでなく Adobe キャッシュ等も含めた定期メンテ用
+
+## Mac のディスク掃除（定期メンテナンス）
+
+```bash
+cd ~/Desktop/sofvo
+git pull origin main --rebase
+./scripts/mac-disk-cleanup.sh          # 調べるだけ（何も消さない）
+./scripts/mac-disk-cleanup.sh --clean  # 安全なものだけ消す
+```
+
+- **半年〜1年に1回でよい**。溜まるのはほぼ Adobe のキャッシュなので、それ以上の頻度は不要
+- 消すのは「消えても作り直されるキャッシュ」と「アプリが無いのに残った抜け殻」だけ。書類・写真・メール・メモ・ブックマーク・パスワードには触れない
+- 途中で `sudo` のパスワードを聞かれることがある（OS アップデートの残骸を消すとき）。入力しても画面には表示されないが正常
+
+### 2026-08-30 の実績（空き 16GB → 195GB）
+
+| 消したもの | 削減 |
+|---|---|
+| `~/Library/Caches/Adobe` | **138GB**（これが原因のほぼ全て） |
+| `~/Library/Application Support/Claude/vm_bundles` | 8.6GB |
+| Xcode の DerivedData・シミュレータ・iOS DeviceSupport | 8.3GB |
+| Android Studio（未使用のため削除） | 3.0GB |
+| Chrome のキャッシュ | 2.9GB |
+| Cinema 4D 2025 / R22（旧バージョン） | 2.2GB |
+| アプリの抜け殻（Zoom / Postman / Genspark 等） | 0.5GB |
+
+### 消してはいけない場所（調査で紛らわしかったもの）
+
+| 場所 | 理由 |
+|---|---|
+| `~/Library/CloudStorage/GoogleDrive-*` | `du` では 18GB に見えるが**実体はクラウド**。ディスクは使っていない（実使用量は `~/Library/Application Support/Google/DriveFS` で確認。1GB 程度なら正常） |
+| `~/Library/Application Support/Google/Chrome` | ブックマーク・保存パスワード。Chrome の設定画面からしか減らさない |
+| `~/Library/Containers/com.apple.Notes` | 「メモ」の中身そのもの |
+| `~/Library/Metadata` | Spotlight の索引。消しても再作成されるだけで Mac が数時間重くなる |
+| `~/Library/Application Support/Adobe` | Adobe 本体が使用中（キャッシュは `~/Library/Caches/Adobe` の方） |
+| `/Library`, `/System` | macOS 本体 |
 
 #### 「Module 'xxx' not found」
 `pod install` が未実行。Step 3を実行する。
