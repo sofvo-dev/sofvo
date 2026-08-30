@@ -103,6 +103,14 @@ jobs:
           FASTLANE_HIDE_CHANGELOG: '1'
         run: fastlane ${{ inputs.lane }}
 
+      - name: Upload gym log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gym-log
+          path: ~/Library/Logs/gym/*.log
+          if-no-files-found: ignore
+
       - name: Upload IPA artifact
         if: always()
         uses: actions/upload-artifact@v4
