@@ -24,10 +24,11 @@
 ### 審査提出リクエスト時の対応ルール
 - ユーザーが「審査に提出したい」と言ったら、以下を即座に用意すること：
   1. **`pubspec.yaml`** のバージョンを+1（例: `1.0.5+18` → `1.0.6+19`）
-  2. **`ios/fastlane/Fastfile`** の `release_notes` を最新の変更内容に書き換え
-  3. **`ios/fastlane/metadata/ja/`** の説明文・キーワード等も必要に応じて更新（fastlane が自動反映する）
-  4. コミット＆プッシュ（mainにマージ）
-- ユーザーはMacで **下記「iOS（fastlane・推奨手順）」** を実行して審査提出まで進める（**先頭のディスク整理**で Xcode の古い Archive 等を削除してからビルド）
+  2. **`ios/fastlane/metadata/ja/`** の説明文・キーワード等も必要に応じて更新（fastlane が自動反映する）
+  3. コミット＆プッシュ（mainにマージ）
+  4. **CLAUDE.md のバージョン履歴表**に新しい行を追加
+- そのうえで、ユーザーには **GitHub Actions からの提出手順**（下記「iOS 審査提出（GitHub Actions・推奨）」）を案内する。**Mac は不要**
+- リリースノートは Fastfile ではなく **ワークフロー実行時の入力欄**に書く（`ci_release` の "このバージョンの最新情報"）。文面はこちらで用意して提示すること
 
 ### 審査通過時の対応ルール
 - ユーザーが「審査通過」「審査通った」等のメッセージを送ったら、以下を即座に実行すること：
@@ -59,8 +60,24 @@
 - 説明文やキーワードを変更したい場合は、これらのファイルを編集してコミットするだけでOK
 - **`Fastfile` 内でも `git pull` / `flutter clean` / `pod install` 等が実行されるため、手順と一部重複するが問題ない**
 
-### iOS（fastlane）審査提出・推奨手順（Mac）
-アシスタントが iOS 提出を案内するときは **必ずこのブロックをそのまま提示する**（**1本で完結**）。
+### iOS 審査提出（GitHub Actions・推奨）
+**2026-08-30 に稼働確認済み。Mac は不要。** アシスタントが iOS 提出を案内するときは必ずこの手順を提示する。
+
+1. **先に `pubspec.yaml` のバージョンを上げて main にマージしておく**（同じビルド番号は再アップロード不可）
+2. GitHub → **Actions** タブ → 「**Build iOS & Submit to App Store**」
+3. **Run workflow** をクリック
+4. 提出先を選ぶ
+   - `ci_beta` … TestFlight にアップロードのみ（審査に出さない。動作確認用）
+   - `ci_release` … アップロード＋**審査提出まで**
+5. `ci_release` のときは「このバージョンの最新情報」欄にリリースノートを入力
+6. 完了まで約40分（Flutter ビルド18分＋アーカイブ14分＋アップロード3分）
+
+- 仕組みの詳細・Secrets の一覧: `docs/ios_ci_release.md`
+- 失敗時は Actions のログと、成果物 `gym-log`（xcodebuild の生ログ）を見る
+- **Apple は iOS 26 SDK（Xcode 26 以降）でビルドしたバイナリしか受け付けない。** ワークフローはランナー上の最新 Xcode を自動選択するので対応済み
+
+### iOS（fastlane）審査提出・ローカル手順（Mac・非推奨）
+GitHub Actions が使えないときの予備手段。**Mac の Xcode が 26 未満だと Apple に拒否される**ので注意。
 
 ```bash
 cd ~/Desktop/sofvo
@@ -90,8 +107,8 @@ cd ~/Desktop/sofvo
 5. 「**Run workflow**」で実行
 - ビルド → Google Play 製品版アップロードまで全自動
 
-#### iOS（fastlane・推奨手順）
-**案内は「iOS（fastlane）審査提出・推奨手順（Mac）」セクションのコマンドブロックをそのまま使うこと。**
+#### iOS（GitHub Actions・全自動）
+**案内は「iOS 審査提出（GitHub Actions・推奨）」セクションの手順をそのまま使うこと。**
 
 - 未コミットの変更がある場合は先に `git stash`（未追跡も含めるなら `git stash push -u -m wip`）してから実行し、完了後 `git stash pop`
 - **App用パスワード（App-Specific Password）が必要**: `~/.zshrc` に以下を設定済み

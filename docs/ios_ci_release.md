@@ -1,5 +1,7 @@
 # GitHub Actions から iOS を審査提出する（Mac不要）
 
+> **2026-08-30 稼働確認済み**（TestFlight へのアップロード成功）。
+
 Android と同じように、GitHub の Actions タブから iOS のビルド → App Store Connect
 アップロード → 審査提出まで実行できるようにした手順。
 
@@ -53,6 +55,20 @@ Mac の**キーチェーンアクセス**で、`Apple Distribution: ...` の証�
 署名はローカルと同じ「自動署名」を使う。App Store Connect API キーと
 `-allowProvisioningUpdates` により、Xcode が CI 上でプロファイルを自動生成する。
 チームID（`TLVKKC442B`）はワークフローに直接書いてあるため Secret も不要。
+
+## 稼働までに詰まった点（同じ構成を組む人向け）
+
+| 症状 | 原因と対処 |
+|---|---|
+| `build_app` が `Could not find option 'api_key'` | gym は `api_key` を受け付けない。認証キーは `-authenticationKeyPath` 等で xcodebuild に直接渡す |
+| `Invalid format '.p8'` | Secret にコピペした値の末尾に改行。使う前に `tr -d '[:space:]'` で除去 |
+| 書き出しで `Exit status: 64` | export 側にも認証キー引数を渡していた。書き出しには渡さない |
+| `no provisioning profile mapping was provided` | 自動署名では書き出せない。`sigh` で取得したプロファイル名を `export_options` に明示 |
+| `Provisioning profile doesn't include signing certificate "Apple Development"` | 手動署名で開発用証明書が選ばれた |
+| `<Pod名> does not support provisioning profiles` | `xcargs` の `PROVISIONING_PROFILE_SPECIFIER` が Pods にも適用された。プロファイル指定は書き出し時だけにする |
+| `Validation failed (409) SDK version issue` | **Apple は iOS 26 SDK 以降でビルドしたものしか受け付けない**。ランナーを `macos-26` にし最新 Xcode を選択 |
+
+**最終的な構成**: アーカイブは自動署名（`-allowProvisioningUpdates` ＋ APIキー）、書き出しのみ `sigh` のプロファイルを明示した手動署名。
 
 ## 注意
 
