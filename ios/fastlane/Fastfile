@@ -77,7 +77,13 @@ platform :ios do
         teamID: team,
         provisioningProfiles: { app_id => profile_name },
       },
+      # キーチェーンには開発用証明書も入っており、指定しないと Xcode が
+      # 開発用を選んで App Store 用プロファイルと不一致になる
+      # （"Provisioning profile ... doesn't include signing certificate
+      #   Apple Development ..."）。使用する証明書を明示する。
+      codesigning_identity: "Apple Distribution",
       xcargs: "CODE_SIGN_STYLE=Manual " \
+              "CODE_SIGN_IDENTITY='Apple Distribution' " \
               "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}' " \
               "DEVELOPMENT_TEAM='#{team}'",
       output_directory: "../build/ios/ipa",
