@@ -69,11 +69,20 @@ jobs:
         env:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -euo pipefail
-          KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
-          echo "$ASC_KEY_P8_BASE64" | base64 -d > "$KEY_PATH"
-          echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+          # Secret にコピペした際の改行・空白が混ざるとパスや認証が壊れるため除去する
+          KEY_ID=$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]')
+          ISSUER_ID=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${KEY_ID}.p8"
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 -d > "$KEY_PATH"
+          test -s "$KEY_PATH"
+          {
+            echo "ASC_KEY_PATH=$KEY_PATH"
+            echo "ASC_KEY_ID_CLEAN=$KEY_ID"
+            echo "ASC_ISSUER_ID_CLEAN=$ISSUER_ID"
+          } >> "$GITHUB_ENV"
 
       - name: Build Flutter iOS (no codesign)
         run: flutter build ios --release --no-codesign
@@ -84,8 +93,8 @@ jobs:
       - name: Fastlane
         working-directory: ios
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ env.ASC_KEY_ID_CLEAN }}
+          ASC_ISSUER_ID: ${{ env.ASC_ISSUER_ID_CLEAN }}
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
           ASC_KEY_PATH: ${{ env.ASC_KEY_PATH }}
           APPLE_TEAM_ID: 'TLVKKC442B'
