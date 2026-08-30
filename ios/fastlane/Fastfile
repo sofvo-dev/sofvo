@@ -65,7 +65,9 @@ platform :ios do
       configuration: "Release",
       export_method: "app-store",
       xcargs: "-allowProvisioningUpdates #{auth}",
-      export_xcargs: "-allowProvisioningUpdates #{auth}",
+      # 書き出し時に認証キーの引数まで渡すと xcodebuild が引数エラー(exit 64)になる。
+      # アーカイブ時にプロファイルは取得済みなので、ここは許可フラグだけでよい。
+      export_xcargs: "-allowProvisioningUpdates",
       export_options: {
         signingStyle: "automatic",
         teamID: ENV.fetch("APPLE_TEAM_ID", "TLVKKC442B"),
