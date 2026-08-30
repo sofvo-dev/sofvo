@@ -48,28 +48,18 @@ Mac の**キーチェーンアクセス**で、`Apple Distribution: ...` の証�
 | `IOS_DIST_CERT_P12_BASE64` | `base64 -i dist.p12 \| pbcopy` の結果 |
 | `IOS_DIST_CERT_PASSWORD` | 書き出し時に設定したパスワード |
 
-### 3. プロビジョニングプロファイル
+### 3. プロビジョニングプロファイル → 不要
 
-現在の Xcode は「Automatically manage signing」だが、CI では手動署名を使うため
-App Store 用のプロファイルを明示的に作る。
-
-1. [Apple Developer](https://developer.apple.com/account/resources/profiles/list) → **Profiles** → **+**
-2. **App Store Connect**（Distribution）を選択
-3. App ID は `com.sofvo.app`、証明書は上で書き出したものを選ぶ
-4. 名前を付けて生成し `.mobileprovision` をダウンロード
-
-| Secret 名 | 値 |
-|---|---|
-| `IOS_PROFILE_BASE64` | `base64 -i xxx.mobileprovision \| pbcopy` の結果 |
-| `IOS_PROFILE_NAME` | 手順4で付けたプロファイル名（そのままの文字列） |
-| `APPLE_TEAM_ID` | `TLVKKC442B` |
+署名はローカルと同じ「自動署名」を使う。App Store Connect API キーと
+`-allowProvisioningUpdates` により、Xcode が CI 上でプロファイルを自動生成する。
+チームID（`TLVKKC442B`）はワークフローに直接書いてあるため Secret も不要。
 
 ## 注意
 
 - **バージョン番号は事前に上げておくこと**。`pubspec.yaml` の `version:`（`1.0.43+57` の
   `+` の前がバージョン、後ろがビルド番号）。同じビルド番号は再アップロードできない
-- 証明書は**1年で失効**する。失効したら Secrets の `IOS_DIST_CERT_P12_BASE64` と
-  プロファイルを更新する
+- 証明書は**1年で失効**する。失効したら Xcode で作り直し、Secrets の
+  `IOS_DIST_CERT_P12_BASE64` を更新する
 - スクリーンショットは CI から更新しない（`skip_screenshots: true`）。説明文・キーワードは
   `ios/fastlane/metadata/ja/` の内容が自動反映される
 - 失敗したときは Actions のログを見る。ビルドできた IPA は成果物として
