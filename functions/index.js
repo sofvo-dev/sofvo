@@ -3089,6 +3089,66 @@ exports.respondTeamJoinRequest = functions.https.onCall(async (data, context) =>
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// エントリー成立時に参加者へ主催者フォローを自動付与（片方向）
+//
+// キャプテンはエントリー前に主催者をフォローするが、招待されて追加された
+// メンバーは主催者と何の関係もないままだった。そのため主催者の告知投稿が
+// タイムラインに流れず、「さがす」のフォロー中にも大会が出なかった。
+// 成立時に参加者全員 → 主催者の片方向フォローを張ってこれを解消する。
+//
+// 逆方向（主催者 → 参加者）は張らない。主催者のフォロー中が1大会で最大
+// 数十件ずつ増え、ホームのタイムライン購読（30件ずつ chunk して購読）や
+// フォロワー系バッジの集計を圧迫するため。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function followOrganizerForEntrants(db, tournamentId, uids) {
+  try {
+    const targetUids = [...new Set((uids || []).map(String).filter((u) => u))];
+    if (targetUids.length === 0) return 0;
+
+    const tSnap = await db.collection("tournaments").doc(tournamentId).get();
+    const t = tSnap.exists ? (tSnap.data() || {}) : null;
+    if (!t) return 0;
+    if (t.isDemo === true) return 0; // 体験デモ大会は実データに影響させない
+    const organizerId = t.organizerId ? String(t.organizerId) : "";
+    if (!organizerId) return 0;
+
+    const orgRef = db.collection("users").doc(organizerId);
+    const orgSnap = await orgRef.get();
+    if (!orgSnap.exists) return 0;
+    const orgName = orgSnap.data().nickname || "";
+    const orgAvatar = orgSnap.data().avatarUrl || "";
+
+    const entrants = targetUids.filter((u) => u !== organizerId);
+    if (entrants.length === 0) return 0;
+
+    // 既にフォロー済みの人は書き込まない（followersCount / followingCount の
+    // 自動更新トリガーが二重加算されるのを防ぐ）
+    const existing = await Promise.all(entrants.map((u) =>
+      db.collection("users").doc(u).collection("following").doc(organizerId).get()));
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const batch = db.batch();
+    let added = 0;
+    entrants.forEach((u, i) => {
+      if (existing[i].exists) return;
+      batch.set(db.collection("users").doc(u).collection("following").doc(organizerId), {
+        nickname: orgName,
+        avatarUrl: orgAvatar,
+        createdAt: now,
+      });
+      batch.set(orgRef.collection("followers").doc(u), { createdAt: now });
+      added++;
+    });
+    if (added > 0) await batch.commit();
+    // 主催者へのフォロー通知は出さない（1大会で数十件届いてしまうため）
+    return added;
+  } catch (e) {
+    console.error("[followOrganizerForEntrants] failed:", e);
+    return 0;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 大会エントリー（承認制・全員承認で成立）
 // キャプテンが招待 → 選ばれたメンバー全員が承認して初めて本物の
 // entries/{} を作成する。承認が揃うまでは tournaments/{id}/entryDrafts/{} に
@@ -3290,6 +3350,8 @@ exports.respondEntryInvite = functions.https.onCall(async (data, context) => {
 
   // トランザクション外で通知・タイムライン（成立時のみ本エントリー onEntryCreated が発火）
   if (result.memberAdd) {
+    // 追加を承認した本人に主催者フォローを付与（告知が届くように）
+    if (result.finalized) await followOrganizerForEntrants(db, tournamentId, [uid]);
     // メンバー追加：承認/辞退をキャプテンに知らせる
     try {
       const meSnap = await db.collection("users").doc(uid).get();
@@ -3306,6 +3368,8 @@ exports.respondEntryInvite = functions.https.onCall(async (data, context) => {
     } catch (e) { /* noop */ }
   } else if (result.finalized) {
     const invited = result.draft.invitedUids || [];
+    // 参加者全員に主催者フォローを付与（キャプテンは既にフォロー済みなので実質は招待メンバー分）
+    await followOrganizerForEntrants(db, tournamentId, invited);
     const tName = ((await tRef.get()).data() || {}).name || "";
     try {
       await tRef.collection("timeline").add({
