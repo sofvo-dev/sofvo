@@ -2845,7 +2845,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               ),
               const SizedBox(height: 16),
 
-              // フォロワーから追加
+              // フォロー中から追加
               const Text('フォロー中から追加', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               StreamBuilder<QuerySnapshot>(
@@ -5837,8 +5837,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     ),
                     const SizedBox(height: 20),
 
-                    // メンバー選択（フォロワーから）
-                    const Text('メンバーを選択（フォロワーから）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    // メンバー選択（フォロー中から）
+                    const Text('メンバーを選択（フォロー中から）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     FollowerMemberPicker(
                       uid: uid,
@@ -6008,8 +6008,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
                     ),
                     const SizedBox(height: 20),
 
-                    // メンバー選択（フォロワーから）
-                    const Text('メンバーを選択（フォロワーから）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    // メンバー選択（フォロー中から）
+                    const Text('メンバーを選択（フォロー中から）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     FollowerMemberPicker(
                       uid: uid,
