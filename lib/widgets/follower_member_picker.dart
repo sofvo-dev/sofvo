@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 
 /// エントリー画面用のメンバー選択リスト（フォロー中から選ぶ）。
-/// - 名前検索ボックス付き（フォロワーが多くても探せる）
+/// - 名前検索ボックス付き（フォロー中が多くても探せる）
 /// - 過去に一緒にエントリーした回数が多い人を自動で上位表示（設定不要）
 class FollowerMemberPicker extends StatefulWidget {
   final String uid;
