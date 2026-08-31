@@ -156,6 +156,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
             const SizedBox(height: 10),
             const Text('参加を承認しますか？ 全員の承認でエントリーが成立します。',
                 style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 6),
+            const Text('エントリーが成立すると、大会の告知が届くように主催者を自動でフォローします。',
+                style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
           ],
         ),
         actions: [
