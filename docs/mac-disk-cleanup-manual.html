@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Mac 容量そうじマニュアル</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "IPAPGothic", "IPAGothic", sans-serif;
+    color: #1b1f24; line-height: 1.75; font-size: 10.5pt; margin: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1 { font-size: 21pt; margin: 0 0 4px; letter-spacing: .02em; }
+  .sub { color: #5b6470; font-size: 10pt; margin: 0 0 22px; }
+  h2 {
+    font-size: 13.5pt; margin: 26px 0 10px; padding: 7px 12px;
+    background: #1b3a5c; color: #fff; border-radius: 4px;
+    break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 18px 0 7px; color: #1b3a5c; break-after: avoid; }
+  p { margin: 0 0 9px; }
+  ul, ol { margin: 0 0 10px; padding-left: 1.4em; }
+  li { margin-bottom: 4px; }
+
+  .lead {
+    background: #f2f6fa; border-left: 4px solid #1b3a5c;
+    padding: 12px 15px; margin: 0 0 20px; border-radius: 0 4px 4px 0;
+  }
+  .lead p:last-child { margin-bottom: 0; }
+
+  pre {
+    background: #14181d; color: #e8edf3; padding: 11px 13px; border-radius: 5px;
+    font-family: "DejaVu Sans Mono", "IPAGothic", monospace;
+    font-size: 8.4pt; line-height: 1.55; overflow-wrap: break-word;
+    white-space: pre-wrap; word-break: break-all; margin: 8px 0 12px;
+    break-inside: avoid;
+  }
+  pre .c { color: #7f9bb5; }
+  code {
+    font-family: "DejaVu Sans Mono", "IPAGothic", monospace;
+    font-size: 9pt; background: #eef1f4; padding: 1px 5px; border-radius: 3px;
+    word-break: break-all;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9.5pt; break-inside: avoid; }
+  th { background: #eaeff4; text-align: left; padding: 7px 9px; border-bottom: 2px solid #c4cfda; font-weight: bold; }
+  td { padding: 7px 9px; border-bottom: 1px solid #dfe5eb; vertical-align: top; }
+  td code { font-size: 8.4pt; }
+  .num { white-space: nowrap; text-align: right; }
+
+  .warn {
+    background: #fdf3f2; border: 1px solid #e8b4ae; border-left: 4px solid #c0392b;
+    padding: 12px 15px; border-radius: 0 4px 4px 0; margin: 10px 0 14px; break-inside: avoid;
+  }
+  .warn strong { color: #a03024; }
+  .ok {
+    background: #f1f8f2; border: 1px solid #b6d8bd; border-left: 4px solid #2e7d43;
+    padding: 12px 15px; border-radius: 0 4px 4px 0; margin: 10px 0 14px; break-inside: avoid;
+  }
+  .ok strong { color: #236634; }
+
+  .step {
+    display: inline-block; background: #fff; color: #1b3a5c;
+    width: 22px; height: 22px; border-radius: 50%; text-align: center;
+    line-height: 22px; font-size: 10pt; margin-right: 7px; font-weight: bold;
+  }
+  .newpage { break-before: page; }
+  footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #dfe5eb; color: #78828e; font-size: 8.5pt; }
+</style>
+</head>
+<body>
+
+<h1>Mac 容量そうじマニュアル</h1>
+<p class="sub">ターミナルで「調べて → 減らす」手順 ／ 2026-08-30 作成</p>
+
+<div class="lead">
+  <p><strong>このマニュアルでできること</strong><br>
+  Mac の空き容量が足りなくなったとき、何が容量を食っているかを自分で調べて、安全なものだけを消せるようになります。</p>
+  <p>2026-08-30 の実作業では、この手順で空きが <strong>16GB → 197GB</strong> まで回復しました。PC の初期化は不要でした。</p>
+</div>
+
+<h2>準備：ターミナルを開く</h2>
+<ol>
+  <li>Finder を開く</li>
+  <li>上のメニューから <strong>「移動」→「ユーティリティ」</strong></li>
+  <li><strong>「ターミナル」</strong> をダブルクリック</li>
+</ol>
+<p>黒い文字だけの画面が出れば準備完了です。以降、<strong>枠の中の文字をコピーして貼り付け、Enter</strong> を押すだけです。</p>
+
+<div class="ok">
+  <strong>結論を先に知りたい方へ</strong><br>
+  原因を調べずにすぐ減らしたい場合は、「かんたん版：1行で終わらせる」の項だけ使えば十分です。
+</div>
+
+<h2><span class="step">1</span>今どれくらい空いているか調べる</h2>
+<pre>df -h /System/Volumes/Data</pre>
+<p>結果の <code>Avail</code> の列が「空き容量」です。</p>
+<pre><span class="c">Filesystem      Size    Used   Avail Capacity
+/dev/disk3s1   460Gi   226Gi   197Gi    54%
+                               ↑ここが空き</span></pre>
+
+<table>
+  <tr><th>空き容量</th><th>状態</th></tr>
+  <tr><td class="num">50GB 以上</td><td>問題なし。そうじ不要</td></tr>
+  <tr><td class="num">20〜50GB</td><td>そろそろ。時間があるときに</td></tr>
+  <tr><td class="num">20GB 未満</td><td>要そうじ。アプリの動作が不安定になる</td></tr>
+</table>
+
+<h2><span class="step">2</span>どこが大きいか調べる</h2>
+<p>「大きい入れ物を開けて、中でまた大きいものを探す」を繰り返します。これがコツです。</p>
+
+<h3>2-1. まずホームフォルダ全体</h3>
+<pre>du -sh ~/* 2>/dev/null | sort -hr | head -10</pre>
+<p>たいていは <code>Library</code> が突出して大きく出ます。次はその中を見ます。</p>
+
+<h3>2-2. Library の中</h3>
+<pre>du -sh ~/Library/* 2>/dev/null | sort -hr | head -12</pre>
+
+<h3>2-3. さらにその中</h3>
+<p>大きかったフォルダの名前を、そのまま次のコマンドに入れて掘り下げます。</p>
+<pre>du -sh ~/Library/Caches/* 2>/dev/null | sort -hr | head -10
+du -sh ~/Library/Application\ Support/* 2>/dev/null | sort -hr | head -10</pre>
+
+<table>
+  <tr><th>コマンドの意味</th><th></th></tr>
+  <tr><td><code>du -sh</code></td><td>フォルダの大きさを見やすい単位で表示</td></tr>
+  <tr><td><code>sort -hr</code></td><td>大きい順に並べる</td></tr>
+  <tr><td><code>head -10</code></td><td>上位10件だけ表示</td></tr>
+  <tr><td><code>2&gt;/dev/null</code></td><td>権限がなくて読めない分のエラーを隠す</td></tr>
+</table>
+
+<div class="ok">
+  <strong>この段階では何も消えません。</strong>調べるだけのコマンドなので、安心して実行できます。
+</div>
+
+<h2 class="newpage"><span class="step">3</span>アプリの「抜け殻」を探す</h2>
+<p>アプリを消しても、設定やキャッシュのフォルダは残り続けます。本体が無いのにデータだけ残っているものは、消して問題ありません。</p>
+<pre>ls /Applications
+du -sh ~/Library/Application\ Support/* 2>/dev/null | sort -hr | head -30</pre>
+<p>2つの結果を見比べ、<strong>アプリ一覧に無い名前</strong>のフォルダが抜け殻です。</p>
+<p>実例：Zoom、Postman、Genspark、CleanMyMac、Android Studio のデータが残っていました（合計約 0.5GB）。</p>
+
+<h2><span class="step">4</span>消す</h2>
+
+<h3>消していいもの（消えても作り直されるキャッシュ）</h3>
+<pre><span class="c"># Adobe のキャッシュ ← 毎回ここが一番大きい（実測 138GB）</span>
+rm -rf ~/Library/Caches/Adobe
+rm -rf ~/Library/Application\ Support/Adobe/Common/Media\ Cache*
+
+<span class="c"># Chrome のキャッシュ（履歴やパスワードではない）</span>
+rm -rf ~/Library/Caches/Google/Chrome
+
+<span class="c"># Xcode 関連</span>
+rm -rf ~/Library/Developer/Xcode/DerivedData
+rm -rf ~/Library/Developer/Xcode/Archives
+rm -rf ~/Library/Developer/Xcode/iOS\ DeviceSupport
+rm -rf ~/Library/Developer/CoreSimulator/Caches
+rm -rf ~/Library/Caches/CocoaPods
+xcrun simctl delete unavailable
+
+<span class="c"># ゴミ箱</span>
+rm -rf ~/.Trash/*</pre>
+
+<h3>使っていないアプリ本体</h3>
+<pre>du -sh /Applications/* 2>/dev/null | sort -hr | head -20</pre>
+<p>旧バージョンが残っていることがあります（例：Cinema 4D の 2025 と 2026 が両方ある）。消すときは：</p>
+<pre>sudo rm -rf /Applications/アプリ名</pre>
+
+<div class="warn">
+  <strong>sudo を使うときの注意</strong><br>
+  Mac のログインパスワードを聞かれます。<strong>打っても画面には何も表示されません（●すら出ません）。</strong>これは正常です。そのまま入力して Enter を押してください。
+</div>
+
+<h3>OS アップデートの残骸</h3>
+<pre>sudo rm -rf /Users/Shared/*Relocated\ Items*</pre>
+<p>容量は小さい（数MB）ですが、フォルダが大量に並ぶので見た目が整理されます。</p>
+
+<h2 class="newpage">かんたん版：1行で終わらせる</h2>
+<p>調べる工程を飛ばして、安全なものだけまとめて消します。<strong>これをコピーして貼り付け、Enter を押すだけ</strong>です。</p>
+<pre>rm -rf ~/Library/Caches/Adobe ~/Library/Application\ Support/Adobe/Common/Media\ Cache* ~/Library/Caches/Google/Chrome ~/Library/Caches/CocoaPods ~/Library/Developer/Xcode/DerivedData ~/Library/Developer/Xcode/Archives ~/Library/Developer/Xcode/iOS\ DeviceSupport ~/Library/Developer/CoreSimulator/Caches ~/.Trash/* ; xcrun simctl delete unavailable ; df -h /System/Volumes/Data</pre>
+<p>最後に空き容量が表示されます。パスワードは不要です。</p>
+<p><strong>実行の目安は半年〜1年に1回。</strong>溜まる原因はほぼ Adobe のキャッシュなので、それ以上の頻度では意味がありません。</p>
+
+<h2>消してはいけない場所</h2>
+<table>
+  <tr><th>場所</th><th>理由</th></tr>
+  <tr><td><code>~/Library/Application Support/Google/Chrome</code></td><td>ブックマーク・保存パスワード。Chrome の設定画面からしか減らさない</td></tr>
+  <tr><td><code>~/Library/Containers/com.apple.Notes</code></td><td>「メモ」の中身そのもの</td></tr>
+  <tr><td><code>~/Library/Mail</code></td><td>メール本体</td></tr>
+  <tr><td><code>~/Library/Metadata</code></td><td>Spotlight の検索索引。消しても再作成されるだけで、数時間 Mac が重くなる</td></tr>
+  <tr><td><code>~/Library/Application Support/Adobe</code></td><td>Adobe 本体が使用中。消していいのは <code>~/Library/Caches/Adobe</code> の方</td></tr>
+  <tr><td><code>~/Library/CloudStorage/</code></td><td>Google ドライブの入口（次の項参照）</td></tr>
+  <tr><td><code>/Library</code>, <code>/System</code></td><td>macOS 本体。消すと起動しなくなる</td></tr>
+</table>
+
+<div class="warn">
+  <strong>迷ったら消さない。</strong>キャッシュは「消えても作り直される」ものだけです。名前に <code>Cache</code> が付いていないフォルダは、原則そのままにしてください。
+</div>
+
+<h2>まぎらわしいケース：Google ドライブ</h2>
+<p><code>du</code> で見ると <code>~/Library/CloudStorage</code> が 18GB などと表示されますが、<strong>設定が「ストリーミング」なら実体はクラウド上にあり、Mac のディスクは使っていません。</strong></p>
+<p>実際の使用量はこちらで確認します。</p>
+<pre>du -sh ~/Library/Application\ Support/Google/DriveFS</pre>
+<table>
+  <tr><th>結果</th><th>意味</th></tr>
+  <tr><td class="num">1GB 前後</td><td>正常。CloudStorage の数字は無視してよい</td></tr>
+  <tr><td class="num">10GB 超</td><td>キャッシュが溜まっている。Google ドライブの設定を確認</td></tr>
+</table>
+
+<h2 class="newpage">うまくいかないとき</h2>
+<table>
+  <tr><th>表示されたメッセージ</th><th>意味と対処</th></tr>
+  <tr><td><code>Permission denied</code><br><code>Directory not empty</code></td><td>ファイルの持ち主がシステムのため消せない。コマンドの先頭に <code>sudo </code> を付けて実行し直す</td></tr>
+  <tr><td><code>no matches found</code></td><td><strong>エラーではありません。</strong>「もう存在しない＝すでに消えている」という意味</td></tr>
+  <tr><td><code>No such file or directory</code></td><td>そのフォルダが元から無い。無視してよい</td></tr>
+  <tr><td>パスワードを打っても<br>何も表示されない</td><td><strong>正常です。</strong>そのまま入力して Enter</td></tr>
+  <tr><td>空き容量が増えない</td><td>ゴミ箱に入っただけの可能性。Finder のゴミ箱を空にする</td></tr>
+</table>
+
+<h2>2026-08-30 の実績</h2>
+<table>
+  <tr><th>消したもの</th><th class="num">削減</th></tr>
+  <tr><td><code>~/Library/Caches/Adobe</code></td><td class="num"><strong>138 GB</strong></td></tr>
+  <tr><td>Claude の仮想マシンデータ</td><td class="num">8.6 GB</td></tr>
+  <tr><td>Xcode の DerivedData・シミュレータ・iOS DeviceSupport</td><td class="num">8.3 GB</td></tr>
+  <tr><td>Android Studio（未使用のため削除）</td><td class="num">3.0 GB</td></tr>
+  <tr><td>Chrome のキャッシュ</td><td class="num">2.9 GB</td></tr>
+  <tr><td>Cinema 4D 2025 / R22（旧バージョン）</td><td class="num">2.2 GB</td></tr>
+  <tr><td>アプリの抜け殻（Zoom / Postman / Genspark 等）</td><td class="num">0.5 GB</td></tr>
+  <tr><td><strong>合計</strong></td><td class="num"><strong>約 164 GB</strong></td></tr>
+</table>
+<p>容量を圧迫していた原因は、ほぼ Adobe のキャッシュ 1 つでした。<strong>まず Adobe を疑う</strong>のが最短です。</p>
+
+<footer>
+  Mac 容量そうじマニュアル ／ 2026-08-30 作成<br>
+  同じ内容のスクリプトが Sofvo リポジトリにあります：<code>./scripts/mac-disk-cleanup.sh --clean</code>
+</footer>
+
+</body>
+</html>
